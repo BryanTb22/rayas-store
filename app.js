@@ -31,6 +31,15 @@
       guardarSesion(s); return s;
     });
   }
+  function crearPerfil(ses, d) {
+    return fsPedir("rayas_users/" + encodeURIComponent(ses.uid) + "?currentDocument.exists=false", {
+      method: "PATCH",
+      body: JSON.stringify({ fields: {
+        nombre: { stringValue: d.nombre }, whatsapp: { stringValue: d.whatsapp },
+        email: { stringValue: d.email }, tradelink: { stringValue: d.tradelink }, creditos: { integerValue: "0" }, creado: { timestampValue: new Date().toISOString() }
+      } })
+    }).then(function (r) { if (!r.ok) throw new Error("PERFIL_" + r.status); });
+  }
   function uidSesion() {
     var s = leerSesion();
     if (!s) return null;
@@ -593,9 +602,17 @@
         '<div class="field"><label for="r-pass">Contraseña (mínimo 6)</label><input id="r-pass" type="password" minlength="6" autocomplete="new-password" required></div>' +
         '<button class="btn btn-fuchsia" type="submit">Crear mi cuenta</button>' + msg +
         '<p class="hint">¿Ya tienes cuenta? <a href="#" data-a="entrar">Entra aquí</a></p></form>';
-    } else if (m === "rifas") {
-      titulo = "Mis rifas";
-      cuerpo = '<div class="drawer-body">' + listaMisRifas() + '</div>';
+    } else if (m === "completar") {
+      titulo = "Completa tu perfil";
+      var ses0 = leerSesion() || {};
+      cuerpo = '<form class="drawer-body form" id="formCompletar">' +
+        '<p class="hint">Entraste con <b>' + esc(ses0.email || "") + '</b>, pero aún no tienes perfil en Rayas Store. Complétalo para participar en las rifas.</p>' +
+        '<div class="field"><label for="c-nombre">Nombre o apodo</label><input id="c-nombre" maxlength="40" required autocomplete="nickname"></div>' +
+        '<div class="field"><label for="c-trade">Link de intercambio de Steam (trade link)</label><input id="c-trade" inputmode="url" required placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…">' +
+        '<p class="hint">' + TRADE_AYUDA + '</p></div>' +
+        '<div class="field"><label for="c-wa">WhatsApp</label><input id="c-wa" inputmode="tel" maxlength="20" placeholder="987 654 321" required></div>' +
+        '<button class="btn btn-fuchsia" type="submit">Guardar mi perfil</button>' + msg +
+        '<div class="grp"><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div></form>';
     } else if (m === "rifas") {
       titulo = "Mis rifas";
       cuerpo = '<div class="drawer-body">' + listaMisRifas() + '</div>';
@@ -624,6 +641,7 @@
         '<div class="field"><label for="l-email">Correo</label><input id="l-email" type="email" autocomplete="username" required></div>' +
         '<div class="field"><label for="l-pass">Contraseña</label><input id="l-pass" type="password" autocomplete="current-password" required></div>' +
         '<button class="btn btn-yellow" type="submit">Entrar</button>' + msg +
+        '<p class="hint"><a href="#" data-a="olvide">¿Olvidaste tu contraseña?</a></p>' +
         '<p class="hint">¿No tienes cuenta? <a href="#" data-a="registro">Créala aquí</a></p></form>';
     }
     return '<aside class="drawer" role="dialog" aria-label="' + titulo + '">' +
@@ -864,6 +882,7 @@
       case "confirmarPart": confirmarPart(); break;
       case "cerrarModal": modal = null; render(); break;
       case "sortear": var ks = buscarPremio(t.getAttribute("data-id")); var lp = ks >= 0 ? (partes[estado.premios[ks].id] || []) : []; if (lp.length) { var gw = lp[Math.floor(Math.random() * lp.length)]; estado.premios[ks].ganador = gw.nombre; estado.premios[ks].ganadorUid = gw.uid; estado.premios[ks].resultado = new Date().toISOString(); estado.premios[ks].estado = "cerrada"; marcarSucio(); render(); } break;
+      case "olvide": ev.preventDefault(); recuperarClave(); break;
       case "elegir": ev.preventDefault(); modal = null; elegirAbierto = true; render(); break;
       case "cerrarElegir": elegirAbierto = false; render(); break;
       case "editContactos": admin.abierto = true; admin.tab = "pagina"; render(); break;
@@ -991,6 +1010,21 @@
     if (/OPERATION_NOT_ALLOWED|ADMIN_ONLY/.test(m)) return "El registro está desactivado en Firebase.";
     return "No se pudo (" + m + ").";
   }
+  function recuperarClave() {
+    var em = (document.getElementById("l-email") || {}).value || "";
+    em = em.trim();
+    if (!em) { cuenta.msg = "Escribe tu correo arriba y vuelve a pulsar «¿Olvidaste tu contraseña?»."; cuenta.msgTipo = "err"; render(); return; }
+    fetch("https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=" + encodeURIComponent(FB.apiKey), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestType: "PASSWORD_RESET", email: em })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.error) throw new Error(j.error.message || "ERROR");
+      cuenta.msg = "Te enviamos un correo a " + em + " para crear una contraseña nueva. Revisa también spam."; cuenta.msgTipo = "ok";
+    }).catch(function (e) {
+      cuenta.msg = /EMAIL_NOT_FOUND/.test(e.message) ? "Ese correo no tiene cuenta. Créala primero." : "No se pudo enviar el correo (" + e.message + ").";
+      cuenta.msgTipo = "err";
+    }).then(function () { render(); var f = document.getElementById("l-email"); if (f) f.value = em; });
+  }
   function trasEntrar() {
     admin.puede = esAdmin();
     cuenta.msg = ""; cuenta.msgTipo = "";
@@ -1020,6 +1054,21 @@
         if (cuenta.perfil) { cuenta.perfil.nombre = nom; cuenta.perfil.whatsapp = wa; cuenta.perfil.tradelink = val; }
         render(); var m2 = document.getElementById("tradeMsg"); if (m2) { m2.style.color = "var(--ok)"; m2.textContent = "✔ Cambios guardados."; }
       }).catch(function (e) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "No se pudo guardar (" + e.message + ")."; });
+    } else if (ev.target.id === "formCompletar") {
+      ev.preventDefault();
+      var ses = leerSesion(), vc = function (id) { return document.getElementById(id).value.trim(); };
+      var dc = { nombre: vc("c-nombre"), whatsapp: vc("c-wa"), email: ses && ses.email || "", tradelink: vc("c-trade") };
+      if (!tradeValido(dc.tradelink)) {
+        var tc = document.getElementById("c-trade");
+        tc.setCustomValidity("Pega tu trade link completo: https://steamcommunity.com/tradeoffer/new/?partner=…&token=…"); tc.reportValidity();
+        tc.addEventListener("input", function () { tc.setCustomValidity(""); }, { once: true });
+        return;
+      }
+      var sc = ev.target.querySelector('[role="status"]'); if (sc) { sc.style.color = ""; sc.textContent = "Guardando…"; }
+      crearPerfil(ses, dc).then(function () {
+        cuenta.perfil = { uid: ses.uid, nombre: dc.nombre, whatsapp: dc.whatsapp, email: dc.email, tradelink: dc.tradelink, creditos: 0 };
+        cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarParts();
+      }).catch(function (e) { cuenta.msg = "No se pudo guardar tu perfil (" + (e && e.message) + "). Avísale al encargado."; cuenta.msgTipo = "err"; render(); });
     } else if (ev.target.id === "formRegistro") {
       ev.preventDefault();
       var v = function (id) { return document.getElementById(id).value.trim(); };
@@ -1031,21 +1080,27 @@
         return;
       }
       var st2 = ev.target.querySelector('[role="status"]'); if (st2) { st2.style.color = ""; st2.textContent = "Creando tu cuenta…"; }
-      registrar(datos.email, pass).then(function (ses) {
-        return fsPedir("rayas_users/" + encodeURIComponent(ses.uid) + "?currentDocument.exists=false", {
-          method: "PATCH",
-          body: JSON.stringify({ fields: {
-            nombre: { stringValue: datos.nombre }, whatsapp: { stringValue: datos.whatsapp },
-            email: { stringValue: datos.email }, tradelink: { stringValue: datos.tradelink }, creditos: { integerValue: "0" }, creado: { timestampValue: new Date().toISOString() }
-          } })
-        }).then(function (r) { if (!r.ok) throw new Error("PERFIL_" + r.status); });
-      }).then(function () {
+      function entrarConPerfil(ses) {
+        /* El correo ya existía (p. ej. cliente de LitleJacob o registro a medias): si la contraseña coincide, solo completamos el perfil. */
+        return fsPedir("rayas_users/" + encodeURIComponent(ses.uid)).then(function (r) {
+          if (r.status === 404) return crearPerfil(ses, datos);
+          if (!r.ok) throw new Error("PERFIL_" + r.status);
+          return "EXISTE";
+        });
+      }
+      registrar(datos.email, pass).then(function (ses) { return crearPerfil(ses, datos); }, function (e) {
+        if (!/EMAIL_EXISTS/.test(String(e && e.message))) throw e;
+        return login(datos.email, pass).then(entrarConPerfil, function () { throw new Error("EMAIL_EXISTS_PASS"); });
+      }).then(function (res) {
+        if (res === "EXISTE") { cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); return; }
         cuenta.perfil = { uid: uidSesion(), nombre: datos.nombre, whatsapp: datos.whatsapp, email: datos.email, tradelink: datos.tradelink, creditos: 0 };
         cuenta.modo = "perfil"; cuenta.msg = ""; render();
       }).catch(function (e) {
         var m = String(e && e.message || "");
-        cuenta.msg = /^PERFIL_/.test(m) ? "Tu usuario se creó, pero no se pudo guardar tu perfil (" + m + "). Avísale al encargado." : errAuth(m);
-        cuenta.msgTipo = "err"; render();
+        cuenta.msg = /^PERFIL_/.test(m) ? "Tu usuario se creó, pero no se pudo guardar tu perfil (" + m + "). Avísale al encargado." : (m === "EMAIL_EXISTS_PASS" ? "Ese correo ya tiene una cuenta (quizá de LitleJacob Store) y la contraseña no coincide. Entra con tu contraseña o recupérala con «¿Olvidaste tu contraseña?»." : errAuth(m));
+        cuenta.msgTipo = "err";
+        if (m === "EMAIL_EXISTS_PASS") { cuenta.modo = "login"; render(); var le = document.getElementById("l-email"); if (le) le.value = datos.email; return; }
+        render();
         ["r-nombre", "r-wa", "r-email", "r-trade"].forEach(function (id, i) { var el = document.getElementById(id); if (el) el.value = [datos.nombre, datos.whatsapp, datos.email, datos.tradelink][i]; });
       });
     }
@@ -1055,10 +1110,10 @@
     var uid = uidSesion();
     if (!uid || esAdmin()) return Promise.resolve();
     return fsPedir("rayas_users/" + encodeURIComponent(uid)).then(function (r) {
-      if (r.status === 404) throw new Error("No encontramos tu perfil. Avísale al encargado.");
+      if (r.status === 404) { cuenta.modo = "completar"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); return null; }
       if (!r.ok) throw new Error("No se pudo cargar tu cuenta (" + r.status + ").");
       return r.json();
-    }).then(function (d) { cuenta.perfil = leerPerfilDoc(d); cuenta.msg = ""; render(); cargarParts(); })
+    }).then(function (d) { if (!d) return; cuenta.perfil = leerPerfilDoc(d); cuenta.msg = ""; render(); cargarParts(); })
       .catch(function (e) {
         if (e && e.message === "NO_SESSION") { guardarSesion(null); cuenta.perfil = null; cuenta.modo = null; render(); return; }
         cuenta.msg = e.message; render();
