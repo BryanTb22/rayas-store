@@ -800,7 +800,10 @@ html, body { overflow-x: clip; max-width: 100%; }
 .svc-tab span { font-size: 20px; line-height: 1; }
 .svc-tab:hover { transform: translateY(-2px); border-color: var(--yellow); }
 .svc-tab.on { background: linear-gradient(180deg, var(--yellow), var(--yellow-2, #d99a22)); color: #1a1205; border-color: var(--yellow); }
-.svc-tab.recargar { background: linear-gradient(180deg, var(--fuchsia), color-mix(in srgb, var(--fuchsia) 70%, #000)); color: var(--on-fuchsia, #fff); border-color: var(--fuchsia); box-shadow: 0 0 16px rgba(255,45,143,.4); }
+.svc-tab.recargar, .svc-tab.vender { background: linear-gradient(180deg, var(--fuchsia), color-mix(in srgb, var(--fuchsia) 70%, #000)); color: var(--on-fuchsia, #fff); border-color: var(--fuchsia); box-shadow: 0 0 16px rgba(255,45,143,.4); }
+/* "Comprar items" siempre amarillo y "Vender items" siempre fucsia (como Recargar); la pestaña abierta se marca con un contorno. */
+.svc-tab.comprar { background: linear-gradient(180deg, var(--yellow), var(--yellow-2, #d99a22)); color: #1a1205; border-color: var(--yellow); }
+.svc-tab.comprar.on, .svc-tab.vender.on { outline: 2px solid var(--fg); outline-offset: 2px; }
 @media (max-width: 640px) { .svc-tab { padding: 10px 14px; font-size: 14px; flex: 0 0 auto; } .svc-tab span { font-size: 17px; } }
 
 /* ---------- Comprar items (catálogo) ---------- */
