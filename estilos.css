@@ -501,3 +501,20 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 .frow a { color: var(--yellow); overflow-wrap: anywhere; }
 .frifas { margin: 0; padding-left: 16px; display: grid; gap: 2px; }
 .fbtns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---- Cupos múltiples ---- */
+.qty { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 4px 0; }
+.qty button { width: 46px; height: 46px; font-size: 26px; font-weight: 800; line-height: 1; background: var(--bg); border: 1px solid var(--yellow); color: var(--yellow); border-radius: 10px; cursor: pointer; }
+.qty button:disabled { opacity: .35; cursor: not-allowed; }
+.qty span { display: grid; justify-items: center; min-width: 70px; }
+.qty b { font: 600 2.6rem/1 var(--num); color: var(--yellow); }
+.qty small { color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; }
+.xq { font-style: normal; color: var(--yellow); font-weight: 800; }
+.adjq { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.adjq b { min-width: 24px; text-align: center; font-size: 1.1rem; color: var(--yellow); }
+.adjq small { flex-basis: 100%; color: var(--muted); font-size: 11px; }
+.addp { display: grid; gap: 6px; margin-top: 10px; }
+.addp label { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.addrow { display: flex; gap: 6px; }
+.addrow select { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); padding: 8px; }
+.addrow input { width: 64px; background: var(--bg); border: 1px solid var(--line); padding: 8px; text-align: center; }
