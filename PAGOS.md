@@ -104,3 +104,7 @@ match /rayas_part/{id} {
   allow write: if isAdmin();
 }
 ```
+
+## Límite de consultas en `inventario`
+
+La función `inventario` ahora cuenta las consultas en la colección `rayas_limites` (solo la usa el servidor; las reglas la bloquean para clientes): 12 cada 10 min por conexión y 6 cada 10 min por inventario. Al pasarse responde 429. Despliegue: `firebase deploy --only functions:rayas:inventario`. No hace falta tocar las reglas ni las páginas.
