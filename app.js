@@ -67,7 +67,7 @@
   var estado = clone(publicado);
   var sucio = false;
 
-  var admin = { puede: !!leerSesion(), login: false, abierto: false, tab: "premios", editando: null, borrar: null, msg: "", msgTipo: "" };
+  var admin = { puede: !!leerSesion(), vivo: false, imgEdit: null, login: false, abierto: false, tab: "premios", editando: null, borrar: null, msg: "", msgTipo: "" };
 
   /* ================= Utilidades ================= */
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -123,6 +123,20 @@
     return e.replace(/(dota\s*2)/i, "<em>$1</em>");
   }
 
+  /* ================= Edición en vivo ================= */
+  function vivo() { return admin.puede && admin.vivo; }
+  // Atributos para un texto editable directamente sobre la página.
+  function ed(key, ph) {
+    if (!vivo()) return "";
+    return ' contenteditable="plaintext-only" spellcheck="false" data-edit="' + esc(key) + '" data-ph="' + esc(ph || "Escribe aquí") + '"';
+  }
+  function buscarPremio(id) {
+    for (var k = 0; k < estado.premios.length; k++) if (estado.premios[k].id === id) return k;
+    return -1;
+  }
+  var ESTADOS = ["activa", "proxima", "cerrada"];
+  var LISTA_RAREZAS = ["", "ARCANO", "INMORTAL", "LEGENDARIO", "MÍTICO", "RARO", "POCO COMÚN", "COMÚN"];
+
   /* ================= Vista pública ================= */
   function tarjeta(p) {
     var img = safeImg(p.img);
@@ -142,16 +156,33 @@
     } else {
       boton = '<div class="pill">' + (p.ganador ? 'Ganador: <b style="color:var(--yellow)">' + esc(p.ganador) + '</b>' : 'Sorteo realizado') + '</div>';
     }
-    return '<article class="card frame" style="--r:' + colorRareza(p.rareza) + '"><div class="in">' +
-      '<div class="rbar"></div>' +
+    var V = vivo(), id = esc(p.id);
+    if (V) {
+      partTxt = '<span' + ed("p:" + p.id + ":participantes", "0") + '>' + part + '</span>' + (cupos > 0 ? ' / ' + cupos + ' cupos' : ' participantes');
+      if (est === "cerrada") boton = '<div class="pill">Ganador: <b style="color:var(--yellow)"' + ed("p:" + p.id + ":ganador", "Escribe el ganador") + '>' + esc(p.ganador) + '</b></div>';
+    }
+    var tools = V ? '<div class="ctools">' +
+      '<button type="button" data-a="mover" data-d="-1" data-id="' + id + '" title="Mover a la izquierda" aria-label="Mover a la izquierda">←</button>' +
+      '<button type="button" data-a="mover" data-d="1" data-id="' + id + '" title="Mover a la derecha" aria-label="Mover a la derecha">→</button>' +
+      '<button type="button" data-a="editarId" data-id="' + id + '" title="Más opciones (fecha, cupos…)" aria-label="Más opciones">⚙</button>' +
+      (admin.borrar === p.id ? '<button type="button" class="danger wide" data-a="borrarId" data-id="' + id + '">¿Borrar?</button>'
+                             : '<button type="button" class="danger" data-a="pedirBorrar" data-id="' + id + '" title="Borrar" aria-label="Borrar">✕</button>') +
+      '</div>' : '';
+    var picInner = admin.imgEdit === p.id && V
+      ? '<form class="imgform" data-id="' + id + '"><label for="img-' + id + '">Link de la imagen</label><input id="img-' + id + '" inputmode="url" placeholder="https://…" value="' + esc(p.img) + '"><div><button class="btn btn-yellow btn-sm" type="submit">Usar</button> <button class="btn btn-ghost btn-sm" type="button" data-a="imgCancel">Cancelar</button></div></form>'
+      : (V ? '<button type="button" class="imgbtn" data-a="imgEdit" data-id="' + id + '">Cambiar imagen</button>' : '');
+    return '<article class="card frame' + (V ? ' editing' : '') + '" style="--r:' + colorRareza(p.rareza) + '"><div class="in">' +
+      '<div class="rbar"></div>' + tools +
       (img ? '<div class="pic"><img src="' + esc(img) + '" alt="' + esc(p.nombre) + '" loading="lazy">'
            : '<div class="pic noimg"><span class="q">?</span>') +
-      '<span class="status ' + est + '">' + estTxt + '</span></div>' +
+      (V ? '<button type="button" class="status ' + est + '" data-a="ciclarEstado" data-id="' + id + '" title="Clic para cambiar el estado">' + estTxt + ' ⟳</button>'
+         : '<span class="status ' + est + '">' + estTxt + '</span>') + picInner + '</div>' +
       '<div class="body">' +
-      (p.rareza ? '<div class="rarity">' + esc(p.rareza) + '</div>' : '') +
-      '<h3>' + esc(p.nombre || "Premio") + '</h3>' +
-      (p.descripcion ? '<p class="desc">' + esc(p.descripcion) + '</p>' : '') +
-      '<div class="meta"><span class="cost"><b>' + cred + '</b><small>créditos</small></span><span class="pill">' + partTxt + '</span></div>' +
+      (V ? '<button type="button" class="rarity rbtn" data-a="ciclarRareza" data-id="' + id + '" title="Clic para cambiar la rareza">' + esc(p.rareza || "Sin rareza") + ' ⟳</button>'
+         : (p.rareza ? '<div class="rarity">' + esc(p.rareza) + '</div>' : '')) +
+      '<h3' + ed("p:" + p.id + ":nombre", "Nombre del premio") + '>' + esc(V ? p.nombre : (p.nombre || "Premio")) + '</h3>' +
+      (p.descripcion || V ? '<p class="desc"' + ed("p:" + p.id + ":descripcion", "Descripción (opcional)") + '>' + esc(p.descripcion) + '</p>' : '') +
+      '<div class="meta"><span class="cost"><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small>créditos</small></span><span class="pill">' + partTxt + '</span></div>' +
       (est === "activa" && p.cierre ? '<div class="timer" data-cierre="' + esc(p.cierre) + '">' + esc(restante(p.cierre)) + '</div>' : '') +
       (est === "proxima" && p.cierre ? '<div class="pill">Cierra el ' + esc(fechaCorta(p.cierre)) + '</div>' : '') +
       boton + '</div></div></article>';
@@ -180,8 +211,8 @@
 
       '<section class="hero gutter" id="inicio"><div class="wrap">' +
       '<div class="kicker">Rifas de Dota 2</div>' +
-      '<h1>' + tituloHtml(T.titulo) + '</h1>' +
-      '<p>' + esc(T.subtitulo) + '</p>' +
+      (vivo() ? '<h1' + ed("t:titulo", "Título") + '>' + esc(T.titulo) + '</h1>' : '<h1>' + tituloHtml(T.titulo) + '</h1>') +
+      '<p' + ed("t:subtitulo", "Texto debajo del título") + '>' + esc(T.subtitulo) + '</p>' +
       '<div class="actions"><a class="btn btn-yellow" href="#rifas">Ver rifas</a>' +
       (linkCreditos ? '<a class="btn btn-fuchsia" href="' + esc(linkCreditos) + '" target="_blank" rel="noopener">Pedir créditos gratis</a>' : '') +
       '</div>' +
@@ -190,8 +221,9 @@
 
       '<section class="section gutter" id="rifas"><div class="wrap">' +
       secTitle("Premios en juego", 'Rifas <span>activas</span>', "Cada premio indica cuántos créditos cuesta entrar.") +
-      (visibles.length
-        ? '<div class="grid">' + visibles.map(tarjeta).join("") + '</div>'
+      (visibles.length || vivo()
+        ? '<div class="grid">' + visibles.map(tarjeta).join("") +
+          (vivo() ? '<button type="button" class="addcard" data-a="nuevoVivo"><span>+</span>Agregar premio</button>' : '') + '</div>'
         : '<div class="empty frame"><div class="in"><strong>Pronto nuevas rifas</strong>Pide tus créditos y te avisamos cuando abra la próxima.</div></div>') +
       '</div></section>' +
 
@@ -207,7 +239,8 @@
 
       '<section class="band sombra gutter" id="ganadores"><div class="wrap">' +
       secTitle("Salón de la fama", '<span>Ganadores</span>') +
-      (cerradas.length
+      (vivo() && cerradas.length ? '<p class="hint" style="text-align:center;margin:-10px 0 18px">Rifas cerradas: escribe el ganador en cada tarjeta.</p><div class="grid">' + cerradas.map(tarjeta).join("") + '</div>' :
+       cerradas.length
         ? '<div class="winners">' + cerradas.map(function (p) {
             var img = safeImg(p.img);
             return '<div class="winner frame"><div class="in"><div class="thumb">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '') + '</div>' +
@@ -219,28 +252,45 @@
 
       '<section class="section gutter" id="reglas"><div class="wrap" style="max-width:820px">' +
       secTitle("Juego limpio", 'Reglas') +
-      '<div class="rules frame gold"><div class="in"><ul>' + T.reglas.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join("") + '</ul></div></div>' +
+      '<div class="rules frame gold"><div class="in"><ul>' + T.reglas.map(function (r, k) {
+        return '<li><span' + ed("r:" + k, "Escribe la regla") + '>' + esc(r) + '</span>' +
+          (vivo() ? '<button type="button" class="rdel" data-a="borrarRegla" data-i="' + k + '" title="Quitar regla" aria-label="Quitar regla">✕</button>' : '') + '</li>';
+      }).join("") + '</ul>' +
+      (vivo() ? '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:16px" data-a="nuevaRegla">+ Agregar regla</button>' : '') +
+      '</div></div>' +
       '</div></section>' +
 
       '<footer class="footer gutter"><div class="wrap">' +
       '<span class="logo">RAYAS <i>STORE</i></span>' +
-      (wa ? '<span>WhatsApp: <span class="wa">' + esc(wa) + '</span></span>' : '') +
+      (vivo() ? '<span>WhatsApp: <span class="wa"' + ed("w:whatsapp", "51987654321") + '>' + esc(soloDigitos(estado.whatsapp)) + '</span></span>'
+              : (wa ? '<span>WhatsApp: <span class="wa">' + esc(wa) + '</span></span>' : '')) +
       '<span>No afiliado a Valve. Dota 2 es una marca de Valve Corporation.</span>' +
       '</div></footer>';
 
-    if (sucio && admin.puede) html += '<div class="draftbar gutter"><div class="wrap">Vista previa con cambios sin publicar · Solo tú la ves</div></div>';
-    if (admin.puede && !admin.abierto) html += '<button class="btn btn-yellow admin-fab" type="button" data-a="admin">Administrar</button>';
+    if (admin.puede && !admin.abierto) html += barraEdicion();
     if (admin.puede && admin.abierto) html += '<div class="scrim" data-a="cerrar"></div>' + panelAdmin();
     if (!admin.puede && admin.login) html += '<div class="scrim" data-a="cerrarLogin"></div>' + panelLogin();
 
     var scrollDrawer = document.querySelector(".drawer-body");
     var top = scrollDrawer ? scrollDrawer.scrollTop : 0;
     app.innerHTML = html;
+    document.body.classList.toggle("vivo", vivo());
     var nd = document.querySelector(".drawer-body");
     if (nd && top) nd.scrollTop = top;
   }
 
   /* ================= Panel de administración ================= */
+  function barraEdicion() {
+    var estadoTxt = admin.msg ? esc(admin.msg) : (sucio ? "Cambios sin publicar · solo tú los ves" : "Todo publicado");
+    return '<div class="editbar gutter" role="region" aria-label="Edición de la página"><div class="wrap">' +
+      '<button type="button" class="btn ' + (admin.vivo ? 'btn-yellow' : 'btn-ghost') + ' btn-sm" data-a="toggleVivo" aria-pressed="' + admin.vivo + '">' + (admin.vivo ? '✔ Editando' : '✎ Editar página') + '</button>' +
+      '<span class="estado ' + (admin.msgTipo || (sucio ? 'pend' : '')) + '" role="status">' + estadoTxt + '</span>' +
+      '<span class="sp"></span>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-a="admin">Más opciones</button>' +
+      '<button type="button" class="btn btn-fuchsia btn-sm" data-a="publicar"' + (sucio ? '' : ' disabled') + '>Guardar y publicar</button>' +
+      '</div></div>';
+  }
+
   function panelLogin() {
     return '<aside class="drawer" role="dialog" aria-label="Acceso de administrador">' +
       '<div class="drawer-head"><h2>Acceso admin</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarLogin">Cerrar</button></div>' +
@@ -363,19 +413,21 @@
   }
 
   function actualizarPie() {
-    var foot = document.querySelector(".drawer-foot");
-    if (!foot) return;
+    var foot = document.querySelector(".drawer-foot") || document.createElement("div");
     var btn = foot.querySelector('[data-a="publicar"]');
     if (btn) btn.disabled = !sucio;
     var msg = foot.querySelector(".msg");
     if (msg) { msg.className = "msg"; msg.textContent = sucio ? "Tienes cambios sin publicar." : "Todo está publicado."; }
-    var bar = document.querySelector(".draftbar");
-    if (sucio && !bar) document.getElementById("app").insertAdjacentHTML("beforeend", '<div class="draftbar gutter"><div class="wrap">Vista previa con cambios sin publicar · Solo tú la ves</div></div>');
-    if (!sucio && bar) bar.remove();
+    var eb = document.querySelector(".editbar");
+    if (eb) {
+      var pb = eb.querySelector('[data-a="publicar"]'); if (pb) pb.disabled = !sucio;
+      var es = eb.querySelector(".estado"); if (es) { es.className = "estado" + (sucio ? " pend" : ""); es.textContent = sucio ? "Cambios sin publicar · solo tú los ves" : "Todo publicado"; }
+    }
   }
 
   function publicar() {
     admin.msg = "Publicando…"; admin.msgTipo = ""; render();
+    estado.textos.reglas = estado.textos.reglas.filter(function (x) { return x && x.trim(); });
     var copia = clone(estado);
     token().then(function (tk) {
       return fetch(DOC_URL + "?updateMask.fieldPaths=json&updateMask.fieldPaths=actualizado", {
@@ -429,11 +481,49 @@
         admin.editando = null; marcarSucio(); render(); break;
       case "cancelar": admin.editando = null; render(); break;
       case "publicar": publicar(); break;
+      case "toggleVivo": admin.vivo = !admin.vivo; admin.imgEdit = null; admin.borrar = null; admin.msg = ""; admin.msgTipo = ""; render(); break;
+      case "nuevoVivo":
+        var np = { id: "p" + Date.now().toString(36), nombre: "", rareza: "", img: "", descripcion: "", creditos: 10, estado: "activa", cierre: "", participantes: 0, cupos: 0, ganador: "" };
+        estado.premios.push(np); admin.imgEdit = np.id; marcarSucio(); render();
+        var h = document.querySelector('[data-edit="p:' + np.id + ':nombre"]'); if (h) { h.scrollIntoView({ block: "center" }); h.focus(); }
+        break;
+      case "imgEdit": admin.imgEdit = t.getAttribute("data-id"); render(); var ii = document.getElementById("img-" + admin.imgEdit); if (ii) ii.focus(); break;
+      case "imgCancel": admin.imgEdit = null; render(); break;
+      case "ciclarEstado": var ke = buscarPremio(t.getAttribute("data-id")); if (ke >= 0) { var pe = estado.premios[ke]; pe.estado = ESTADOS[(ESTADOS.indexOf(pe.estado || "activa") + 1) % ESTADOS.length]; marcarSucio(); render(); } break;
+      case "ciclarRareza": var kr = buscarPremio(t.getAttribute("data-id")); if (kr >= 0) { var pr = estado.premios[kr]; pr.rareza = LISTA_RAREZAS[(LISTA_RAREZAS.indexOf(String(pr.rareza || "").toUpperCase()) + 1) % LISTA_RAREZAS.length]; marcarSucio(); render(); } break;
+      case "mover":
+        var km = buscarPremio(t.getAttribute("data-id")), d = Number(t.getAttribute("data-d")), est0 = km >= 0 ? (estado.premios[km].estado === "cerrada") : false;
+        // Busca el vecino visible en la misma sección (abiertas o cerradas).
+        var j = km + d;
+        while (j >= 0 && j < estado.premios.length && (estado.premios[j].estado === "cerrada") !== est0) j += d;
+        if (km >= 0 && j >= 0 && j < estado.premios.length) { var tmp = estado.premios[km]; estado.premios[km] = estado.premios[j]; estado.premios[j] = tmp; marcarSucio(); render(); }
+        break;
+      case "editarId": var kk = buscarPremio(t.getAttribute("data-id")); if (kk >= 0) { admin.editando = { nuevo: false, i: kk, p: clone(estado.premios[kk]) }; admin.abierto = true; render(); } break;
+      case "pedirBorrar": admin.borrar = t.getAttribute("data-id"); render(); break;
+      case "borrarId": var kb = buscarPremio(t.getAttribute("data-id")); if (kb >= 0) { estado.premios.splice(kb, 1); admin.borrar = null; marcarSucio(); render(); } break;
+      case "nuevaRegla": estado.textos.reglas.push(""); marcarSucio(); render(); var lr = document.querySelector('[data-edit="r:' + (estado.textos.reglas.length - 1) + '"]'); if (lr) lr.focus(); break;
+      case "borrarRegla": estado.textos.reglas.splice(i, 1); marcarSucio(); render(); break;
       case "salir": guardarSesion(null); admin.puede = false; admin.abierto = false; estado = clone(publicado); sucio = false; render(); break;
     }
   });
 
+  function aplicarEdicion(el) {
+    var key = el.getAttribute("data-edit") || "", val = el.textContent.replace(/\s+/g, " ").trim();
+    var parts = key.split(":");
+    if (parts[0] === "t") estado.textos[parts[1]] = val;
+    else if (parts[0] === "r") estado.textos.reglas[Number(parts[1])] = val;
+    else if (parts[0] === "w") estado.whatsapp = soloDigitos(val);
+    else if (parts[0] === "p") {
+      var k = buscarPremio(parts[1]);
+      if (k < 0) return;
+      var campo = parts[2];
+      if (campo === "creditos" || campo === "participantes") estado.premios[k][campo] = num(soloDigitos(val), 0);
+      else estado.premios[k][campo] = val;
+    }
+    marcarSucio(); actualizarPie();
+  }
   document.addEventListener("input", function (ev) {
+    if (ev.target.closest && ev.target.closest("[data-edit]")) { aplicarEdicion(ev.target.closest("[data-edit]")); return; }
     var t = ev.target;
     if (t.id === "f-wa") { estado.whatsapp = soloDigitos(t.value); marcarSucio(); actualizarPie(); }
     else if (t.id === "f-titulo") { estado.textos.titulo = t.value; marcarSucio(); actualizarPie(); }
@@ -465,9 +555,39 @@
   });
 
   document.addEventListener("keydown", function (ev) {
+    var e = ev.target.closest && ev.target.closest("[data-edit]");
+    if (e && ev.key === "Enter") { ev.preventDefault(); e.blur(); return; }
     if (ev.key !== "Escape") return;
+    if (e) { e.blur(); return; }
     if (admin.login) { admin.login = false; quitarHash(); render(); }
     else if (admin.abierto && !admin.editando) { admin.abierto = false; quitarHash(); render(); }
+  });
+
+  document.addEventListener("paste", function (ev) {
+    var e = ev.target.closest && ev.target.closest("[data-edit]");
+    if (!e) return;
+    ev.preventDefault();
+    var txt = (ev.clipboardData && ev.clipboardData.getData("text/plain")) || "";
+    document.execCommand("insertText", false, txt.replace(/\s+/g, " "));
+  });
+  // Al terminar de editar un texto, vuelve a dibujar la página (si no pasaste a otro texto editable).
+  document.addEventListener("focusout", function (ev) {
+    if (!(ev.target.closest && ev.target.closest("[data-edit]"))) return;
+    setTimeout(function () {
+      var a = document.activeElement;
+      if (a && a.closest && (a.closest("[data-edit]") || a.closest(".imgform"))) return;
+      render();
+    }, 0);
+  });
+  document.addEventListener("submit", function (ev) {
+    if (!ev.target.classList || !ev.target.classList.contains("imgform")) return;
+    ev.preventDefault();
+    var k = buscarPremio(ev.target.getAttribute("data-id"));
+    var inp = ev.target.querySelector("input");
+    var u = inp ? inp.value.trim() : "";
+    if (u && !safeImg(u)) { inp.setCustomValidity("El link debe empezar con https://"); inp.reportValidity(); inp.setCustomValidity(""); return; }
+    if (k >= 0) { estado.premios[k].img = u; marcarSucio(); }
+    admin.imgEdit = null; render();
   });
 
   window.addEventListener("beforeunload", function (ev) {

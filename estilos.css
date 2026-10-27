@@ -314,3 +314,64 @@ body::before {
 .imgprev { display: flex; gap: 12px; align-items: center; }
 .imgprev .box { width: 96px; height: 96px; flex: none; background: radial-gradient(circle, var(--raised), #050915); border: 1px solid var(--line); display: grid; place-items: center; color: var(--muted); font-size: 12px; text-align: center; overflow: hidden; }
 .imgprev .box img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ---------- Edición en vivo ---------- */
+.editbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--yellow);
+  box-shadow: 0 -10px 30px rgba(0,0,0,.45);
+}
+.editbar .wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-block: 10px; }
+.editbar .estado { font-size: 13px; font-weight: 700; color: var(--muted); }
+.editbar .estado.pend { color: var(--fuchsia); }
+.editbar .estado.ok { color: var(--ok); }
+.editbar .estado.err { color: var(--danger); }
+.editbar .sp { flex: 1; }
+body:has(.editbar) .footer { padding-bottom: 70px; }
+
+body.vivo [data-edit] {
+  outline: 1px dashed color-mix(in srgb, var(--fuchsia) 70%, transparent); outline-offset: 4px;
+  border-radius: 2px; cursor: text; min-width: 2ch; display: inline-block;
+}
+body.vivo h1[data-edit], body.vivo p[data-edit], body.vivo h3[data-edit] { display: block; }
+body.vivo [data-edit]:hover { outline-color: var(--yellow); background: color-mix(in srgb, var(--yellow) 6%, transparent); }
+body.vivo [data-edit]:focus { outline: 2px solid var(--yellow); background: color-mix(in srgb, var(--yellow) 8%, transparent); }
+body.vivo [data-edit]:empty::before { content: attr(data-ph); color: var(--muted); opacity: .7; font-style: italic; }
+
+.card.editing:hover { transform: none; }
+.ctools { display: flex; justify-content: flex-end; gap: 4px; padding: 6px 8px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.ctools::before { content: "Editar"; margin-right: auto; align-self: center; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.ctools button {
+  min-width: 30px; height: 30px; padding: 0 6px; cursor: pointer; font-weight: 800;
+  background: color-mix(in srgb, var(--bg) 85%, transparent); color: var(--fg); border: 1px solid var(--line);
+}
+.ctools button:hover { border-color: var(--yellow); color: var(--yellow); }
+.ctools button.danger { color: var(--danger); }
+.ctools button.danger.wide { background: var(--danger); color: #fff; border-color: var(--danger); }
+.card .in { position: relative; }
+button.status { border: 0; cursor: pointer; font-family: inherit; }
+.rbtn { background: none; border: 1px dashed var(--r); padding: 3px 8px; cursor: pointer; align-self: flex-start; font-family: inherit; }
+.imgbtn {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 2;
+  background: color-mix(in srgb, var(--bg) 85%, transparent); color: var(--yellow); border: 1px solid var(--yellow);
+  padding: 6px 12px; font-weight: 800; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; white-space: nowrap;
+}
+.imgform {
+  position: absolute; inset: 0; z-index: 4; padding: 14px; display: grid; gap: 8px; align-content: center;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+}
+.imgform label { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.imgform input { width: 100%; background: var(--panel); border: 1px solid var(--yellow); padding: 9px 10px; }
+.addcard {
+  min-height: 320px; display: grid; place-content: center; gap: 6px; cursor: pointer;
+  background: transparent; color: var(--muted); border: 2px dashed var(--line);
+  font-weight: 800; letter-spacing: .1em; text-transform: uppercase; font-size: 13px;
+}
+.addcard span { font-family: var(--num); font-size: 64px; line-height: .8; color: var(--yellow); }
+.addcard:hover { border-color: var(--yellow); color: var(--yellow); }
+.rules li { align-items: flex-start; }
+.rules li > span { flex: 1; }
+.rdel { background: none; border: 1px solid var(--line); color: var(--danger); width: 26px; height: 26px; cursor: pointer; flex: none; }
