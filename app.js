@@ -869,19 +869,18 @@
       u.nombre = nom; u.whatsapp = wa; u.tradelink = tl; admin.editU = null; admin.uMsg = ""; render();
     }).catch(function (e) { admin.uMsg = "No se guardó: " + e.message; render(); });
   }
-  function quitarParticipacion(pid, uid) {
+  function quitarParticipacion(pid, uid, devolver) {
     var base = "projects/" + FB.projectId + "/databases/(default)/documents/", lista = partes[pid] || [], x = lista.filter(function (y) { return y.uid === uid; })[0];
     if (!x) { admin.quitarP = null; render(); return; }
     token().then(function (tk) {
       return fetch(BASE.replace(/documents\/$/, "documents:commit"), { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
-        body: JSON.stringify({ writes: [
-          { delete: base + "rayas_part/" + pid + "_" + uid },
+        body: JSON.stringify({ writes: [{ delete: base + "rayas_part/" + pid + "_" + uid }].concat(devolver ? [
           { transform: { document: base + "rayas_users/" + uid, fieldTransforms: [{ fieldPath: "creditos", increment: { integerValue: String(x.costo || 0) } }] } }
-        ] }) });
+        ] : []) }) });
     }).then(function (r) {
       if (!r.ok) throw new Error("Error " + r.status);
       partes[pid] = lista.filter(function (y) { return y.uid !== uid; });
-      var u = usuarioPorUid(uid); if (u) u.creditos += (x.costo || 0);
+      var u = usuarioPorUid(uid); if (u && devolver) u.creditos += (x.costo || 0);
       admin.quitarP = null; admin.fichaU = null; render();
     }).catch(function (e) { admin.quitarP = null; admin.uMsg = "No se pudo quitar: " + e.message; render(); });
   }
@@ -923,9 +922,10 @@
         h += '<div class="fbtns"><a class="btn btn-fuchsia btn-sm" target="_blank" rel="noopener" href="' + esc(waLinkA(waNum(u.whatsapp), aviso)) + '">Avisar al ganador por WhatsApp</a></div>';
       }
       h += '<div class="frow"><span>Cupos</span><div class="adjq"><button class="iconbtn" type="button" data-a="cantPart" data-d="-1" data-uid="' + id + '" data-id="' + esc(p.id) + '"' + ((ctx.cantidad || 1) <= 1 ? ' disabled' : '') + ' aria-label="Quitar un cupo">−</button><b>' + (ctx.cantidad || 1) + '</b><button class="iconbtn" type="button" data-a="cantPart" data-d="1" data-uid="' + id + '" data-id="' + esc(p.id) + '" aria-label="Sumar un cupo">+</button><small>Ajuste manual: no cobra ni devuelve créditos.</small></div></div>';
-      h += '<div class="fbtns">' + (admin.quitarP === p.id + "_" + uid
-        ? '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartSi" data-uid="' + id + '" data-id="' + esc(p.id) + '">Sí, quitar y devolver ' + (ctx.costo || 0) + ' créditos</button><button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartNo">No</button>'
-        : '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarPart" data-uid="' + id + '" data-id="' + esc(p.id) + '">Quitar de esta rifa (devuelve créditos)</button>') + '</div>';
+      var kq = p.id + "_" + uid, dq = ' data-uid="' + id + '" data-id="' + esc(p.id) + '"';
+      h += '<div class="fbtns">' + (admin.quitarP === kq
+        ? '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartSi"' + dq + ' data-dev="' + (admin.quitarDev ? 1 : 0) + '">Sí, ' + (admin.quitarDev ? 'quitar y devolver ' + (ctx.costo || 0) + ' créditos' : 'solo quitar (sin devolver)') + '</button><button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartNo">No</button>'
+        : '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarPart"' + dq + ' data-dev="1">Quitar y devolver créditos</button><button class="btn btn-ghost btn-sm" type="button" data-a="quitarPart"' + dq + ' data-dev="0">Solo quitar</button>') + '</div>';
     }
     return h + '<div class="fbtns"><button class="btn btn-yellow btn-sm" type="button" data-a="editU" data-uid="' + id + '">✎ Editar datos</button></div></div>';
   }
@@ -1130,7 +1130,7 @@
     if (v("f-cierre") !== null) { var c = v("f-cierre"); var d = c ? new Date(c) : null; p.cierre = d && isFinite(d.getTime()) ? d.toISOString() : ""; }
     if (v("f-part") !== null) p.participantes = num(v("f-part"), 0);
     if (v("f-max") !== null) p.maxPorUsuario = num(v("f-max"), 0);
-    if (v("f-cupos") !== null) p.cupos = num(v("f-cupos"), 0);
+    if (v("f-cupos") !== null) { p.cupos = num(v("f-cupos"), 0); var tk = tomados(p.id); if (p.cupos > 0 && p.cupos < tk) { p.cupos = tk; admin.msg = "Ya hay " + tk + " cupos tomados; el límite no puede ser menor."; admin.msgTipo = "err"; } }
     if (v("f-ganador") !== null) p.ganador = v("f-ganador").trim();
   }
 
@@ -1208,9 +1208,9 @@
       case "delU": admin.delU = t.getAttribute("data-uid"); render(); break;
       case "delUNo": admin.delU = null; render(); break;
       case "delUSi": eliminarUsuario(t.getAttribute("data-uid")); break;
-      case "quitarPart": admin.quitarP = t.getAttribute("data-id") + "_" + t.getAttribute("data-uid"); render(); break;
+      case "quitarPart": admin.quitarDev = t.getAttribute("data-dev") === "1"; admin.quitarP = t.getAttribute("data-id") + "_" + t.getAttribute("data-uid"); render(); break;
       case "quitarPartNo": admin.quitarP = null; render(); break;
-      case "quitarPartSi": quitarParticipacion(t.getAttribute("data-id"), t.getAttribute("data-uid")); break;
+      case "quitarPartSi": quitarParticipacion(t.getAttribute("data-id"), t.getAttribute("data-uid"), t.getAttribute("data-dev") === "1"); break;
       case "participar": iniciarParticipar(t.getAttribute("data-id")); break;
       case "confirmarPart": confirmarPart(); break;
       case "qtyMas": if (modal && modal.tipo === "confirmar" && modal.qty < modal.max) { modal.qty++; render(); } break;
