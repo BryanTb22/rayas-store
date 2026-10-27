@@ -935,7 +935,7 @@
     return estado.premios.map(function (p) {
       var l = partes[p.id] || [], pid = esc(p.id);
       var libres = (admin.usuarios || []).filter(function (u) { return !l.some(function (x) { return x.uid === u.uid; }); });
-      return '<div class="grp"><h3>Participantes · ' + esc(p.nombre || "Premio") + ' (' + l.length + ' · ' + tomados(p.id) + ' cupos)</h3>' +
+      return '<div class="grp"><h3>Participantes · ' + esc(p.nombre || "Premio") + ' (' + l.length + (l.length === 1 ? ' persona' : ' personas') + ' · ' + tomados(p.id) + '/' + (num(p.cupos, 0) > 0 ? num(p.cupos, 0) : '∞') + ' cupos)</h3>' +
         (p.ganador ? '<p class="hint">🏆 Ganador: <b>' + esc(p.ganador) + '</b> <button class="btn btn-ghost btn-sm" type="button" data-a="quitarGan" data-id="' + pid + '">Quitar ganador</button></p>' : '') +
         (l.length ? '' : '<p class="hint">Todavía nadie participa en esta rifa.</p>') +
         l.map(function (x) {
