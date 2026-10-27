@@ -1126,6 +1126,7 @@
         if (d.rareza && LISTA_RAREZAS.indexOf(d.rareza) >= 0) F.rareza = d.rareza;
         if (d.calidad) F.calidad = d.calidad;
         admin.steamInfo = d.precioUsd ? "Precio en Steam: US$ " + d.precioUsd.toFixed(2) + " (referencia). Pon tú el precio en soles." : "Pon tú el precio en soles.";
+        if (d.diag) admin.steamInfo += " [Steam no dio héroe/ranura. Datos: " + d.diag + "]";
         if (!d.imgData) return null;
         return fetch(d.imgData).then(function (x) { return x.blob(); }).then(function (b) { return subirImagen(new File([b], "item.png", { type: b.type || "image/png" }), 640); })
           .then(function (ref) { F.img = ref; }).catch(function () { admin.steamInfo += " (La foto no se pudo guardar: súbela a mano.)"; });
