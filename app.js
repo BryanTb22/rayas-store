@@ -271,8 +271,8 @@
     var cupos = num(p.cupos, 0), part = num(p.participantes, 0), cred = num(p.creditos, 0);
     var partTxt = cupos > 0 ? (part + " / " + cupos + " cupos") : (part + (part === 1 ? " participante" : " participantes"));
     var lleno = cupos > 0 && part >= cupos;
-    var yo = cuenta.perfil ? " Soy " + cuenta.perfil.nombre + " (" + cuenta.perfil.email + ")." : "";
-    var link = waLink("Hola, quiero participar en la rifa de " + p.nombre + " (" + cred + " créditos)." + yo);
+    var yo = cuenta.perfil ? " Soy *" + cuenta.perfil.nombre + "* (📧 " + cuenta.perfil.email + ")." : "";
+    var link = waLink("¡Hola! 👋🔥" + yo + "\n\n🎁 Quiero participar en la rifa de *" + p.nombre + "* por " + cred + " créditos 💎\n\n¡Ojalá me toque! 🍀🏆");
     var boton;
     if (est === "activa") {
       var sinCuenta = !vivo() && !lleno && !cuenta.perfil && !leerSesion();
@@ -332,7 +332,7 @@
     if (!app) return;
     var visibles = estado.premios.filter(function (p) { return p.estado !== "cerrada"; });
     var cerradas = estado.premios.filter(function (p) { return p.estado === "cerrada"; });
-    var linkCreditos = waLink("Hola, quiero mis créditos gratis para las rifas de Rayas Store.");
+    var linkCreditos = waLink("¡Hola! 👋🔥 Quiero mis créditos para las rifas de *RAYAS STORE* 💎🎁\n\n¿Me ayudas? 🙏✨");
     var wa = waBonito(estado.whatsapp);
     var T = estado.textos;
 
@@ -451,7 +451,7 @@
     } else if (m === "perfil") {
       var p = cuenta.perfil;
       titulo = "Mi cuenta";
-      var link = waLink("Hola, soy " + (p ? p.nombre + " (" + p.email + ")" : "") + ". Quiero créditos para las rifas de Rayas Store.");
+      var link = waLink("¡Hola! 👋🔥 Soy *" + (p ? p.nombre : "") + "*" + (p ? " (📧 " + p.email + ")" : "") + ".\n\n💎 Quiero recargar créditos para participar en las rifas de *RAYAS STORE* 🎁🏆\n\n¿Me ayudas con mi recarga? 🙏✨");
       cuerpo = '<div class="drawer-body">' + (p
         ? '<div class="saldo frame gold"><div class="in"><small>Tus créditos</small><b>' + p.creditos + '</b></div></div>' +
           '<form class="grp" id="formTrade"><h3>Mis datos</h3>' +
