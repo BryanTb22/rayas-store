@@ -598,6 +598,7 @@
       '<h3' + ed("p:" + p.id + ":nombre", "Nombre del premio") + '>' + esc(V ? p.nombre : (p.nombre || "Premio")) + '</h3>' +
       (p.descripcion || V ? '<p class="desc"' + ed("p:" + p.id + ":descripcion", "Descripción (opcional)") + '>' + esc(p.descripcion) + '</p>' : '') +
       '<div class="meta"><span class="cost"><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small' + ed("t:lblCreditos", "créditos") + '>' + esc(estado.textos.lblCreditos) + '</small></span><span class="pill">' + partTxt + '</span></div>' +
+      (cupos > 0 ? '<div class="cbar' + (part / cupos >= 0.8 ? ' hot' : '') + '" role="img" aria-label="' + esc(partTxt) + '"><i style="width:' + Math.min(100, Math.round(part / cupos * 100)) + '%"></i></div>' : '') +
       (est === "activa" && p.cierre ? '<div class="timer" data-cierre="' + esc(p.cierre) + '">' + esc(restante(p.cierre)) + '</div>' : '') +
       (est === "activa" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + (+p.cupos > 0 ? ' o al agotar cupos' : '') + '</div>' : '') +
       (est === "activa" && !p.cierre && +p.cupos > 0 ? '<div class="pill fechas">Cierra al agotar cupos</div>' : '') +
@@ -667,9 +668,9 @@
       (V && cerradas.length ? '<p class="hint" style="text-align:center;margin:-10px 0 18px">Rifas cerradas: escribe el ganador en cada tarjeta.</p><div class="grid">' + cerradas.map(tarjeta).join("") + '</div>' :
        cerradas.length
         ? '<div class="winners">' + cerradas.map(function (p) {
-            return '<div class="winner frame"><div class="in"><div class="thumb">' + imgTag(p.img, "", ' loading="lazy"') + '</div>' +
+            return '<div class="winner frame gold"><div class="in"><div class="thumb">' + imgTag(p.img, "", ' loading="lazy"') + '</div>' +
               '<div class="who"><b>' + esc(p.ganador || "Por anunciar") + '</b><span>' + esc(p.nombre) + (p.cierre ? ' · ' + esc(fechaCorta(p.cierre)) : '') + '</span></div>' +
-              (p.ganador ? '<span class="crown">GANÓ</span>' : '') + (p.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + esc(p.id) + '">🎬 Ver repetición</button>' : '') + '</div></div>';
+              (p.ganador ? '<span class="crown">🏆 GANÓ</span>' : '') + (p.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + esc(p.id) + '">🎬 Ver repetición</button>' : '') + '</div></div>';
           }).join("") + '</div>'
         : '<div class="empty frame"><div class="in">' + tx("strong", "ganVacioT") + tx("span", "ganVacioS") + '</div></div>') +
       '</div></section>' +
