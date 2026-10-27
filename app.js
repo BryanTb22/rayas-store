@@ -1665,6 +1665,37 @@
   }
   window.addEventListener("hashchange", revisarHash);
 
+
+  /* ================= Anuncio al entrar ================= */
+  (function () {
+    var KEY = "promo_rifas_v1";
+    try { if (sessionStorage.getItem(KEY)) return; } catch (e) { /* sin almacenamiento */ }
+    function cerrar() {
+      var el = document.getElementById("promoPop"); if (el) { el.classList.remove("on"); setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 250); }
+      document.removeEventListener("keydown", tecla);
+      try { sessionStorage.setItem(KEY, "1"); } catch (e) { /* sin almacenamiento */ }
+    }
+    function tecla(ev) { if (ev.key === "Escape") cerrar(); }
+    function mostrar() {
+      if (admin.puede || document.getElementById("promoPop")) return;
+      var href = creditoHref();
+      var d = document.createElement("div");
+      d.id = "promoPop"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Promoción de primera recarga");
+      d.innerHTML = '<div class="promo-box"><button type="button" class="promo-x" aria-label="Cerrar">✕</button>' +
+        '<img src="img/promo-rifas.jpg" alt="Primera recarga: S/ 50 = 55 créditos, S/ 100 = 110 créditos" width="1080" height="1350">' +
+        '<div class="promo-acts">' + (href ? '<a class="btn btn-yellow" id="promoCta" href="' + esc(href) + '"' + (href === "#elegir" ? '' : ' target="_blank" rel="noopener"') + '>Pedir créditos</a>' : '') +
+        '<button type="button" class="btn btn-ghost" id="promoNo">Ahora no</button></div></div>';
+      document.body.appendChild(d);
+      requestAnimationFrame(function () { d.classList.add("on"); });
+      d.addEventListener("click", function (ev) {
+        var t = ev.target;
+        if (t === d || t.closest(".promo-x") || t.id === "promoNo") { cerrar(); return; }
+        if (t.id === "promoCta") { cerrar(); if (href === "#elegir") { ev.preventDefault(); elegirAbierto = true; render(); } else cerrar(); }
+      });
+      document.addEventListener("keydown", tecla);
+    }
+    setTimeout(mostrar, 900);
+  })();
   render();
   cargarRemoto();
   cargarParts();

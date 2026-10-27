@@ -741,3 +741,11 @@ html, body { overflow-x: clip; max-width: 100%; }
 .gbtn iframe { border-radius: 999px; box-shadow: 0 4px 16px rgba(0,0,0,.35); }
 .gsep { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; color: var(--muted, #888); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
 .gsep::before, .gsep::after { content: ""; flex: 1; height: 1px; background: var(--line, #444); }
+
+#promoPop { position: fixed; inset: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.82); backdrop-filter: blur(4px); opacity: 0; transition: opacity .25s; }
+#promoPop.on { opacity: 1; }
+#promoPop .promo-box { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; max-height: 100%; transform: translateY(14px) scale(.97); transition: transform .3s; }
+#promoPop.on .promo-box { transform: none; }
+#promoPop img { display: block; width: auto; height: auto; max-width: min(92vw, 520px); max-height: calc(100vh - 120px); border-radius: 18px; border: 2px solid var(--line-hi, var(--line)); box-shadow: 0 0 60px rgba(0,0,0,.7), 0 0 40px color-mix(in srgb, var(--fuchsia) 35%, transparent); }
+#promoPop .promo-x { position: absolute; top: -12px; right: -12px; z-index: 2; width: 40px; height: 40px; border-radius: 50%; border: 2px solid #fff; background: #d11a2a; color: #fff; font-size: 18px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.6); }
+#promoPop .promo-acts { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
