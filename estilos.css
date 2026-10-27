@@ -872,3 +872,12 @@ html, body { overflow-x: clip; max-width: 100%; }
 .vrow input:focus{border-color:var(--yellow);outline:none}
 .vrow .btn{height:52px;flex:0 0 auto}
 @media (max-width:820px){.vlink > .in{padding:18px 16px}.vrow .btn{width:100%}}
+
+/* admin dentro de Comprar items */
+.itadm{margin:0 auto 16px;max-width:1140px}
+.itadm > .in{padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.itadm .hint{margin:0;flex:1 1 240px;text-align:left}
+.icard{position:relative}
+.itadmb{position:absolute;top:8px;left:8px;z-index:4;display:flex;gap:6px}
+.itadmb .btn{background:rgba(5,8,25,.88);min-height:34px;padding:4px 10px}
+.itadmb .itdel{background:var(--danger,#e5484d);color:#fff;border-color:transparent}
