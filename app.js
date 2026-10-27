@@ -1111,7 +1111,7 @@
             : '<button class="lock" type="button" data-a="entrar">Entrar</button><button class="lock hot" type="button" data-a="registro">Crear cuenta</button>'))) +
       '</nav></div></header>' +
       '<div class="svcbar gutter"><div class="wrap">' +
-      (itemsVisible() ? '<a class="svc-tab' + (vista === "comprar" ? ' on' : '') + '" href="#comprar"><span>🛒</span>Comprar items' + (estado.secciones.items ? '' : ' 🔒') + '</a><a class="svc-tab' + (vista === "vender" ? ' on' : '') + '" href="#vender"><span>💰</span>Vender items' + (estado.secciones.items ? '' : ' 🔒') + '</a>' : '') +
+      (itemsVisible() ? '<a class="svc-tab comprar' + (vista === "comprar" ? ' on' : '') + '" href="#comprar"><span>🛒</span>Comprar items' + (estado.secciones.items ? '' : ' 🔒') + '</a><a class="svc-tab vender' + (vista === "vender" ? ' on' : '') + '" href="#vender"><span>💰</span>Vender items' + (estado.secciones.items ? '' : ' 🔒') + '</a>' : '') +
       '<a class="svc-tab' + (vista === "rifas" ? ' on' : '') + '" href="#rifas"><span>🎟️</span>Rifas</a>' +
       (linkCreditos || V || recargaOn() ? btnRecargar("svc-tab recargar", "btnRecargarNav", linkCreditos) : '') +
       '</div></div>' +
