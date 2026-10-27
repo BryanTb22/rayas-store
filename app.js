@@ -17,7 +17,7 @@
     // true = el pago solo aparece si la dirección lleva ?pagotest=1 (para probar en la web real sin que lo vean los clientes).
     // Cuando pases a llaves reales (pk_live_…) y todo funcione, ponlo en false.
     soloPrueba: true,
-    min: 3, max: 500,   // monto libre (solo para mostrar; el servidor valida lo mismo en functions/packs.js)
+    min: 3, max: 500, minYape: 6,   // monto libre (solo para mostrar; el servidor valida lo mismo en functions/packs.js)
     url: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/cobrar",
     js: "https://checkout.culqi.com/js/v4"
   };
@@ -162,7 +162,7 @@
     reglas: [
       "Los créditos se compran en esta página (S/ 1 = 1 crédito) y solo sirven para participar en las rifas.",
       "Los créditos usados en una rifa no se devuelven. Si hay un error en tu recarga, escríbenos por WhatsApp.",
-      "Los pagos se procesan con Culqi (tarjeta o Yape). Esta página no guarda los datos de tu tarjeta.",
+      "Los pagos se procesan con Culqi (tarjeta; Yape / QR desde S/ 6). Esta página no guarda los datos de tu tarjeta.",
       "El ganador se elige al azar cuando cierra la rifa y se anuncia en esta página.",
       "El item se entrega por Steam. El ganador debe tener su cuenta lista para recibir regalos.",
       "Si el ganador no responde en 48 horas, se elige a otro participante."
@@ -376,7 +376,7 @@
     if (m.tipo === "sinSaldo") {
       var rl = creditoHref();
       h = '<h3>Créditos insuficientes 😕</h3><p class="hint">La rifa de <b>' + esc(m.p.nombre) + '</b> cuesta <b>' + m.p.cred + '</b> créditos y tú tienes <b>' + (c ? c.creditos : 0) + '</b>. Recarga créditos para poder participar.</p>';
-      btns = (pagosOn() ? '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar con Yape o tarjeta</button>' : '') +
+      btns = (pagosOn() ? '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar créditos</button>' : '') +
         (rl ? '<a class="btn btn-yellow" href="' + esc(rl) + '"' + (rl === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>💎 ' + (pagosOn() ? 'Pedir por WhatsApp' : 'Recargar créditos') + '</a>' : '') + cerrar;
     } else if (m.tipo === "recarga") {
       var primera = !!(c && !c.promoUsada), sel = m.sel || 0, cred = sel ? creditosPara(sel) : 0;
@@ -395,9 +395,10 @@
         (m.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(m.err) + '</p>' : '') +
         (sel ? '<p class="resumen">Pagas <b>S/ ' + sel + '</b> y recibes <b>' + cred + ' créditos</b>' + (cred > sel ? ' 🎁' : '') + '</p>' +
           '<p class="hint"><b>2.</b> Elige cómo quieres pagar</p>' : '');
-      btns = (sel ? '<button class="btn btn-fuchsia" type="button" data-a="pagarCulqi">💳 Yape o tarjeta · al instante</button>' +
+      btns = (sel ? '<button class="btn btn-fuchsia" type="button" data-a="pagarCulqi">💳 Pagar con tarjeta · al instante</button>' +
         '<button class="btn btn-yellow" type="button" data-a="recargaWsp">💬 Pagar por WhatsApp</button>' : '') +
-        '<p class="hint" style="font-size:.78rem;opacity:.8">Yape/tarjeta: pago seguro con Culqi, tus créditos se suman solos. WhatsApp: te atiende el encargado y los carga él. Los créditos usados en una rifa no se devuelven.</p>' + cerrar;
+        '<p class="hint" style="font-size:.78rem;opacity:.85">Tarjeta: pago seguro con Culqi desde S/ ' + PAGOS.min + ', tus créditos se suman solos. <b>Yape / QR: desde S/ ' + PAGOS.minYape + '</b> (si no te aparece en el pago, usa tarjeta o WhatsApp).</p>' +
+        '<p class="hint" style="font-size:.78rem;opacity:.85">¿Montos menores a S/ ' + PAGOS.minYape + ' con Yape, o prefieres pagar con una persona? Elige <b>Pagar por WhatsApp</b> y te atiende el encargado, que carga tus créditos él mismo. Los créditos usados en una rifa no se devuelven.</p>' + cerrar;
     } else if (m.tipo === "recargaOk") {
       h = '<h3>¡Recarga lista! 🎉</h3><p class="hint">Se sumaron <b>' + m.creditos + '</b> créditos' + (m.promo ? ' (incluye tu regalo de primera recarga 🎁)' : '') + '. Ahora tienes <b>' + (c ? c.creditos : 0) + '</b>.</p>';
       btns = '<button class="btn btn-yellow" type="button" data-a="cerrarModal">Ver rifas</button>';
@@ -979,7 +980,7 @@
           '<div><button class="btn btn-yellow btn-sm" type="submit">Guardar cambios</button></div>' +
           '<p class="hint" role="status" id="tradeMsg"></p></form>' +
           '<div class="grp">' + (pagosOn()
-            ? '<p class="hint">Recarga con Yape o tarjeta y los créditos se suman al instante.' + (p.promoUsada ? '' : ' ¡Tu primera recarga trae créditos extra! 🎁') + '</p>' +
+            ? '<p class="hint">Recarga con tarjeta (o Yape / QR desde S/ ' + PAGOS.minYape + ') y los créditos se suman al instante.' + (p.promoUsada ? '' : ' ¡Tu primera recarga trae créditos extra! 🎁') + '</p>' +
               '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar créditos</button>' +
               (link ? '<p class="hint">¿Algún problema con tu recarga? Escríbenos.</p><a class="btn btn-ghost btn-sm" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Escribir por WhatsApp</a>' : '')
             : '<p class="hint">Para recibir créditos, escribe al encargado. Él los carga en tu cuenta.</p>' +
