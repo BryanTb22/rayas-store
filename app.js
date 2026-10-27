@@ -101,9 +101,18 @@
     ]
   };
 
+  var CONTACTOS_BASE = [
+    { id: "lj", nombre: "LitleJacob", numero: "51952997030", activo: true, foto: "" },
+    { id: "ra", nombre: "Rayas", numero: "51900049694", activo: true, foto: "" }
+  ];
   function normalizar(st) {
     st = st && typeof st === "object" ? st : {};
     if (typeof st.whatsapp !== "string") st.whatsapp = "";
+    if (!Array.isArray(st.contactos) || !st.contactos.length) st.contactos = JSON.parse(JSON.stringify(CONTACTOS_BASE));
+    st.contactos = st.contactos.slice(0, 2).map(function (c, i) {
+      c = c && typeof c === "object" ? c : {};
+      return { id: String(c.id || ("c" + i)), nombre: typeof c.nombre === "string" ? c.nombre : "", numero: String(c.numero || "").replace(/\D+/g, ""), activo: c.activo !== false, foto: typeof c.foto === "string" ? c.foto : "" };
+    });
     if (!Array.isArray(st.premios)) st.premios = [];
     var t = st.textos && typeof st.textos === "object" ? st.textos : {};
     var nt = {};
@@ -143,9 +152,32 @@
   var RAREZAS = { "ARCANO": "#ade55c", "INMORTAL": "#e4ae39", "LEGENDARIO": "#d32ce6", "MÍTICO": "#8847ff", "RARO": "#4b69ff", "POCO COMÚN": "#5e98d9", "COMÚN": "#b0c3d9" };
   function colorRareza(r) { return RAREZAS[String(r || "").toUpperCase()] || "#ff2d8f"; }
 
-  function waLink(texto) {
-    var n = soloDigitos(estado.whatsapp);
-    return n ? "https://wa.me/" + n + "?text=" + encodeURIComponent(texto) : "";
+  function contactos() { return (estado.contactos || []).filter(function (c) { return c.activo && soloDigitos(c.numero); }); }
+  function waLinkA(n, texto) { return "https://wa.me/" + soloDigitos(n) + "?text=" + encodeURIComponent(texto); }
+  function waLink(texto) { var c = contactos()[0]; return c ? waLinkA(c.numero, texto) : ""; }
+  function msgCred(p) {
+    return p
+      ? "¡Hola! 👋🔥 Soy *" + p.nombre + "* (📧 " + p.email + ").\n\n💎 Quiero recargar créditos para participar en las rifas de *RAYAS STORE* 🎁🏆\n\n¿Me ayudas con mi recarga? 🙏✨"
+      : "¡Hola! 👋🔥 Quiero mis créditos para las rifas de *RAYAS STORE* 💎🎁\n\n¿Me ayudas? 🙏✨";
+  }
+  function creditoHref() {
+    var a = contactos();
+    return a.length > 1 ? "#elegir" : (a.length === 1 ? waLinkA(a[0].numero, msgCred(cuenta.perfil)) : "");
+  }
+  var elegirAbierto = false;
+  function avatar(c) {
+    var im = imgTag(c.foto, c.nombre, "");
+    return '<span class="avatar">' + (im || esc((c.nombre || "?").charAt(0).toUpperCase())) + '</span>';
+  }
+  function modalElegir() {
+    return '<div class="scrim scrim-top" data-a="cerrarElegir"></div>' +
+      '<div class="elegir" role="dialog" aria-label="Elegir contacto"><h3>¿Con quién quieres hablar?</h3>' +
+      '<p class="hint">Elige a quién escribirle por WhatsApp para pedir tus créditos.</p>' +
+      contactos().map(function (c) {
+        return '<a class="contacto" href="' + esc(waLinkA(c.numero, msgCred(cuenta.perfil))) + '" target="_blank" rel="noopener">' + avatar(c) +
+          '<span class="cinfo"><b>' + esc(c.nombre) + '</b><small>' + esc(waBonito(c.numero)) + '</small></span><span class="go">Escribir ›</span></a>';
+      }).join("") +
+      '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarElegir">Cerrar</button></div>';
   }
   function waBonito(n) {
     n = soloDigitos(n);
@@ -196,7 +228,7 @@
   // Botón-enlace: en modo edición se vuelve texto editable (sin navegar).
   function lnk(cls, href, key, ext) {
     if (vivo()) return '<span class="' + cls + '"' + ed("t:" + key, TEXTOS_BASE[key]) + '>' + esc(estado.textos[key]) + '</span>';
-    return '<a class="' + cls + '" href="' + esc(href) + '"' + (ext ? ' target="_blank" rel="noopener"' : '') + '>' + esc(estado.textos[key]) + '</a>';
+    return '<a class="' + cls + '" href="' + esc(href) + '"' + (href === "#elegir" ? ' data-a="elegir"' : (ext ? ' target="_blank" rel="noopener"' : '')) + '>' + esc(estado.textos[key]) + '</a>';
   }
 
   /* ---- Imágenes subidas (guardadas en Firestore como documentos rayas/img-…) ---- */
@@ -224,13 +256,13 @@
     })(els[k]);
   }
   // Achica la foto en el navegador y la guarda como documento en Firestore.
-  function subirImagen(file) {
+  function subirImagen(file, maxPx) {
     return new Promise(function (ok, fail) {
       if (!file || !/^image\//.test(file.type)) return fail(new Error("Elige un archivo de imagen (JPG, PNG o WEBP)."));
       var url = URL.createObjectURL(file), im = new Image();
       im.onload = function () {
         URL.revokeObjectURL(url);
-        var max = 720, w = im.naturalWidth, h = im.naturalHeight, sc = Math.min(1, max / Math.max(w, h));
+        var max = maxPx || 720, w = im.naturalWidth, h = im.naturalHeight, sc = Math.min(1, max / Math.max(w, h));
         var cv = document.createElement("canvas"); cv.width = Math.round(w * sc); cv.height = Math.round(h * sc);
         cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height);
         var q = 0.85, data = cv.toDataURL("image/webp", q);
@@ -332,8 +364,7 @@
     if (!app) return;
     var visibles = estado.premios.filter(function (p) { return p.estado !== "cerrada"; });
     var cerradas = estado.premios.filter(function (p) { return p.estado === "cerrada"; });
-    var linkCreditos = waLink("¡Hola! 👋🔥 Quiero mis créditos para las rifas de *RAYAS STORE* 💎🎁\n\n¿Me ayudas? 🙏✨");
-    var wa = waBonito(estado.whatsapp);
+    var linkCreditos = creditoHref();
     var T = estado.textos;
 
     var V = vivo();
@@ -403,11 +434,12 @@
 
       '<footer class="footer gutter"><div class="wrap">' +
       '<span class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
-      (V ? '<span>WhatsApp: <span class="wa"' + ed("w:whatsapp", "51987654321") + '>' + esc(soloDigitos(estado.whatsapp)) + '</span></span>'
-         : (wa ? '<span>WhatsApp: <span class="wa">' + esc(wa) + '</span></span>' : '')) +
+      (V ? '<button type="button" class="btn btn-ghost btn-sm" data-a="editContactos">✎ Editar contactos de WhatsApp</button>'
+         : (contactos().length ? '<span>WhatsApp: ' + contactos().map(function (c) { return esc(c.nombre) + ' <span class="wa">' + esc(waBonito(c.numero)) + '</span>'; }).join(' · ') + '</span>' : '')) +
       tx("span", "pie") +
       '</div></footer>';
 
+    if (elegirAbierto && contactos().length > 1) html += modalElegir();
     if (admin.puede && !admin.abierto) html += barraEdicion();
     if (admin.puede && admin.abierto) html += '<div class="scrim" data-a="cerrar"></div>' + panelAdmin();
     if (!admin.puede && cuenta.modo) html += '<div class="scrim" data-a="cerrarCuenta"></div>' + panelCuenta();
@@ -451,7 +483,7 @@
     } else if (m === "perfil") {
       var p = cuenta.perfil;
       titulo = "Mi cuenta";
-      var link = waLink("¡Hola! 👋🔥 Soy *" + (p ? p.nombre : "") + "*" + (p ? " (📧 " + p.email + ")" : "") + ".\n\n💎 Quiero recargar créditos para participar en las rifas de *RAYAS STORE* 🎁🏆\n\n¿Me ayudas con mi recarga? 🙏✨");
+      var link = creditoHref();
       cuerpo = '<div class="drawer-body">' + (p
         ? '<div class="saldo frame gold"><div class="in"><small>Tus créditos</small><b>' + p.creditos + '</b></div></div>' +
           '<form class="grp" id="formTrade"><h3>Mis datos</h3>' +
@@ -464,7 +496,7 @@
           '<div><button class="btn btn-yellow btn-sm" type="submit">Guardar cambios</button></div>' +
           '<p class="hint" role="status" id="tradeMsg"></p></form>' +
           '<div class="grp"><p class="hint">Para recibir créditos, escribe al encargado. Él los carga en tu cuenta.</p>' +
-          (link ? '<a class="btn btn-yellow" href="' + esc(link) + '" target="_blank" rel="noopener">Pedir créditos por WhatsApp</a>' : '') + '</div>'
+          (link ? '<a class="btn btn-yellow" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Pedir créditos por WhatsApp</a>' : '') + '</div>'
         : '<p class="hint">' + (cuenta.msg ? esc(cuenta.msg) : "Cargando tu cuenta…") + '</p>') +
         '<div class="grp"><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div></div>';
     } else {
@@ -534,7 +566,7 @@
     else cuerpo = '<div class="tabs" role="tablist">' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="premios" aria-selected="' + (admin.tab === "premios") + '">Premios</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="usuarios" aria-selected="' + (admin.tab === "usuarios") + '">Usuarios y créditos</button>' +
-      '<button class="tab" role="tab" type="button" data-a="tab" data-t="pagina" aria-selected="' + (admin.tab === "pagina") + '">Textos y WhatsApp</button>' +
+      '<button class="tab" role="tab" type="button" data-a="tab" data-t="pagina" aria-selected="' + (admin.tab === "pagina") + '">Textos y contactos</button>' +
       '</div>' + (admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : listaPremios()));
     return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar</button></div>' +
@@ -570,9 +602,18 @@
 
   function tabPagina() {
     var T = estado.textos;
-    return '<div class="grp"><h3>WhatsApp del encargado</h3>' +
-      '<div class="field"><label for="f-wa">Número con código de país</label><input id="f-wa" inputmode="numeric" placeholder="51987654321" value="' + esc(estado.whatsapp) + '"></div>' +
-      '<p class="hint">Perú: 51 seguido de los 9 dígitos. Todos los botones de la página abren este número.</p></div>' +
+    return (estado.contactos || []).map(function (c, k) {
+      return '<div class="grp contacto-ed"><h3>Contacto ' + (k + 1) + ' · ' + esc(c.nombre || "sin nombre") + '</h3>' +
+        '<div class="cav">' + avatar(c) +
+        '<label class="btn btn-ghost btn-sm" for="cf-' + k + '">' + (admin.subiendo === "c" + k ? "Subiendo…" : "Subir foto") + '</label>' +
+        '<input id="cf-' + k + '" class="cfile" data-i="' + k + '" type="file" accept="image/*" hidden>' +
+        (c.foto ? '<button type="button" class="btn btn-ghost btn-sm" data-a="quitarFoto" data-i="' + k + '">Quitar foto</button>' : '') + '</div>' +
+        '<div class="field"><label for="cn-' + k + '">Nombre</label><input id="cn-' + k + '" class="c-nombre" data-i="' + k + '" maxlength="30" value="' + esc(c.nombre) + '"></div>' +
+        '<div class="field"><label for="cw-' + k + '">Número con código de país</label><input id="cw-' + k + '" class="c-num" data-i="' + k + '" inputmode="numeric" placeholder="51987654321" value="' + esc(c.numero) + '"></div>' +
+        '<label class="chk"><input type="checkbox" class="c-activo" data-i="' + k + '"' + (c.activo ? ' checked' : '') + '> Activo (recibe mensajes de clientes)</label></div>';
+    }).join("") +
+      (admin.imgErr ? '<p class="hint" style="color:var(--danger)">' + esc(admin.imgErr) + '</p>' : '') +
+      '<p class="hint">Si los dos están activos, el cliente elige con quién hablar. Si solo hay uno activo, el botón abre directo su WhatsApp. Si ninguno, se ocultan los botones de créditos. Perú: 51 + 9 dígitos.</p>' +
       '<div class="grp"><h3>Portada</h3>' +
       '<div class="field"><label for="f-titulo">Título</label><input id="f-titulo" maxlength="70" value="' + esc(T.titulo) + '"></div>' +
       '<p class="hint">Si escribes "Dota 2" en el título, sale en amarillo.</p>' +
@@ -689,6 +730,10 @@
       case "entrar": ev.preventDefault(); cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); break;
       case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = t.getAttribute("data-need") ? "Para participar primero crea una cuenta en la página." : ""; cuenta.msgTipo = t.getAttribute("data-need") ? "err" : ""; render(); break;
       case "miCuenta": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); break;
+      case "elegir": ev.preventDefault(); elegirAbierto = true; render(); break;
+      case "cerrarElegir": elegirAbierto = false; render(); break;
+      case "editContactos": admin.abierto = true; admin.tab = "pagina"; render(); break;
+      case "quitarFoto": estado.contactos[i].foto = ""; marcarSucio(); render(); break;
       case "cerrarCuenta": quitarHash(); cuenta.modo = null; render(); break;
       case "cred": var uu = (admin.usuarios || []).filter(function (x) { return x.uid === t.getAttribute("data-uid"); })[0]; if (uu && !uu.guardando) guardarCreditos(uu.uid, uu.creditos + Number(t.getAttribute("data-d"))); break;
       case "recargarU": admin.usuarios = null; render(); break;
@@ -761,7 +806,8 @@
       return;
     }
     var t = ev.target;
-    if (t.id === "f-wa") { estado.whatsapp = soloDigitos(t.value); marcarSucio(); actualizarPie(); }
+    if (t.classList && t.classList.contains("c-nombre")) { estado.contactos[Number(t.getAttribute("data-i"))].nombre = t.value; marcarSucio(); actualizarPie(); }
+    else if (t.classList && t.classList.contains("c-num")) { estado.contactos[Number(t.getAttribute("data-i"))].numero = soloDigitos(t.value); marcarSucio(); actualizarPie(); }
     else if (t.id === "f-titulo") { estado.textos.titulo = t.value; marcarSucio(); actualizarPie(); }
     else if (t.id === "f-sub") { estado.textos.subtitulo = t.value; marcarSucio(); actualizarPie(); }
     else if (t.id === "f-reglas") { estado.textos.reglas = t.value.split("\n").map(function (x) { return x.trim(); }).filter(Boolean); marcarSucio(); actualizarPie(); }
@@ -785,7 +831,18 @@
       });
       return;
     }
-    if (["f-wa", "f-titulo", "f-sub", "f-reglas"].indexOf(ev.target.id) >= 0) render();
+    var tc = ev.target;
+    if (tc.classList && tc.classList.contains("c-activo")) { estado.contactos[Number(tc.getAttribute("data-i"))].activo = tc.checked; marcarSucio(); render(); return; }
+    if (tc.classList && (tc.classList.contains("c-nombre") || tc.classList.contains("c-num"))) { render(); return; }
+    if (tc.classList && tc.classList.contains("cfile") && tc.files && tc.files[0]) {
+      var ci = Number(tc.getAttribute("data-i"));
+      admin.subiendo = "c" + ci; admin.imgErr = ""; render();
+      subirImagen(tc.files[0], 360).then(function (ref) {
+        estado.contactos[ci].foto = ref; marcarSucio(); admin.subiendo = null; render();
+      }).catch(function (e) { admin.subiendo = null; admin.imgErr = (e && e.message) || "No se pudo subir la imagen."; render(); });
+      return;
+    }
+    if (["f-titulo", "f-sub", "f-reglas"].indexOf(ev.target.id) >= 0) render();
   });
 
   function errAuth(m) {
@@ -877,7 +934,8 @@
     if (e && ev.key === "Enter") { ev.preventDefault(); e.blur(); return; }
     if (ev.key !== "Escape") return;
     if (e) { e.blur(); return; }
-    if (cuenta.modo) { cuenta.modo = null; quitarHash(); render(); }
+    if (elegirAbierto) { elegirAbierto = false; render(); }
+    else if (cuenta.modo) { cuenta.modo = null; quitarHash(); render(); }
     else if (admin.abierto && !admin.editando) { admin.abierto = false; quitarHash(); render(); }
   });
 
