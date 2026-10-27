@@ -299,12 +299,13 @@
     }
     var html = '' +
       '<header class="topbar gutter"><div class="wrap">' +
-      '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
+      '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
       '<nav class="nav"><a class="navlink" href="#rifas">Rifas</a><a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' +
       '<button class="lock" type="button" data-a="admin">' + (admin.puede ? "Panel admin" : "Admin") + '</button>' +
       '</nav></div></header>' +
 
       '<section class="hero gutter" id="inicio"><div class="wrap">' +
+      '<img class="hero-logo" src="img/logo.webp" alt="Rayas Store" width="132" height="132">' +
       tx("div", "kicker", 'class="kicker"') +
       (V ? '<h1' + ed("t:titulo", "Título") + '>' + esc(T.titulo) + '</h1>' : '<h1>' + tituloHtml(T.titulo) + '</h1>') +
       tx("p", "subtitulo") +
@@ -353,7 +354,7 @@
       '</div></section>' +
 
       '<footer class="footer gutter"><div class="wrap">' +
-      '<span class="logo">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
+      '<span class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
       (V ? '<span>WhatsApp: <span class="wa"' + ed("w:whatsapp", "51987654321") + '>' + esc(soloDigitos(estado.whatsapp)) + '</span></span>'
          : (wa ? '<span>WhatsApp: <span class="wa">' + esc(wa) + '</span></span>' : '')) +
       tx("span", "pie") +

@@ -383,3 +383,12 @@ button.status { border: 0; cursor: pointer; font-family: inherit; }
 .imgform .imgerr { margin: 0; color: var(--danger); font-size: 13px; font-weight: 700; }
 body.vivo .btn[data-edit] { cursor: text; }
 body.vivo .logo [data-edit] { min-width: 1ch; }
+.logo { display: inline-flex; align-items: center; gap: 10px; }
+.logo-img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; box-shadow: 0 0 0 1px var(--line), 0 4px 14px rgba(0,0,0,.5); }
+.footer .logo-img { width: 36px; height: 36px; }
+.hero-logo {
+  display: block; width: 132px; height: 132px; margin-bottom: 18px; border-radius: 16px; object-fit: cover;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--yellow) 55%, transparent), 0 12px 40px rgba(0,0,0,.6), 0 0 40px color-mix(in srgb, var(--fuchsia) 25%, transparent);
+}
+@media (max-width: 600px) { .hero-logo { width: 96px; height: 96px; } .logo-img { width: 36px; height: 36px; } }
+.hero .wrap { padding-block: 52px 76px; }
