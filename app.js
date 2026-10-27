@@ -60,10 +60,10 @@
           cuenta.msg = "No se pudo entrar con Google (" + ((e && e.message) || "error") + ")."; cuenta.msgTipo = "err"; render();
         });
       } });
-      window.google.accounts.id.renderButton(el2, { theme: "filled_black", size: "large", shape: "pill", text: "continue_with", locale: "es", width: 280 });
+      window.google.accounts.id.renderButton(el2, { theme: "filled_black", size: "large", shape: "pill", text: "continue_with", locale: "es", width: 320 });
     }).catch(function () { /* sin conexión con Google */ });
   }
-  function btnGoogle() { return GOOGLE_CLIENT_ID ? '<div class="gsep"><span>o</span></div><div id="g-btn" class="gbtn"></div>' : ""; }
+  function btnGoogle() { return GOOGLE_CLIENT_ID ? '<div id="g-btn" class="gbtn"></div><div class="gsep"><span>o con tu correo</span></div>' : ""; }
   function crearPerfil(ses, d) {
     return fsPedir("rayas_users/" + encodeURIComponent(ses.uid) + "?currentDocument.exists=false", {
       method: "PATCH",
@@ -828,8 +828,8 @@
     var msg = '<p class="hint" role="status"' + (cuenta.msgTipo === "err" ? ' style="color:var(--danger)"' : (cuenta.msgTipo === "ok" ? ' style="color:var(--ok)"' : '')) + '>' + esc(cuenta.msg) + '</p>';
     if (m === "registro") {
       titulo = "Crear cuenta";
-      cuerpo = '<form class="drawer-body form" id="formRegistro">' + btnGoogle() +
-        '<p class="hint">Crea tu cuenta para recibir créditos y participar en las rifas.</p>' +
+      cuerpo = '<form class="drawer-body form" id="formRegistro">' +
+        '<p class="hint">Crea tu cuenta para recibir créditos y participar en las rifas.</p>' + btnGoogle() +
         '<div class="field"><label for="r-nombre">Nombre o apodo</label><input id="r-nombre" maxlength="40" required autocomplete="nickname"></div>' +
         '<div class="field"><label for="r-trade">Link de intercambio de Steam (trade link)</label><input id="r-trade" inputmode="url" required placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…">' +
         '<p class="hint">Ahí te enviamos el item si ganas. ' + TRADE_AYUDA + '</p></div>' +
