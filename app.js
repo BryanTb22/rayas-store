@@ -475,7 +475,8 @@
       (p.descripcion || V ? '<p class="desc"' + ed("p:" + p.id + ":descripcion", "Descripción (opcional)") + '>' + esc(p.descripcion) + '</p>' : '') +
       '<div class="meta"><span class="cost"><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small' + ed("t:lblCreditos", "créditos") + '>' + esc(estado.textos.lblCreditos) + '</small></span><span class="pill">' + partTxt + '</span></div>' +
       (est === "activa" && p.cierre ? '<div class="timer" data-cierre="' + esc(p.cierre) + '">' + esc(restante(p.cierre)) + '</div>' : '') +
-      (est === "activa" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + '</div>' : '') +
+      (est === "activa" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + (+p.cupos > 0 ? ' o al agotar cupos' : '') + '</div>' : '') +
+      (est === "activa" && !p.cierre && +p.cupos > 0 ? '<div class="pill fechas">Cierra al agotar cupos</div>' : '') +
       (est === "proxima" && p.inicio && tiempoDe(p.inicio) ? '<div class="pill fechas">Abre: ' + esc(fechaHora(p.inicio)) + '</div>' : '') +
       (est === "proxima" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + '</div>' : '') +
       boton + '</div></div></article>';
