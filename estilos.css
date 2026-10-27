@@ -881,3 +881,9 @@ html, body { overflow-x: clip; max-width: 100%; }
 .itadmb{position:absolute;top:8px;left:8px;z-index:4;display:flex;gap:6px}
 .itadmb .btn{background:rgba(5,8,25,.88);min-height:34px;padding:4px 10px}
 .itadmb .itdel{background:var(--danger,#e5484d);color:#fff;border-color:transparent}
+
+/* Estilos del item (Estilo 1, Estilo 2 (Bloqueado)…) */
+.estilos { display: flex; flex-direction: column; gap: 2px; margin: 10px 0; text-align: left; font-size: 15px; }
+.estilos .est { color: var(--fg); }
+.estilos .est.lock { color: var(--danger); }
+.estchk { display: flex; flex-wrap: wrap; gap: 6px 16px; }

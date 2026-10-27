@@ -811,12 +811,13 @@
     function nv(k) { return f[k] ? Number(f[k].doubleValue !== undefined ? f[k].doubleValue : (f[k].integerValue || 0)) : 0; }
     return { id: d.name.split("/").pop(), nombre: sv("nombre"), img: sv("img"), precio: nv("precio"), stock: f.stock ? nv("stock") : 1,
       tipo: sv("tipo"), heroe: sv("heroe"), ranura: sv("ranura"), rareza: sv("rareza"), calidad: sv("calidad"),
+      estilos: nv("estilos"), estOk: sv("estOk"),
       activo: f.activo ? f.activo.booleanValue !== false : true, creado: f.creado && f.creado.timestampValue || "" };
   }
   function itemAFields(it) {
     var s = function (v) { return { stringValue: String(v || "") }; };
     return { fields: { nombre: s(it.nombre), img: s(it.img), precio: { doubleValue: Number(it.precio) }, stock: { integerValue: String(Math.max(0, Math.floor(Number(it.stock) || 0))) },
-      tipo: s(it.tipo), heroe: s(it.heroe), ranura: s(it.ranura), rareza: s(it.rareza), calidad: s(it.calidad), activo: { booleanValue: it.activo !== false },
+      tipo: s(it.tipo), heroe: s(it.heroe), ranura: s(it.ranura), rareza: s(it.rareza), calidad: s(it.calidad), estilos: { integerValue: String(Math.max(0, Math.min(8, Math.floor(Number(it.estilos) || 0)))) }, estOk: s(it.estOk), activo: { booleanValue: it.activo !== false },
       creado: { timestampValue: it.creado || new Date().toISOString() } } };
   }
   function cargarItems(forzar) {
@@ -922,7 +923,7 @@
     var cred = Math.ceil(it.precio - 1e-9), agot = it.stock <= 0, col = colorRareza(it.rareza);
     var h = '<h3>' + esc(it.nombre) + '</h3>' +
       '<div class="ithumb big" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') + '</div>' +
-      '<p class="hint">' + [it.rareza, it.calidad, it.tipo, it.heroe, it.ranura].filter(Boolean).map(esc).join(' · ') + '</p>' +
+      '<p class="hint">' + [it.rareza, it.calidad, it.tipo, it.heroe, it.ranura].filter(Boolean).map(esc).join(' · ') + '</p>' + estilosHtml(it) +
       '<p class="resumen">Precio: <b>' + fmtPrecio(it.precio) + '</b> · o <b>' + cred + ' créditos</b></p>' +
       (agot ? '<p class="hint" style="color:var(--danger)">Este item está agotado.</p>' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> créditos.</p>' : '<p class="hint">Para pagar con créditos entra a tu cuenta.</p>'));
     var btns = agot ? '' : ('<button class="btn btn-fuchsia" type="button" data-a="itCred" data-id="' + esc(it.id) + '">💎 Pagar con ' + cred + ' créditos</button>' +
@@ -1110,7 +1111,7 @@
     }
   }
   /* --- Admin: pestaña Items --- */
-  function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", activo: true, creado: "", link: "" }; }
+  function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", estilos: "0", estOk: "1", activo: true, creado: "", link: "" }; }
   /* Rellena el formulario a partir del link del Mercado de Steam (lo lee la función itemSteam, solo admin). */
   function rellenarDesdeSteam() {
     var F = admin.itemForm; if (!F || admin.steamCargando) return;
@@ -1126,6 +1127,7 @@
         if (d.ranura) F.ranura = d.ranura;
         if (d.rareza && LISTA_RAREZAS.indexOf(d.rareza) >= 0) F.rareza = d.rareza;
         if (d.calidad) F.calidad = d.calidad;
+        if (d.estilos > 1) { F.estilos = String(d.estilos); F.estOk = (d.estOk || "1"); } else { F.estilos = "0"; F.estOk = ""; }
         admin.steamInfo = d.precioUsd ? "Precio en Steam: US$ " + d.precioUsd.toFixed(2) + " (referencia). Pon tú el precio en soles." : "Pon tú el precio en soles.";
         if (d.diag) admin.steamInfo += " [Steam no dio héroe/ranura. Datos: " + d.diag + "]";
         if (!d.imgData) return null;
@@ -1134,6 +1136,15 @@
       })
       .then(function () { admin.steamCargando = false; render(); hidratarImgs(); })
       .catch(function (e) { admin.steamCargando = false; admin.itemMsg = (e && e.message === "NO_SESSION") ? "Vuelve a iniciar sesión." : ((e && e.message) || "No se pudo leer el item."); render(); });
+  }
+  /* Estilos (Style 1, Style 2…): los que el item tiene y cuáles están desbloqueados. Los demás salen en rojo como "Bloqueado". */
+  function estilosOkLista(it) { return String(it.estOk || "").split(",").map(function (x) { return parseInt(x, 10); }).filter(function (x) { return x > 0; }); }
+  function estilosHtml(it) {
+    var n = Math.max(0, Math.min(8, Math.floor(Number(it.estilos) || 0)));
+    if (n < 1) return "";
+    var ok = estilosOkLista(it), h = '<div class="estilos"><b>Estilos:</b>';
+    for (var k = 1; k <= n; k++) h += ok.indexOf(k) >= 0 ? '<span class="est">Estilo ' + k + '</span>' : '<span class="est lock">Estilo ' + k + ' (Bloqueado)</span>';
+    return h + '</div>';
   }
   function irAlForm() { var e = document.getElementById("itForm"); if (e && e.scrollIntoView) e.scrollIntoView({ behavior: "smooth", block: "center" }); }
   function itemFormHtml() {
@@ -1154,6 +1165,8 @@
       '<div class="field"><label for="it-ranura">Ranura (Weapon, Head, Back…)</label><input id="it-ranura" list="dl-ranura" maxlength="40" value="' + esc(F.ranura) + '"><datalist id="dl-ranura">' + distintos("ranura", SLOTS_DOTA).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
       '<div class="field"><label for="it-rareza">Rareza</label><select id="it-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), F.rareza, "—") + '</select></div>' +
       '<div class="field"><label for="it-calidad">Calidad</label><input id="it-calidad" list="dl-calidad" maxlength="30" value="' + esc(F.calidad) + '"><datalist id="dl-calidad">' + distintos("calidad", ITEM_CALIDADES).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
+      '<div class="field"><label for="it-estilos">Estilos (solo si el item los tiene)</label><select id="it-estilos">' + ["0", "2", "3", "4", "5", "6"].map(function (v) { return '<option value="' + v + '"' + (String(F.estilos || 0) === v ? ' selected' : '') + '>' + (v === "0" ? 'Sin estilos' : v + ' estilos') + '</option>'; }).join("") + '</select></div>' +
+      ((Number(F.estilos) || 0) > 0 ? '<div class="field"><label>Estilos que SÍ tiene (los demás saldrán "Bloqueado")</label><div class="estchk">' + (function () { var o = "", ok = estilosOkLista(F); for (var k = 1; k <= Number(F.estilos); k++) o += '<label class="chk"><input type="checkbox" id="it-est-' + k + '"' + (ok.indexOf(k) >= 0 ? ' checked' : '') + '> Estilo ' + k + '</label>'; return o; })() + '</div></div>' : '') +
       '<label class="chk"><input type="checkbox" id="it-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
       (admin.itemMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.itemMsg) + '</p>' : '') +
       '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="itGuardar">' + (admin.itemGuardando ? 'Guardando…' : '💾 Guardar item') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="itCerrarForm">Cancelar</button></div></div>';
@@ -1179,7 +1192,7 @@
     if (!isFinite(precio) || precio <= 0) { admin.itemMsg = "Pon un precio mayor a 0."; render(); return; }
     if (!isFinite(stock) || stock < 0) stock = 1;
     var it = { id: F.id || ("it-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), nombre: F.nombre.trim(), img: F.img, precio: Math.round(precio * 100) / 100, stock: stock,
-      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), activo: F.activo, creado: F.creado || new Date().toISOString() };
+      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", activo: F.activo, creado: F.creado || new Date().toISOString() };
     admin.itemGuardando = true; admin.itemMsg = ""; render();
     fsPedir("rayas_items/" + encodeURIComponent(it.id), { method: "PATCH", body: JSON.stringify(itemAFields(it)) }).then(function (r) {
       if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
@@ -2002,7 +2015,7 @@
       case "cpGuardar": case "cpBulk": case "cpEditar": case "cpCancelar": case "cpBorrar": case "cpBorrarSi": accionCompras(a, t); break;
       case "itCred": comprarItemCreditos(t.getAttribute("data-id")); break;
       case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; admin.steamInfo = ""; render(); irAlForm(); break;
-      case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock) }); admin.itemMsg = ""; render(); hidratarImgs(); irAlForm(); } break;
+      case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock), estilos: String(ie.estilos || 0), estOk: ie.estOk || (ie.estilos ? "1" : "") }); admin.itemMsg = ""; render(); hidratarImgs(); irAlForm(); } break;
       case "itCerrarForm": admin.itemForm = null; admin.itemMsg = ""; render(); break;
       case "itQuitarFoto": if (admin.itemForm) { admin.itemForm.img = ""; render(); } break;
       case "itGuardar": guardarItem(); break;
@@ -2151,6 +2164,18 @@
     var F = admin.itemForm; if (!F || !el.id || el.id.indexOf("it-") !== 0) return false;
     var m = { "it-link": "link", "it-nombre": "nombre", "it-precio": "precio", "it-stock": "stock", "it-tipo": "tipo", "it-heroe": "heroe", "it-ranura": "ranura", "it-rareza": "rareza", "it-calidad": "calidad" };
     if (el.id === "it-activo") { F.activo = el.checked; return true; }
+    if (el.id === "it-estilos") {
+      F.estilos = el.value;
+      var nn = Number(el.value) || 0, oks = estilosOkLista(F).filter(function (x) { return x <= nn; });
+      if (nn > 0 && !oks.length) oks = [1];
+      F.estOk = oks.join(",");
+      render(); return true;
+    }
+    if (/^it-est-\d+$/.test(el.id)) {
+      var num = parseInt(el.id.slice(7), 10), cur = estilosOkLista(F), pos = cur.indexOf(num);
+      if (el.checked && pos < 0) cur.push(num); else if (!el.checked && pos >= 0) cur.splice(pos, 1);
+      cur.sort(function (a, b) { return a - b; }); F.estOk = cur.join(","); return true;
+    }
     if (m[el.id]) { F[m[el.id]] = el.value; return true; }
     return false;
   }
