@@ -26,4 +26,20 @@ function packPorSoles(valor) {
   return p ? { id: "p" + s, soles: p.soles, base: p.base, promo: p.promo || 0 } : { id: "custom", soles: s, base: s, promo: 0 };
 }
 
-module.exports = { PACKS, MIN_SOLES, MAX_SOLES, MIN_ORDEN, packPorSoles };
+/*
+ * COMISIÓN DE CULQI A CARGO DEL COMPRADOR.
+ * Al pagar con tarjeta / efectivo / QR el comprador paga un poco más, para que a ti te lleguen
+ * los soles completos de los créditos. Por WhatsApp / Yape directo NO hay comisión.
+ * Fórmula (la de la calculadora de Culqi): comisión = monto × pct + US$ fijoUsd × tipo de cambio.
+ *   total a cobrar = (soles + fijo) / (1 − pct), redondeado hacia arriba al céntimo.
+ * Si Culqi te cobra IGV sobre la comisión, pon igv = 0.18. REVISA estos 4 números con tus primeras
+ * ventas reales en CulqiPanel (Ventas → detalle) y ajústalos aquí Y en rifas.js / app.js / recarga.js.
+ */
+const COM = { pct: 0.0399, fijoUsd: 0.20, tc: 3.85, igv: 0 };
+function totalConComision(soles) {
+  const k = 1 + COM.igv;
+  const t = (soles + COM.fijoUsd * COM.tc * k) / (1 - COM.pct * k);
+  return Math.ceil(t * 100 - 1e-9) / 100;
+}
+
+module.exports = { PACKS, MIN_SOLES, MAX_SOLES, MIN_ORDEN, COM, totalConComision, packPorSoles };
