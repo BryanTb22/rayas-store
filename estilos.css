@@ -6,7 +6,7 @@
   --bg-2: #0b1430;
   --panel: #0f1a3c;
   --raised: #16234d;
-  --line: #2a3a78;
+  --line: #6b5624;
   --fg: #eef1ff;
   --muted: #9ba7d8;
   --yellow: #ffc93c;
@@ -660,3 +660,9 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
     radial-gradient(circle at calc(100% - 10px) 10px, #fff 0 2px, var(--r) 2.5px 4.5px, transparent 5px),
     radial-gradient(circle at 10px calc(100% - 10px), #fff 0 2px, var(--r) 2.5px 4.5px, transparent 5px),
     radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #fff 0 2px, var(--r) 2.5px 4.5px, transparent 5px); }
+
+/* Sin bordes azules: contornos dorados/bronce */
+.nav .lock { border-color: color-mix(in srgb, var(--yellow) 45%, transparent); color: var(--yellow-2); }
+.nav .lock.hot { border-color: var(--fuchsia); }
+.btn-ghost { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--yellow) 40%, transparent); }
+.editbar, .topbar { border-color: color-mix(in srgb, var(--yellow) 45%, transparent); }
