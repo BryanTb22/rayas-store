@@ -81,3 +81,10 @@ guardaste textos propios, **esos siguen mandando**: revísalos. Dos reglas son b
 - **Interruptor:** Panel admin → *Textos y contactos* → "Cobrar con Culqi" → **Publicar**. Apagado: los clientes solo piden créditos por WhatsApp. Vale para las dos páginas (comparten `rayas/estado`). El servidor también lo revisa (`cobroActivo()` en `functions/index.js`); el admin siempre puede probar.
 - **Candado de pruebas:** mientras el secreto sea `sk_test_…`, solo el admin puede "pagar" (nadie recibe créditos gratis por error).
 - **Pasar a real:** (1) activar el comercio en CulqiPanel y copiar `pk_live_…` y `sk_live_…`; (2) `firebase functions:secrets:set CULQI_SECRET_KEY --data-file clave.txt` con la `sk_live_`; (3) poner la `pk_live_` en `PAGOS.culqiPk` de `app.js` y `rifas.js`; (4) registrar el webhook también en el entorno de producción de Culqi; (5) `firebase deploy --only functions`; (6) probar con un pago real pequeño; (7) encender el interruptor.
+
+## Efectivo (PagoEfectivo), QR y billeteras — función `crearOrden`
+- El cliente elige el monto (mínimo S/ 6) y pulsa "Efectivo / QR / billeteras". La función `crearOrden` crea una **orden** en Culqi (vale 24 h) y la ventana de Culqi muestra el código.
+- Los créditos NO se suman al crear la orden: se suman cuando Culqi manda el aviso (webhook) de orden pagada. El webhook le pregunta a Culqi el estado real (`GET /v2/orders/{id}` → `state: "paid"`) y acredita una sola vez.
+- En el panel de Culqi (modo prueba y luego producción): activar PagoEfectivo/QR/billeteras en tu comercio y agregar al webhook existente el evento de órdenes (`order.status.changed`). La URL es la misma de siempre (`webhookCulqi?k=…`).
+- Mismos candados que `cobrar`: interruptor del admin y bloqueo con `sk_test`.
+- Verificar en modo prueba: nombre exacto de los campos de la orden y que `state` llegue como `paid`. Si algo difiere, solo se ajusta `functions/culqi.js`.

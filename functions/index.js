@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
-const { packPorSoles } = require("./packs");
+const { packPorSoles, MIN_ORDEN } = require("./packs");
 const culqi = require("./culqi");
 const sets = require("./sets");
 
@@ -186,6 +186,58 @@ exports.comprarSets = onRequest(
   }
 );
 
+/* ---------- 1c) Pagar en efectivo / QR / billeteras: se crea una ORDEN en Culqi ----------
+ * El cliente recibe el código (CIP) o QR en la ventana de Culqi y paga cuando quiera (hasta 24 h).
+ * Los créditos se suman cuando Culqi avisa por el webhook (orden "paid"). Aquí no se suma nada.
+ */
+exports.crearOrden = onRequest(
+  { region: REGION, cors: ORIGENES, secrets: [CULQI_SECRET], maxInstances: 5, timeoutSeconds: 60 },
+  async (req, res) => {
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
+    const uid = await uidDeLaPeticion(req);
+    if (!uid) return res.status(401).json({ error: "Inicia sesión para recargar." });
+    const esAdmin = uid === ADMIN_UID;
+    if (!esAdmin && !(await cobroActivo())) return res.status(403).json({ error: "Los pagos en línea están desactivados por ahora. Pide tus créditos por WhatsApp." });
+    if (!esAdmin && String(CULQI_SECRET.value()).trim().startsWith("sk_test")) {
+      return res.status(403).json({ error: "Los pagos en línea aún no están habilitados. Pide tus créditos por WhatsApp." });
+    }
+    const pack = packPorSoles((req.body || {}).soles);
+    if (!pack || pack.soles < MIN_ORDEN) return res.status(400).json({ error: "Para pagar en efectivo o con QR el monto mínimo es S/ " + MIN_ORDEN + "." });
+
+    const uSnap = await db.doc("rayas_users/" + uid).get();
+    if (!uSnap.exists) return res.status(400).json({ error: "Completa tu perfil antes de recargar." });
+    const u = uSnap.data();
+    const email = String(u.email || "");
+    if (!email) return res.status(400).json({ error: "Tu cuenta no tiene correo." });
+    let tel = String(u.whatsapp || "").replace(/\D+/g, "");
+    if (tel.length === 9) tel = "51" + tel;
+    if (tel.length < 9) tel = "51999999999";
+
+    const pRef = db.collection("rayas_pagos").doc();
+    await pRef.set({
+      uid: uid, tipo: "orden", packId: pack.id, soles: pack.soles, baseCreditos: pack.base,
+      promoCreditos: pack.promo || 0, estado: "procesando", creado: FV.serverTimestamp()
+    });
+    let r;
+    try {
+      r = await culqi.crearOrden(CULQI_SECRET.value(), {
+        montoCentimos: pack.soles * 100, email: email, nombre: u.nombre, telefono: tel, pagoId: pRef.id, uid: uid,
+        numero: "REC-" + pRef.id.slice(0, 14), venceUnix: Math.floor(Date.now() / 1000) + 24 * 3600
+      });
+    } catch (e) {
+      await pRef.update({ estado: "error_orden", error: String(e && e.message || e) });
+      return res.status(502).json({ error: "No pudimos generar tu código de pago. Intenta de nuevo en un momento." });
+    }
+    if (!r.creada) {
+      const msg = (r.orden && (r.orden.user_message || r.orden.merchant_message)) || "No se pudo generar el pago.";
+      await pRef.update({ estado: "error_orden", respuestaStatus: r.status, mensaje: String(msg).slice(0, 300) });
+      return res.status(400).json({ error: msg });
+    }
+    await pRef.update({ estado: "pendiente", ordenId: r.orden.id });
+    return res.json({ ok: true, ordenId: r.orden.id, pagoId: pRef.id, soles: pack.soles });
+  }
+);
+
 /* ---------- 2) Webhook de Culqi: red de seguridad ----------
  * Solo usa el id del cargo del aviso y le PREGUNTA a Culqi si de verdad está pagado,
  * así que un aviso falso no puede acreditar nada.
@@ -200,6 +252,23 @@ exports.webhookCulqi = onRequest(
 
     let data = (req.body || {}).data;
     if (typeof data === "string") { try { data = JSON.parse(data); } catch (e) { data = null; } }
+    // Aviso de ORDEN (PagoEfectivo / QR / billeteras): se pregunta a Culqi el estado real y se acredita una sola vez.
+    if (data && data.object === "order" && typeof data.id === "string") {
+      try {
+        const g = await culqi.obtenerOrden(CULQI_SECRET.value(), data.id);
+        const pagoId = g.orden && g.orden.metadata && g.orden.metadata.pagoId;
+        if (!pagoId) return res.status(200).send("sin pago asociado");
+        const pSnap = await db.doc("rayas_pagos/" + pagoId).get();
+        if (!pSnap.exists) return res.status(200).send("pago desconocido");
+        const p = pSnap.data();
+        if (p.ordenId !== data.id || g.orden.metadata.uid !== p.uid || !culqi.ordenPagada(g.orden, p.soles * 100)) return res.status(200).send("no pagado");
+        await acreditar(pagoId, data.id);
+        return res.status(200).send("ok");
+      } catch (e) {
+        console.error("webhookCulqi orden", e);
+        return res.status(500).send("error");
+      }
+    }
     const chargeId = data && data.object === "charge" && typeof data.id === "string" ? data.id : "";
     if (!chargeId) return res.status(200).send("ignorado");
 

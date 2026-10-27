@@ -46,4 +46,31 @@ async function obtenerCargo(secretKey, chargeId) {
   return { status, cargo: json };
 }
 
-module.exports = { crearCargo, obtenerCargo, cargoPagado };
+/*
+ * ÓRDENES (PagoEfectivo, QR, billeteras): el cliente paga después y Culqi avisa por webhook.
+ * VERIFICAR con las llaves de PRUEBA: POST /v2/orders (campos: amount, currency_code, description,
+ * order_number, client_details{first_name,last_name,email,phone_number}, expiration_date en segundos unix, metadata),
+ * GET /v2/orders/{id} y que una orden pagada tenga state === "paid".
+ */
+function ordenPagada(o, montoCentimos) {
+  return !!o && o.object === "order" && o.state === "paid" && o.currency_code === "PEN" && Number(o.amount) === montoCentimos;
+}
+async function crearOrden(secretKey, { montoCentimos, email, nombre, telefono, pagoId, uid, numero, venceUnix }) {
+  const partes = String(nombre || "Cliente").trim().split(/\s+/);
+  const { status, json } = await llamar(secretKey, "POST", "/orders", {
+    amount: montoCentimos,
+    currency_code: "PEN",
+    description: "Recarga de creditos LitleJacob/Rayas Store",
+    order_number: numero,
+    client_details: { first_name: partes[0] || "Cliente", last_name: partes.slice(1).join(" ") || "Cliente", email: email, phone_number: telefono },
+    expiration_date: venceUnix,
+    metadata: { pagoId: pagoId, uid: uid }
+  });
+  return { status, orden: json, creada: status < 300 && !!json && json.object === "order" && typeof json.id === "string" };
+}
+async function obtenerOrden(secretKey, ordenId) {
+  const { status, json } = await llamar(secretKey, "GET", "/orders/" + encodeURIComponent(ordenId));
+  return { status, orden: json };
+}
+
+module.exports = { crearCargo, obtenerCargo, cargoPagado, crearOrden, obtenerOrden, ordenPagada };
