@@ -838,7 +838,7 @@
       var l = partes[p.id] || [], pid = esc(p.id);
       var libres = (admin.usuarios || []).filter(function (u) { return !l.some(function (x) { return x.uid === u.uid; }); });
       return '<div class="grp"><h3>Participantes · ' + esc(p.nombre || "Premio") + ' (' + l.length + ' · ' + tomados(p.id) + ' cupos)</h3>' +
-        (p.ganador ? '<p class="hint">🏆 Ganador: <b>' + esc(p.ganador) + '</b></p>' : '') +
+        (p.ganador ? '<p class="hint">🏆 Ganador: <b>' + esc(p.ganador) + '</b> <button class="btn btn-ghost btn-sm" type="button" data-a="quitarGan" data-id="' + pid + '">Quitar ganador</button></p>' : '') +
         (l.length ? '' : '<p class="hint">Todavía nadie participa en esta rifa.</p>') +
         l.map(function (x) {
           var abierto = admin.fichaU === p.id + "_" + x.uid;
@@ -1063,6 +1063,7 @@
       case "elegir": ev.preventDefault(); modal = null; elegirAbierto = true; render(); break;
       case "cerrarElegir": elegirAbierto = false; render(); break;
       case "editContactos": admin.abierto = true; admin.tab = "pagina"; render(); break;
+      case "quitarGan": var kg = buscarPremio(t.getAttribute("data-id")); if (kg >= 0) { estado.premios[kg].ganador = ""; estado.premios[kg].ganadorUid = ""; estado.premios[kg].resultado = ""; marcarSucio(); render(); } break;
       case "quitarFoto": estado.contactos[i].foto = ""; marcarSucio(); render(); break;
       case "cerrarCuenta": quitarHash(); cuenta.modo = null; render(); break;
       case "cred": var uu = (admin.usuarios || []).filter(function (x) { return x.uid === t.getAttribute("data-uid"); })[0]; if (uu && !uu.guardando) guardarCreditos(uu.uid, uu.creditos + Number(t.getAttribute("data-d"))); break;
