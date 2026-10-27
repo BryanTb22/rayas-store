@@ -211,6 +211,9 @@
       render(); return;
     }
     if (misParts[id]) { modal = { tipo: "error", msg: "Ya estás participando en esta rifa. 🍀" }; render(); return; }
+    var fp = fase(p);
+    if (fp === "porIniciar" || fp === "proxima") { modal = { tipo: "error", msg: "Esta rifa aún no abre" + (p.inicio ? ": empieza el " + fechaHora(p.inicio) + "." : ".") }; render(); return; }
+    if (fp === "vencida" || fp === "cerrada") { modal = { tipo: "error", msg: "Esta rifa ya cerró. Espera el resultado. 🍀" }; render(); return; }
     modal = { tipo: cuenta.perfil.creditos < cost ? "sinSaldo" : "confirmar", p: info }; render();
   }
   function confirmarPart() {
@@ -271,6 +274,16 @@
     if (!n) return "";
     if (n.length === 11 && n.indexOf("51") === 0) return "+51 " + n.slice(2, 5) + " " + n.slice(5, 8) + " " + n.slice(8);
     return "+" + n;
+  }
+  function tiempoDe(iso) { var t = iso ? new Date(iso).getTime() : 0; return isFinite(t) ? t : 0; }
+  /* Estado real de una rifa abierta según su fecha de inicio y de cierre. */
+  function fase(p) {
+    if (p.estado === "cerrada") return "cerrada";
+    if (p.estado === "proxima") return "proxima";
+    var ini = tiempoDe(p.inicio), fin = tiempoDe(p.cierre), ahora = Date.now();
+    if (ini && ini > ahora) return "porIniciar";
+    if (fin && fin <= ahora) return "vencida";
+    return "activa";
   }
   function restante(iso) {
     if (!iso) return "";
@@ -395,14 +408,19 @@
     var cupos = num(p.cupos, 0), part = Math.max(num(p.participantes, 0), (partes[p.id] || []).length), cred = num(p.creditos, 0);
     var partTxt = cupos > 0 ? (part + " / " + cupos + " cupos") : (part + (part === 1 ? " participante" : " participantes"));
     var lleno = cupos > 0 && part >= cupos;
+    var fz = vivo() ? est : fase(p);
+    if (fz === "porIniciar") { est = "proxima"; estTxt = "Próximamente"; }
+    if (fz === "vencida") estTxt = "Cierre cumplido";
     var boton;
-    if (est === "activa") {
+    if (fz === "vencida") {
+      boton = '<button class="btn btn-ghost" type="button" disabled>⏳ Esperando resultado</button>';
+    } else if (est === "activa") {
       boton = vivo() ? lnk("btn btn-yellow", "", "btnParticipar")
         : (lleno ? '<button class="btn btn-yellow" type="button" disabled>Cupos llenos</button>'
         : (misParts[p.id] ? '<button class="btn btn-ghost" type="button" disabled>✔ Ya estás participando</button>'
         : '<button class="btn btn-yellow" type="button" data-a="participar" data-id="' + esc(p.id) + '">' + esc(estado.textos.btnParticipar) + '</button>'));
     } else if (est === "proxima") {
-      boton = vivo() ? lnk("btn btn-ghost", "", "btnPronto") : '<button class="btn btn-ghost" type="button" disabled>' + esc(estado.textos.btnPronto) + '</button>';
+      boton = vivo() ? lnk("btn btn-ghost", "", "btnPronto") : '<button class="btn btn-ghost" type="button" disabled>' + (fz === "porIniciar" ? "Abre pronto" : esc(estado.textos.btnPronto)) + '</button>';
     } else {
       boton = '<div class="pill">' + (p.ganador ? 'Ganador: <b style="color:var(--yellow)">' + esc(p.ganador) + '</b>' : 'Sorteo realizado') + '</div>';
     }
@@ -438,7 +456,9 @@
       (p.descripcion || V ? '<p class="desc"' + ed("p:" + p.id + ":descripcion", "Descripción (opcional)") + '>' + esc(p.descripcion) + '</p>' : '') +
       '<div class="meta"><span class="cost"><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small' + ed("t:lblCreditos", "créditos") + '>' + esc(estado.textos.lblCreditos) + '</small></span><span class="pill">' + partTxt + '</span></div>' +
       (est === "activa" && p.cierre ? '<div class="timer" data-cierre="' + esc(p.cierre) + '">' + esc(restante(p.cierre)) + '</div>' : '') +
-      (est === "proxima" && p.cierre ? '<div class="pill">Cierra el ' + esc(fechaCorta(p.cierre)) + '</div>' : '') +
+      (est === "activa" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + '</div>' : '') +
+      (est === "proxima" && p.inicio && tiempoDe(p.inicio) ? '<div class="pill fechas">Abre: ' + esc(fechaHora(p.inicio)) + '</div>' : '') +
+      (est === "proxima" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + '</div>' : '') +
       boton + '</div></div></article>';
   }
 
@@ -787,15 +807,19 @@
       '</div>' +
       '<div class="field"><label for="f-desc">Descripción (opcional)</label><textarea id="f-desc" maxlength="240">' + esc(p.descripcion) + '</textarea></div>' +
       '<div class="row2">' +
+      '<div class="field"><label for="f-inicio">Fecha y hora de inicio</label><input id="f-inicio" type="datetime-local" value="' + esc(aLocalInput(p.inicio)) + '"></div>' +
+      '<div class="field"><label for="f-cierre">Fecha y hora de cierre</label><input id="f-cierre" type="datetime-local" value="' + esc(aLocalInput(p.cierre)) + '"></div>' +
+      '</div>' +
+      '<p class="hint">Inicio: si lo dejas vacío, la rifa empieza cuando publiques. La rifa se abre y se cierra sola en esas horas.</p>' +
+      '<div class="row2">' +
       '<div class="field"><label for="f-estado">Estado</label><select id="f-estado">' +
       [['activa', 'Abierta'], ['proxima', 'Próximamente'], ['cerrada', 'Cerrada']].map(function (o) {
         return '<option value="' + o[0] + '"' + ((p.estado || "activa") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
       }).join("") + '</select></div>' +
-      '<div class="field"><label for="f-cierre">Fecha de cierre</label><input id="f-cierre" type="datetime-local" value="' + esc(aLocalInput(p.cierre)) + '"></div>' +
+      '<div class="field"><label for="f-cupos">Cupos (0 = sin límite)</label><input id="f-cupos" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.cupos, 0) + '"></div>' +
       '</div>' +
       '<div class="row2">' +
       '<div class="field"><label for="f-part">Participantes</label><input id="f-part" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.participantes, 0) + '"></div>' +
-      '<div class="field"><label for="f-cupos">Cupos (0 = sin límite)</label><input id="f-cupos" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.cupos, 0) + '"></div>' +
       '</div>' +
       '<div class="field"><label for="f-ganador">Ganador (al cerrar)</label><input id="f-ganador" maxlength="60" placeholder="Nombre o usuario de Steam" value="' + esc(p.ganador) + '"></div>' +
       '<p class="hint" id="formErr" style="color:var(--danger)"></p>' +
@@ -814,6 +838,7 @@
     if (v("f-creditos") !== null) p.creditos = num(v("f-creditos"), 0);
     if (v("f-desc") !== null) p.descripcion = v("f-desc").trim();
     if (v("f-estado") !== null) p.estado = v("f-estado");
+    if (v("f-inicio") !== null) { var ci = v("f-inicio"); var di = ci ? new Date(ci) : null; p.inicio = di && isFinite(di.getTime()) ? di.toISOString() : ""; }
     if (v("f-cierre") !== null) { var c = v("f-cierre"); var d = c ? new Date(c) : null; p.cierre = d && isFinite(d.getTime()) ? d.toISOString() : ""; }
     if (v("f-part") !== null) p.participantes = num(v("f-part"), 0);
     if (v("f-cupos") !== null) p.cupos = num(v("f-cupos"), 0);
@@ -841,6 +866,7 @@
   function publicar() {
     admin.msg = "Publicando…"; admin.msgTipo = ""; render();
     estado.textos.reglas = estado.textos.reglas.filter(function (x) { return x && x.trim(); });
+    estado.premios.forEach(function (p) { if (p.estado !== "cerrada" && !p.inicio) p.inicio = new Date().toISOString(); });
     var copia = clone(estado);
     token().then(function (tk) {
       return fetch(DOC_URL + "?updateMask.fieldPaths=json&updateMask.fieldPaths=actualizado", {
@@ -1162,7 +1188,12 @@
     if (sucio && admin.puede) { ev.preventDefault(); ev.returnValue = ""; }
   });
 
+  var sigFases = "";
+  function firmaFases() { return estado.premios.map(function (p) { return p.id + fase(p); }).join("|"); }
   setInterval(function () {
+    var sf = firmaFases();
+    if (sigFases && sf !== sigFases && !modal && !vivo()) { sigFases = sf; render(); return; }
+    sigFases = sf;
     var els = document.querySelectorAll(".timer[data-cierre]");
     for (var k = 0; k < els.length; k++) els[k].textContent = restante(els[k].getAttribute("data-cierre"));
   }, 30000);
