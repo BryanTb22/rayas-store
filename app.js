@@ -153,7 +153,12 @@
   function colorRareza(r) { return RAREZAS[String(r || "").toUpperCase()] || "#ff2d8f"; }
 
   function contactos() { return (estado.contactos || []).filter(function (c) { return c.activo && soloDigitos(c.numero); }); }
-  function waLinkA(n, texto) { return "https://wa.me/" + soloDigitos(n) + "?text=" + encodeURIComponent(texto); }
+  var MOVIL = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  function waLinkA(n, texto) {
+    n = soloDigitos(n); var e = encodeURIComponent(texto);
+    /* En PC se abre WhatsApp Web directo: el redirect de wa.me daña los emojis. */
+    return MOVIL ? "https://wa.me/" + n + "?text=" + e : "https://web.whatsapp.com/send?phone=" + n + "&text=" + e;
+  }
   function waLink(texto) { var c = contactos()[0]; return c ? waLinkA(c.numero, texto) : ""; }
   function msgCred(p) {
     return p
