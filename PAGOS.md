@@ -10,9 +10,9 @@ hasta que pongas la llave pública de Culqi en `app.js` (`PAGOS.culqiPk`).
 4. `webhookCulqi` es la red de seguridad: si algo falla a medio camino, Culqi avisa y se acreditan igual.
    Nunca acredita dos veces el mismo pago, y la promo de primera recarga se usa una sola vez por cuenta.
 
-El cliente elige un monto (S/ 10, 20, 50, 100 u otro entre S/ 10 y S/ 500) y cómo pagar: **Yape/tarjeta (Culqi)** o **WhatsApp**.
+El cliente elige un monto (S/ 10, 20, 50, 100 u otro entre S/ 3 y S/ 500) y cómo pagar: **Yape/tarjeta (Culqi)** o **WhatsApp**.
 Los créditos y la promo los calcula **solo** el servidor (`functions/packs.js`); el navegador solo manda cuántos soles.
-Supuestos míos: 1 crédito = S/ 1; promo de primera recarga S/ 50 → 55 y S/ 100 → 110; montos libres sin promo, entre S/ 10 y S/ 500. Cámbialos en `packs.js` y en `PAGOS`/`PACKS_UI` de `app.js`.
+Supuestos míos: 1 crédito = S/ 1; promo de primera recarga S/ 50 → 55 y S/ 100 → 110; montos libres sin promo, entre S/ 3 y S/ 500. Cámbialos en `packs.js` y en `PAGOS`/`PACKS_UI` de `app.js`.
 Si cambias `functions/`, hay que volver a desplegar (`firebase deploy --only functions`).
 
 ## 0. Antes de nada (importante)

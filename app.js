@@ -17,7 +17,7 @@
     // true = el pago solo aparece si la dirección lleva ?pagotest=1 (para probar en la web real sin que lo vean los clientes).
     // Cuando pases a llaves reales (pk_live_…) y todo funcione, ponlo en false.
     soloPrueba: true,
-    min: 10, max: 500,   // monto libre (solo para mostrar; el servidor valida lo mismo en functions/packs.js)
+    min: 3, max: 500,   // monto libre (solo para mostrar; el servidor valida lo mismo en functions/packs.js)
     url: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/cobrar",
     js: "https://checkout.culqi.com/js/v4"
   };
