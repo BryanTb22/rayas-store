@@ -670,6 +670,7 @@
       (est === "activa" && !p.cierre && +p.cupos > 0 ? '<div class="pill fechas">Cierra al agotar cupos</div>' : '') +
       (est === "proxima" && p.inicio && tiempoDe(p.inicio) ? '<div class="pill fechas">Abre: ' + esc(fechaHora(p.inicio)) + '</div>' : '') +
       (est === "proxima" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + '</div>' : '') +
+      ((est === "activa" || est === "proxima") && +p.maxPorUsuario > 0 ? '<div class="pill maxp">🎟️ Máx. ' + (+p.maxPorUsuario) + (+p.maxPorUsuario === 1 ? ' cupo' : ' cupos') + ' por persona</div>' : '') +
       boton + (est === "cerrada" && p.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + id + '" style="margin-top:8px">🎬 Ver repetición</button>' : '') + '</div></div></article>';
   }
 
