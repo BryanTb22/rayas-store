@@ -65,7 +65,8 @@
     return {
       uid: d && d.name ? d.name.split("/").pop() : "",
       nombre: sv("nombre"), steam: sv("steam"), whatsapp: sv("whatsapp"), email: sv("email"), tradelink: sv("tradelink"),
-      creditos: f.creditos ? Number(f.creditos.integerValue || f.creditos.doubleValue || 0) : 0
+      creditos: f.creditos ? Number(f.creditos.integerValue || f.creditos.doubleValue || 0) : 0,
+      creado: f.creado && f.creado.timestampValue || ""
     };
   }
   function token() {
@@ -710,7 +711,9 @@
           '<button class="iconbtn wide" type="button" data-a="cred" data-uid="' + id + '" data-d="5">+5</button>' +
           '<button class="iconbtn wide" type="button" data-a="cred" data-uid="' + id + '" data-d="10">+10</button>' +
           '<span class="usave">' + (u.guardando ? "Guardando…" : (u.ok && Date.now() - u.ok < 4000 ? "✔ Guardado" : "")) + '</span>' +
-          '</div></div>';
+          '</div>' +
+          '<button type="button" class="pbtn" data-a="verFicha" data-key="u_' + id + '"><span>' + (admin.fichaU === "u_" + u.uid ? "Ocultar ficha" : "Ver ficha completa") + '</span><i>' + (admin.fichaU === "u_" + u.uid ? "▴" : "▾") + '</i></button>' +
+          (admin.fichaU === "u_" + u.uid ? detalleUsuario(u.uid) : '') + '</div>';
       }).join("") : '<p class="hint">' + (f ? "Nadie coincide con la búsqueda." : "Todavía nadie se ha registrado.") + '</p>') + '</div>' +
       '<p class="hint">Los créditos se guardan al instante (no hace falta "Guardar y publicar").</p>' +
       '<button class="btn btn-ghost btn-sm" type="button" data-a="recargarU">Actualizar lista</button></div>';
@@ -736,6 +739,95 @@
       '</aside>';
   }
 
+  function guardarUsuario(uid) {
+    var u = usuarioPorUid(uid); if (!u) return;
+    var nom = document.getElementById("eu-nombre").value.trim(), wa = document.getElementById("eu-wa").value.trim(), tl = document.getElementById("eu-trade").value.trim();
+    if (!nom) { admin.uMsg = "El nombre no puede quedar vacío."; render(); return; }
+    if (tl && !tradeValido(tl)) { admin.uMsg = "Ese trade link no parece válido."; render(); return; }
+    admin.uMsg = "Guardando…"; render();
+    fsPedir("rayas_users/" + encodeURIComponent(uid) + "?updateMask.fieldPaths=nombre&updateMask.fieldPaths=whatsapp&updateMask.fieldPaths=tradelink&currentDocument.exists=true", {
+      method: "PATCH", body: JSON.stringify({ fields: { nombre: { stringValue: nom }, whatsapp: { stringValue: wa }, tradelink: { stringValue: tl } } })
+    }).then(function (r) {
+      if (!r.ok) throw new Error("Error " + r.status);
+      u.nombre = nom; u.whatsapp = wa; u.tradelink = tl; admin.editU = null; admin.uMsg = ""; render();
+    }).catch(function (e) { admin.uMsg = "No se guardó: " + e.message; render(); });
+  }
+  function quitarParticipacion(pid, uid) {
+    var base = "projects/" + FB.projectId + "/databases/(default)/documents/", lista = partes[pid] || [], x = lista.filter(function (y) { return y.uid === uid; })[0];
+    if (!x) { admin.quitarP = null; render(); return; }
+    token().then(function (tk) {
+      return fetch(BASE.replace(/documents\/$/, "documents:commit"), { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
+        body: JSON.stringify({ writes: [
+          { delete: base + "rayas_part/" + pid + "_" + uid },
+          { transform: { document: base + "rayas_users/" + uid, fieldTransforms: [{ fieldPath: "creditos", increment: { integerValue: String(x.costo || 0) } }] } }
+        ] }) });
+    }).then(function (r) {
+      if (!r.ok) throw new Error("Error " + r.status);
+      partes[pid] = lista.filter(function (y) { return y.uid !== uid; });
+      var u = usuarioPorUid(uid); if (u) u.creditos += (x.costo || 0);
+      admin.quitarP = null; admin.fichaU = null; render();
+    }).catch(function (e) { admin.quitarP = null; admin.uMsg = "No se pudo quitar: " + e.message; render(); });
+  }
+  function waNum(n) { n = soloDigitos(n); return n.length === 9 ? "51" + n : n; }
+  function usuarioPorUid(uid) { return (admin.usuarios || []).filter(function (x) { return x.uid === uid; })[0]; }
+  function detalleUsuario(uid, ctx) {
+    var u = usuarioPorUid(uid), id = esc(uid);
+    if (!u) return '<div class="ficha"><p class="hint">' + (admin.usuarios === null ? "Cargando datos…" : "No se encontró el perfil de este usuario.") + '</p></div>';
+    if (admin.editU === uid) {
+      return '<div class="ficha"><h4>Editar datos de ' + esc(u.nombre) + '</h4>' +
+        '<div class="field"><label for="eu-nombre">Nombre</label><input id="eu-nombre" maxlength="40" value="' + esc(u.nombre) + '"></div>' +
+        '<div class="field"><label for="eu-wa">WhatsApp</label><input id="eu-wa" inputmode="tel" value="' + esc(u.whatsapp) + '"></div>' +
+        '<div class="field"><label for="eu-trade">Trade link de Steam</label><input id="eu-trade" inputmode="url" value="' + esc(u.tradelink) + '"></div>' +
+        (admin.uMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.uMsg) + '</p>' : '') +
+        '<div class="fbtns"><button class="btn btn-yellow btn-sm" type="button" data-a="guardarU" data-uid="' + id + '">Guardar</button><button class="btn btn-ghost btn-sm" type="button" data-a="cancelarU">Cancelar</button></div></div>';
+    }
+    var rifas = [];
+    Object.keys(partes).forEach(function (pid) {
+      (partes[pid] || []).forEach(function (x) {
+        if (x.uid !== uid) return;
+        var k = buscarPremio(pid), pr = k >= 0 ? estado.premios[k] : null;
+        rifas.push('<li>' + esc(pr ? pr.nombre : (x.premioNombre || pid)) + ' · ' + x.costo + ' cr. · ' + esc(x.creado ? fechaHora(x.creado) : "—") +
+          (pr && pr.ganadorUid === uid ? ' · <b>🏆 ganador</b>' : '') + '</li>');
+      });
+    });
+    var h = '<div class="ficha"><div class="fhead"><b>' + esc(u.nombre || "(sin nombre)") + '</b><span class="fcred">◆ ' + u.creditos + ' créditos</span></div>' +
+      '<div class="frow"><span>WhatsApp</span><div>' + (soloDigitos(u.whatsapp) ? '<a href="https://wa.me/' + esc(waNum(u.whatsapp)) + '" target="_blank" rel="noopener">' + esc(u.whatsapp) + ' ↗</a>' : '—') + '</div></div>' +
+      '<div class="frow"><span>Correo</span><div><a href="mailto:' + esc(u.email) + '">' + esc(u.email) + '</a></div></div>' +
+      '<div class="frow"><span>Trade link</span><div>' + (tradeValido(u.tradelink)
+        ? '<a href="' + esc(u.tradelink) + '" target="_blank" rel="noopener">Abrir en Steam ↗</a> <button class="iconbtn wide" type="button" data-a="copiar" data-txt="' + esc(u.tradelink) + '">' + (u.copiado && Date.now() - u.copiado < 3000 ? "✔ Copiado" : "Copiar") + '</button>'
+        : '<span style="color:var(--fuchsia)">Sin trade link</span>') + '</div></div>' +
+      (u.steam ? '<div class="frow"><span>Steam</span><div>' + esc(u.steam) + '</div></div>' : '') +
+      '<div class="frow"><span>Registro</span><div>' + (u.creado ? esc(fechaHora(u.creado)) : "—") + '</div></div>' +
+      '<div class="frow"><span>Rifas</span><div>' + (rifas.length ? '<ul class="frifas">' + rifas.join("") + '</ul>' : "Ninguna todavía") + '</div></div>';
+    if (ctx && ctx.p) {
+      var p = ctx.p, esGan = p.ganadorUid === uid;
+      if (esGan && soloDigitos(u.whatsapp)) {
+        var aviso = "¡Felicidades " + u.nombre + "! 🏆 Ganaste la rifa de " + p.nombre + " en RAYAS STORE. Te enviaremos el item por Steam a tu trade link. ¡Gracias por participar! 🎉";
+        h += '<div class="fbtns"><a class="btn btn-fuchsia btn-sm" target="_blank" rel="noopener" href="' + esc(waLinkA(waNum(u.whatsapp), aviso)) + '">Avisar al ganador por WhatsApp</a></div>';
+      }
+      h += '<div class="fbtns">' + (admin.quitarP === p.id + "_" + uid
+        ? '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartSi" data-uid="' + id + '" data-id="' + esc(p.id) + '">Sí, quitar y devolver ' + (ctx.costo || 0) + ' créditos</button><button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartNo">No</button>'
+        : '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarPart" data-uid="' + id + '" data-id="' + esc(p.id) + '">Quitar de esta rifa (devuelve créditos)</button>') + '</div>';
+    }
+    return h + '<div class="fbtns"><button class="btn btn-yellow btn-sm" type="button" data-a="editU" data-uid="' + id + '">✎ Editar datos</button></div></div>';
+  }
+  function listaParticipantes() {
+    var conPart = estado.premios.filter(function (p) { return (partes[p.id] || []).length; });
+    if (!conPart.length) return '';
+    if (admin.usuarios === null && !admin.cargandoU) { admin.cargandoU = true; cargarUsuarios(); }
+    return conPart.map(function (p) {
+      var l = partes[p.id];
+      return '<div class="grp"><h3>Participantes · ' + esc(p.nombre) + ' (' + l.length + ')</h3>' +
+        (p.ganador ? '<p class="hint">🏆 Ganador: <b>' + esc(p.ganador) + '</b></p>' : '') +
+        l.map(function (x) {
+          var abierto = admin.fichaU === p.id + "_" + x.uid;
+          return '<div class="prow' + (p.ganadorUid === x.uid ? ' win' : '') + '"><button type="button" class="pbtn" data-a="verFicha" data-key="' + esc(p.id + "_" + x.uid) + '">' +
+            '<span>' + (p.ganadorUid === x.uid ? '🏆 ' : '') + esc(x.nombre) + '</span><small>' + esc(x.creado ? fechaHora(x.creado) : "") + '</small><i>' + (abierto ? "▴" : "▾") + '</i></button>' +
+            (abierto ? detalleUsuario(x.uid, { p: p, costo: x.costo }) : '') + '</div>';
+        }).join("") +
+        '<button class="btn btn-ghost btn-sm" type="button" data-a="sortear" data-id="' + esc(p.id) + '">🎲 Sortear ganador</button></div>';
+    }).join("");
+  }
   function listaPremios() {
     var items = estado.premios.map(function (p, i) {
       var est = p.estado === "proxima" ? "Próximamente" : (p.estado === "cerrada" ? "Cerrada" : "Abierta");
@@ -753,11 +845,7 @@
     return '<div class="grp"><h3>Premios</h3>' +
       (items ? '<div class="alist">' + items + '</div>' : '<p class="hint">Todavía no hay premios. Agrega el primero.</p>') +
       '<div><button class="btn btn-yellow" type="button" data-a="nuevo">+ Agregar premio</button></div>' +
-      estado.premios.filter(function (p) { return (partes[p.id] || []).length; }).map(function (p) {
-        var l = partes[p.id];
-        return '<div class="grp"><h3>Participantes · ' + esc(p.nombre) + ' (' + l.length + ')</h3><p class="hint">' + l.map(function (x) { return esc(x.nombre); }).join(", ") + '</p>' +
-          '<button class="btn btn-ghost btn-sm" type="button" data-a="sortear" data-id="' + esc(p.id) + '">🎲 Sortear ganador</button></div>';
-      }).join("") +
+      listaParticipantes() +
       '<p class="hint">Los cambios se ven al instante en tu pantalla. Los visitantes los ven cuando pulsas "Guardar y publicar".</p></div>' +
       '<div class="grp"><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div>';
   }
@@ -904,6 +992,16 @@
       case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = t.getAttribute("data-need") ? "Para participar primero crea una cuenta en la página." : ""; cuenta.msgTipo = t.getAttribute("data-need") ? "err" : ""; render(); break;
       case "misRifas": cuenta.modo = "rifas"; cuenta.msg = ""; render(); cargarParts(); break;
       case "miCuenta": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); break;
+      case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; render(); break;
+      case "editU": admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
+      case "cancelarU": admin.editU = null; admin.uMsg = ""; render(); break;
+      case "guardarU": guardarUsuario(t.getAttribute("data-uid")); break;
+      case "copiar": var txtc = t.getAttribute("data-txt"), tu = (admin.usuarios || []).filter(function (x) { return x.tradelink === txtc; })[0];
+        try { navigator.clipboard.writeText(txtc); } catch (e4) { /* sin portapapeles */ }
+        if (tu) tu.copiado = Date.now(); render(); break;
+      case "quitarPart": admin.quitarP = t.getAttribute("data-id") + "_" + t.getAttribute("data-uid"); render(); break;
+      case "quitarPartNo": admin.quitarP = null; render(); break;
+      case "quitarPartSi": quitarParticipacion(t.getAttribute("data-id"), t.getAttribute("data-uid")); break;
       case "participar": iniciarParticipar(t.getAttribute("data-id")); break;
       case "confirmarPart": confirmarPart(); break;
       case "cerrarModal": modal = null; render(); break;

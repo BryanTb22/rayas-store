@@ -482,3 +482,22 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
   .topbar .logo > span, .topbar .logo > i { display: none; }
 }
 @media (max-width: 560px) { .nav .lock.me .nm { display: none; } .nav .lock.me { max-width: none; } }
+
+/* ---- Ficha de usuario (admin) ---- */
+.pbtn { display: flex; width: 100%; align-items: center; gap: 8px; text-align: left; background: var(--bg); border: 1px solid var(--line); color: var(--fg); padding: 9px 10px; cursor: pointer; font: inherit; }
+.pbtn:hover { border-color: var(--yellow); }
+.pbtn span { flex: 1; font-weight: 700; }
+.pbtn small { color: var(--muted); font-size: 12px; }
+.pbtn i { font-style: normal; color: var(--yellow); }
+.prow { margin-top: 6px; }
+.prow.win .pbtn { border-color: var(--yellow); background: rgba(255, 201, 60, .08); }
+.ficha { display: grid; gap: 8px; border: 1px solid var(--yellow); background: rgba(255, 201, 60, .05); padding: 12px; margin-top: 6px; }
+.ficha h4 { margin: 0; color: var(--yellow); }
+.fhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fhead b { font-size: 1.15rem; }
+.fcred { color: var(--yellow); font-weight: 800; }
+.frow { display: grid; grid-template-columns: 82px 1fr; gap: 8px; font-size: 14px; align-items: start; }
+.frow > span { color: var(--muted); text-transform: uppercase; font-size: 11px; letter-spacing: .08em; padding-top: 2px; }
+.frow a { color: var(--yellow); overflow-wrap: anywhere; }
+.frifas { margin: 0; padding-left: 16px; display: grid; gap: 2px; }
+.fbtns { display: flex; gap: 8px; flex-wrap: wrap; }
