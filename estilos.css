@@ -596,3 +596,32 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 .winner .btn { flex: 1 1 100%; }
 #ganadores .empty .in { padding: 54px 20px; }
 @media (prefers-reduced-motion: reduce) { .card, .card .pic img, .status.activa, .timer, .card .btn-yellow::after, .winner .in::after { animation: none !important; } }
+
+/* ===== Más grande: Rifas activas y Ganadores ===== */
+#rifas .wrap, #ganadores .wrap { max-width: 1360px; }
+#rifas, #ganadores { padding-block: 84px 28px; }
+#rifas .sec-title, #ganadores .sec-title { margin-bottom: 46px; }
+#rifas .sec-title h2, #ganadores .sec-title h2 { font-size: clamp(42px, 8vw, 82px); }
+#rifas .sec-title .kicker, #ganadores .sec-title .kicker { font-size: clamp(14px, 2vw, 18px); letter-spacing: .26em; }
+#rifas .sec-title p { font-size: clamp(16px, 2vw, 20px); }
+#rifas .grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 430px)); justify-content: center; gap: 36px; }
+#rifas .card h3 { font-size: 30px; }
+#rifas .card .desc { font-size: 17px; }
+#rifas .card .body { padding: 22px 24px 24px; gap: 14px; }
+#rifas .rarity { font-size: 14px; }
+#rifas .cost b { font-size: 68px; }
+#rifas .cost small { font-size: 14px; }
+#rifas .pill { font-size: 15px; }
+#rifas .timer { font-size: 32px; }
+#rifas .pill.fechas { font-size: 14px; }
+#rifas .cbar { height: 12px; }
+#rifas .card .btn { padding-block: 19px; font-size: 17px; }
+#rifas .status { font-size: 14px; padding: 8px 16px; }
+#ganadores .winners { grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 520px)); justify-content: center; gap: 30px; }
+#ganadores .winner .in { padding: 26px; gap: 20px; }
+#ganadores .winner .thumb { width: 128px; height: 128px; }
+#ganadores .winner .who b { font-size: 34px; line-height: 1.1; }
+#ganadores .winner .who span { font-size: 17px; margin-top: 6px; }
+#ganadores .winner .crown { top: 14px; right: 16px; font-size: 20px; padding: 5px 16px; }
+#ganadores .winner .btn { padding-block: 15px; font-size: 14px; }
+@media (max-width: 520px) { #rifas .cost b { font-size: 56px; } #ganadores .winner .thumb { width: 96px; height: 96px; } #ganadores .winner .who b { font-size: 26px; } }
