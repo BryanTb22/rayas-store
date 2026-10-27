@@ -189,6 +189,63 @@ exports.comprarSets = onRequest(
   }
 );
 
+/* ---------- 1b2) Comprar UN item del catálogo (rayas_items) con créditos ----------
+ * 1 crédito = S/ 1. Créditos del item = precio redondeado hacia arriba. Todo en una transacción.
+ */
+exports.comprarItem = onRequest(
+  { region: REGION, cors: ORIGENES, maxInstances: 5, timeoutSeconds: 30 },
+  async (req, res) => {
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
+    const uid = await uidDeLaPeticion(req);
+    if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con créditos." });
+    const id = String((req.body || {}).id || "").slice(0, 80);
+    if (!id || id.indexOf("/") >= 0) return res.status(400).json({ error: "Item no válido." });
+
+    const iRef = db.doc("rayas_items/" + id);
+    const uRef = db.doc("rayas_users/" + uid);
+    const code = sets.nuevoCodigo();
+    const oRef = db.doc("orders/" + code);
+    try {
+      const r = await db.runTransaction(async (tx) => {
+        const [i, u] = await Promise.all([tx.get(iRef), tx.get(uRef)]);
+        if (!i.exists || i.data().activo === false) throw new Error("NO_EXISTE");
+        const it = i.data();
+        const stock = it.stock === undefined ? 1 : Number(it.stock);
+        if (!(stock > 0)) throw new Error("AGOTADO");
+        const precio = Number(it.precio);
+        if (!(precio > 0)) throw new Error("SIN_PRECIO");
+        const creditos = Math.ceil(precio);
+        if (!u.exists) throw new Error("SIN_PERFIL");
+        const d = u.data();
+        const saldo = Number(d.creditos || 0);
+        if (saldo < creditos) { const er = new Error("SIN_CREDITOS"); er.falta = creditos - saldo; throw er; }
+        const pedido = {
+          code: code, customerName: String(d.nombre || "Cliente").slice(0, 60), steamId: String(d.steam || "").slice(0, 20),
+          items: [{ id: id, name: String(it.nombre || "Item").slice(0, 90), qty: 1, price: precio }],
+          count: 1, subtotal: precio, discount: 0, total: precio,
+          status: "pagado", createdAt: FV.serverTimestamp(),
+          paidWith: "creditos", creditos: creditos, uid: uid, origen: "items",
+          email: String(d.email || ""), tradelink: String(d.tradelink || "")
+        };
+        if (d.whatsapp) pedido.phone = String(d.whatsapp).slice(0, 40);
+        tx.update(uRef, { creditos: FV.increment(-creditos) });
+        tx.update(iRef, { stock: stock - 1 });
+        tx.create(oRef, pedido);
+        return { saldo: saldo - creditos, creditos: creditos };
+      });
+      return res.json({ ok: true, code: code, creditos: r.creditos, saldo: r.saldo });
+    } catch (e) {
+      const m = e && e.message;
+      if (m === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanzan los créditos. Te faltan " + e.falta + ".", falta: e.falta });
+      if (m === "SIN_PERFIL") return res.status(400).json({ error: "Completa tu perfil antes de comprar." });
+      if (m === "AGOTADO" || m === "NO_EXISTE") return res.status(400).json({ error: "Este item ya no está disponible." });
+      if (m === "SIN_PRECIO") return res.status(400).json({ error: "Este item no tiene precio. Pídelo por WhatsApp." });
+      console.error("comprarItem", e);
+      return res.status(500).json({ error: "No se pudo completar la compra. No se descontaron créditos; intenta de nuevo." });
+    }
+  }
+);
+
 /* ---------- 1c) Pagar en efectivo / QR / billeteras: se crea una ORDEN en Culqi ----------
  * El cliente recibe el código (CIP) o QR en la ventana de Culqi y paga cuando quiera (hasta 24 h).
  * Los créditos se suman cuando Culqi avisa por el webhook (orden "paid"). Aquí no se suma nada.
