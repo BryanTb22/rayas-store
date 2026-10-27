@@ -406,3 +406,82 @@ exports.itemSteam = onRequest(
     }
   }
 );
+
+/* ---------- Rifas: participar descontando créditos (todo se calcula aquí, nunca en el navegador) ---------- */
+function tiempoRifa(iso) { const t = iso ? new Date(iso).getTime() : 0; return isFinite(t) ? t : 0; }
+function faseRifa(p) {
+  if (p.estado === "oculta" || p.estado === "cerrada" || p.estado === "proxima") return p.estado;
+  const ini = tiempoRifa(p.inicio), fin = tiempoRifa(p.cierre), ahora = Date.now();
+  if (ini && ini > ahora) return "porIniciar";
+  if (fin && fin <= ahora) return "vencida";
+  return "activa";
+}
+exports.participarRifa = onRequest(
+  { region: REGION, cors: ORIGENES, maxInstances: 5, timeoutSeconds: 30 },
+  async (req, res) => {
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
+    const uid = await uidDeLaPeticion(req);
+    if (!uid) return res.status(401).json({ error: "Inicia sesión para participar." });
+    if (uid === ADMIN_UID) return res.status(400).json({ error: "Estás con la cuenta de administrador. Entra con una cuenta de usuario." });
+    const body = req.body || {};
+    const pid = String(body.premio || "").slice(0, 80);
+    const qty = Number(body.cantidad);
+    if (!pid || pid.indexOf("/") >= 0) return res.status(400).json({ error: "Rifa no válida." });
+    if (!Number.isInteger(qty) || qty < 1 || qty > 100) return res.status(400).json({ error: "Cantidad no válida." });
+
+    let premio;
+    try {
+      const s = await db.doc("rayas/estado").get();
+      const j = s.exists ? JSON.parse(String(s.data().json || "{}")) : {};
+      premio = (j.premios || []).filter((x) => x && x.id === pid)[0];
+    } catch (e) { return res.status(500).json({ error: "No se pudo leer la rifa. Intenta de nuevo." }); }
+    if (!premio) return res.status(400).json({ error: "Esta rifa no existe." });
+    const fase = faseRifa(premio);
+    if (fase === "oculta") return res.status(400).json({ error: "Esta rifa no está disponible por ahora." });
+    if (fase === "porIniciar" || fase === "proxima") return res.status(400).json({ error: "Esta rifa aún no abre." });
+    if (fase !== "activa") return res.status(400).json({ error: "Esta rifa ya cerró. Espera el resultado. 🍀" });
+    const costoUnit = Math.max(0, Math.floor(Number(premio.creditos) || 0));
+    const cupos = Math.max(0, Math.floor(Number(premio.cupos) || 0));
+    const tope = Math.max(0, Math.floor(Number(premio.maxPorUsuario) || 0));
+    const manual = Math.max(0, Math.floor(Number(premio.participantes) || 0));
+    const total = costoUnit * qty;
+
+    const uRef = db.doc("rayas_users/" + uid);
+    const pRef = db.doc("rayas_part/" + pid + "_" + uid);
+    try {
+      const r = await db.runTransaction(async (tx) => {
+        const [u, p, todas] = await Promise.all([tx.get(uRef), tx.get(pRef), tx.get(db.collection("rayas_part").where("premio", "==", pid))]);
+        if (!u.exists) throw new Error("SIN_PERFIL");
+        const d = u.data();
+        const saldo = Number(d.creditos || 0);
+        if (saldo < total) { const er = new Error("SIN_CREDITOS"); er.falta = total - saldo; throw er; }
+        let tomados = 0;
+        todas.forEach((x) => { tomados += Math.max(1, Number(x.data().cantidad) || 1); });
+        if (cupos > 0 && Math.max(manual, tomados) + qty > cupos) throw new Error("SIN_CUPOS");
+        const mio = p.exists ? Math.max(1, Number(p.data().cantidad) || 1) : 0;
+        if (tope > 0 && mio + qty > tope) throw new Error("TOPE");
+        if (mio + qty > 100) throw new Error("TOPE");
+        tx.update(uRef, { creditos: FV.increment(-total) });
+        if (p.exists) {
+          tx.update(pRef, { cantidad: mio + qty, costo: FV.increment(total) });
+        } else {
+          tx.create(pRef, {
+            uid: uid, nombre: String(d.nombre || "Cliente").slice(0, 60), premio: pid,
+            premioNombre: String(premio.nombre || "").slice(0, 90), costo: total, cantidad: qty,
+            creado: FV.serverTimestamp()
+          });
+        }
+        return { saldo: saldo - total, mio: mio + qty };
+      });
+      return res.json({ ok: true, saldo: r.saldo, mio: r.mio, gastado: total });
+    } catch (e) {
+      const m = e && e.message;
+      if (m === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanzan los créditos. Te faltan " + e.falta + ".", falta: e.falta });
+      if (m === "SIN_PERFIL") return res.status(400).json({ error: "Completa tu perfil antes de participar." });
+      if (m === "SIN_CUPOS") return res.status(409).json({ error: "No quedan suficientes cupos en esta rifa." });
+      if (m === "TOPE") return res.status(409).json({ error: "Superas el máximo de cupos permitido por persona en esta rifa." });
+      console.error("participarRifa", e);
+      return res.status(500).json({ error: "No se pudo registrar tu participación. No se descontaron créditos; intenta de nuevo." });
+    }
+  }
+);

@@ -19,6 +19,7 @@
     min: 3, max: 500, minYape: 6,   // monto libre (solo para mostrar; el servidor valida lo mismo en functions/packs.js)
     url: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/cobrar",
     urlOrden: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/crearOrden",
+    urlParticipar: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/participarRifa",
     urlItemSteam: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/itemSteam",
     js: "https://checkout.culqi.com/js/v4"
   };
@@ -340,23 +341,19 @@
   }
   function confirmarPart() {
     var m = modal; if (!m || !m.p || !cuenta.perfil) return;
-    var p = m.p, qty = m.qty || 1, total = qty * p.cred, uid = uidSesion(), base = "projects/" + FB.projectId + "/databases/(default)/documents/";
+    var p = m.p, qty = m.qty || 1, uid = uidSesion();
     var ex = (partes[p.id] || []).filter(function (x) { return x.uid === uid; })[0];
     modal = { tipo: "cargando" }; render();
-    var nombre = base + "rayas_part/" + p.id + "_" + uid, w1;
-    if (ex) {
-      w1 = { update: { name: nombre, fields: { cantidad: { integerValue: String(ex.cantidad + qty) }, costo: { integerValue: String((ex.costo || 0) + total) } } },
-        updateMask: { fieldPaths: ["cantidad", "costo"] }, currentDocument: { exists: true } };
-    } else {
-      w1 = { update: { name: nombre, fields: { uid: { stringValue: uid }, nombre: { stringValue: cuenta.perfil.nombre }, premio: { stringValue: p.id }, premioNombre: { stringValue: p.nombre }, costo: { integerValue: String(total) }, cantidad: { integerValue: String(qty) }, creado: { timestampValue: new Date().toISOString() } } }, currentDocument: { exists: false } };
-    }
-    var body = { writes: [w1, { transform: { document: base + "rayas_users/" + uid, fieldTransforms: [{ fieldPath: "creditos", increment: { integerValue: String(-total) } }] } }] };
     token().then(function (tk) {
-      return fetch(BASE.replace(/documents\/$/, "documents:commit"), { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify(body) });
+      return fetch(PAGOS.urlParticipar, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ premio: p.id, cantidad: qty }) });
     }).then(function (r) {
-      if (r.status === 409) throw new Error("Tu participación cambió. Refresca la página e intenta de nuevo.");
-      if (!r.ok) throw new Error("No se pudo registrar tu participación (" + r.status + "). Si sigue pasando, avisa al encargado.");
-      cuenta.perfil.creditos -= total; misParts[p.id] = (misParts[p.id] || 0) + qty;
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok || !j.ok) throw new Error(j.error || ("No se pudo registrar tu participación (" + r.status + "). Si sigue pasando, avisa al encargado."));
+        return j;
+      });
+    }).then(function (j) {
+      var total = Number(j.gastado) || 0;
+      cuenta.perfil.creditos = Number(j.saldo); misParts[p.id] = Number(j.mio) || ((misParts[p.id] || 0) + qty);
       if (ex) { ex.cantidad += qty; ex.costo = (ex.costo || 0) + total; }
       else (partes[p.id] = partes[p.id] || []).push({ uid: uid, nombre: cuenta.perfil.nombre, costo: total, cantidad: qty, creado: new Date().toISOString(), premioNombre: p.nombre });
       modal = { tipo: "ok", p: p, qty: qty, mio: misParts[p.id] }; render();

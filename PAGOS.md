@@ -88,3 +88,19 @@ guardaste textos propios, **esos siguen mandando**: revísalos. Dos reglas son b
 - En el panel de Culqi (modo prueba y luego producción): activar PagoEfectivo/QR/billeteras en tu comercio y agregar al webhook existente el evento de órdenes (`order.status.changed`). La URL es la misma de siempre (`webhookCulqi?k=…`).
 - Mismos candados que `cobrar`: interruptor del admin y bloqueo con `sk_test`.
 - Verificar en modo prueba: nombre exacto de los campos de la orden y que `state` llegue como `paid`. Si algo difiere, solo se ajusta `functions/culqi.js`.
+
+## Rifas: participar desde el servidor (`participarRifa`)
+
+Antes la página escribía en `rayas_part` y descontaba créditos desde el navegador; como `costo` lo mandaba el cliente, se podía entrar con `costo = 0`. Ahora la función `participarRifa` lee el precio real en `rayas/estado`, valida fecha, cupos y máximo por persona, y descuenta los créditos en una transacción.
+
+Orden para publicar (importante):
+1. Desplegar: `firebase deploy --only functions:rayas:participarRifa`
+2. Unir la rama y publicar la web (app.js?v=77).
+3. **Recién entonces** cambiar en Firestore → Reglas el bloque de `rayas_part` por:
+
+```
+match /rayas_part/{id} {
+  allow read: if true;
+  allow write: if isAdmin();
+}
+```
