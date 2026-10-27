@@ -215,6 +215,7 @@
       render(); return;
     }
     var fp = fase(p);
+    if (fp === "oculta") { modal = { tipo: "error", msg: "Esta rifa no está disponible por ahora." }; render(); return; }
     if (fp === "porIniciar" || fp === "proxima") { modal = { tipo: "error", msg: "Esta rifa aún no abre" + (p.inicio ? ": empieza el " + fechaHora(p.inicio) + "." : ".") }; render(); return; }
     if (fp === "vencida" || fp === "cerrada") { modal = { tipo: "error", msg: "Esta rifa ya cerró. Espera el resultado. 🍀" }; render(); return; }
     var mio = misParts[id] || 0, cupos = num(p.cupos, 0), tope = num(p.maxPorUsuario, 0);
@@ -421,6 +422,7 @@
   function tiempoDe(iso) { var t = iso ? new Date(iso).getTime() : 0; return isFinite(t) ? t : 0; }
   /* Estado real de una rifa abierta según su fecha de inicio y de cierre. */
   function fase(p) {
+    if (p.estado === "oculta") return "oculta";
     if (p.estado === "cerrada") return "cerrada";
     if (p.estado === "proxima") return "proxima";
     var ini = tiempoDe(p.inicio), fin = tiempoDe(p.cierre), ahora = Date.now();
@@ -567,14 +569,14 @@
     for (var k = 0; k < estado.premios.length; k++) if (estado.premios[k].id === id) return k;
     return -1;
   }
-  var ESTADOS = ["activa", "proxima", "cerrada"];
+  var ESTADOS = ["activa", "proxima", "cerrada", "oculta"];
   var LISTA_RAREZAS = ["", "ARCANO", "INMORTAL", "LEGENDARIO", "MÍTICO", "RARO", "POCO COMÚN", "COMÚN"];
 
   /* ================= Vista pública ================= */
   function tarjeta(p) {
     var img = imgTag(p.img, p.nombre, ' loading="lazy"');
-    var est = p.estado === "proxima" ? "proxima" : (p.estado === "cerrada" ? "cerrada" : "activa");
-    var estTxt = est === "activa" ? "Abierta" : (est === "proxima" ? "Próximamente" : "Cerrada");
+    var est = p.estado === "proxima" ? "proxima" : (p.estado === "cerrada" ? "cerrada" : (p.estado === "oculta" ? "oculta" : "activa"));
+    var estTxt = est === "activa" ? "Abierta" : (est === "proxima" ? "Próximamente" : (est === "oculta" ? "Deshabilitada" : "Cerrada"));
     var cupos = num(p.cupos, 0), part = Math.max(num(p.participantes, 0), tomados(p.id)), cred = num(p.creditos, 0);
     var partTxt = cupos > 0 ? (part + " / " + cupos + " cupos") : (part + (part === 1 ? " cupo tomado" : " cupos tomados"));
     var lleno = cupos > 0 && part >= cupos;
@@ -591,6 +593,8 @@
         : (topeOk ? '<button class="btn btn-ghost" type="button" disabled>✔ Tienes ' + mio0 + (mio0 === 1 ? ' cupo (máximo)' : ' cupos (máximo)') + '</button>'
         : (mio0 ? '<button class="btn btn-yellow" type="button" data-a="participar" data-id="' + esc(p.id) + '">✔ Tienes ' + mio0 + (mio0 === 1 ? ' cupo' : ' cupos') + ' · Comprar más</button>'
         : '<button class="btn btn-yellow" type="button" data-a="participar" data-id="' + esc(p.id) + '">' + esc(estado.textos.btnParticipar) + '</button>')));
+    } else if (est === "oculta") {
+      boton = '<button class="btn btn-ghost" type="button" disabled>🙈 Oculta para el público</button>';
     } else if (est === "proxima") {
       boton = vivo() ? lnk("btn btn-ghost", "", "btnPronto") : '<button class="btn btn-ghost" type="button" disabled>' + (fz === "porIniciar" ? "Abre pronto" : esc(estado.textos.btnPronto)) + '</button>';
     } else {
@@ -644,7 +648,7 @@
   function render() {
     var app = document.getElementById("app");
     if (!app) return;
-    var visibles = estado.premios.filter(function (p) { return p.estado !== "cerrada"; });
+    var visibles = estado.premios.filter(function (p) { return p.estado !== "cerrada" && (p.estado !== "oculta" || vivo()); });
     var cerradas = estado.premios.filter(function (p) { return p.estado === "cerrada"; });
     var linkCreditos = creditoHref();
     var T = estado.textos;
@@ -758,6 +762,7 @@
         if (x.uid !== uid) return;
         var k = buscarPremio(pid); if (k < 0) return;
         var p = estado.premios[k], gan = String(p.ganador || "").trim(), grupo;
+        if (p.estado === "oculta") return;
         if (p.estado !== "cerrada" || !gan) grupo = "curso";
         else {
           var win = p.ganadorUid ? p.ganadorUid === uid : gan.toLowerCase() === String(yo && yo.nombre || "").trim().toLowerCase();
@@ -1108,7 +1113,7 @@
   }
   function listaPremios() {
     var items = estado.premios.map(function (p, i) {
-      var est = p.estado === "proxima" ? "Próximamente" : (p.estado === "cerrada" ? "Cerrada" : "Abierta");
+      var est = p.estado === "proxima" ? "Próximamente" : (p.estado === "cerrada" ? "Cerrada" : (p.estado === "oculta" ? "Deshabilitada (oculta)" : "Abierta"));
       return '<div class="aitem"><div class="th">' + imgTag(p.img, "") + '</div>' +
         '<div class="t"><b>' + esc(p.nombre || "Premio") + '</b><span>' + est + ' · ' + num(p.creditos, 0) + ' créditos</span></div>' +
         '<div class="acts">' +
@@ -1179,7 +1184,7 @@
       '<p class="hint">Inicio: si lo dejas vacío, la rifa empieza cuando publiques. La rifa se abre y se cierra sola en esas horas.</p>' +
       '<div class="row2">' +
       '<div class="field"><label for="f-estado">Estado</label><select id="f-estado">' +
-      [['activa', 'Abierta'], ['proxima', 'Próximamente'], ['cerrada', 'Cerrada']].map(function (o) {
+      [['activa', 'Abierta'], ['proxima', 'Próximamente'], ['cerrada', 'Cerrada'], ['oculta', 'Deshabilitada (oculta)']].map(function (o) {
         return '<option value="' + o[0] + '"' + ((p.estado || "activa") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
       }).join("") + '</select></div>' +
       '<div class="field"><label for="f-cupos">Cupos (0 = sin límite)</label><input id="f-cupos" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.cupos, 0) + '"></div>' +
@@ -1234,7 +1239,7 @@
   function publicar() {
     admin.msg = "Publicando…"; admin.msgTipo = ""; render();
     estado.textos.reglas = estado.textos.reglas.filter(function (x) { return x && x.trim(); });
-    estado.premios.forEach(function (p) { if (p.estado !== "cerrada" && !p.inicio) p.inicio = new Date().toISOString(); });
+    estado.premios.forEach(function (p) { if (p.estado !== "cerrada" && p.estado !== "oculta" && !p.inicio) p.inicio = new Date().toISOString(); });
     var copia = clone(estado);
     token().then(function (tk) {
       return fetch(DOC_URL + "?updateMask.fieldPaths=json&updateMask.fieldPaths=actualizado", {

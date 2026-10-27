@@ -720,3 +720,8 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 
 /* Nunca scroll horizontal */
 html, body { overflow-x: clip; max-width: 100%; }
+
+/* Rifa deshabilitada (solo la ve el admin en modo edición) */
+.card.oculta { opacity: .55; filter: grayscale(.7) drop-shadow(0 8px 22px rgba(0,0,0,.45)); }
+.card.oculta:hover { opacity: .85; }
+.status.oculta { background: #2b2f45; color: #cfd4ee; border: 1px dashed #8a90b3; }
