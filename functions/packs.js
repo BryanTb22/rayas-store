@@ -8,7 +8,7 @@
  *    S/ 50 -> 55 créditos, S/ 100 -> 110 créditos.
  *  Cualquier otro monto entero entre MIN_SOLES y MAX_SOLES se acepta sin promo.
  */
-const MIN_SOLES = 10;
+const MIN_SOLES = 3;
 const MAX_SOLES = 500;
 
 const PACKS = {
