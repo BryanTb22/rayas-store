@@ -14,6 +14,9 @@
      Los precios de aquí son solo para mostrarlos: el cobro real usa functions/packs.js. */
   var PAGOS = {
     culqiPk: "pk_test_iK8JCBNB6dJmRlUZ",
+    // true = el pago solo aparece si la dirección lleva ?pagotest=1 (para probar en la web real sin que lo vean los clientes).
+    // Cuando pases a llaves reales (pk_live_…) y todo funcione, ponlo en false.
+    soloPrueba: true,
     url: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/cobrar",
     js: "https://checkout.culqi.com/js/v4"
   };
@@ -23,7 +26,7 @@
     { id: "p50", soles: 50, base: 50, promo: 55 },
     { id: "p100", soles: 100, base: 100, promo: 110 }
   ];
-  function pagosOn() { return !!PAGOS.culqiPk; }
+  function pagosOn() { return !!PAGOS.culqiPk && (!PAGOS.soloPrueba || /[?&]pagotest=1(&|$)/.test(location.search)); }
 
   function leerSesion() { try { return JSON.parse(localStorage.getItem(SES_KEY) || "null"); } catch (e) { return null; } }
   function guardarSesion(s) { try { if (s) localStorage.setItem(SES_KEY, JSON.stringify(s)); else localStorage.removeItem(SES_KEY); } catch (e) { /* sin almacenamiento */ } }
