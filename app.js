@@ -17,6 +17,7 @@
     // true = el pago solo aparece si la dirección lleva ?pagotest=1 (para probar en la web real sin que lo vean los clientes).
     // Cuando pases a llaves reales (pk_live_…) y todo funcione, ponlo en false.
     soloPrueba: true,
+    min: 10, max: 500,   // monto libre (solo para mostrar; el servidor valida lo mismo en functions/packs.js)
     url: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/cobrar",
     js: "https://checkout.culqi.com/js/v4"
   };
@@ -234,13 +235,21 @@
   function waLink(texto) { var c = contactos()[0]; return c ? waLinkA(c.numero, texto) : ""; }
   function msgCred(p) {
     var T = estado.textos;
-    return p ? String(T.msgCredPerfil).replace(/\{nombre\}/g, p.nombre).replace(/\{correo\}/g, p.email) : String(T.msgCredVisita);
+    var base = p ? String(T.msgCredPerfil).replace(/\{nombre\}/g, p.nombre).replace(/\{correo\}/g, p.email) : String(T.msgCredVisita);
+    if (montoWsp > 0 && p) base += "\n\n💰 Quiero recargar *S/ " + montoWsp + "* (" + creditosPara(montoWsp) + " créditos).";
+    return base;
   }
   function creditoHref() {
     var a = contactos();
     return a.length > 1 ? "#elegir" : (a.length === 1 ? waLinkA(a[0].numero, msgCred(cuenta.perfil)) : "");
   }
   var elegirAbierto = false, modal = null, partes = {}, misParts = {};
+  var montoWsp = 0;   // monto elegido para pedir por WhatsApp (0 = ninguno)
+  // Créditos que recibe por un monto (solo para mostrar; el servidor calcula el real).
+  function creditosPara(soles) {
+    var pk = PACKS_UI.filter(function (x) { return x.soles === soles; })[0];
+    return (pk && pk.promo && cuenta.perfil && !cuenta.perfil.promoUsada) ? pk.promo : soles;
+  }
   function cargarParts(tok) {
     var acc = {}, uid = uidSesion();
     function pag(t) {
@@ -326,26 +335,26 @@
     }
     modal = { tipo: "recarga" }; render();
   }
-  function iniciarPago(packId) {
-    var pk = PACKS_UI.filter(function (x) { return x.id === packId; })[0];
-    if (!pk || !cuenta.perfil) return;
+  function iniciarPago(soles) {
+    soles = Number(soles);
+    if (!cuenta.perfil || !(soles >= PAGOS.min && soles <= PAGOS.max) || Math.floor(soles) !== soles) return;
     modal = { tipo: "cargando" }; render();
     cargarCulqi().then(function () {
       var C = window.Culqi;
       window.culqi = function () {   // Culqi llama a esta función cuando termina el pago en su ventana
-        if (C.token && C.token.id) { var tid = C.token.id; try { C.close(); } catch (e) { /* ya cerrada */ } cobrarToken(pk, tid); }
+        if (C.token && C.token.id) { var tid = C.token.id; try { C.close(); } catch (e) { /* ya cerrada */ } cobrarToken(soles, tid); }
         else { modal = { tipo: "error", msg: (C.error && (C.error.user_message || C.error.merchant_message)) || "No se pudo procesar el pago." }; render(); }
       };
       C.publicKey = PAGOS.culqiPk;
-      C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de créditos", amount: pk.soles * 100 });
+      C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de créditos", amount: soles * 100 });
       C.options({ lang: "es", installments: false, paymentMethods: { tarjeta: true, yape: true, billetera: false, bancaMovil: false, agente: false, cuotealo: false } });
       modal = null; render(); C.open();
     }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo abrir el pago." }; render(); });
   }
-  function cobrarToken(pk, tokenId) {
+  function cobrarToken(soles, tokenId) {
     modal = { tipo: "cargando" }; render();
     token().then(function (tk) {
-      return fetch(PAGOS.url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ packId: pk.id, tokenId: tokenId }) });
+      return fetch(PAGOS.url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ soles: soles, tokenId: tokenId }) });
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
     }).then(function (x) {
@@ -370,15 +379,25 @@
       btns = (pagosOn() ? '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar con Yape o tarjeta</button>' : '') +
         (rl ? '<a class="btn btn-yellow" href="' + esc(rl) + '"' + (rl === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>💎 ' + (pagosOn() ? 'Pedir por WhatsApp' : 'Recargar créditos') + '</a>' : '') + cerrar;
     } else if (m.tipo === "recarga") {
-      var primera = c && !c.promoUsada;
-      h = '<h3>Recargar créditos 💎</h3><p class="hint">S/ 1 = 1 crédito. Paga con <b>Yape</b> o tarjeta.' + (primera ? ' <b>¡Tu primera recarga trae créditos extra!</b>' : '') + '</p>' +
+      var primera = !!(c && !c.promoUsada), sel = m.sel || 0, cred = sel ? creditosPara(sel) : 0;
+      h = '<h3>Recargar créditos 💎</h3>' +
+        (primera ? '<div class="promo-banner"><b>🎁 PROMO PRIMERA RECARGA</b><span>S/ 50 → <b>55</b> créditos · S/ 100 → <b>110</b> créditos</span></div>' : '') +
+        '<p class="hint"><b>1.</b> Elige cuánto quieres recargar (S/ 1 = 1 crédito)</p>' +
         '<div class="packs">' + PACKS_UI.map(function (pk) {
           var extra = primera && pk.promo ? pk.promo : 0;
-          return '<button class="btn ' + (extra ? 'btn-fuchsia' : 'btn-yellow') + ' pack" type="button" data-a="pack" data-id="' + pk.id + '">' +
-            '<b>S/ ' + pk.soles + '</b><span>' + (extra ? extra + ' créditos <small>(+' + (extra - pk.base) + ' de regalo)</small>' : pk.base + ' créditos') + '</span></button>';
-        }).join("") + '</div>';
-      h += '<p class="hint" style="font-size:.78rem;opacity:.8">Pagos seguros con Culqi. Al pagar aceptas las reglas: los créditos usados en una rifa no se devuelven. ¿Problemas con tu recarga? Escríbenos por WhatsApp.</p>';
-      btns = cerrar;
+          return '<button class="btn ' + (extra ? 'btn-fuchsia' : 'btn-yellow') + ' pack' + (sel === pk.soles ? ' sel' : '') + '" type="button" data-a="monto" data-s="' + pk.soles + '" aria-pressed="' + (sel === pk.soles) + '">' +
+            (extra ? '<i class="tag">🎁 +' + (extra - pk.base) + ' GRATIS</i>' : '') +
+            '<b>S/ ' + pk.soles + '</b><span>' + (extra || pk.base) + ' créditos</span></button>';
+        }).join("") + '</div>' +
+        '<div class="otro"><label for="monto-otro">Otro monto (S/ ' + PAGOS.min + ' a S/ ' + PAGOS.max + ')</label>' +
+        '<div class="otrorow"><input id="monto-otro" type="number" inputmode="numeric" min="' + PAGOS.min + '" max="' + PAGOS.max + '" step="1" placeholder="Ej. 30" value="' + esc(m.otro || "") + '">' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-a="montoOtro">Usar</button></div></div>' +
+        (m.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(m.err) + '</p>' : '') +
+        (sel ? '<p class="resumen">Pagas <b>S/ ' + sel + '</b> y recibes <b>' + cred + ' créditos</b>' + (cred > sel ? ' 🎁' : '') + '</p>' +
+          '<p class="hint"><b>2.</b> Elige cómo quieres pagar</p>' : '');
+      btns = (sel ? '<button class="btn btn-fuchsia" type="button" data-a="pagarCulqi">💳 Yape o tarjeta · al instante</button>' +
+        '<button class="btn btn-yellow" type="button" data-a="recargaWsp">💬 Pagar por WhatsApp</button>' : '') +
+        '<p class="hint" style="font-size:.78rem;opacity:.8">Yape/tarjeta: pago seguro con Culqi, tus créditos se suman solos. WhatsApp: te atiende el encargado y los carga él. Los créditos usados en una rifa no se devuelven.</p>' + cerrar;
     } else if (m.tipo === "recargaOk") {
       h = '<h3>¡Recarga lista! 🎉</h3><p class="hint">Se sumaron <b>' + m.creditos + '</b> créditos' + (m.promo ? ' (incluye tu regalo de primera recarga 🎁)' : '') + '. Ahora tienes <b>' + (c ? c.creditos : 0) + '</b>.</p>';
       btns = '<button class="btn btn-yellow" type="button" data-a="cerrarModal">Ver rifas</button>';
@@ -1431,11 +1450,26 @@
       case "quitarPartSi": quitarParticipacion(t.getAttribute("data-id"), t.getAttribute("data-uid"), t.getAttribute("data-dev") === "1"); break;
       case "participar": iniciarParticipar(t.getAttribute("data-id")); break;
       case "recargar": abrirRecarga(); break;
-      case "pack": iniciarPago(t.getAttribute("data-id")); break;
+      case "monto": if (modal && modal.tipo === "recarga") { modal.sel = Number(t.getAttribute("data-s")); modal.err = ""; render(); } break;
+      case "montoOtro":
+        if (modal && modal.tipo === "recarga") {
+          var inp = document.getElementById("monto-otro"), v = inp ? Number(inp.value) : NaN;
+          modal.otro = inp ? inp.value : "";
+          if (!isFinite(v) || Math.floor(v) !== v || v < PAGOS.min || v > PAGOS.max) { modal.err = "Escribe un monto entero entre S/ " + PAGOS.min + " y S/ " + PAGOS.max + "."; modal.sel = 0; }
+          else { modal.err = ""; modal.sel = v; }
+          render();
+        } break;
+      case "pagarCulqi": if (modal && modal.tipo === "recarga" && modal.sel) iniciarPago(modal.sel); break;
+      case "recargaWsp":
+        if (modal && modal.tipo === "recarga" && modal.sel) {
+          montoWsp = modal.sel; var hw = creditoHref();
+          if (hw === "#elegir") { modal = null; elegirAbierto = true; render(); }
+          else { montoWsp = 0; if (hw) window.open(hw, "_blank", "noopener"); }
+        } break;
       case "confirmarPart": confirmarPart(); break;
       case "qtyMas": if (modal && modal.tipo === "confirmar" && modal.qty < modal.max) { modal.qty++; render(); } break;
       case "qtyMenos": if (modal && modal.tipo === "confirmar" && modal.qty > 1) { modal.qty--; render(); } break;
-      case "cerrarModal": modal = null; render(); break;
+      case "cerrarModal": modal = null; montoWsp = 0; render(); break;
       case "sortear": abrirRuleta(t.getAttribute("data-id")); break;
       case "ruletaGirar": ruletaGirar(); break;
       case "ruletaOtra": if (ruleta) { ruleta.fin = false; ruleta.run = false; render(); } break;
@@ -1444,7 +1478,7 @@
       case "repeticion": abrirRepeticion(t.getAttribute("data-id")); break;
       case "olvide": ev.preventDefault(); recuperarClave(); break;
       case "elegir": ev.preventDefault(); modal = null; elegirAbierto = true; render(); break;
-      case "cerrarElegir": elegirAbierto = false; render(); break;
+      case "cerrarElegir": elegirAbierto = false; montoWsp = 0; render(); break;
       case "editContactos": admin.abierto = true; admin.tab = "pagina"; render(); break;
       case "quitarGan": var kg = buscarPremio(t.getAttribute("data-id")); if (kg >= 0) { estado.premios[kg].ganador = ""; estado.premios[kg].ganadorUid = ""; estado.premios[kg].resultado = ""; delete estado.premios[kg].replay; marcarSucio(); render(); } break;
       case "quitarFoto": estado.contactos[i].foto = ""; marcarSucio(); render(); break;

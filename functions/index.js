@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
-const { PACKS } = require("./packs");
+const { packPorSoles } = require("./packs");
 const culqi = require("./culqi");
 
 admin.initializeApp();
@@ -68,7 +68,7 @@ exports.cobrar = onRequest(
     if (!uid) return res.status(401).json({ error: "Inicia sesión para recargar." });
 
     const body = req.body || {};
-    const pack = PACKS[String(body.packId || "")];
+    const pack = packPorSoles(body.soles);
     const tokenId = String(body.tokenId || "");
     if (!pack || !/^[\w-]{8,120}$/.test(tokenId)) return res.status(400).json({ error: "Datos de pago inválidos." });
 
