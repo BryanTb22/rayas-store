@@ -22,7 +22,7 @@ async function uidDeLaPeticion(req) {
   try { return (await admin.auth().verifyIdToken(h.slice(7))).uid; } catch (e) { return null; }
 }
 function igual(a, b) {
-  const x = Buffer.from(String(a)), y = Buffer.from(String(b));
+  const x = Buffer.from(String(a).trim()), y = Buffer.from(String(b).trim());
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 

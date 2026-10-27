@@ -13,7 +13,7 @@ const API = "https://api.culqi.com/v2";
 async function llamar(secretKey, metodo, ruta, cuerpo) {
   const r = await fetch(API + ruta, {
     method: metodo,
-    headers: { Authorization: "Bearer " + secretKey, "Content-Type": "application/json" },
+    headers: { Authorization: "Bearer " + String(secretKey).trim(), "Content-Type": "application/json" },
     body: cuerpo ? JSON.stringify(cuerpo) : undefined,
     signal: AbortSignal.timeout(25000)
   });
