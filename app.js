@@ -454,13 +454,14 @@
       var link = waLink("Hola, soy " + (p ? p.nombre + " (" + p.email + ")" : "") + ". Quiero créditos para las rifas de Rayas Store.");
       cuerpo = '<div class="drawer-body">' + (p
         ? '<div class="saldo frame gold"><div class="in"><small>Tus créditos</small><b>' + p.creditos + '</b></div></div>' +
-          '<div class="grp"><h3>' + esc(p.nombre) + '</h3>' +
-          '<p class="hint">WhatsApp: ' + esc(p.whatsapp) + '<br>Correo: ' + esc(p.email) + '</p></div>' +
-          '<form class="grp" id="formTrade"><h3>Trade link</h3>' +
+          '<form class="grp" id="formTrade"><h3>Mis datos</h3>' +
+          '<div class="field"><label for="p-nombre">Nombre o apodo</label><input id="p-nombre" maxlength="40" required value="' + esc(p.nombre) + '"></div>' +
+          '<div class="field"><label for="p-wa">WhatsApp</label><input id="p-wa" inputmode="tel" maxlength="30" required value="' + esc(p.whatsapp) + '"></div>' +
+          '<div class="field"><label for="p-email">Correo</label><input id="p-email" value="' + esc(p.email) + '" disabled></div>' +
           '<div class="field"><label for="p-trade">Link de intercambio de Steam</label><input id="p-trade" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(p.tradelink) + '"></div>' +
           (p.tradelink ? '' : '<p class="hint" style="color:var(--fuchsia)">Sin trade link no podemos enviarte el item si ganas.</p>') +
           '<p class="hint">' + TRADE_AYUDA + '</p>' +
-          '<div><button class="btn btn-yellow btn-sm" type="submit">Guardar trade link</button></div>' +
+          '<div><button class="btn btn-yellow btn-sm" type="submit">Guardar cambios</button></div>' +
           '<p class="hint" role="status" id="tradeMsg"></p></form>' +
           '<div class="grp"><p class="hint">Para recibir créditos, escribe al encargado. Él los carga en tu cuenta.</p>' +
           (link ? '<a class="btn btn-yellow" href="' + esc(link) + '" target="_blank" rel="noopener">Pedir créditos por WhatsApp</a>' : '') + '</div>'
@@ -815,14 +816,16 @@
     } else if (ev.target.id === "formTrade") {
       ev.preventDefault();
       var inp = document.getElementById("p-trade"), msgEl = document.getElementById("tradeMsg"), val = inp.value.trim();
+      var nom = document.getElementById("p-nombre").value.trim(), wa = document.getElementById("p-wa").value.trim();
+      if (!nom || !wa) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "Nombre y WhatsApp no pueden quedar vacíos."; return; }
       if (!tradeValido(val)) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "Ese link no parece un trade link de Steam. Cópialo completo."; return; }
       msgEl.style.color = ""; msgEl.textContent = "Guardando…";
-      fsPedir("rayas_users/" + encodeURIComponent(uidSesion()) + "?updateMask.fieldPaths=tradelink&currentDocument.exists=true", {
-        method: "PATCH", body: JSON.stringify({ fields: { tradelink: { stringValue: val } } })
+      fsPedir("rayas_users/" + encodeURIComponent(uidSesion()) + "?updateMask.fieldPaths=nombre&updateMask.fieldPaths=whatsapp&updateMask.fieldPaths=tradelink&currentDocument.exists=true", {
+        method: "PATCH", body: JSON.stringify({ fields: { nombre: { stringValue: nom }, whatsapp: { stringValue: wa }, tradelink: { stringValue: val } } })
       }).then(function (r) {
         if (!r.ok) throw new Error("Error " + r.status);
-        if (cuenta.perfil) cuenta.perfil.tradelink = val;
-        render(); var m2 = document.getElementById("tradeMsg"); if (m2) { m2.style.color = "var(--ok)"; m2.textContent = "✔ Trade link guardado."; }
+        if (cuenta.perfil) { cuenta.perfil.nombre = nom; cuenta.perfil.whatsapp = wa; cuenta.perfil.tradelink = val; }
+        render(); var m2 = document.getElementById("tradeMsg"); if (m2) { m2.style.color = "var(--ok)"; m2.textContent = "✔ Cambios guardados."; }
       }).catch(function (e) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "No se pudo guardar (" + e.message + ")."; });
     } else if (ev.target.id === "formRegistro") {
       ev.preventDefault();
