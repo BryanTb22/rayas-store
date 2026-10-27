@@ -725,3 +725,15 @@ html, body { overflow-x: clip; max-width: 100%; }
 .card.oculta { opacity: .55; filter: grayscale(.7) drop-shadow(0 8px 22px rgba(0,0,0,.45)); }
 .card.oculta:hover { opacity: .85; }
 .status.oculta { background: #2b2f45; color: #cfd4ee; border: 1px dashed #8a90b3; }
+
+/* Mensaje destacado bajo "Rifas activas" */
+#rifas .sec-title > p { display: inline-flex; align-items: center; gap: 12px; margin: 14px auto 0; max-width: 92%;
+  padding: 12px 30px; border-radius: 999px; font-family: var(--num); font-weight: 600; text-transform: uppercase; letter-spacing: .1em;
+  font-size: clamp(20px, 3.4vw, 30px); line-height: 1.1; color: var(--on-yellow);
+  background: linear-gradient(180deg, #fff3b8, var(--yellow) 55%, #d49a14);
+  border: 2px solid #fff3b8; box-shadow: 0 0 0 4px rgba(255, 201, 60, .18), 0 10px 30px rgba(255, 201, 60, .35), inset 0 -3px 0 rgba(0, 0, 0, .18);
+  animation: avisoPulso 2.4s ease-in-out infinite; position: relative; }
+#rifas .sec-title > p::before { content: "🪙"; font-size: 1.15em; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .35)); }
+@keyframes avisoPulso { 0%, 100% { box-shadow: 0 0 0 4px rgba(255, 201, 60, .18), 0 10px 30px rgba(255, 201, 60, .35), inset 0 -3px 0 rgba(0, 0, 0, .18); } 50% { box-shadow: 0 0 0 9px rgba(255, 201, 60, .08), 0 10px 40px rgba(255, 201, 60, .6), inset 0 -3px 0 rgba(0, 0, 0, .18); } }
+@media (prefers-reduced-motion: reduce) { #rifas .sec-title > p { animation: none; } }
+#rifas .sec-title > p { border-radius: 26px; max-width: min(92%, 760px); text-align: center; justify-content: center; }
