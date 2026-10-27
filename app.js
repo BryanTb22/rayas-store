@@ -154,10 +154,13 @@
 
   function contactos() { return (estado.contactos || []).filter(function (c) { return c.activo && soloDigitos(c.numero); }); }
   var MOVIL = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  /* La app de WhatsApp para Windows daña los emojis que vienen en el enlace, así que en PC se envía sin emojis. */
+  function sinEmojis(t) {
+    return String(t).replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "")
+      .replace(/\( +/g, "(").replace(/[ \t]+/g, " ").replace(/^ +| +$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+  }
   function waLinkA(n, texto) {
-    n = soloDigitos(n); var e = encodeURIComponent(texto);
-    /* En PC se abre WhatsApp Web directo: el redirect de wa.me daña los emojis. */
-    return MOVIL ? "https://wa.me/" + n + "?text=" + e : "https://web.whatsapp.com/send?phone=" + n + "&text=" + e;
+    return "https://wa.me/" + soloDigitos(n) + "?text=" + encodeURIComponent(MOVIL ? texto : sinEmojis(texto));
   }
   function waLink(texto) { var c = contactos()[0]; return c ? waLinkA(c.numero, texto) : ""; }
   function msgCred(p) {
