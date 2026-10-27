@@ -696,3 +696,24 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 #ganadores .winner .thumb::after { content: ""; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(115deg, transparent 40%, rgba(255,240,170,.4) 50%, transparent 60%); transform: translateX(-130%); animation: btnShine 4.5s ease-in-out infinite; }
 .winner.frame { overflow: hidden; }
+
+/* ===== Tamaño intermedio de las tarjetas de rifas (que no ocupen toda la pantalla) ===== */
+#rifas .wrap { max-width: 1200px; }
+#rifas .grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 340px)); gap: 28px; }
+#rifas .card .pic { aspect-ratio: 4 / 3; }
+#rifas .card h3 { font-size: 24px; }
+#rifas .card .desc { font-size: 15px; }
+#rifas .card .body { padding: 18px 20px 20px; gap: 11px; }
+#rifas .rarity { font-size: 12px; }
+#rifas .cost b { font-size: 50px; }
+#rifas .cost small { font-size: 12px; }
+#rifas .pill { font-size: 13px; }
+#rifas .timer { font-size: 26px; }
+#rifas .pill.fechas { font-size: 12px; }
+#rifas .cbar { height: 10px; }
+#rifas .card .btn { padding-block: 15px; font-size: 15px; }
+#rifas .status { font-size: 12px; padding: 6px 12px; }
+#ganadores .winners { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 420px)); gap: 24px; }
+#ganadores .winner .thumb { width: 104px; height: 104px; }
+#ganadores .winner .who b { font-size: 28px; }
+#ganadores .winner .who span { font-size: 15px; }
