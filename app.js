@@ -31,6 +31,39 @@
       guardarSesion(s); return s;
     });
   }
+
+  /* ================= Entrar con Google ================= */
+  var GOOGLE_CLIENT_ID = "";
+  function loginGoogle(cred) {
+    return fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=" + encodeURIComponent(FB.apiKey), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ postBody: "id_token=" + cred + "&providerId=google.com", requestUri: location.origin, returnIdpCredential: true, returnSecureToken: true })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.idToken) throw new Error((j.error && j.error.message) || "LOGIN_FAILED");
+      var s = { id: j.idToken, ref: j.refreshToken, exp: Date.now() + (Number(j.expiresIn) || 3600) * 1000 - 60000, email: j.email, uid: j.localId };
+      guardarSesion(s); return s;
+    });
+  }
+  var gsiCarga = null;
+  function montarGoogle() {
+    var el = document.getElementById("g-btn");
+    if (!el || !GOOGLE_CLIENT_ID) return;
+    if (!gsiCarga) gsiCarga = new Promise(function (ok, no) {
+      var sc = document.createElement("script"); sc.src = "https://accounts.google.com/gsi/client"; sc.async = true;
+      sc.onload = ok; sc.onerror = function () { gsiCarga = null; no(); }; document.head.appendChild(sc);
+    });
+    gsiCarga.then(function () {
+      var el2 = document.getElementById("g-btn"); if (!el2 || !window.google) return;
+      window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: function (resp) {
+        cuenta.msg = "Entrando con Google…"; cuenta.msgTipo = ""; render();
+        loginGoogle(resp.credential).then(trasEntrar).catch(function (e) {
+          cuenta.msg = "No se pudo entrar con Google (" + ((e && e.message) || "error") + ")."; cuenta.msgTipo = "err"; render();
+        });
+      } });
+      window.google.accounts.id.renderButton(el2, { theme: "filled_black", size: "large", shape: "pill", text: "continue_with", locale: "es", width: 280 });
+    }).catch(function () { /* sin conexión con Google */ });
+  }
+  function btnGoogle() { return GOOGLE_CLIENT_ID ? '<div class="gsep"><span>o</span></div><div id="g-btn" class="gbtn"></div>' : ""; }
   function crearPerfil(ses, d) {
     return fsPedir("rayas_users/" + encodeURIComponent(ses.uid) + "?currentDocument.exists=false", {
       method: "PATCH",
@@ -735,6 +768,7 @@
     var scrollDrawer = document.querySelector(".drawer-body");
     var top = scrollDrawer ? scrollDrawer.scrollTop : 0;
     app.innerHTML = html;
+    montarGoogle();
     if (ruleta) { ruletaDibujar(ruleta.fin ? ruleta.rot : 0, 0); if (ruleta.fin) ruletaBrillo(); }
     document.body.classList.toggle("vivo", vivo());
     hidratarImgs();
@@ -794,7 +828,7 @@
     var msg = '<p class="hint" role="status"' + (cuenta.msgTipo === "err" ? ' style="color:var(--danger)"' : (cuenta.msgTipo === "ok" ? ' style="color:var(--ok)"' : '')) + '>' + esc(cuenta.msg) + '</p>';
     if (m === "registro") {
       titulo = "Crear cuenta";
-      cuerpo = '<form class="drawer-body form" id="formRegistro">' +
+      cuerpo = '<form class="drawer-body form" id="formRegistro">' + btnGoogle() +
         '<p class="hint">Crea tu cuenta para recibir créditos y participar en las rifas.</p>' +
         '<div class="field"><label for="r-nombre">Nombre o apodo</label><input id="r-nombre" maxlength="40" required autocomplete="nickname"></div>' +
         '<div class="field"><label for="r-trade">Link de intercambio de Steam (trade link)</label><input id="r-trade" inputmode="url" required placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…">' +
@@ -839,7 +873,7 @@
         '<div class="grp"><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div></div>';
     } else {
       titulo = "Entrar";
-      cuerpo = '<form class="drawer-body form" id="formLogin">' +
+      cuerpo = '<form class="drawer-body form" id="formLogin">' + btnGoogle() +
         '<div class="field"><label for="l-email">Correo</label><input id="l-email" type="email" autocomplete="username" required></div>' +
         '<div class="field"><label for="l-pass">Contraseña</label><input id="l-pass" type="password" autocomplete="current-password" required></div>' +
         '<button class="btn btn-yellow" type="submit">Entrar</button>' + msg +
@@ -1179,8 +1213,9 @@
       '<div class="field"><label for="f-desc">Descripción (opcional)</label><textarea id="f-desc" maxlength="240">' + esc(p.descripcion) + '</textarea></div>' +
       '<div class="row2">' +
       '<div class="field"><label for="f-inicio">Fecha y hora de inicio</label><input id="f-inicio" type="datetime-local" value="' + esc(aLocalInput(p.inicio)) + '"></div>' +
-      '<div class="field"><label for="f-cierre">Fecha y hora de cierre</label><input id="f-cierre" type="datetime-local" value="' + esc(aLocalInput(p.cierre)) + '"></div>' +
+      '<div class="field"><label for="f-cierre">Fecha y hora de cierre</label><input id="f-cierre" type="datetime-local"' + (p.cierre ? '' : ' disabled') + ' value="' + esc(aLocalInput(p.cierre)) + '"></div>' +
       '</div>' +
+      '<label class="chk"><input type="checkbox" id="f-hasta"' + (p.cierre ? '' : ' checked') + '> Sin fecha: cerrar solo cuando se agoten los cupos</label>' +
       '<p class="hint">Inicio: si lo dejas vacío, la rifa empieza cuando publiques. La rifa se abre y se cierra sola en esas horas.</p>' +
       '<div class="row2">' +
       '<div class="field"><label for="f-estado">Estado</label><select id="f-estado">' +
@@ -1211,7 +1246,9 @@
     if (v("f-desc") !== null) p.descripcion = v("f-desc").trim();
     if (v("f-estado") !== null) p.estado = v("f-estado");
     if (v("f-inicio") !== null) { var ci = v("f-inicio"); var di = ci ? new Date(ci) : null; p.inicio = di && isFinite(di.getTime()) ? di.toISOString() : ""; }
-    if (v("f-cierre") !== null) { var c = v("f-cierre"); var d = c ? new Date(c) : null; p.cierre = d && isFinite(d.getTime()) ? d.toISOString() : ""; }
+    var hastaEl = document.getElementById("f-hasta");
+    if (hastaEl && hastaEl.checked) p.cierre = "";
+    else if (v("f-cierre") !== null) { var c = v("f-cierre"); var d = c ? new Date(c) : null; p.cierre = d && isFinite(d.getTime()) ? d.toISOString() : ""; }
     if (v("f-part") !== null) p.participantes = num(v("f-part"), 0);
     if (v("f-max") !== null) p.maxPorUsuario = num(v("f-max"), 0);
     if (v("f-cupos") !== null) { p.cupos = num(v("f-cupos"), 0); var tk = tomados(p.id); if (p.cupos > 0 && p.cupos < tk) { p.cupos = tk; admin.msg = "Ya hay " + tk + " cupos tomados; el límite no puede ser menor."; admin.msgTipo = "err"; } }
@@ -1412,6 +1449,7 @@
   });
   // Al salir de un campo de texto de la página, refresca la vista previa.
   document.addEventListener("change", function (ev) {
+    if (ev.target.id === "f-hasta") { var fc = document.getElementById("f-cierre"); if (fc) { fc.disabled = ev.target.checked; if (ev.target.checked) fc.value = ""; } return; }
     if (ev.target.classList && ev.target.classList.contains("credset")) { guardarCreditos(ev.target.getAttribute("data-uid"), num(ev.target.value, 0)); return; }
     if (ev.target.classList && ev.target.classList.contains("upfile") && ev.target.files && ev.target.files[0]) {
       var pid = ev.target.getAttribute("data-id");

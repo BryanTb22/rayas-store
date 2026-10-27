@@ -737,3 +737,6 @@ html, body { overflow-x: clip; max-width: 100%; }
 @keyframes avisoPulso { 0%, 100% { box-shadow: 0 0 0 4px rgba(255, 201, 60, .18), 0 10px 30px rgba(255, 201, 60, .35), inset 0 -3px 0 rgba(0, 0, 0, .18); } 50% { box-shadow: 0 0 0 9px rgba(255, 201, 60, .08), 0 10px 40px rgba(255, 201, 60, .6), inset 0 -3px 0 rgba(0, 0, 0, .18); } }
 @media (prefers-reduced-motion: reduce) { #rifas .sec-title > p { animation: none; } }
 #rifas .sec-title > p { border-radius: 26px; max-width: min(92%, 760px); text-align: center; justify-content: center; }
+.gsep { display: flex; align-items: center; gap: 10px; margin: 14px 0 10px; color: var(--muted, #888); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; }
+.gsep::before, .gsep::after { content: ""; flex: 1; height: 1px; background: var(--line, #444); }
+.gbtn { display: flex; justify-content: center; min-height: 44px; }
