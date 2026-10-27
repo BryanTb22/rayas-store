@@ -164,7 +164,76 @@
     var a = contactos();
     return a.length > 1 ? "#elegir" : (a.length === 1 ? waLinkA(a[0].numero, msgCred(cuenta.perfil)) : "");
   }
-  var elegirAbierto = false;
+  var elegirAbierto = false, modal = null, partes = {}, misParts = {};
+  function cargarParts(tok) {
+    var acc = {}, uid = uidSesion();
+    function pag(t) {
+      return fetch(BASE + "rayas_part?pageSize=300" + (t ? "&pageToken=" + encodeURIComponent(t) : "")).then(function (r) { return r.ok ? r.json() : { documents: [] }; }).then(function (j) {
+        (j.documents || []).forEach(function (d) {
+          var f = d.fields || {}, pid = f.premio && f.premio.stringValue;
+          if (!pid) return;
+          (acc[pid] = acc[pid] || []).push({ uid: f.uid && f.uid.stringValue || "", nombre: f.nombre && f.nombre.stringValue || "", costo: Number(f.costo && f.costo.integerValue || 0) });
+        });
+        return j.nextPageToken && Object.keys(acc).length < 1000 ? pag(j.nextPageToken) : null;
+      });
+    }
+    return pag("").then(function () {
+      partes = acc; misParts = {};
+      Object.keys(acc).forEach(function (pid) { if (uid && acc[pid].some(function (x) { return x.uid === uid; })) misParts[pid] = true; });
+      render();
+    }).catch(function () { /* sin conteo */ });
+  }
+  function iniciarParticipar(id) {
+    var k = buscarPremio(id); if (k < 0) return;
+    var p = estado.premios[k], cost = num(p.creditos, 0), info = { id: p.id, nombre: p.nombre, cred: cost };
+    if (admin.puede) { modal = { tipo: "error", msg: "Estás con la cuenta de administrador. Para participar entra con una cuenta de usuario." }; render(); return; }
+    if (!cuenta.perfil) {
+      if (leerSesion()) { modal = { tipo: "error", msg: "Estamos cargando tu cuenta. Intenta de nuevo en un momento." }; cargarPerfil(); }
+      else { cuenta.modo = "registro"; cuenta.msg = "Para participar primero crea una cuenta en la página."; cuenta.msgTipo = "err"; }
+      render(); return;
+    }
+    if (misParts[id]) { modal = { tipo: "error", msg: "Ya estás participando en esta rifa. 🍀" }; render(); return; }
+    modal = { tipo: cuenta.perfil.creditos < cost ? "sinSaldo" : "confirmar", p: info }; render();
+  }
+  function confirmarPart() {
+    var m = modal; if (!m || !m.p || !cuenta.perfil) return;
+    var p = m.p, uid = uidSesion(), base = "projects/" + FB.projectId + "/databases/(default)/documents/";
+    modal = { tipo: "cargando" }; render();
+    var body = { writes: [
+      { update: { name: base + "rayas_part/" + p.id + "_" + uid, fields: { uid: { stringValue: uid }, nombre: { stringValue: cuenta.perfil.nombre }, premio: { stringValue: p.id }, premioNombre: { stringValue: p.nombre }, costo: { integerValue: String(p.cred) }, creado: { timestampValue: new Date().toISOString() } } }, currentDocument: { exists: false } },
+      { transform: { document: base + "rayas_users/" + uid, fieldTransforms: [{ fieldPath: "creditos", increment: { integerValue: String(-p.cred) } }] } }
+    ] };
+    token().then(function (tk) {
+      return fetch(BASE.replace(/documents\/$/, "documents:commit"), { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify(body) });
+    }).then(function (r) {
+      if (r.status === 409) throw new Error("Ya estás participando en esta rifa.");
+      if (!r.ok) throw new Error("No se pudo registrar tu participación (" + r.status + "). Si sigue pasando, avisa al encargado.");
+      cuenta.perfil.creditos -= p.cred; misParts[p.id] = true;
+      (partes[p.id] = partes[p.id] || []).push({ uid: uid, nombre: cuenta.perfil.nombre, costo: p.cred });
+      modal = { tipo: "ok", p: p }; render();
+    }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo participar." }; render(); });
+  }
+  function modalAviso() {
+    var m = modal, c = cuenta.perfil, h = "", btns = "";
+    var cerrar = '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>';
+    if (m.tipo === "sinSaldo") {
+      var rl = creditoHref();
+      h = '<h3>Créditos insuficientes 😕</h3><p class="hint">La rifa de <b>' + esc(m.p.nombre) + '</b> cuesta <b>' + m.p.cred + '</b> créditos y tú tienes <b>' + (c ? c.creditos : 0) + '</b>. Recarga créditos para poder participar.</p>';
+      btns = (rl ? '<a class="btn btn-yellow" href="' + esc(rl) + '"' + (rl === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>💎 Recargar créditos</a>' : '') + cerrar;
+    } else if (m.tipo === "confirmar") {
+      h = '<h3>¿Entrar a la rifa? 🎟️</h3><p class="hint">Vas a usar <b>' + m.p.cred + '</b> créditos para participar por <b>' + esc(m.p.nombre) + '</b>. Te quedarán <b>' + (c.creditos - m.p.cred) + '</b>.</p>';
+      btns = '<button class="btn btn-yellow" type="button" data-a="confirmarPart">✔ Confirmar</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cancelar</button>';
+    } else if (m.tipo === "cargando") {
+      h = '<h3>Procesando…</h3><p class="hint">Un momento por favor.</p>';
+    } else if (m.tipo === "ok") {
+      h = '<h3>¡Ya estás participando! 🎉</h3><p class="hint">Entraste a la rifa de <b>' + esc(m.p.nombre) + '</b>. Te quedan <b>' + (c ? c.creditos : 0) + '</b> créditos. ¡Mucha suerte! 🍀🏆</p>';
+      btns = cerrar;
+    } else {
+      h = '<h3>Ups 😕</h3><p class="hint">' + esc(m.msg || "No se pudo completar.") + '</p>';
+      btns = cerrar;
+    }
+    return '<div class="scrim scrim-top" data-a="' + (m.tipo === "cargando" ? "" : "cerrarModal") + '"></div><div class="elegir" role="dialog" aria-label="Participar">' + h + '<div class="mbtns">' + btns + '</div></div>';
+  }
   function avatar(c) {
     var im = imgTag(c.foto, c.nombre, "");
     return '<span class="avatar">' + (im || esc((c.nombre || "?").charAt(0).toUpperCase())) + '</span>';
@@ -300,19 +369,15 @@
     var img = imgTag(p.img, p.nombre, ' loading="lazy"');
     var est = p.estado === "proxima" ? "proxima" : (p.estado === "cerrada" ? "cerrada" : "activa");
     var estTxt = est === "activa" ? "Abierta" : (est === "proxima" ? "Próximamente" : "Cerrada");
-    var cupos = num(p.cupos, 0), part = num(p.participantes, 0), cred = num(p.creditos, 0);
+    var cupos = num(p.cupos, 0), part = Math.max(num(p.participantes, 0), (partes[p.id] || []).length), cred = num(p.creditos, 0);
     var partTxt = cupos > 0 ? (part + " / " + cupos + " cupos") : (part + (part === 1 ? " participante" : " participantes"));
     var lleno = cupos > 0 && part >= cupos;
-    var yo = cuenta.perfil ? " Soy *" + cuenta.perfil.nombre + "* (📧 " + cuenta.perfil.email + ")." : "";
-    var link = waLink("¡Hola! 👋🔥" + yo + "\n\n🎁 Quiero participar en la rifa de *" + p.nombre + "* por " + cred + " créditos 💎\n\n¡Ojalá me toque! 🍀🏆");
     var boton;
     if (est === "activa") {
-      var sinCuenta = !vivo() && !lleno && !cuenta.perfil && !leerSesion();
-      boton = sinCuenta
-        ? '<button class="btn btn-yellow" type="button" data-a="registro" data-need="1">' + esc(estado.textos.btnParticipar) + '</button>'
-        : link && !lleno
-        ? lnk("btn btn-yellow", link, "btnParticipar", true)
-        : (vivo() ? lnk("btn btn-yellow", "", "btnParticipar") : '<button class="btn btn-yellow" type="button" disabled>' + (lleno ? "Cupos llenos" : esc(estado.textos.btnParticipar)) + '</button>');
+      boton = vivo() ? lnk("btn btn-yellow", "", "btnParticipar")
+        : (lleno ? '<button class="btn btn-yellow" type="button" disabled>Cupos llenos</button>'
+        : (misParts[p.id] ? '<button class="btn btn-ghost" type="button" disabled>✔ Ya estás participando</button>'
+        : '<button class="btn btn-yellow" type="button" data-a="participar" data-id="' + esc(p.id) + '">' + esc(estado.textos.btnParticipar) + '</button>'));
     } else if (est === "proxima") {
       boton = vivo() ? lnk("btn btn-ghost", "", "btnPronto") : '<button class="btn btn-ghost" type="button" disabled>' + esc(estado.textos.btnPronto) + '</button>';
     } else {
@@ -439,7 +504,8 @@
       tx("span", "pie") +
       '</div></footer>';
 
-    if (elegirAbierto && contactos().length > 1) html += modalElegir();
+    if (modal) html += modalAviso();
+    else if (elegirAbierto && contactos().length > 1) html += modalElegir();
     if (admin.puede && !admin.abierto) html += barraEdicion();
     if (admin.puede && admin.abierto) html += '<div class="scrim" data-a="cerrar"></div>' + panelAdmin();
     if (!admin.puede && cuenta.modo) html += '<div class="scrim" data-a="cerrarCuenta"></div>' + panelCuenta();
@@ -596,6 +662,11 @@
     return '<div class="grp"><h3>Premios</h3>' +
       (items ? '<div class="alist">' + items + '</div>' : '<p class="hint">Todavía no hay premios. Agrega el primero.</p>') +
       '<div><button class="btn btn-yellow" type="button" data-a="nuevo">+ Agregar premio</button></div>' +
+      estado.premios.filter(function (p) { return (partes[p.id] || []).length; }).map(function (p) {
+        var l = partes[p.id];
+        return '<div class="grp"><h3>Participantes · ' + esc(p.nombre) + ' (' + l.length + ')</h3><p class="hint">' + l.map(function (x) { return esc(x.nombre); }).join(", ") + '</p>' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-a="sortear" data-id="' + esc(p.id) + '">🎲 Sortear ganador</button></div>';
+      }).join("") +
       '<p class="hint">Los cambios se ven al instante en tu pantalla. Los visitantes los ven cuando pulsas "Guardar y publicar".</p></div>' +
       '<div class="grp"><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div>';
   }
@@ -730,7 +801,11 @@
       case "entrar": ev.preventDefault(); cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); break;
       case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = t.getAttribute("data-need") ? "Para participar primero crea una cuenta en la página." : ""; cuenta.msgTipo = t.getAttribute("data-need") ? "err" : ""; render(); break;
       case "miCuenta": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); break;
-      case "elegir": ev.preventDefault(); elegirAbierto = true; render(); break;
+      case "participar": iniciarParticipar(t.getAttribute("data-id")); break;
+      case "confirmarPart": confirmarPart(); break;
+      case "cerrarModal": modal = null; render(); break;
+      case "sortear": var ks = buscarPremio(t.getAttribute("data-id")); var lp = ks >= 0 ? (partes[estado.premios[ks].id] || []) : []; if (lp.length) { estado.premios[ks].ganador = lp[Math.floor(Math.random() * lp.length)].nombre; estado.premios[ks].estado = "cerrada"; marcarSucio(); render(); } break;
+      case "elegir": ev.preventDefault(); modal = null; elegirAbierto = true; render(); break;
       case "cerrarElegir": elegirAbierto = false; render(); break;
       case "editContactos": admin.abierto = true; admin.tab = "pagina"; render(); break;
       case "quitarFoto": estado.contactos[i].foto = ""; marcarSucio(); render(); break;
@@ -922,7 +997,7 @@
       if (r.status === 404) throw new Error("No encontramos tu perfil. Avísale al encargado.");
       if (!r.ok) throw new Error("No se pudo cargar tu cuenta (" + r.status + ").");
       return r.json();
-    }).then(function (d) { cuenta.perfil = leerPerfilDoc(d); cuenta.msg = ""; render(); })
+    }).then(function (d) { cuenta.perfil = leerPerfilDoc(d); cuenta.msg = ""; render(); cargarParts(); })
       .catch(function (e) {
         if (e && e.message === "NO_SESSION") { guardarSesion(null); cuenta.perfil = null; cuenta.modo = null; render(); return; }
         cuenta.msg = e.message; render();
@@ -934,7 +1009,8 @@
     if (e && ev.key === "Enter") { ev.preventDefault(); e.blur(); return; }
     if (ev.key !== "Escape") return;
     if (e) { e.blur(); return; }
-    if (elegirAbierto) { elegirAbierto = false; render(); }
+    if (modal && modal.tipo !== "cargando") { modal = null; render(); }
+    else if (elegirAbierto) { elegirAbierto = false; render(); }
     else if (cuenta.modo) { cuenta.modo = null; quitarHash(); render(); }
     else if (admin.abierto && !admin.editando) { admin.abierto = false; quitarHash(); render(); }
   });
@@ -993,6 +1069,7 @@
 
   render();
   cargarRemoto();
+  cargarParts();
   revisarHash();
   if (leerSesion() && !admin.puede) cargarPerfil();
 })();

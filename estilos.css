@@ -440,3 +440,5 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 .cav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .chk { display: flex; align-items: center; gap: 8px; font-size: .95rem; cursor: pointer; }
 .chk input { width: 18px; height: 18px; accent-color: var(--yellow); }
+.elegir .mbtns { display: grid; gap: 10px; margin-top: 4px; }
+.elegir h3 + .hint b { color: var(--yellow); }
