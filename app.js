@@ -5,6 +5,8 @@
   var FB = { apiKey: "AIzaSyDbyLi7IK3ikwUp7A0VzRRqPucqRXPpL3E", projectId: "litlejacob-store" };
   var DOC_URL = "https://firestore.googleapis.com/v1/projects/" + FB.projectId + "/databases/(default)/documents/rayas/estado";
   var SES_KEY = "rayas_admin_ses";
+  var ADMIN_UID = "eLEZkdXiG5b0PpxHQCCei8D0Qxy1";
+  var BASE = "https://firestore.googleapis.com/v1/projects/" + FB.projectId + "/databases/(default)/documents/";
 
   function leerSesion() { try { return JSON.parse(localStorage.getItem(SES_KEY) || "null"); } catch (e) { return null; } }
   function guardarSesion(s) { try { if (s) localStorage.setItem(SES_KEY, JSON.stringify(s)); else localStorage.removeItem(SES_KEY); } catch (e) { /* sin almacenamiento */ } }
@@ -15,9 +17,44 @@
       body: JSON.stringify({ email: email, password: pass, returnSecureToken: true })
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (!j.idToken) throw new Error((j.error && j.error.message) || "LOGIN_FAILED");
-      var s = { id: j.idToken, ref: j.refreshToken, exp: Date.now() + (Number(j.expiresIn) || 3600) * 1000 - 60000, email: j.email };
+      var s = { id: j.idToken, ref: j.refreshToken, exp: Date.now() + (Number(j.expiresIn) || 3600) * 1000 - 60000, email: j.email, uid: j.localId };
       guardarSesion(s); return s;
     });
+  }
+  function registrar(email, pass) {
+    return fetch("https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + encodeURIComponent(FB.apiKey), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, password: pass, returnSecureToken: true })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.idToken) throw new Error((j.error && j.error.message) || "SIGNUP_FAILED");
+      var s = { id: j.idToken, ref: j.refreshToken, exp: Date.now() + (Number(j.expiresIn) || 3600) * 1000 - 60000, email: j.email, uid: j.localId };
+      guardarSesion(s); return s;
+    });
+  }
+  function uidSesion() {
+    var s = leerSesion();
+    if (!s) return null;
+    if (s.uid) return s.uid;
+    try { var p = JSON.parse(atob(s.id.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); return p.user_id || p.sub || null; } catch (e) { return null; }
+  }
+  function esAdmin() { return uidSesion() === ADMIN_UID; }
+
+  // Firestore REST con la sesión actual.
+  function fsPedir(ruta, opts) {
+    return token().then(function (tk) {
+      opts = opts || {};
+      opts.headers = Object.assign({ "Content-Type": "application/json", "Authorization": "Bearer " + tk }, opts.headers || {});
+      return fetch(BASE + ruta, opts);
+    });
+  }
+  function leerPerfilDoc(d) {
+    var f = (d && d.fields) || {};
+    var sv = function (k) { return f[k] && f[k].stringValue || ""; };
+    return {
+      uid: d && d.name ? d.name.split("/").pop() : "",
+      nombre: sv("nombre"), steam: sv("steam"), whatsapp: sv("whatsapp"), email: sv("email"),
+      creditos: f.creditos ? Number(f.creditos.integerValue || f.creditos.doubleValue || 0) : 0
+    };
   }
   function token() {
     var s = leerSesion();
@@ -84,7 +121,8 @@
   var estado = clone(publicado);
   var sucio = false;
 
-  var admin = { puede: !!leerSesion(), vivo: false, imgEdit: null, imgErr: "", subiendo: null, login: false, abierto: false, tab: "premios", editando: null, borrar: null, msg: "", msgTipo: "" };
+  var cuenta = { modo: null, perfil: null, msg: "", msgTipo: "" };
+  var admin = { puede: esAdmin(), usuarios: null, uFiltro: "", uMsg: "", vivo: false, imgEdit: null, imgErr: "", subiendo: null, login: false, abierto: false, tab: "premios", editando: null, borrar: null, msg: "", msgTipo: "" };
 
   /* ================= Utilidades ================= */
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -230,7 +268,8 @@
     var cupos = num(p.cupos, 0), part = num(p.participantes, 0), cred = num(p.creditos, 0);
     var partTxt = cupos > 0 ? (part + " / " + cupos + " cupos") : (part + (part === 1 ? " participante" : " participantes"));
     var lleno = cupos > 0 && part >= cupos;
-    var link = waLink("Hola, quiero participar en la rifa de " + p.nombre + " (" + cred + " créditos).");
+    var yo = cuenta.perfil ? " Soy " + cuenta.perfil.nombre + " (Steam: " + cuenta.perfil.steam + ")." : "";
+    var link = waLink("Hola, quiero participar en la rifa de " + p.nombre + " (" + cred + " créditos)." + yo);
     var boton;
     if (est === "activa") {
       boton = link && !lleno
@@ -301,7 +340,10 @@
       '<header class="topbar gutter"><div class="wrap">' +
       '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
       '<nav class="nav"><a class="navlink" href="#rifas">Rifas</a><a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' +
-      '<button class="lock" type="button" data-a="admin">' + (admin.puede ? "Panel admin" : "Admin") + '</button>' +
+      (admin.puede ? '<button class="lock" type="button" data-a="admin">Panel admin</button>'
+        : (cuenta.perfil ? '<button class="lock me" type="button" data-a="miCuenta"><b>◆ ' + cuenta.perfil.creditos + '</b> créditos · ' + esc(cuenta.perfil.nombre || "Mi cuenta") + '</button>'
+          : (leerSesion() ? '<button class="lock" type="button" data-a="miCuenta">Mi cuenta</button>'
+            : '<button class="lock" type="button" data-a="entrar">Entrar</button><button class="lock hot" type="button" data-a="registro">Crear cuenta</button>'))) +
       '</nav></div></header>' +
 
       '<section class="hero gutter" id="inicio"><div class="wrap">' +
@@ -362,7 +404,7 @@
 
     if (admin.puede && !admin.abierto) html += barraEdicion();
     if (admin.puede && admin.abierto) html += '<div class="scrim" data-a="cerrar"></div>' + panelAdmin();
-    if (!admin.puede && admin.login) html += '<div class="scrim" data-a="cerrarLogin"></div>' + panelLogin();
+    if (!admin.puede && cuenta.modo) html += '<div class="scrim" data-a="cerrarCuenta"></div>' + panelCuenta();
 
     var scrollDrawer = document.querySelector(".drawer-body");
     var top = scrollDrawer ? scrollDrawer.scrollTop : 0;
@@ -385,15 +427,89 @@
       '</div></div>';
   }
 
-  function panelLogin() {
-    return '<aside class="drawer" role="dialog" aria-label="Acceso de administrador">' +
-      '<div class="drawer-head"><h2>Acceso admin</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarLogin">Cerrar</button></div>' +
-      '<form class="drawer-body form" id="formLogin">' +
-      '<div class="field"><label for="l-email">Correo</label><input id="l-email" type="email" autocomplete="username" required></div>' +
-      '<div class="field"><label for="l-pass">Contraseña</label><input id="l-pass" type="password" autocomplete="current-password" required></div>' +
-      '<button class="btn btn-yellow" type="submit">Entrar</button>' +
-      '<p class="hint" role="status"' + (admin.msgTipo === "err" ? ' style="color:var(--danger)"' : '') + '>' + esc(admin.msg || "Usa la misma cuenta de administrador de LitleJacob Store.") + '</p>' +
-      '</form></aside>';
+  function panelCuenta() {
+    var m = cuenta.modo, cuerpo, titulo;
+    var msg = '<p class="hint" role="status"' + (cuenta.msgTipo === "err" ? ' style="color:var(--danger)"' : (cuenta.msgTipo === "ok" ? ' style="color:var(--ok)"' : '')) + '>' + esc(cuenta.msg) + '</p>';
+    if (m === "registro") {
+      titulo = "Crear cuenta";
+      cuerpo = '<form class="drawer-body form" id="formRegistro">' +
+        '<p class="hint">Crea tu cuenta para recibir créditos y participar en las rifas.</p>' +
+        '<div class="field"><label for="r-nombre">Nombre o apodo</label><input id="r-nombre" maxlength="40" required autocomplete="nickname"></div>' +
+        '<div class="field"><label for="r-steam">Usuario de Steam</label><input id="r-steam" maxlength="60" required></div>' +
+        '<div class="field"><label for="r-wa">WhatsApp</label><input id="r-wa" inputmode="tel" maxlength="20" placeholder="987 654 321" required></div>' +
+        '<div class="field"><label for="r-email">Correo</label><input id="r-email" type="email" autocomplete="email" required></div>' +
+        '<div class="field"><label for="r-pass">Contraseña (mínimo 6)</label><input id="r-pass" type="password" minlength="6" autocomplete="new-password" required></div>' +
+        '<button class="btn btn-fuchsia" type="submit">Crear mi cuenta</button>' + msg +
+        '<p class="hint">¿Ya tienes cuenta? <a href="#" data-a="entrar">Entra aquí</a></p></form>';
+    } else if (m === "perfil") {
+      var p = cuenta.perfil;
+      titulo = "Mi cuenta";
+      var link = waLink("Hola, soy " + (p ? p.nombre + " (Steam: " + p.steam + ")" : "") + ". Quiero créditos para las rifas de Rayas Store.");
+      cuerpo = '<div class="drawer-body">' + (p
+        ? '<div class="saldo frame gold"><div class="in"><small>Tus créditos</small><b>' + p.creditos + '</b></div></div>' +
+          '<div class="grp"><h3>' + esc(p.nombre) + '</h3>' +
+          '<p class="hint">Steam: <b>' + esc(p.steam) + '</b><br>WhatsApp: ' + esc(p.whatsapp) + '<br>Correo: ' + esc(p.email) + '</p></div>' +
+          '<div class="grp"><p class="hint">Para recibir créditos, escribe al encargado. Él los carga en tu cuenta.</p>' +
+          (link ? '<a class="btn btn-yellow" href="' + esc(link) + '" target="_blank" rel="noopener">Pedir créditos por WhatsApp</a>' : '') + '</div>'
+        : '<p class="hint">' + (cuenta.msg ? esc(cuenta.msg) : "Cargando tu cuenta…") + '</p>') +
+        '<div class="grp"><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div></div>';
+    } else {
+      titulo = "Entrar";
+      cuerpo = '<form class="drawer-body form" id="formLogin">' +
+        '<div class="field"><label for="l-email">Correo</label><input id="l-email" type="email" autocomplete="username" required></div>' +
+        '<div class="field"><label for="l-pass">Contraseña</label><input id="l-pass" type="password" autocomplete="current-password" required></div>' +
+        '<button class="btn btn-yellow" type="submit">Entrar</button>' + msg +
+        '<p class="hint">¿No tienes cuenta? <a href="#" data-a="registro">Créala aquí</a></p></form>';
+    }
+    return '<aside class="drawer" role="dialog" aria-label="' + titulo + '">' +
+      '<div class="drawer-head"><h2>' + titulo + '</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarCuenta">Cerrar</button></div>' +
+      cuerpo + '</aside>';
+  }
+
+  /* ---- Usuarios (solo admin) ---- */
+  function cargarUsuarios() {
+    admin.uMsg = "Cargando…";
+    return fsPedir("rayas_users?pageSize=300").then(function (r) {
+      if (!r.ok) throw new Error(r.status === 403 ? "Falta agregar la regla de cuentas en Firebase." : "Error " + r.status);
+      return r.json();
+    }).then(function (j) {
+      admin.usuarios = (j.documents || []).map(leerPerfilDoc).sort(function (a, b) { return a.nombre.localeCompare(b.nombre); });
+      admin.uMsg = ""; render();
+    }).catch(function (e) { admin.usuarios = []; admin.uMsg = e.message; render(); });
+  }
+  function guardarCreditos(uid, valor) {
+    var u = (admin.usuarios || []).filter(function (x) { return x.uid === uid; })[0];
+    if (!u) return;
+    var antes = u.creditos;
+    u.creditos = Math.max(0, Math.floor(valor)); u.guardando = true; render();
+    fsPedir("rayas_users/" + encodeURIComponent(uid) + "?updateMask.fieldPaths=creditos&currentDocument.exists=true", {
+      method: "PATCH", body: JSON.stringify({ fields: { creditos: { integerValue: String(u.creditos) } } })
+    }).then(function (r) {
+      if (!r.ok) throw new Error("Error " + r.status);
+      u.guardando = false; u.ok = Date.now(); render();
+    }).catch(function (e) { u.creditos = antes; u.guardando = false; admin.uMsg = "No se guardó: " + e.message; render(); });
+  }
+  function tabUsuarios() {
+    if (admin.usuarios === null) { cargarUsuarios(); return '<p class="hint">Cargando usuarios…</p>'; }
+    var f = admin.uFiltro.trim().toLowerCase();
+    var lista = admin.usuarios.filter(function (u) { return !f || (u.nombre + " " + u.steam + " " + u.email + " " + u.whatsapp).toLowerCase().indexOf(f) >= 0; });
+    return '<div class="grp"><h3>Usuarios (' + admin.usuarios.length + ')</h3>' +
+      '<div class="field"><label for="u-buscar">Buscar</label><input id="u-buscar" placeholder="Nombre, Steam, correo o WhatsApp" value="' + esc(admin.uFiltro) + '"></div>' +
+      (admin.uMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.uMsg) + '</p>' : '') +
+      '<div class="ulist">' + (lista.length ? lista.map(function (u) {
+        var id = esc(u.uid);
+        return '<div class="urow"><div class="t"><b>' + esc(u.nombre || "(sin nombre)") + '</b><span>Steam: ' + esc(u.steam) + ' · WA: ' + esc(u.whatsapp) + '</span><span>' + esc(u.email) + '</span></div>' +
+          '<div class="ucred">' +
+          '<button class="iconbtn" type="button" data-a="cred" data-uid="' + id + '" data-d="-1" aria-label="Quitar 1 crédito">−</button>' +
+          '<input class="credset" data-uid="' + id + '" type="number" min="0" step="1" inputmode="numeric" value="' + u.creditos + '" aria-label="Créditos de ' + esc(u.nombre) + '">' +
+          '<button class="iconbtn" type="button" data-a="cred" data-uid="' + id + '" data-d="1" aria-label="Sumar 1 crédito">+</button>' +
+          '<button class="iconbtn wide" type="button" data-a="cred" data-uid="' + id + '" data-d="5">+5</button>' +
+          '<button class="iconbtn wide" type="button" data-a="cred" data-uid="' + id + '" data-d="10">+10</button>' +
+          '<span class="usave">' + (u.guardando ? "Guardando…" : (u.ok && Date.now() - u.ok < 4000 ? "✔ Guardado" : "")) + '</span>' +
+          '</div></div>';
+      }).join("") : '<p class="hint">' + (f ? "Nadie coincide con la búsqueda." : "Todavía nadie se ha registrado.") + '</p>') + '</div>' +
+      '<p class="hint">Los créditos se guardan al instante (no hace falta "Guardar y publicar").</p>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-a="recargarU">Actualizar lista</button></div>';
   }
 
   function panelAdmin() {
@@ -402,8 +518,9 @@
     if (admin.editando) cuerpo = formPremio();
     else cuerpo = '<div class="tabs" role="tablist">' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="premios" aria-selected="' + (admin.tab === "premios") + '">Premios</button>' +
+      '<button class="tab" role="tab" type="button" data-a="tab" data-t="usuarios" aria-selected="' + (admin.tab === "usuarios") + '">Usuarios y créditos</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="pagina" aria-selected="' + (admin.tab === "pagina") + '">Textos y WhatsApp</button>' +
-      '</div>' + (admin.tab === "pagina" ? tabPagina() : listaPremios());
+      '</div>' + (admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : listaPremios()));
     return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar</button></div>' +
       '<div class="drawer-body">' + cuerpo + '</div>' +
@@ -535,7 +652,7 @@
       admin.msg = "Publicado. Ya lo ven todos los visitantes."; admin.msgTipo = "ok"; render();
     }).catch(function (e) {
       var m = e && e.message;
-      if (m === "NO_SESSION") { admin.msg = "Tu sesión venció. Vuelve a entrar."; admin.puede = false; admin.abierto = false; admin.login = true; }
+      if (m === "NO_SESSION") { admin.msg = "Tu sesión venció. Vuelve a entrar."; admin.puede = false; admin.abierto = false; cuenta.modo = "login"; }
       else if (m === "PERM") { admin.msg = "Esta cuenta no tiene permiso para guardar las rifas."; }
       else { admin.msg = "No se pudo publicar (" + (m || "error") + "). Revisa tu internet e intenta de nuevo."; }
       admin.msgTipo = "err"; render();
@@ -552,10 +669,15 @@
     var i = Number(t.getAttribute("data-i"));
     switch (a) {
       case "admin":
-        if (admin.puede) admin.abierto = true; else { admin.login = true; admin.msg = ""; admin.msgTipo = ""; }
+        if (admin.puede) admin.abierto = true; else { cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; }
         render(); break;
+      case "entrar": ev.preventDefault(); cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); break;
+      case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); break;
+      case "miCuenta": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); break;
+      case "cerrarCuenta": quitarHash(); cuenta.modo = null; render(); break;
+      case "cred": var uu = (admin.usuarios || []).filter(function (x) { return x.uid === t.getAttribute("data-uid"); })[0]; if (uu && !uu.guardando) guardarCreditos(uu.uid, uu.creditos + Number(t.getAttribute("data-d"))); break;
+      case "recargarU": admin.usuarios = null; render(); break;
       case "cerrar": leerForm(); quitarHash(); admin.abierto = false; admin.editando = null; render(); break;
-      case "cerrarLogin": quitarHash(); admin.login = false; admin.msg = ""; admin.msgTipo = ""; render(); break;
       case "tab": admin.tab = t.getAttribute("data-t"); render(); break;
       case "nuevo":
         admin.editando = { nuevo: true, p: { id: "p" + Date.now().toString(36), nombre: "", rareza: "", img: "", descripcion: "", creditos: 10, estado: "activa", cierre: "", participantes: 0, cupos: 0, ganador: "" } };
@@ -596,7 +718,7 @@
       case "borrarId": var kb = buscarPremio(t.getAttribute("data-id")); if (kb >= 0) { estado.premios.splice(kb, 1); admin.borrar = null; marcarSucio(); render(); } break;
       case "nuevaRegla": estado.textos.reglas.push(""); marcarSucio(); render(); var lr = document.querySelector('[data-edit="r:' + (estado.textos.reglas.length - 1) + '"]'); if (lr) lr.focus(); break;
       case "borrarRegla": estado.textos.reglas.splice(i, 1); marcarSucio(); render(); break;
-      case "salir": guardarSesion(null); admin.puede = false; admin.abierto = false; estado = clone(publicado); sucio = false; render(); break;
+      case "salir": guardarSesion(null); admin.puede = false; admin.abierto = false; admin.vivo = false; admin.usuarios = null; cuenta.perfil = null; cuenta.modo = null; estado = clone(publicado); sucio = false; render(); break;
     }
   });
 
@@ -617,6 +739,12 @@
   }
   document.addEventListener("input", function (ev) {
     if (ev.target.closest && ev.target.closest("[data-edit]")) { aplicarEdicion(ev.target.closest("[data-edit]")); return; }
+    if (ev.target.id === "u-buscar") {
+      admin.uFiltro = ev.target.value;
+      var pos = ev.target.selectionStart; render();
+      var nb = document.getElementById("u-buscar"); if (nb) { nb.focus(); try { nb.setSelectionRange(pos, pos); } catch (e2) { /* nada */ } }
+      return;
+    }
     var t = ev.target;
     if (t.id === "f-wa") { estado.whatsapp = soloDigitos(t.value); marcarSucio(); actualizarPie(); }
     else if (t.id === "f-titulo") { estado.textos.titulo = t.value; marcarSucio(); actualizarPie(); }
@@ -629,6 +757,7 @@
   });
   // Al salir de un campo de texto de la página, refresca la vista previa.
   document.addEventListener("change", function (ev) {
+    if (ev.target.classList && ev.target.classList.contains("credset")) { guardarCreditos(ev.target.getAttribute("data-uid"), num(ev.target.value, 0)); return; }
     if (ev.target.classList && ev.target.classList.contains("upfile") && ev.target.files && ev.target.files[0]) {
       var pid = ev.target.getAttribute("data-id");
       admin.subiendo = pid; admin.imgErr = ""; render();
@@ -644,27 +773,76 @@
     if (["f-wa", "f-titulo", "f-sub", "f-reglas"].indexOf(ev.target.id) >= 0) render();
   });
 
+  function errAuth(m) {
+    m = String(m || "");
+    if (/EMAIL_EXISTS/.test(m)) return "Ese correo ya tiene cuenta. Entra con tu contraseña.";
+    if (/WEAK_PASSWORD/.test(m)) return "La contraseña debe tener al menos 6 caracteres.";
+    if (/INVALID_EMAIL/.test(m)) return "Ese correo no es válido.";
+    if (/INVALID|PASSWORD|EMAIL_NOT_FOUND|CREDENTIAL/.test(m)) return "Correo o contraseña incorrectos.";
+    if (/TOO_MANY/.test(m)) return "Demasiados intentos. Espera unos minutos.";
+    if (/OPERATION_NOT_ALLOWED|ADMIN_ONLY/.test(m)) return "El registro está desactivado en Firebase.";
+    return "No se pudo (" + m + ").";
+  }
+  function trasEntrar() {
+    admin.puede = esAdmin();
+    cuenta.msg = ""; cuenta.msgTipo = "";
+    if (admin.puede) { cuenta.modo = null; admin.abierto = true; render(); return; }
+    cuenta.modo = "perfil"; render(); cargarPerfil();
+  }
   document.addEventListener("submit", function (ev) {
-    if (ev.target.id !== "formLogin") return;
-    ev.preventDefault();
-    var em = document.getElementById("l-email").value.trim(), pw = document.getElementById("l-pass").value;
-    var st = ev.target.querySelector('[role="status"]'); if (st) { st.style.color = ""; st.textContent = "Entrando…"; }
-    login(em, pw).then(function () {
-      admin.puede = true; admin.login = false; admin.abierto = true; admin.msg = ""; admin.msgTipo = ""; render();
-    }).catch(function (e) {
-      var m = String(e && e.message || "");
-      admin.msg = /INVALID|PASSWORD|EMAIL_NOT_FOUND|CREDENTIAL/.test(m) ? "Correo o contraseña incorrectos." : (/TOO_MANY/.test(m) ? "Demasiados intentos. Espera unos minutos." : "No se pudo entrar (" + m + ").");
-      admin.msgTipo = "err"; render();
-      var f = document.getElementById("l-email"); if (f) f.value = em;
-    });
+    if (ev.target.id === "formLogin") {
+      ev.preventDefault();
+      var em = document.getElementById("l-email").value.trim(), pw = document.getElementById("l-pass").value;
+      var st = ev.target.querySelector('[role="status"]'); if (st) { st.style.color = ""; st.textContent = "Entrando…"; }
+      login(em, pw).then(trasEntrar).catch(function (e) {
+        cuenta.msg = errAuth(e && e.message); cuenta.msgTipo = "err"; render();
+        var f = document.getElementById("l-email"); if (f) f.value = em;
+      });
+    } else if (ev.target.id === "formRegistro") {
+      ev.preventDefault();
+      var v = function (id) { return document.getElementById(id).value.trim(); };
+      var datos = { nombre: v("r-nombre"), steam: v("r-steam"), whatsapp: v("r-wa"), email: v("r-email") }, pass = document.getElementById("r-pass").value;
+      var st2 = ev.target.querySelector('[role="status"]'); if (st2) { st2.style.color = ""; st2.textContent = "Creando tu cuenta…"; }
+      registrar(datos.email, pass).then(function (ses) {
+        return fsPedir("rayas_users/" + encodeURIComponent(ses.uid) + "?currentDocument.exists=false", {
+          method: "PATCH",
+          body: JSON.stringify({ fields: {
+            nombre: { stringValue: datos.nombre }, steam: { stringValue: datos.steam }, whatsapp: { stringValue: datos.whatsapp },
+            email: { stringValue: datos.email }, creditos: { integerValue: "0" }, creado: { timestampValue: new Date().toISOString() }
+          } })
+        }).then(function (r) { if (!r.ok) throw new Error("PERFIL_" + r.status); });
+      }).then(function () {
+        cuenta.perfil = { uid: uidSesion(), nombre: datos.nombre, steam: datos.steam, whatsapp: datos.whatsapp, email: datos.email, creditos: 0 };
+        cuenta.modo = "perfil"; cuenta.msg = ""; render();
+      }).catch(function (e) {
+        var m = String(e && e.message || "");
+        cuenta.msg = /^PERFIL_/.test(m) ? "Tu usuario se creó, pero no se pudo guardar tu perfil (" + m + "). Avísale al encargado." : errAuth(m);
+        cuenta.msgTipo = "err"; render();
+        ["r-nombre", "r-steam", "r-wa", "r-email"].forEach(function (id, i) { var el = document.getElementById(id); if (el) el.value = [datos.nombre, datos.steam, datos.whatsapp, datos.email][i]; });
+      });
+    }
   });
+
+  function cargarPerfil() {
+    var uid = uidSesion();
+    if (!uid || esAdmin()) return Promise.resolve();
+    return fsPedir("rayas_users/" + encodeURIComponent(uid)).then(function (r) {
+      if (r.status === 404) throw new Error("No encontramos tu perfil. Avísale al encargado.");
+      if (!r.ok) throw new Error("No se pudo cargar tu cuenta (" + r.status + ").");
+      return r.json();
+    }).then(function (d) { cuenta.perfil = leerPerfilDoc(d); cuenta.msg = ""; render(); })
+      .catch(function (e) {
+        if (e && e.message === "NO_SESSION") { guardarSesion(null); cuenta.perfil = null; cuenta.modo = null; render(); return; }
+        cuenta.msg = e.message; render();
+      });
+  }
 
   document.addEventListener("keydown", function (ev) {
     var e = ev.target.closest && ev.target.closest("[data-edit]");
     if (e && ev.key === "Enter") { ev.preventDefault(); e.blur(); return; }
     if (ev.key !== "Escape") return;
     if (e) { e.blur(); return; }
-    if (admin.login) { admin.login = false; quitarHash(); render(); }
+    if (cuenta.modo) { cuenta.modo = null; quitarHash(); render(); }
     else if (admin.abierto && !admin.editando) { admin.abierto = false; quitarHash(); render(); }
   });
 
@@ -715,7 +893,7 @@
   }
   function revisarHash() {
     if (location.hash !== "#admin") return;
-    if (admin.puede) admin.abierto = true; else admin.login = true;
+    if (admin.puede) admin.abierto = true; else cuenta.modo = "login";
     render();
   }
   window.addEventListener("hashchange", revisarHash);
@@ -723,4 +901,5 @@
   render();
   cargarRemoto();
   revisarHash();
+  if (leerSesion() && !admin.puede) cargarPerfil();
 })();

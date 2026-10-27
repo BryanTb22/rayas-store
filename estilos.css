@@ -392,3 +392,21 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 }
 @media (max-width: 600px) { .hero-logo { width: 96px; height: 96px; } .logo-img { width: 36px; height: 36px; } }
 .hero .wrap { padding-block: 52px 76px; }
+
+/* ---------- Cuentas ---------- */
+.nav .lock.hot { background: var(--fuchsia); border-color: var(--fuchsia); color: var(--on-fuchsia); }
+.nav .lock.hot:hover { filter: brightness(1.1); color: var(--on-fuchsia); }
+.nav .lock.me { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
+.nav .lock.me b { color: var(--yellow); }
+@media (max-width: 480px) { .nav .lock.me { max-width: 150px; } .logo > span:not(.logo-img), .logo > i { font-size: 18px; } }
+.saldo .in { padding: 22px; text-align: center; }
+.saldo small { display: block; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.saldo b { font-family: var(--num); font-size: 72px; line-height: 1; color: var(--yellow); text-shadow: 0 0 22px color-mix(in srgb, var(--yellow) 40%, transparent); }
+.ulist { display: grid; gap: 8px; }
+.urow { display: grid; gap: 8px; background: var(--bg); border: 1px solid var(--line); padding: 10px; }
+.urow .t b { display: block; }
+.urow .t span { display: block; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.ucred { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.credset { width: 76px; text-align: center; background: var(--panel); border: 1px solid var(--yellow); color: var(--yellow); font-family: var(--num); font-size: 22px; line-height: 1; padding: 4px 6px 0; height: 34px; }
+.iconbtn.wide { width: auto; padding: 0 10px; }
+.usave { font-size: 12px; font-weight: 700; color: var(--ok); margin-left: 6px; }
