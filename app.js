@@ -181,6 +181,10 @@
     subtitulo: "Recarga tus créditos, elige el premio que quieres y entra a la rifa. El ganador sale al azar.",
     logo1: "RAYAS", logo2: "STORE",
     kicker: "Rifas de Dota 2",
+    inicioKicker: "Tu tienda de Dota 2", inicioTitulo: "Todo para tus items de Dota 2",
+    inicioSub: "Participa en rifas de items de Dota 2 usando tus créditos. El ganador sale al azar y la entrega es por Steam.",
+    cardRifasT: "Rifas", cardRifasD: "Gana items de Dota 2 con tus créditos. El ganador sale al azar.", cardRifasBtn: "Ver rifas",
+    cardItemsT: "Venta de items", cardItemsD: "Compra y vende items de Dota 2 de forma segura.", cardItemsBtn: "Ver items",
     btnVer: "Ver rifas", btnCreditos: "Recargar créditos",
     badge1: "Promo primera recarga", badge2: "Ganador al azar", badge3: "Entrega por Steam",
     rifasKicker: "Premios en juego", rifasT1: "Rifas", rifasT2: "activas", rifasSub: "Cada premio indica cuántos créditos cuesta entrar.",
@@ -219,6 +223,7 @@
       return { id: String(c.id || ("c" + i)), nombre: typeof c.nombre === "string" ? c.nombre : "", numero: String(c.numero || "").replace(/\D+/g, ""), activo: c.activo !== false, foto: typeof c.foto === "string" ? c.foto : "" };
     });
     st.pagos = { culqi: !!(st.pagos && st.pagos.culqi) };
+    st.secciones = { items: !!(st.secciones && st.secciones.items) };
     var yp = st.yape && typeof st.yape === "object" ? st.yape : {};
     st.yape = { qr: /^fs:img-[\w\-]+$/.test(String(yp.qr || "")) ? yp.qr : "", numero: String(yp.numero || "").replace(/\D+/g, "").slice(0, 12), nombre: typeof yp.nombre === "string" ? yp.nombre.slice(0, 40) : "" };
     if (!Array.isArray(st.premios)) st.premios = [];
@@ -865,6 +870,15 @@
       (sub ? '<p>' + sub + '</p>' : '') + '<div class="orn">◆</div></div>';
   }
 
+  var VISTA_HASH = { inicio: "inicio", rifas: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", items: "items" };
+  var vistaActual = "inicio";
+  function itemsVisible() { return !!(admin.puede || (estado.secciones && estado.secciones.items)); }
+  function vistaDeHash() {
+    var h = String(location.hash || "").replace("#", "");
+    if (VISTA_HASH[h]) vistaActual = VISTA_HASH[h];
+    if (vistaActual === "items" && !itemsVisible()) vistaActual = "inicio";
+    return vistaActual;
+  }
   function render() {
     var app = document.getElementById("app");
     if (!app) return;
@@ -874,6 +888,7 @@
     var T = estado.textos;
 
     var V = vivo();
+    var vista = vistaDeHash();
     function sec(kk, k1, k2, subk) {
       return '<div class="sec-title">' + tx("div", kk, 'class="kicker"') +
         '<h2>' + (k1 ? tx("span", k1, 'class="t1"') + ' ' : '') + tx("span", k2) + '</h2>' +
@@ -882,14 +897,17 @@
     var html = '' +
       '<header class="topbar gutter"><div class="wrap">' +
       '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
-      '<nav class="nav"><a class="navlink" href="#rifas">Rifas</a><a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' +
+      '<nav class="nav"><a class="navlink' + (vista === "inicio" ? ' on' : '') + '" href="#inicio">Inicio</a><a class="navlink' + (vista === "rifas" ? ' on' : '') + '" href="#rifas">Rifas</a>' +
+      (itemsVisible() ? '<a class="navlink' + (vista === "items" ? ' on' : '') + '" href="#items">Venta de items' + (estado.secciones.items ? '' : ' 🔒') + '</a>' : '') +
+      (vista === "rifas" ? '<a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' : '') +
       (admin.puede ? '<button class="lock" type="button" data-a="admin">Panel admin</button>'
         : (cuenta.perfil ? '<button class="lock hot misrifas" type="button" data-a="misRifas">🎟️ Mis rifas</button><button class="lock me" type="button" data-a="miCuenta"><b>◆ ' + cuenta.perfil.creditos + '</b> créditos<span class="nm"> · ' + esc(cuenta.perfil.nombre || "Mi cuenta") + '</span></button>'
           : (leerSesion() ? '<button class="lock" type="button" data-a="miCuenta">Mi cuenta</button>'
             : '<button class="lock" type="button" data-a="entrar">Entrar</button><button class="lock hot" type="button" data-a="registro">Crear cuenta</button>'))) +
       '</nav></div></header>' +
 
-      '<section class="hero gutter" id="inicio">' + fotoBtn("hero") + '<div class="wrap">' +
+      '@@VISTA@@' +
+      '<section class="hero gutter" id="rifas-top">' + fotoBtn("hero") + '<div class="wrap">' +
       '<img class="hero-logo" src="img/logo.webp" alt="Rayas Store" width="132" height="132">' + fotoBtn("logo") +
       tx("div", "kicker", 'class="kicker"') +
       (V ? '<h1' + ed("t:titulo", "Título") + '>' + esc(T.titulo) + '</h1>' : '<h1>' + tituloHtml(T.titulo) + '</h1>') +
@@ -938,13 +956,34 @@
       '</div></div>' +
       '</div></section>' +
 
-      '<footer class="footer gutter"><div class="wrap">' +
+      '@@FIN@@' + '<footer class="footer gutter"><div class="wrap">' +
       '<span class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
       (V ? '<button type="button" class="btn btn-ghost btn-sm" data-a="editContactos">✎ Editar contactos de WhatsApp</button>'
          : (contactos().length ? '<span>WhatsApp: ' + contactos().map(function (c) { return esc(c.nombre) + ' <span class="wa">' + esc(waBonito(c.numero)) + '</span>'; }).join(' · ') + '</span>' : '')) +
       tx("span", "pie") +
       '</div></footer>';
 
+    (function () {
+      var a = html.split("@@VISTA@@"), b = a[1].split("@@FIN@@");
+      var inicioHtml = '<section class="hero gutter" id="inicio">' + fotoBtn("hero") + '<div class="wrap">' +
+        '<img class="hero-logo" src="img/logo.webp" alt="Rayas Store" width="132" height="132">' +
+        tx("div", "inicioKicker", 'class="kicker"') +
+        (V ? '<h1' + ed("t:inicioTitulo", "Título") + '>' + esc(T.inicioTitulo) + '</h1>' : '<h1>' + tituloHtml(T.inicioTitulo) + '</h1>') +
+        tx("p", "inicioSub") +
+        '<div class="actions">' + lnk("btn btn-yellow", "#rifas", "cardRifasBtn") + btnRecargar("btn btn-fuchsia", "btnCreditos", linkCreditos) + '</div>' +
+        '</div></section>' +
+        '<section class="section gutter" id="secciones"><div class="wrap"><div class="sec-title"><div class="kicker">Nuestras secciones</div><h2><span class="t1">¿Qué</span> <span>buscas?</span></h2><div class="orn">◆</div></div>' +
+        '<div class="cards2">' +
+        '<a class="svc frame gold" href="#rifas"><div class="in"><span class="ico">🎟️</span>' + tx("h3", "cardRifasT") + tx("p", "cardRifasD") + '<span class="btn btn-yellow">' + esc(T.cardRifasBtn) + '</span></div></a>' +
+        (itemsVisible() ? '<a class="svc frame' + (estado.secciones.items ? ' gold' : '') + '" href="#items"><div class="in">' + (estado.secciones.items ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">🛒</span>' + tx("h3", "cardItemsT") + tx("p", "cardItemsD") + '<span class="btn btn-fuchsia">' + esc(T.cardItemsBtn) + '</span></div></a>' : '') +
+        '</div></div></section>';
+      var itemsHtml = '<section class="section gutter" id="items"><div class="wrap">' +
+        '<div class="sec-title"><div class="kicker">Próximamente</div><h2><span class="t1">Venta de</span> <span>items</span></h2><div class="orn">◆</div></div>' +
+        (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Página cuando esté lista.</p>') +
+        '<div class="empty frame"><div class="in"><strong>Estamos preparando esta sección</strong><span>Muy pronto podrás comprar y vender items de Dota 2 aquí.</span></div></div>' +
+        '</div></section>';
+      html = a[0] + (vista === "rifas" ? b[0] : vista === "items" ? itemsHtml : inicioHtml) + b[1];
+    })();
     if (ruleta) html += modalRuleta();
     else if (modal) html += modalAviso();
     else if (elegirAbierto && contactos().length > 1) html += modalElegir();
@@ -1372,7 +1411,10 @@
   }
   function tabPagina() {
     var T = estado.textos;
-    return yapeAdminHtml() + '<div class="grp"><h3>Cobro con Culqi (tarjeta / Yape)</h3>' +
+    return '<div class="grp"><h3>Secciones de la página</h3>' +
+      '<label class="chk"><input type="checkbox" class="c-items"' + (estado.secciones && estado.secciones.items ? ' checked' : '') + '> Mostrar la sección "Venta de items" a los clientes</label>' +
+      '<p class="hint">' + (estado.secciones && estado.secciones.items ? 'VISIBLE: los clientes ven Venta de items.' : 'OCULTA: solo tú ves Venta de items. Recuerda pulsar Publicar.') + '</p></div>' +
+      yapeAdminHtml() + '<div class="grp"><h3>Cobro con Culqi (tarjeta / Yape)</h3>' +
       '<label class="chk"><input type="checkbox" class="c-pagos"' + (estado.pagos && estado.pagos.culqi ? ' checked' : '') + '> Cobrar con Culqi (los clientes ven el botón de pago)</label>' +
       '<p class="hint">' + (estado.pagos && estado.pagos.culqi ? 'ACTIVO: los clientes pueden recargar con tarjeta o Yape.' : 'APAGADO: los clientes solo piden créditos por WhatsApp.') + ' Recuerda pulsar <b>Publicar</b> para que el cambio lo vean todos. Este interruptor vale para las dos páginas.</p></div>' +
       (estado.contactos || []).map(function (c, k) {
@@ -1708,6 +1750,7 @@
       }).catch(function (e) { admin.subiendo = null; admin.imgErr = (e && e.message) || "No se pudo subir la imagen."; render(); });
       return;
     }
+    if (tc.classList && tc.classList.contains("c-items")) { estado.secciones = { items: tc.checked }; marcarSucio(); render(); return; }
     if (tc.classList && tc.classList.contains("c-pagos")) { estado.pagos = { culqi: tc.checked }; marcarSucio(); render(); return; }
     if (tc.classList && tc.classList.contains("c-activo")) { estado.contactos[Number(tc.getAttribute("data-i"))].activo = tc.checked; marcarSucio(); render(); return; }
     if (tc.classList && (tc.classList.contains("c-nombre") || tc.classList.contains("c-num"))) { render(); return; }
@@ -1914,7 +1957,15 @@
     if (admin.puede) admin.abierto = true; else cuenta.modo = "login";
     render();
   }
-  window.addEventListener("hashchange", revisarHash);
+  function irASeccion() {
+    var h = String(location.hash || "").replace("#", "");
+    if (!VISTA_HASH[h]) return;
+    var antes = vistaActual;
+    render();
+    var el = (h === "inicio" || h === "rifas" && antes !== vistaActual) ? null : document.getElementById(h);
+    if (el) el.scrollIntoView(); else if (antes !== vistaActual || h === "inicio") window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", function () { revisarHash(); irASeccion(); });
 
 
   /* ================= Anuncio al entrar ================= */
@@ -1953,5 +2004,6 @@
   cargarRemoto();
   cargarParts();
   revisarHash();
+  (function () { var h = String(location.hash || "").replace("#", ""); var el = (h === "como" || h === "ganadores" || h === "reglas") ? document.getElementById(h) : null; if (el) el.scrollIntoView(); })();
   if (leerSesion() && !admin.puede) cargarPerfil();
 })();
