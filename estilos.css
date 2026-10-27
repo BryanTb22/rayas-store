@@ -689,3 +689,10 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 .subtabs { display: flex; gap: 8px; margin: 2px 0 14px; padding: 4px; background: #070c20; border: 1px solid var(--line); border-radius: 14px; }
 .subtab { flex: 1; padding: 11px 10px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 800 13px var(--body); letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
 .subtab[aria-selected="true"] { background: linear-gradient(180deg, var(--yellow-2), var(--yellow)); color: var(--on-yellow); box-shadow: 0 4px 14px color-mix(in srgb, var(--yellow) 30%, transparent); }
+
+/* El destello solo dentro de la imagen del premio */
+#ganadores .winner.frame.gold::after { display: none; }
+#ganadores .winner .thumb { position: relative; overflow: hidden; }
+#ganadores .winner .thumb::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255,240,170,.4) 50%, transparent 60%); transform: translateX(-130%); animation: btnShine 4.5s ease-in-out infinite; }
+.winner.frame { overflow: hidden; }
