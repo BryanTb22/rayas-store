@@ -31,6 +31,13 @@
   var COM = { pct: 0.0399, fijoUsd: 0.20, tc: 3.85, igv: 0 };
   function totalTarjeta(soles) { var k = 1 + COM.igv; var t = (soles + COM.fijoUsd * COM.tc * k) / (1 - COM.pct * k); return Math.ceil(t * 100 - 1e-9) / 100; }
   function fmtSol(n) { return (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
+  function bajarQr(img) {
+    try {
+      var src = img && img.getAttribute("src"); if (!src || src.indexOf("data:image/") !== 0) return false;
+      var a = document.createElement("a"); a.href = src; a.download = "yape-qr.png"; a.rel = "noopener";
+      document.body.appendChild(a); a.click(); a.remove(); return true;
+    } catch (e) { return false; }
+  }
   function yapeOn() { var y = estado.yape; return !!(y && (y.qr || y.numero)); }
   function recargaOn() { return pagosOn() || yapeOn(); }
   function pagosOn() { return !!PAGOS.culqiPk && (!!(estado.pagos && estado.pagos.culqi) || /[?&]pagotest=1(&|$)/.test(location.search)); }
@@ -462,7 +469,7 @@
         (yp.qr ? '<div class="yapeqr"><img data-fs="' + esc(yp.qr.slice(3)) + '" alt="QR de Yape" width="240" height="240"></div>' : '') +
         (yp.numero || yp.nombre ? '<p class="hint" style="text-align:center">' + (yp.numero ? 'Yape al <b>' + esc(yp.numero) + '</b>' : '') + (yp.nombre ? ' · a nombre de <b>' + esc(yp.nombre) + '</b>' : '') + '</p>' : '') +
         '<p class="hint"><b>1.</b> Escanea el QR o yapea al número. <b>2.</b> Toca el botón de abajo y envía la captura del Yape por WhatsApp. <b>3.</b> Cargamos tus créditos (usa el mismo nombre/correo de tu cuenta).</p>';
-      btns = '<button class="btn btn-yellow" type="button" data-a="yapeAvisar">✅ Ya pagué · enviar captura por WhatsApp</button><button class="btn btn-ghost btn-sm" type="button" data-a="volverRecarga">← Cambiar monto</button>' + cerrar;
+      btns = '<button class="btn btn-ghost btn-sm" type="button" data-a="yapeBajar">⬇ Descargar QR</button><button class="btn btn-yellow" type="button" data-a="yapeAvisar">✅ Ya pagué · enviar captura por WhatsApp</button><button class="btn btn-ghost btn-sm" type="button" data-a="volverRecarga">← Cambiar monto</button>' + cerrar;
     } else if (m.tipo === "efectivoPend") {
       h = '<h3>Código de pago listo 💵</h3><p class="hint">Se abrió tu código de pago por <b>S/ ' + m.soles + '</b>. Págalo en un agente, banco, app bancaria o con QR (vale por 24 horas). Cuando Culqi lo confirme, tus créditos se suman solos; puede tardar unos minutos.</p>' +
         '<p class="hint">Tienes <b>' + (c ? c.creditos : 0) + '</b> créditos ahora.</p>';
@@ -1548,6 +1555,7 @@
       case "refrescarSaldo": cargarPerfil().then(function () { render(); }); break;
       case "yape": if (modal && modal.tipo === "recarga" && modal.sel) { modal = { tipo: "yape", sel: modal.sel }; render(); hidratarImgs(); } break;
       case "volverRecarga": if (modal && modal.tipo === "yape") { modal = { tipo: "recarga", sel: modal.sel }; render(); } break;
+      case "yapeBajar": bajarQr(document.querySelector(".yapeqr img")); break;
       case "yapeAvisar":
         if (modal && modal.tipo === "yape") {
           montoWsp = modal.sel; var hy = creditoHref();
