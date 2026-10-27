@@ -712,6 +712,7 @@
           '<button class="iconbtn wide" type="button" data-a="cred" data-uid="' + id + '" data-d="10">+10</button>' +
           '<span class="usave">' + (u.guardando ? "Guardando…" : (u.ok && Date.now() - u.ok < 4000 ? "✔ Guardado" : "")) + '</span>' +
           '</div>' +
+          '<button type="button" class="btn btn-yellow btn-sm" data-a="editRapido" data-uid="' + id + '">✎ Editar datos</button>' +
           '<button type="button" class="pbtn" data-a="verFicha" data-key="u_' + id + '"><span>' + (admin.fichaU === "u_" + u.uid ? "Ocultar ficha" : "Ver ficha completa") + '</span><i>' + (admin.fichaU === "u_" + u.uid ? "▴" : "▾") + '</i></button>' +
           (admin.fichaU === "u_" + u.uid ? detalleUsuario(u.uid) : '') + '</div>';
       }).join("") : '<p class="hint">' + (f ? "Nadie coincide con la búsqueda." : "Todavía nadie se ha registrado.") + '</p>') + '</div>' +
@@ -993,6 +994,7 @@
       case "misRifas": cuenta.modo = "rifas"; cuenta.msg = ""; render(); cargarParts(); break;
       case "miCuenta": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); break;
       case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; render(); break;
+      case "editRapido": admin.fichaU = "u_" + t.getAttribute("data-uid"); admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "editU": admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cancelarU": admin.editU = null; admin.uMsg = ""; render(); break;
       case "guardarU": guardarUsuario(t.getAttribute("data-uid")); break;
