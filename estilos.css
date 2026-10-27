@@ -545,7 +545,7 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 .orn::before, .orn::after { content: ""; width: min(22vw, 140px); height: 2px; background: linear-gradient(90deg, transparent, var(--yellow), transparent); }
 
 #rifas { position: relative; isolation: isolate; padding-bottom: 40px; }
-#rifas::before { content: ""; position: absolute; inset: 0 -50vw; z-index: -1; pointer-events: none;
+#rifas::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background: radial-gradient(60% 50% at 50% 0%, color-mix(in srgb, var(--fuchsia) 16%, transparent), transparent 70%),
               radial-gradient(40% 40% at 10% 60%, color-mix(in srgb, #1b2f8f 40%, transparent), transparent 70%),
               radial-gradient(40% 40% at 90% 70%, color-mix(in srgb, var(--yellow) 8%, transparent), transparent 70%); }
@@ -717,3 +717,6 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 #ganadores .winner .thumb { width: 104px; height: 104px; }
 #ganadores .winner .who b { font-size: 28px; }
 #ganadores .winner .who span { font-size: 15px; }
+
+/* Nunca scroll horizontal */
+html, body { overflow-x: clip; max-width: 100%; }
