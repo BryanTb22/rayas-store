@@ -104,3 +104,7 @@ match /rayas_part/{id} {
   allow write: if isAdmin();
 }
 ```
+
+## Vender items: filtros como en Comprar
+
+El inventario ahora devuelve tipo, héroe, ranura, rareza y calidad de cada item (salen de las etiquetas de Steam), y Vender items usa los mismos filtros que Comprar. Despliegue: `firebase deploy --only functions:rayas:inventario` (la misma función sirve a Rayas y a LitleJacob).

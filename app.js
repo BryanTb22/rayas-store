@@ -947,7 +947,7 @@
   }
   /* ===== Vender items: el cliente pega su trade link y ve sus items; tú pones los precios de compra ===== */
   var INV_URL = "https://inventario-seqcayr4iq-uc.a.run.app";
-  var ven = { link: "", cargando: false, err: "", lista: null, noTrad: 0, sel: {}, precios: [], pCargado: false, pCargando: false, q: "" };
+  var ven = { link: "", cargando: false, err: "", lista: null, noTrad: 0, sel: {}, precios: [], pCargado: false, pCargando: false, q: "", f: { tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", min: "", max: "", orden: "mayor" } };
   function claveCompra(n) { return sinTildes(n).replace(/\s+/g, " ").trim(); }
   function slugCompra(n) { return claveCompra(n).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || ("x" + Date.now().toString(36)); }
   function cargarPrecios(forzar) {
@@ -1004,18 +1004,59 @@
       '<div class="vstep"><button type="button" class="btn btn-ghost btn-sm" data-a="venMenos" data-i="' + idx + '" aria-label="Quitar uno"' + (c ? '' : ' disabled') + '>−</button>' +
       '<span>' + c + '</span><button type="button" class="btn btn-ghost btn-sm" data-a="venMas" data-i="' + idx + '" aria-label="Agregar uno"' + (c >= g.n ? ' disabled' : '') + '>+</button></div></div></article>';
   }
+  function venFiltrados() {
+    var f = ven.f, q = sinTildes(ven.q), mn = parseFloat(f.min), mx = parseFloat(f.max);
+    var vis = (ven.lista || []).map(function (g, i) { return { g: g, i: i, p: precioCompra(g.name) }; }).filter(function (o) {
+      var g = o.g;
+      if (q && sinTildes(g.name).indexOf(q) < 0) return false;
+      if (f.tipo && g.tipo !== f.tipo) return false;
+      if (f.heroe && g.heroe !== f.heroe) return false;
+      if (f.ranura && g.ranura !== f.ranura) return false;
+      if (f.rareza && g.rareza !== f.rareza) return false;
+      if (f.calidad && g.calidad !== f.calidad) return false;
+      if (isFinite(mn) && (o.p === null || o.p < mn)) return false;
+      if (isFinite(mx) && (o.p === null || o.p > mx)) return false;
+      return true;
+    });
+    vis.sort(function (a, b) {
+      if (f.orden === "nombre") return a.g.name.localeCompare(b.g.name);
+      var pa = a.p === null ? -1 : a.p, pb = b.p === null ? -1 : b.p;
+      return f.orden === "menor" ? pa - pb : pb - pa;
+    });
+    return vis;
+  }
+  function venDistintos(k, base) {
+    var set = {}, out = [];
+    (base || []).concat((ven.lista || []).map(function (x) { return x[k]; })).forEach(function (v) { if (v && !set[v]) { set[v] = 1; out.push(v); } });
+    return out.sort(function (a, b) { return a.localeCompare(b); });
+  }
+  function venFiltrosHtml() {
+    var f = ven.f;
+    var tabs = ['<button type="button" class="itab' + (!f.tipo ? ' on' : '') + '" data-a="venTipo" data-v="">Todos</button>'].concat(ITEM_TIPOS.map(function (t) {
+      return '<button type="button" class="itab' + (f.tipo === t ? ' on' : '') + '" data-a="venTipo" data-v="' + esc(t) + '">' + esc(t) + '</button>';
+    })).join("");
+    var filt = '<aside class="ifilt"><details' + (window.innerWidth > 820 ? ' open' : '') + '><summary>Filtros</summary>' +
+      '<div class="ff"><label>Precio (S/)</label><div class="ff2"><input id="vf-min" inputmode="decimal" placeholder="Desde" value="' + esc(f.min) + '"><input id="vf-max" inputmode="decimal" placeholder="Hasta" value="' + esc(f.max) + '"></div></div>' +
+      '<div class="ff"><label for="vf-heroe">Héroe</label><select id="vf-heroe">' + opciones(venDistintos("heroe", HEROES_DOTA), f.heroe, "Todos") + '</select></div>' +
+      '<div class="ff"><label for="vf-ranura">Ranura</label><select id="vf-ranura">' + opciones(venDistintos("ranura", SLOTS_DOTA), f.ranura, "Todas") + '</select></div>' +
+      '<div class="ff"><label for="vf-rareza">Rareza</label><select id="vf-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), f.rareza, "Todas") + '</select></div>' +
+      '<div class="ff"><label for="vf-calidad">Calidad</label><select id="vf-calidad">' + opciones(venDistintos("calidad", ITEM_CALIDADES), f.calidad, "Todas") + '</select></div>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-a="venReset" style="width:100%">Restablecer filtros</button></details></aside>';
+    return { tabs: '<div class="itabs">' + tabs + '</div>', filt: filt };
+  }
   function venderHtml() {
-    var q = sinTildes(ven.q);
     var cuerpo;
     if (ven.cargando) cuerpo = '<div class="empty frame"><div class="in"><strong>Leyendo tu inventario…</strong><span>Puede tardar unos segundos.</span></div></div>';
     else if (ven.lista === null) cuerpo = '<div class="empty frame"><div class="in"><strong>Pega tu trade link para empezar</strong><span>Verás tus items de Dota 2 que se pueden intercambiar y el precio al que te los compramos.</span></div></div>';
     else if (!ven.lista.length) cuerpo = '<div class="empty frame"><div class="in"><strong>No hay items intercambiables</strong><span>Revisa que tu inventario de Dota 2 sea público y tenga items que puedas tradear.</span></div></div>';
     else {
-      var vis = ven.lista.map(function (g, i) { return { g: g, i: i }; }).filter(function (o) { return !q || sinTildes(o.g.name).indexOf(q) >= 0; });
-      vis.sort(function (a, b) { var pa = precioCompra(a.g.name), pb = precioCompra(b.g.name); return (pb === null ? -1 : pb) - (pa === null ? -1 : pa); });
-      var T = ventaTotales();
-      cuerpo = '<div class="ibar"><input id="ven-q" type="search" placeholder="Buscar en tu inventario…" value="' + esc(ven.q) + '" autocomplete="off"><span class="icount">' + ven.lista.length + ' tipos de item' + (ven.noTrad ? ' · ' + ven.noTrad + ' no intercambiables' : '') + '</span></div>' +
-        '<div class="igrid">' + (vis.length ? vis.map(function (o) { return venderCardHtml(o.g, o.i); }).join("") : '') + '</div>' +
+      var vis = venFiltrados(), T = ventaTotales(), F = venFiltrosHtml();
+      cuerpo = F.tabs + '<div class="ishop">' + F.filt + '<div class="imain">' +
+        '<div class="ibar"><input id="ven-q" type="search" placeholder="Buscar en tu inventario…" value="' + esc(ven.q) + '" autocomplete="off">' +
+        '<select id="vf-orden" aria-label="Ordenar">' + [["mayor", "Precio: mayor a menor"], ["menor", "Precio: menor a mayor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (ven.f.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
+        '<span class="icount">' + vis.length + ' de ' + ven.lista.length + ' tipos de item' + (ven.noTrad ? ' · ' + ven.noTrad + ' no intercambiables' : '') + '</span></div>' +
+        (vis.length ? '<div class="igrid">' + vis.map(function (o) { return venderCardHtml(o.g, o.i); }).join("") + '</div>' : '<div class="empty frame"><div class="in"><strong>Ningún item coincide</strong><span>Prueba con otros filtros.</span></div></div>') +
+        '</div></div>' +
         '<div class="vbar"><div><b>' + T.n + '</b> item' + (T.n === 1 ? '' : 's') + ' elegido' + (T.n === 1 ? '' : 's') + (T.n ? ' · Total: <b>' + fmtPrecio(T.tot) + '</b>' + (T.sinP ? ' + ' + T.sinP + ' a consultar' : '') : '') + '</div>' +
         '<button class="btn btn-yellow" type="button" data-a="venWsp"' + (T.n && contactos().length ? '' : ' disabled') + '>💬 Vender por WhatsApp</button></div>';
     }
@@ -1045,6 +1086,14 @@
     if (el.id === "ven-q") {
       ven.q = el.value; var pos = el.selectionStart; render();
       var nq = document.getElementById("ven-q"); if (nq) { nq.focus(); try { nq.setSelectionRange(pos, pos); } catch (e) { /* nada */ } }
+      hidratarImgs(); return true;
+    }
+    var VF = { "vf-min": "min", "vf-max": "max", "vf-heroe": "heroe", "vf-ranura": "ranura", "vf-rareza": "rareza", "vf-calidad": "calidad", "vf-orden": "orden" };
+    if (VF[el.id]) {
+      var vid = el.id, vpos = el.selectionStart;
+      ven.f[VF[vid]] = el.value; render();
+      var vn = document.getElementById(vid);
+      if (vn && vn.tagName === "INPUT") { vn.focus(); try { vn.setSelectionRange(vpos, vpos); } catch (e) { /* nada */ } }
       hidratarImgs(); return true;
     }
     if (el.id === "cp-nombre" || el.id === "cp-precio" || el.id === "cp-bulk") {
@@ -2001,6 +2050,8 @@
         else if (iw && cw.length === 1) window.open(waLinkA(cw[0].numero, mensajeItem(iw)), "_blank", "noopener");
         break;
       case "venVer": verInventario(); break;
+      case "venTipo": ven.f.tipo = t.getAttribute("data-v") || ""; render(); hidratarImgs(); break;
+      case "venReset": ven.f = { tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", min: "", max: "", orden: "mayor" }; ven.q = ""; render(); hidratarImgs(); break;
       case "venMio": if (cuenta.perfil) { ven.link = cuenta.perfil.tradelink || ""; render(); } break;
       case "venMas": var gm = ven.lista && ven.lista[Number(t.getAttribute("data-i"))]; if (gm) { ven.sel[gm.k] = Math.min(gm.n, (ven.sel[gm.k] || 0) + 1); render(); hidratarImgs(); } break;
       case "venMenos": var gn = ven.lista && ven.lista[Number(t.getAttribute("data-i"))]; if (gn) { ven.sel[gn.k] = Math.max(0, (ven.sel[gn.k] || 0) - 1); render(); hidratarImgs(); } break;
