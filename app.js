@@ -180,7 +180,7 @@
         (j.documents || []).forEach(function (d) {
           var f = d.fields || {}, pid = f.premio && f.premio.stringValue;
           if (!pid) return;
-          (acc[pid] = acc[pid] || []).push({ uid: f.uid && f.uid.stringValue || "", nombre: f.nombre && f.nombre.stringValue || "", costo: Number(f.costo && f.costo.integerValue || 0) });
+          (acc[pid] = acc[pid] || []).push({ uid: f.uid && f.uid.stringValue || "", nombre: f.nombre && f.nombre.stringValue || "", costo: Number(f.costo && f.costo.integerValue || 0), creado: f.creado && f.creado.timestampValue || "", premioNombre: f.premioNombre && f.premioNombre.stringValue || "" });
         });
         return j.nextPageToken && Object.keys(acc).length < 1000 ? pag(j.nextPageToken) : null;
       });
@@ -217,7 +217,7 @@
       if (r.status === 409) throw new Error("Ya estás participando en esta rifa.");
       if (!r.ok) throw new Error("No se pudo registrar tu participación (" + r.status + "). Si sigue pasando, avisa al encargado.");
       cuenta.perfil.creditos -= p.cred; misParts[p.id] = true;
-      (partes[p.id] = partes[p.id] || []).push({ uid: uid, nombre: cuenta.perfil.nombre, costo: p.cred });
+      (partes[p.id] = partes[p.id] || []).push({ uid: uid, nombre: cuenta.perfil.nombre, costo: p.cred, creado: new Date().toISOString(), premioNombre: p.nombre });
       modal = { tipo: "ok", p: p }; render();
     }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo participar." }; render(); });
   }
@@ -277,6 +277,11 @@
     var d = new Date(iso);
     if (!isFinite(d.getTime())) return "";
     try { return d.toLocaleDateString("es-PE", { day: "numeric", month: "short", year: "numeric" }); } catch (e) { return d.toDateString(); }
+  }
+  function fechaHora(iso) {
+    var d = new Date(iso);
+    if (!isFinite(d.getTime())) return "";
+    try { return d.toLocaleDateString("es-PE", { day: "numeric", month: "short", year: "numeric" }) + " · " + d.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return d.toString(); }
   }
   function aLocalInput(iso) {
     var d = new Date(iso);
@@ -451,7 +456,7 @@
       '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
       '<nav class="nav"><a class="navlink" href="#rifas">Rifas</a><a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' +
       (admin.puede ? '<button class="lock" type="button" data-a="admin">Panel admin</button>'
-        : (cuenta.perfil ? '<button class="lock me" type="button" data-a="miCuenta"><b>◆ ' + cuenta.perfil.creditos + '</b> créditos · ' + esc(cuenta.perfil.nombre || "Mi cuenta") + '</button>'
+        : (cuenta.perfil ? '<button class="lock hot misrifas" type="button" data-a="misRifas">🎟️ Mis rifas</button><button class="lock me" type="button" data-a="miCuenta"><b>◆ ' + cuenta.perfil.creditos + '</b> créditos · ' + esc(cuenta.perfil.nombre || "Mi cuenta") + '</button>'
           : (leerSesion() ? '<button class="lock" type="button" data-a="miCuenta">Mi cuenta</button>'
             : '<button class="lock" type="button" data-a="entrar">Entrar</button><button class="lock hot" type="button" data-a="registro">Crear cuenta</button>'))) +
       '</nav></div></header>' +
@@ -539,6 +544,39 @@
       '</div></div>';
   }
 
+  function listaMisRifas() {
+    var uid = uidSesion(), yo = cuenta.perfil, g = { gano: [], curso: [], perdio: [] };
+    Object.keys(partes).forEach(function (pid) {
+      (partes[pid] || []).forEach(function (x) {
+        if (x.uid !== uid) return;
+        var k = buscarPremio(pid); if (k < 0) return;
+        var p = estado.premios[k], gan = String(p.ganador || "").trim(), grupo;
+        if (p.estado !== "cerrada" || !gan) grupo = "curso";
+        else {
+          var win = p.ganadorUid ? p.ganadorUid === uid : gan.toLowerCase() === String(yo && yo.nombre || "").trim().toLowerCase();
+          grupo = win ? "gano" : "perdio";
+        }
+        g[grupo].push({ p: p, x: x });
+      });
+    });
+    var total = g.gano.length + g.curso.length + g.perdio.length;
+    if (!total) return '<p class="hint">Aún no participas en ninguna rifa. ¡Elige una y entra! 🍀</p><button class="btn btn-yellow" type="button" data-a="cerrarCuenta">Ver rifas</button>';
+    function item(grupo, it) {
+      var p = it.p, x = it.x, f = p.resultado || p.cierre, fr = f ? fechaHora(f) : "";
+      var tag = grupo === "gano" ? "🏆 ¡Ganaste!" : (grupo === "perdio" ? "No ganaste" : (p.estado === "cerrada" ? "⏳ Resultado pendiente" : "⏳ En curso"));
+      var lineas = '<small>Entraste: ' + esc(x.creado ? fechaHora(x.creado) : "—") + ' · ' + x.costo + ' créditos</small>';
+      if (grupo === "curso") lineas += '<small>' + (p.cierre ? 'Cierra: ' + esc(fechaHora(p.cierre)) : 'Aún sin fecha de cierre') + '</small>';
+      else lineas += '<small>Resultado: ' + (fr ? esc(fr) : 'sin fecha registrada') + '</small>' +
+        '<small>Ganador: <b>' + esc(p.ganador) + '</b></small>' +
+        (grupo === "gano" ? '<small class="win">El encargado te enviará el item a tu trade link de Steam.</small>' : '');
+      return '<div class="mr mr-' + grupo + '"><div class="mrimg">' + (imgTag(p.img, "", "") || '') + '</div><div class="mrb"><b>' + esc(p.nombre) + '</b><span class="mrtag">' + tag + '</span>' + lineas + '</div></div>';
+    }
+    function bloque(grupo, titulo) {
+      return g[grupo].length ? '<div class="grp"><h3>' + titulo + ' (' + g[grupo].length + ')</h3>' + g[grupo].map(function (it) { return item(grupo, it); }).join("") + '</div>' : '';
+    }
+    return '<div class="mrsum"><span class="s-gano"><b>' + g.gano.length + '</b>Ganadas</span><span class="s-curso"><b>' + g.curso.length + '</b>En curso</span><span class="s-perdio"><b>' + g.perdio.length + '</b>No ganadas</span></div>' +
+      bloque("gano", "🏆 Ganadas") + bloque("curso", "⏳ En curso") + bloque("perdio", "No ganadas");
+  }
   function panelCuenta() {
     var m = cuenta.modo, cuerpo, titulo;
     var msg = '<p class="hint" role="status"' + (cuenta.msgTipo === "err" ? ' style="color:var(--danger)"' : (cuenta.msgTipo === "ok" ? ' style="color:var(--ok)"' : '')) + '>' + esc(cuenta.msg) + '</p>';
@@ -554,6 +592,12 @@
         '<div class="field"><label for="r-pass">Contraseña (mínimo 6)</label><input id="r-pass" type="password" minlength="6" autocomplete="new-password" required></div>' +
         '<button class="btn btn-fuchsia" type="submit">Crear mi cuenta</button>' + msg +
         '<p class="hint">¿Ya tienes cuenta? <a href="#" data-a="entrar">Entra aquí</a></p></form>';
+    } else if (m === "rifas") {
+      titulo = "Mis rifas";
+      cuerpo = '<div class="drawer-body">' + listaMisRifas() + '</div>';
+    } else if (m === "rifas") {
+      titulo = "Mis rifas";
+      cuerpo = '<div class="drawer-body">' + listaMisRifas() + '</div>';
     } else if (m === "perfil") {
       var p = cuenta.perfil;
       titulo = "Mi cuenta";
@@ -808,11 +852,12 @@
         render(); break;
       case "entrar": ev.preventDefault(); cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); break;
       case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = t.getAttribute("data-need") ? "Para participar primero crea una cuenta en la página." : ""; cuenta.msgTipo = t.getAttribute("data-need") ? "err" : ""; render(); break;
+      case "misRifas": cuenta.modo = "rifas"; cuenta.msg = ""; render(); cargarParts(); break;
       case "miCuenta": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); break;
       case "participar": iniciarParticipar(t.getAttribute("data-id")); break;
       case "confirmarPart": confirmarPart(); break;
       case "cerrarModal": modal = null; render(); break;
-      case "sortear": var ks = buscarPremio(t.getAttribute("data-id")); var lp = ks >= 0 ? (partes[estado.premios[ks].id] || []) : []; if (lp.length) { estado.premios[ks].ganador = lp[Math.floor(Math.random() * lp.length)].nombre; estado.premios[ks].estado = "cerrada"; marcarSucio(); render(); } break;
+      case "sortear": var ks = buscarPremio(t.getAttribute("data-id")); var lp = ks >= 0 ? (partes[estado.premios[ks].id] || []) : []; if (lp.length) { var gw = lp[Math.floor(Math.random() * lp.length)]; estado.premios[ks].ganador = gw.nombre; estado.premios[ks].ganadorUid = gw.uid; estado.premios[ks].resultado = new Date().toISOString(); estado.premios[ks].estado = "cerrada"; marcarSucio(); render(); } break;
       case "elegir": ev.preventDefault(); modal = null; elegirAbierto = true; render(); break;
       case "cerrarElegir": elegirAbierto = false; render(); break;
       case "editContactos": admin.abierto = true; admin.tab = "pagina"; render(); break;
@@ -847,7 +892,7 @@
         break;
       case "imgEdit": admin.imgErr = ""; admin.imgEdit = t.getAttribute("data-id"); render(); var ii = document.getElementById("img-" + admin.imgEdit); if (ii) ii.focus(); break;
       case "imgCancel": admin.imgEdit = null; admin.imgErr = ""; render(); break;
-      case "ciclarEstado": var ke = buscarPremio(t.getAttribute("data-id")); if (ke >= 0) { var pe = estado.premios[ke]; pe.estado = ESTADOS[(ESTADOS.indexOf(pe.estado || "activa") + 1) % ESTADOS.length]; marcarSucio(); render(); } break;
+      case "ciclarEstado": var ke = buscarPremio(t.getAttribute("data-id")); if (ke >= 0) { var pe = estado.premios[ke]; pe.estado = ESTADOS[(ESTADOS.indexOf(pe.estado || "activa") + 1) % ESTADOS.length]; if (pe.estado === "cerrada" && !pe.resultado) pe.resultado = new Date().toISOString(); marcarSucio(); render(); } break;
       case "ciclarRareza": var kr = buscarPremio(t.getAttribute("data-id")); if (kr >= 0) { var pr = estado.premios[kr]; pr.rareza = LISTA_RAREZAS[(LISTA_RAREZAS.indexOf(String(pr.rareza || "").toUpperCase()) + 1) % LISTA_RAREZAS.length]; marcarSucio(); render(); } break;
       case "mover":
         var km = buscarPremio(t.getAttribute("data-id")), d = Number(t.getAttribute("data-d")), est0 = km >= 0 ? (estado.premios[km].estado === "cerrada") : false;
