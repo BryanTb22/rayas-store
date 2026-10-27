@@ -465,3 +465,20 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 .mrtag { font-weight: 700; font-size: .85rem; letter-spacing: .04em; }
 .mr-gano .mrtag, .mr-gano .win { color: var(--yellow); }
 .mr-curso .mrtag { color: #6fd3ff; }
+
+/* ---- Celular: barra superior ---- */
+@media (max-width: 600px) {
+  .topbar .wrap { gap: 8px; padding-block: 8px; }
+  .topbar .logo { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 17px; letter-spacing: .03em; }
+  .topbar .logo > span, .topbar .logo > i { font-size: 17px; }
+  .nav { gap: 6px; flex-shrink: 0; }
+  .nav .lock { padding: 7px 10px; font-size: 11.5px; letter-spacing: .04em; white-space: nowrap; line-height: 1.2; }
+}
+@media (max-width: 560px) {
+  .topbar:has(.misrifas) .logo > span, .topbar:has(.misrifas) .logo > i { display: none; }
+  .nav .lock.me { max-width: 132px; }
+}
+@media (max-width: 380px) {
+  .topbar .logo > span, .topbar .logo > i { display: none; }
+}
+@media (max-width: 560px) { .nav .lock.me .nm { display: none; } .nav .lock.me { max-width: none; } }
