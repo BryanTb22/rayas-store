@@ -83,6 +83,8 @@
     badge1: "Créditos gratis", badge2: "Ganador al azar", badge3: "Entrega por Steam",
     rifasKicker: "Premios en juego", rifasT1: "Rifas", rifasT2: "activas", rifasSub: "Cada premio indica cuántos créditos cuesta entrar.",
     vacioT: "Pronto nuevas rifas", vacioS: "Pide tus créditos y te avisamos cuando abra la próxima.",
+    msgCredPerfil: "¡Hola! 👋🔥 Soy *{nombre}* (📧 {correo}).\n\n💎 Quiero recargar créditos para participar en las rifas de *RAYAS STORE* 🎁🏆\n\n¿Me ayudas con mi recarga? 🙏✨",
+    msgCredVisita: "¡Hola! 👋🔥 Quiero mis créditos para las rifas de *RAYAS STORE* 💎🎁\n\n¿Me ayudas? 🙏✨",
     btnParticipar: "Participar", btnPronto: "Muy pronto", lblCreditos: "créditos",
     comoKicker: "Paso a paso", comoT1: "Cómo", comoT2: "participar",
     paso1T: "Escríbenos", paso1: "Manda un mensaje al encargado por WhatsApp con tu nombre o usuario de Steam.",
@@ -164,9 +166,8 @@
   }
   function waLink(texto) { var c = contactos()[0]; return c ? waLinkA(c.numero, texto) : ""; }
   function msgCred(p) {
-    return p
-      ? "¡Hola! 👋🔥 Soy *" + p.nombre + "* (📧 " + p.email + ").\n\n💎 Quiero recargar créditos para participar en las rifas de *RAYAS STORE* 🎁🏆\n\n¿Me ayudas con mi recarga? 🙏✨"
-      : "¡Hola! 👋🔥 Quiero mis créditos para las rifas de *RAYAS STORE* 💎🎁\n\n¿Me ayudas? 🙏✨";
+    var T = estado.textos;
+    return p ? String(T.msgCredPerfil).replace(/\{nombre\}/g, p.nombre).replace(/\{correo\}/g, p.email) : String(T.msgCredVisita);
   }
   function creditoHref() {
     var a = contactos();
@@ -737,6 +738,11 @@
     }).join("") +
       (admin.imgErr ? '<p class="hint" style="color:var(--danger)">' + esc(admin.imgErr) + '</p>' : '') +
       '<p class="hint">Si los dos están activos, el cliente elige con quién hablar. Si solo hay uno activo, el botón abre directo su WhatsApp. Si ninguno, se ocultan los botones de créditos. Perú: 51 + 9 dígitos.</p>' +
+      '<div class="grp"><h3>Mensajes de WhatsApp</h3>' +
+      '<div class="field"><label for="f-msg1">Cuando pide créditos con cuenta</label><textarea id="f-msg1" rows="6" maxlength="600">' + esc(T.msgCredPerfil) + '</textarea></div>' +
+      '<p class="hint">Usa {nombre} y {correo} para poner los datos del usuario.</p>' +
+      '<div class="field"><label for="f-msg2">Cuando pide créditos sin cuenta</label><textarea id="f-msg2" rows="4" maxlength="600">' + esc(T.msgCredVisita) + '</textarea></div>' +
+      '<p class="hint">Puedes usar emojis. En celular se envían tal cual; en PC se quitan solos al enviar, porque WhatsApp para Windows los daña.</p></div>' +
       '<div class="grp"><h3>Portada</h3>' +
       '<div class="field"><label for="f-titulo">Título</label><input id="f-titulo" maxlength="70" value="' + esc(T.titulo) + '"></div>' +
       '<p class="hint">Si escribes "Dota 2" en el título, sale en amarillo.</p>' +
@@ -936,6 +942,8 @@
     var t = ev.target;
     if (t.classList && t.classList.contains("c-nombre")) { estado.contactos[Number(t.getAttribute("data-i"))].nombre = t.value; marcarSucio(); actualizarPie(); }
     else if (t.classList && t.classList.contains("c-num")) { estado.contactos[Number(t.getAttribute("data-i"))].numero = soloDigitos(t.value); marcarSucio(); actualizarPie(); }
+    else if (t.id === "f-msg1") { estado.textos.msgCredPerfil = t.value; marcarSucio(); actualizarPie(); }
+    else if (t.id === "f-msg2") { estado.textos.msgCredVisita = t.value; marcarSucio(); actualizarPie(); }
     else if (t.id === "f-titulo") { estado.textos.titulo = t.value; marcarSucio(); actualizarPie(); }
     else if (t.id === "f-sub") { estado.textos.subtitulo = t.value; marcarSucio(); actualizarPie(); }
     else if (t.id === "f-reglas") { estado.textos.reglas = t.value.split("\n").map(function (x) { return x.trim(); }).filter(Boolean); marcarSucio(); actualizarPie(); }
