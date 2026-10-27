@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
-const { PACKS } = require("./packs");
+const { packPorSoles } = require("./packs");
 const culqi = require("./culqi");
 
 admin.initializeApp();
@@ -13,7 +13,7 @@ const FV = admin.firestore.FieldValue;
 const CULQI_SECRET = defineSecret("CULQI_SECRET_KEY");   // sk_test_... / sk_live_...
 const WEBHOOK_KEY = defineSecret("CULQI_WEBHOOK_KEY");   // clave inventada por ti, va en la URL del webhook
 const REGION = "us-central1";
-const ORIGENES = ["https://rayas.trade", "https://www.rayas.trade"];
+const ORIGENES = ["https://rayas.trade", "https://www.rayas.trade", "https://litlejacob.trade", "https://www.litlejacob.trade"];
 
 /* ---------- utilidades ---------- */
 async function uidDeLaPeticion(req) {
@@ -68,7 +68,7 @@ exports.cobrar = onRequest(
     if (!uid) return res.status(401).json({ error: "Inicia sesión para recargar." });
 
     const body = req.body || {};
-    const pack = PACKS[String(body.packId || "")];
+    const pack = packPorSoles(body.soles);
     const tokenId = String(body.tokenId || "");
     if (!pack || !/^[\w-]{8,120}$/.test(tokenId)) return res.status(400).json({ error: "Datos de pago inválidos." });
 

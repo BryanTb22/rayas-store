@@ -758,3 +758,19 @@ html, body { overflow-x: clip; max-width: 100%; }
 .packs .pack span { font-size: .9rem; font-weight: 700; }
 .packs .pack small { font-weight: 600; opacity: .9; }
 @media (max-width: 380px) { .packs { grid-template-columns: 1fr; } }
+
+/* Recarga: promo, monto libre y selección */
+.promo-banner { display: grid; gap: 2px; justify-items: center; text-align: center; padding: 10px 12px; border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255,45,143,.28), rgba(255,200,60,.22)); border: 1px solid rgba(255,200,60,.55); }
+.promo-banner b:first-child { color: var(--yellow); letter-spacing: .04em; }
+.promo-banner span { font-size: .85rem; }
+.packs .pack.sel b::before { content: "\2714  "; }
+.packs .pack.sel { filter: brightness(1.12) saturate(1.15); }
+.packs .pack .tag { font-style: normal; font-size: .62rem; font-weight: 800; letter-spacing: .04em; padding: 2px 8px;
+  border-radius: 999px; background: #fff; color: #c0156f; margin-bottom: 2px; }
+.otro { display: grid; gap: 6px; }
+.otro label { font-size: .85rem; opacity: .9; text-align: center; }
+.otrorow { display: flex; gap: 8px; }
+.otrorow input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: inherit; font: inherit; }
+.resumen { margin: 0; text-align: center; font-size: 1.05rem; }
+.resumen b { color: var(--yellow); }
