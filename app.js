@@ -1449,7 +1449,7 @@
     em = em.trim();
     if (!em) { cuenta.msg = "Escribe tu correo arriba y vuelve a pulsar «¿Olvidaste tu contraseña?»."; cuenta.msgTipo = "err"; render(); return; }
     fetch("https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=" + encodeURIComponent(FB.apiKey), {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json", "X-Firebase-Locale": "es" },
       body: JSON.stringify({ requestType: "PASSWORD_RESET", email: em })
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (j.error) throw new Error(j.error.message || "ERROR");
