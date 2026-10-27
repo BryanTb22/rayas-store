@@ -27,6 +27,12 @@
     { id: "p50", soles: 50, base: 50, promo: 55 },
     { id: "p100", soles: 100, base: 100, promo: 110 }
   ];
+  // Comisión de Culqi a cargo del comprador (misma fórmula que functions/packs.js; el servidor es quien cobra).
+  var COM = { pct: 0.0399, fijoUsd: 0.20, tc: 3.85, igv: 0 };
+  function totalTarjeta(soles) { var k = 1 + COM.igv; var t = (soles + COM.fijoUsd * COM.tc * k) / (1 - COM.pct * k); return Math.ceil(t * 100 - 1e-9) / 100; }
+  function fmtSol(n) { return (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
+  function yapeOn() { var y = estado.yape; return !!(y && (y.qr || y.numero)); }
+  function recargaOn() { return pagosOn() || yapeOn(); }
   function pagosOn() { return !!PAGOS.culqiPk && (!!(estado.pagos && estado.pagos.culqi) || /[?&]pagotest=1(&|$)/.test(location.search)); }
 
   function leerSesion() { try { return JSON.parse(localStorage.getItem(SES_KEY) || "null"); } catch (e) { return null; } }
@@ -206,6 +212,8 @@
       return { id: String(c.id || ("c" + i)), nombre: typeof c.nombre === "string" ? c.nombre : "", numero: String(c.numero || "").replace(/\D+/g, ""), activo: c.activo !== false, foto: typeof c.foto === "string" ? c.foto : "" };
     });
     st.pagos = { culqi: !!(st.pagos && st.pagos.culqi) };
+    var yp = st.yape && typeof st.yape === "object" ? st.yape : {};
+    st.yape = { qr: /^fs:img-[\w\-]+$/.test(String(yp.qr || "")) ? yp.qr : "", numero: String(yp.numero || "").replace(/\D+/g, "").slice(0, 12), nombre: typeof yp.nombre === "string" ? yp.nombre.slice(0, 40) : "" };
     if (!Array.isArray(st.premios)) st.premios = [];
     var fo = st.fotos && typeof st.fotos === "object" ? st.fotos : {};
     st.fotos = {}; ["logo", "hero", "lava", "sombra"].forEach(function (k) { st.fotos[k] = /^fs:img-[\w\-]+$/.test(String(fo[k] || "")) ? fo[k] : ""; });
@@ -371,7 +379,7 @@
         else { modal = { tipo: "error", msg: (C.error && (C.error.user_message || C.error.merchant_message)) || "No se pudo procesar el pago." }; render(); }
       };
       C.publicKey = PAGOS.culqiPk;
-      C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de créditos", amount: soles * 100 });
+      C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de créditos", amount: Math.round(totalTarjeta(soles) * 100) });
       C.options({ lang: "es", installments: false, paymentMethods: { tarjeta: true, yape: true, billetera: false, bancaMovil: false, agente: false, cuotealo: false } });
       modal = null; render(); C.open();
     }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo abrir el pago." }; render(); });
@@ -403,7 +411,7 @@
           var C = window.Culqi;
           window.culqi = function () { /* en órdenes no hay token: el pago llega por aviso de Culqi */ };
           C.publicKey = PAGOS.culqiPk;
-          C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de créditos", amount: soles * 100, order: x.j.ordenId });
+          C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de créditos", amount: Math.round(totalTarjeta(soles) * 100), order: x.j.ordenId });
           C.options({ lang: "es", installments: false, paymentMethods: { tarjeta: false, yape: false, billetera: true, bancaMovil: true, agente: true, cuotealo: false } });
           modal = { tipo: "efectivoPend", soles: soles }; render(); C.open();
         });
@@ -411,7 +419,7 @@
   }
   // Botón "recargar": abre el pago si está activo, si no cae al WhatsApp de siempre.
   function btnRecargar(cls, key, href) {
-    if (vivo() || !pagosOn()) return href || vivo() ? lnk(cls, href, key, true) : "";
+    if (vivo() || !recargaOn()) return href || vivo() ? lnk(cls, href, key, true) : "";
     return '<button class="' + cls + '" type="button" data-a="recargar">' + esc(estado.textos[key]) + '</button>';
   }
 
@@ -421,7 +429,7 @@
     if (m.tipo === "sinSaldo") {
       var rl = creditoHref();
       h = '<h3>Créditos insuficientes 😕</h3><p class="hint">La rifa de <b>' + esc(m.p.nombre) + '</b> cuesta <b>' + m.p.cred + '</b> créditos y tú tienes <b>' + (c ? c.creditos : 0) + '</b>. Recarga créditos para poder participar.</p>';
-      btns = (pagosOn() ? '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar créditos</button>' : '') +
+      btns = (recargaOn() ? '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar créditos</button>' : '') +
         (rl ? '<a class="btn btn-yellow" href="' + esc(rl) + '"' + (rl === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>💎 ' + (pagosOn() ? 'Pedir por WhatsApp' : 'Recargar créditos') + '</a>' : '') + cerrar;
     } else if (m.tipo === "recarga") {
       var primera = !!(c && !c.promoUsada), sel = m.sel || 0, cred = sel ? creditosPara(sel) : 0;
@@ -438,13 +446,23 @@
         '<div class="otrorow"><input id="monto-otro" type="number" inputmode="numeric" min="' + PAGOS.min + '" max="' + PAGOS.max + '" step="1" placeholder="Ej. 30" value="' + esc(m.otro || "") + '">' +
         '<button class="btn btn-ghost btn-sm" type="button" data-a="montoOtro">Usar</button></div></div>' +
         (m.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(m.err) + '</p>' : '') +
-        (sel ? '<p class="resumen">Pagas <b>S/ ' + sel + '</b> y recibes <b>' + cred + ' créditos</b>' + (cred > sel ? ' 🎁' : '') + '</p>' +
+        (sel ? '<p class="resumen">Recibes <b>' + cred + ' créditos</b>' + (cred > sel ? ' 🎁' : '') + '</p>' +
+          '<div class="cuentas">' + (pagosOn() ? '<p class="hint">💳 Tarjeta / efectivo / QR: pagas <b>S/ ' + fmtSol(totalTarjeta(sel)) + '</b> (S/ ' + fmtSol(sel) + ' + S/ ' + fmtSol(totalTarjeta(sel) - sel) + ' de comisión de Culqi)</p>' : '') +
+          '<p class="hint">💜 Yape / WhatsApp: pagas <b>S/ ' + fmtSol(sel) + '</b>, <b>sin comisión</b></p></div>' +
           '<p class="hint"><b>2.</b> Elige cómo quieres pagar</p>' : '');
-      btns = (sel ? '<button class="btn btn-fuchsia" type="button" data-a="pagarCulqi">💳 Pagar con tarjeta · al instante</button>' +
-        (sel >= PAGOS.minYape ? '<button class="btn btn-yellow" type="button" data-a="pagarEfectivo">💵 Efectivo / QR / billeteras</button>' : '') +
-        '<button class="btn btn-yellow" type="button" data-a="recargaWsp">💬 Pagar por WhatsApp</button>' : '') +
-        '<p class="hint" style="font-size:.78rem;opacity:.85">Tarjeta: pago seguro con Culqi desde S/ ' + PAGOS.min + ', tus créditos se suman solos. <b>Efectivo (PagoEfectivo), QR y billeteras: desde S/ ' + PAGOS.minYape + '</b>: te damos un código, pagas cuando quieras (hasta 24 h) y tus créditos se suman solos al confirmarse.</p>' +
+      btns = (sel ? (pagosOn() ? '<button class="btn btn-fuchsia" type="button" data-a="pagarCulqi">💳 Pagar con tarjeta · S/ ' + fmtSol(totalTarjeta(sel)) + '</button>' +
+        (sel >= PAGOS.minYape ? '<button class="btn btn-yellow" type="button" data-a="pagarEfectivo">💵 Efectivo / QR / billeteras · S/ ' + fmtSol(totalTarjeta(sel)) + '</button>' : '') : '') +
+        (yapeOn() ? '<button class="btn btn-fuchsia" type="button" data-a="yape">💜 Pagar con Yape · sin comisión</button>' : '') +
+        '<button class="btn btn-yellow" type="button" data-a="recargaWsp">💬 Pagar por WhatsApp · sin comisión</button>' : '') +
+        (pagosOn() ? '<p class="hint" style="font-size:.78rem;opacity:.85">Tarjeta: pago seguro con Culqi desde S/ ' + PAGOS.min + ', tus créditos se suman solos. <b>Efectivo (PagoEfectivo), QR y billeteras: desde S/ ' + PAGOS.minYape + '</b>: te damos un código, pagas cuando quieras (hasta 24 h) y tus créditos se suman solos al confirmarse.</p>' : '') +
         '<p class="hint" style="font-size:.78rem;opacity:.85">¿Montos menores a S/ ' + PAGOS.minYape + ' con Yape, o prefieres pagar con una persona? Elige <b>Pagar por WhatsApp</b> y te atiende el encargado, que carga tus créditos él mismo. Los créditos usados en una rifa no se devuelven.</p>' + cerrar;
+    } else if (m.tipo === "yape") {
+      var yp = estado.yape || {};
+      h = '<h3>Pagar con Yape 💜</h3><p class="hint">Yapea <b>S/ ' + fmtSol(m.sel) + '</b> (sin comisión) y avísanos por WhatsApp con tu captura. Te cargamos <b>' + creditosPara(m.sel) + ' créditos</b> a tu cuenta.</p>' +
+        (yp.qr ? '<div class="yapeqr"><img data-fs="' + esc(yp.qr.slice(3)) + '" alt="QR de Yape" width="240" height="240"></div>' : '') +
+        (yp.numero || yp.nombre ? '<p class="hint" style="text-align:center">' + (yp.numero ? 'Yape al <b>' + esc(yp.numero) + '</b>' : '') + (yp.nombre ? ' · a nombre de <b>' + esc(yp.nombre) + '</b>' : '') + '</p>' : '') +
+        '<p class="hint"><b>1.</b> Escanea el QR o yapea al número. <b>2.</b> Toca el botón de abajo y envía la captura del Yape por WhatsApp. <b>3.</b> Cargamos tus créditos (usa el mismo nombre/correo de tu cuenta).</p>';
+      btns = '<button class="btn btn-yellow" type="button" data-a="yapeAvisar">✅ Ya pagué · enviar captura por WhatsApp</button><button class="btn btn-ghost btn-sm" type="button" data-a="volverRecarga">← Cambiar monto</button>' + cerrar;
     } else if (m.tipo === "efectivoPend") {
       h = '<h3>Código de pago listo 💵</h3><p class="hint">Se abrió tu código de pago por <b>S/ ' + m.soles + '</b>. Págalo en un agente, banco, app bancaria o con QR (vale por 24 horas). Cuando Culqi lo confirme, tus créditos se suman solos; puede tardar unos minutos.</p>' +
         '<p class="hint">Tienes <b>' + (c ? c.creditos : 0) + '</b> créditos ahora.</p>';
@@ -888,7 +906,7 @@
       '<div class="steps">' + [1, 2, 3].map(function (n) {
         return '<div class="step frame"><div class="in"><span class="n">' + n + '</span>' + tx("h3", "paso" + n + "T") + tx("p", "paso" + n) + '</div></div>';
       }).join("") + '</div>' +
-      (linkCreditos || V || pagosOn() ? '<div style="text-align:center;margin-top:30px">' + btnRecargar("btn btn-fuchsia", "btnCreditos2", linkCreditos) + '</div>' : '') +
+      (linkCreditos || V || recargaOn() ? '<div style="text-align:center;margin-top:30px">' + btnRecargar("btn btn-fuchsia", "btnCreditos2", linkCreditos) + '</div>' : '') +
       '</div></section>' +
 
       '<section class="band sombra gutter" id="ganadores">' + fotoBtn("sombra") + '<div class="wrap">' +
@@ -1333,9 +1351,21 @@
       '<div class="grp"><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div>';
   }
 
+  function yapeAdminHtml() {
+    var y = estado.yape || {};
+    return '<div class="grp"><h3>💜 Yape para recargas por WhatsApp</h3>' +
+      '<p class="hint">Sube tu QR de Yape. Los clientes que elijan <b>Yape / WhatsApp</b> lo ven al recargar (sin comisión) y te mandan la captura por WhatsApp.</p>' +
+      (y.qr ? '<div class="yapeqr"><img data-fs="' + esc(y.qr.slice(3)) + '" alt="QR de Yape" width="160" height="160"></div>' : '<p class="hint">Aún no subes tu QR.</p>') +
+      '<div class="cav"><label class="btn btn-ghost btn-sm" for="yape-file">' + (admin.subiendo === "yape" ? "Subiendo…" : (y.qr ? "Cambiar QR" : "Subir mi QR de Yape")) + '</label>' +
+      '<input id="yape-file" class="yapefile" type="file" accept="image/*" hidden>' +
+      (y.qr ? '<button type="button" class="btn btn-ghost btn-sm" data-a="yapeQuitar">Quitar QR</button>' : '') + '</div>' +
+      '<div class="field"><label for="yape-num">Número de Yape (opcional)</label><input id="yape-num" class="y-num" inputmode="tel" maxlength="12" value="' + esc(y.numero || "") + '"></div>' +
+      '<div class="field"><label for="yape-nom">A nombre de (opcional)</label><input id="yape-nom" class="y-nom" maxlength="40" value="' + esc(y.nombre || "") + '"></div>' +
+      '<p class="hint">Recuerda pulsar <b>Publicar</b> para que los clientes lo vean.</p></div>';
+  }
   function tabPagina() {
     var T = estado.textos;
-    return '<div class="grp"><h3>Cobro con Culqi (tarjeta / Yape)</h3>' +
+    return yapeAdminHtml() + '<div class="grp"><h3>Cobro con Culqi (tarjeta / Yape)</h3>' +
       '<label class="chk"><input type="checkbox" class="c-pagos"' + (estado.pagos && estado.pagos.culqi ? ' checked' : '') + '> Cobrar con Culqi (los clientes ven el botón de pago)</label>' +
       '<p class="hint">' + (estado.pagos && estado.pagos.culqi ? 'ACTIVO: los clientes pueden recargar con tarjeta o Yape.' : 'APAGADO: los clientes solo piden créditos por WhatsApp.') + ' Recuerda pulsar <b>Publicar</b> para que el cambio lo vean todos. Este interruptor vale para las dos páginas.</p></div>' +
       (estado.contactos || []).map(function (c, k) {
@@ -1516,6 +1546,14 @@
       case "pagarCulqi": if (modal && modal.tipo === "recarga" && modal.sel) iniciarPago(modal.sel); break;
       case "pagarEfectivo": if (modal && modal.tipo === "recarga" && modal.sel) iniciarEfectivo(modal.sel); break;
       case "refrescarSaldo": cargarPerfil().then(function () { render(); }); break;
+      case "yape": if (modal && modal.tipo === "recarga" && modal.sel) { modal = { tipo: "yape", sel: modal.sel }; render(); hidratarImgs(); } break;
+      case "volverRecarga": if (modal && modal.tipo === "yape") { modal = { tipo: "recarga", sel: modal.sel }; render(); } break;
+      case "yapeAvisar":
+        if (modal && modal.tipo === "yape") {
+          montoWsp = modal.sel; var hy = creditoHref();
+          if (hy === "#elegir") { modal = null; elegirAbierto = true; render(); }
+          else { montoWsp = 0; if (hy) window.open(hy, "_blank", "noopener"); }
+        } break;
       case "recargaWsp":
         if (modal && modal.tipo === "recarga" && modal.sel) {
           montoWsp = modal.sel; var hw = creditoHref();
@@ -1578,6 +1616,7 @@
           });
         };
         inp.click(); break;
+      case "yapeQuitar": estado.yape = estado.yape || {}; estado.yape.qr = ""; marcarSucio(); render(); break;
       case "fotoQuitar": estado.fotos[t.getAttribute("data-k")] = ""; marcarSucio(); render(); break;
       case "imgEdit": admin.imgErr = ""; admin.imgEdit = t.getAttribute("data-id"); render(); var ii = document.getElementById("img-" + admin.imgEdit); if (ii) ii.focus(); break;
       case "imgCancel": admin.imgEdit = null; admin.imgErr = ""; render(); break;
@@ -1623,6 +1662,8 @@
       return;
     }
     var t = ev.target;
+    if (t.classList && t.classList.contains("y-num")) { estado.yape = estado.yape || {}; estado.yape.numero = t.value.replace(/\D+/g, "").slice(0, 12); marcarSucio(); actualizarPie(); }
+    if (t.classList && t.classList.contains("y-nom")) { estado.yape = estado.yape || {}; estado.yape.nombre = t.value.slice(0, 40); marcarSucio(); actualizarPie(); }
     if (t.classList && t.classList.contains("c-nombre")) { estado.contactos[Number(t.getAttribute("data-i"))].nombre = t.value; marcarSucio(); actualizarPie(); }
     else if (t.classList && t.classList.contains("c-num")) { estado.contactos[Number(t.getAttribute("data-i"))].numero = soloDigitos(t.value); marcarSucio(); actualizarPie(); }
     else if (t.id === "f-msg1") { estado.textos.msgCredPerfil = t.value; marcarSucio(); actualizarPie(); }
@@ -1652,6 +1693,13 @@
       return;
     }
     var tc = ev.target;
+    if (tc.classList && tc.classList.contains("yapefile") && tc.files && tc.files[0]) {
+      admin.subiendo = "yape"; admin.imgErr = ""; render();
+      subirImagen(tc.files[0], 900).then(function (ref) {
+        estado.yape = estado.yape || {}; estado.yape.qr = ref; marcarSucio(); admin.subiendo = null; render();
+      }).catch(function (e) { admin.subiendo = null; admin.imgErr = (e && e.message) || "No se pudo subir la imagen."; render(); });
+      return;
+    }
     if (tc.classList && tc.classList.contains("c-pagos")) { estado.pagos = { culqi: tc.checked }; marcarSucio(); render(); return; }
     if (tc.classList && tc.classList.contains("c-activo")) { estado.contactos[Number(tc.getAttribute("data-i"))].activo = tc.checked; marcarSucio(); render(); return; }
     if (tc.classList && (tc.classList.contains("c-nombre") || tc.classList.contains("c-num"))) { render(); return; }
@@ -1878,7 +1926,7 @@
       d.id = "promoPop"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Promoción de primera recarga");
       d.innerHTML = '<div class="promo-box"><button type="button" class="promo-x" aria-label="Cerrar">✕</button>' +
         '<img src="img/promo-rifas.jpg" alt="Primera recarga: S/ 50 = 55 créditos, S/ 100 = 110 créditos" width="1080" height="1350">' +
-        '<div class="promo-acts">' + (pagosOn() ? '<button type="button" class="btn btn-yellow" id="promoPagar">Recargar ahora</button>'
+        '<div class="promo-acts">' + (recargaOn() ? '<button type="button" class="btn btn-yellow" id="promoPagar">Recargar ahora</button>'
           : (href ? '<a class="btn btn-yellow" id="promoCta" href="' + esc(href) + '"' + (href === "#elegir" ? '' : ' target="_blank" rel="noopener"') + '>Pedir créditos</a>' : '')) +
         '<button type="button" class="btn btn-ghost" id="promoNo">Ahora no</button></div></div>';
       document.body.appendChild(d);

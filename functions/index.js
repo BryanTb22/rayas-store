@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
-const { packPorSoles, MIN_ORDEN } = require("./packs");
+const { packPorSoles, MIN_ORDEN, totalConComision } = require("./packs");
 const culqi = require("./culqi");
 const sets = require("./sets");
 
@@ -96,16 +96,17 @@ exports.cobrar = onRequest(
     if (!email) return res.status(400).json({ error: "Tu cuenta no tiene correo." });
 
     // Registro del intento ANTES de cobrar: sirve de rastro y de llave contra duplicados.
+    const totalCobro = totalConComision(pack.soles);   // incluye la comisión de Culqi (la paga el comprador)
     const pRef = db.collection("rayas_pagos").doc();
     await pRef.set({
-      uid: uid, packId: pack.id, soles: pack.soles, baseCreditos: pack.base,
+      uid: uid, packId: pack.id, soles: pack.soles, total: totalCobro, comision: Math.round((totalCobro - pack.soles) * 100) / 100, medio: "tarjeta", baseCreditos: pack.base,
       promoCreditos: pack.promo || 0, estado: "procesando", creado: FV.serverTimestamp()
     });
 
     let r;
     try {
       r = await culqi.crearCargo(CULQI_SECRET.value(), {
-        montoCentimos: pack.soles * 100, email: email, tokenId: tokenId, pagoId: pRef.id, uid: uid
+        montoCentimos: Math.round(totalCobro * 100), email: email, tokenId: tokenId, pagoId: pRef.id, uid: uid
       });
     } catch (e) {
       // Sin respuesta de Culqi: NO sabemos si cobró. Queda para revisión (y el webhook puede acreditarlo).
@@ -121,7 +122,7 @@ exports.cobrar = onRequest(
 
     try {
       const a = await acreditar(pRef.id, r.cargo.id);
-      return res.json({ ok: true, creditos: a.creditos, saldo: a.saldo, promo: !!a.promo });
+      return res.json({ ok: true, creditos: a.creditos, saldo: a.saldo, promo: !!a.promo, pagado: totalCobro });
     } catch (e) {
       // Cobrado pero no acreditado: queda marcado para que el webhook o el admin lo resuelvan.
       await pRef.update({ estado: "cobrado_sin_acreditar", chargeId: r.cargo.id, error: String(e && e.message || e) });
@@ -213,15 +214,16 @@ exports.crearOrden = onRequest(
     if (tel.length === 9) tel = "51" + tel;
     if (tel.length < 9) tel = "51999999999";
 
+    const totalCobro = totalConComision(pack.soles);   // incluye la comisión (la paga el comprador)
     const pRef = db.collection("rayas_pagos").doc();
     await pRef.set({
-      uid: uid, tipo: "orden", packId: pack.id, soles: pack.soles, baseCreditos: pack.base,
+      uid: uid, tipo: "orden", medio: "efectivo/qr", packId: pack.id, soles: pack.soles, total: totalCobro, comision: Math.round((totalCobro - pack.soles) * 100) / 100, baseCreditos: pack.base,
       promoCreditos: pack.promo || 0, estado: "procesando", creado: FV.serverTimestamp()
     });
     let r;
     try {
       r = await culqi.crearOrden(CULQI_SECRET.value(), {
-        montoCentimos: pack.soles * 100, email: email, nombre: u.nombre, telefono: tel, pagoId: pRef.id, uid: uid,
+        montoCentimos: Math.round(totalCobro * 100), email: email, nombre: u.nombre, telefono: tel, pagoId: pRef.id, uid: uid,
         numero: "REC-" + pRef.id.slice(0, 14), venceUnix: Math.floor(Date.now() / 1000) + 24 * 3600
       });
     } catch (e) {
@@ -234,7 +236,7 @@ exports.crearOrden = onRequest(
       return res.status(400).json({ error: msg });
     }
     await pRef.update({ estado: "pendiente", ordenId: r.orden.id });
-    return res.json({ ok: true, ordenId: r.orden.id, pagoId: pRef.id, soles: pack.soles });
+    return res.json({ ok: true, ordenId: r.orden.id, pagoId: pRef.id, soles: pack.soles, total: totalCobro });
   }
 );
 
@@ -261,7 +263,7 @@ exports.webhookCulqi = onRequest(
         const pSnap = await db.doc("rayas_pagos/" + pagoId).get();
         if (!pSnap.exists) return res.status(200).send("pago desconocido");
         const p = pSnap.data();
-        if (p.ordenId !== data.id || g.orden.metadata.uid !== p.uid || !culqi.ordenPagada(g.orden, p.soles * 100)) return res.status(200).send("no pagado");
+        if (p.ordenId !== data.id || g.orden.metadata.uid !== p.uid || !culqi.ordenPagada(g.orden, Math.round((p.total || p.soles) * 100))) return res.status(200).send("no pagado");
         await acreditar(pagoId, data.id);
         return res.status(200).send("ok");
       } catch (e) {
@@ -279,7 +281,7 @@ exports.webhookCulqi = onRequest(
       const pSnap = await db.doc("rayas_pagos/" + pagoId).get();
       if (!pSnap.exists) return res.status(200).send("pago desconocido");
       const p = pSnap.data();
-      if (g.cargo.metadata.uid !== p.uid || !culqi.cargoPagado(g.cargo, p.soles * 100)) {
+      if (g.cargo.metadata.uid !== p.uid || !culqi.cargoPagado(g.cargo, Math.round((p.total || p.soles) * 100))) {
         return res.status(200).send("no pagado");
       }
       await acreditar(pagoId, chargeId);
