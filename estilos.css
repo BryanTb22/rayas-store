@@ -630,3 +630,33 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 .fotobtns .imgbtn { position: static; transform: none; }
 .fb-hero, .fb-lava, .fb-sombra { top: 14px; right: 16px; }
 .fb-logo { position: relative; margin: -6px 0 10px; }
+
+/* ===== Bordes ornamentados (estilo marco de Dota 2) ===== */
+#ganadores .winner.frame.gold { --notch: 24px; padding: 4px;
+  background: linear-gradient(135deg, #fff6c8 0%, #f2c53d 18%, #8a5a0f 38%, #f2c53d 55%, #fff0b0 72%, #9a6a14 100%);
+  filter: drop-shadow(0 0 1px #ffe9a0) drop-shadow(0 12px 30px color-mix(in srgb, var(--yellow) 28%, transparent)); }
+#ganadores .winner .in { --n: 20px; z-index: 0; background: #0b1433; clip-path: polygon(var(--n) 0, calc(100% - var(--n)) 0, 100% var(--n), 100% calc(100% - var(--n)), calc(100% - var(--n)) 100%, var(--n) 100%, 0 calc(100% - var(--n)), 0 var(--n)); }
+#ganadores .winner .in::before { content: ""; position: absolute; inset: 6px; z-index: -2; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,226,140,.95), rgba(255,201,60,.25) 40%, rgba(255,45,143,.55));
+  clip-path: polygon(15px 0, calc(100% - 15px) 0, 100% 15px, 100% calc(100% - 15px), calc(100% - 15px) 100%, 15px 100%, 0 calc(100% - 15px), 0 15px); }
+#ganadores .winner .in::after { content: ""; position: absolute; inset: 7.5px; z-index: -1; pointer-events: none; transform: none; animation: none;
+  background: radial-gradient(90% 120% at 0% 0%, color-mix(in srgb, var(--yellow) 18%, transparent), transparent 60%), linear-gradient(180deg, #16234d, #0d1738);
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px); }
+#ganadores .winner.frame.gold::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+  background: linear-gradient(115deg, transparent 42%, rgba(255,240,170,.28) 50%, transparent 58%); transform: translateX(-130%); animation: btnShine 4.5s ease-in-out infinite; }
+#ganadores .winner .in > * { position: relative; z-index: 1; }
+#ganadores .winner .in > .crown { position: absolute; z-index: 2; }
+#ganadores .winner .in { padding: 32px 30px; }
+#ganadores .winner.frame.gold::before { content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  background:
+    radial-gradient(circle at 12px 12px, #fff6c8 0 3px, #c9921f 3.5px 5.5px, transparent 6px) 0 0 / 100% 100% no-repeat; }
+.card.frame { --notch: 20px; padding: 4px;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--r) 55%, #fff) 0%, var(--r) 20%, color-mix(in srgb, var(--r) 25%, #000) 42%, var(--r) 62%, color-mix(in srgb, var(--r) 55%, #fff) 82%, color-mix(in srgb, var(--r) 40%, #000) 100%);
+  filter: drop-shadow(0 0 1px color-mix(in srgb, var(--r) 70%, #fff)) drop-shadow(0 10px 26px rgba(0,0,0,.5)); }
+.card.frame .in { --n: 16px; clip-path: polygon(var(--n) 0, calc(100% - var(--n)) 0, 100% var(--n), 100% calc(100% - var(--n)), calc(100% - var(--n)) 100%, var(--n) 100%, 0 calc(100% - var(--n)), 0 var(--n)); }
+.card.frame::before { content: ""; position: absolute; inset: 0; z-index: 5; pointer-events: none;
+  background:
+    radial-gradient(circle at 10px 10px, #fff 0 2px, var(--r) 2.5px 4.5px, transparent 5px),
+    radial-gradient(circle at calc(100% - 10px) 10px, #fff 0 2px, var(--r) 2.5px 4.5px, transparent 5px),
+    radial-gradient(circle at 10px calc(100% - 10px), #fff 0 2px, var(--r) 2.5px 4.5px, transparent 5px),
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #fff 0 2px, var(--r) 2.5px 4.5px, transparent 5px); }
