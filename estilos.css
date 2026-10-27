@@ -375,3 +375,11 @@ button.status { border: 0; cursor: pointer; font-family: inherit; }
 .rules li { align-items: flex-start; }
 .rules li > span { flex: 1; }
 .rdel { background: none; border: 1px solid var(--line); color: var(--danger); width: 26px; height: 26px; cursor: pointer; flex: none; }
+.sec-title h2 .t1 { color: var(--fg); }
+.imgform { overflow-y: auto; }
+.imgform .upl { color: var(--on-fuchsia); font-size: 12px; letter-spacing: .1em; justify-self: stretch; }
+.imgform .imgacts { display: flex; gap: 8px; flex-wrap: wrap; }
+.imgform .imgacts .btn { flex: 1; }
+.imgform .imgerr { margin: 0; color: var(--danger); font-size: 13px; font-weight: 700; }
+body.vivo .btn[data-edit] { cursor: text; }
+body.vivo .logo [data-edit] { min-width: 1ch; }

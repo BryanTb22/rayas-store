@@ -37,6 +37,21 @@
   var TEXTOS_BASE = {
     titulo: "Gana items de Dota 2 gratis",
     subtitulo: "Pide tus créditos gratis al encargado, elige el premio que quieres y entra a la rifa. Sin pagar nada.",
+    logo1: "RAYAS", logo2: "STORE",
+    kicker: "Rifas de Dota 2",
+    btnVer: "Ver rifas", btnCreditos: "Pedir créditos gratis",
+    badge1: "Créditos gratis", badge2: "Ganador al azar", badge3: "Entrega por Steam",
+    rifasKicker: "Premios en juego", rifasT1: "Rifas", rifasT2: "activas", rifasSub: "Cada premio indica cuántos créditos cuesta entrar.",
+    vacioT: "Pronto nuevas rifas", vacioS: "Pide tus créditos y te avisamos cuando abra la próxima.",
+    btnParticipar: "Participar", btnPronto: "Muy pronto", lblCreditos: "créditos",
+    comoKicker: "Paso a paso", comoT1: "Cómo", comoT2: "participar",
+    paso1T: "Escríbenos", paso1: "Manda un mensaje al encargado por WhatsApp con tu nombre o usuario de Steam.",
+    paso2T: "Recibe créditos", paso2: "El encargado te da créditos gratis. No se compran ni tienen valor en dinero.",
+    paso3T: "Entra a la rifa", paso3: "Elige el premio y usa tus créditos. Al cierre, el ganador sale al azar.",
+    btnCreditos2: "Pedir mis créditos",
+    ganKicker: "Salón de la fama", ganT: "Ganadores", ganVacioT: "Aún no hay ganadores", ganVacioS: "Cuando cierre la primera rifa, el ganador aparecerá aquí.",
+    reglasKicker: "Juego limpio", reglasT: "Reglas",
+    pie: "No afiliado a Valve. Dota 2 es una marca de Valve Corporation.",
     reglas: [
       "Los créditos son gratis. No se compran, no se venden y no tienen valor en dinero.",
       "Los créditos se entregan solo al comunicarte con el encargado de la página.",
@@ -51,11 +66,13 @@
     if (typeof st.whatsapp !== "string") st.whatsapp = "";
     if (!Array.isArray(st.premios)) st.premios = [];
     var t = st.textos && typeof st.textos === "object" ? st.textos : {};
-    st.textos = {
-      titulo: typeof t.titulo === "string" && t.titulo.trim() ? t.titulo : TEXTOS_BASE.titulo,
-      subtitulo: typeof t.subtitulo === "string" && t.subtitulo.trim() ? t.subtitulo : TEXTOS_BASE.subtitulo,
-      reglas: Array.isArray(t.reglas) && t.reglas.length ? t.reglas.filter(function (x) { return typeof x === "string" && x.trim(); }) : TEXTOS_BASE.reglas.slice()
-    };
+    var nt = {};
+    Object.keys(TEXTOS_BASE).forEach(function (k) {
+      if (k === "reglas") return;
+      nt[k] = typeof t[k] === "string" && t[k].trim() ? t[k] : TEXTOS_BASE[k];
+    });
+    nt.reglas = Array.isArray(t.reglas) && t.reglas.length ? t.reglas.filter(function (x) { return typeof x === "string" && x.trim(); }) : TEXTOS_BASE.reglas.slice();
+    st.textos = nt;
     return st;
   }
 
@@ -67,7 +84,7 @@
   var estado = clone(publicado);
   var sucio = false;
 
-  var admin = { puede: !!leerSesion(), vivo: false, imgEdit: null, login: false, abierto: false, tab: "premios", editando: null, borrar: null, msg: "", msgTipo: "" };
+  var admin = { puede: !!leerSesion(), vivo: false, imgEdit: null, imgErr: "", subiendo: null, login: false, abierto: false, tab: "premios", editando: null, borrar: null, msg: "", msgTipo: "" };
 
   /* ================= Utilidades ================= */
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -130,6 +147,74 @@
     if (!vivo()) return "";
     return ' contenteditable="plaintext-only" spellcheck="false" data-edit="' + esc(key) + '" data-ph="' + esc(ph || "Escribe aquí") + '"';
   }
+  // Texto de la página: editable en modo edición.
+  function tx(tag, key, attrs) {
+    var v = estado.textos[key] || "";
+    return '<' + tag + (attrs ? ' ' + attrs : '') + ed("t:" + key, TEXTOS_BASE[key]) + '>' + esc(v) + '</' + tag + '>';
+  }
+  // Botón-enlace: en modo edición se vuelve texto editable (sin navegar).
+  function lnk(cls, href, key, ext) {
+    if (vivo()) return '<span class="' + cls + '"' + ed("t:" + key, TEXTOS_BASE[key]) + '>' + esc(estado.textos[key]) + '</span>';
+    return '<a class="' + cls + '" href="' + esc(href) + '"' + (ext ? ' target="_blank" rel="noopener"' : '') + '>' + esc(estado.textos[key]) + '</a>';
+  }
+
+  /* ---- Imágenes subidas (guardadas en Firestore como documentos rayas/img-…) ---- */
+  var IMG_CACHE = {}, IMG_PEND = {};
+  function esFs(src) { return /^fs:img-[\w\-]+$/.test(String(src || "")); }
+  function imgTag(src, alt, extra) {
+    if (esFs(src)) {
+      var id = src.slice(3);
+      return '<img data-fs="' + esc(id) + '"' + (IMG_CACHE[id] ? ' src="' + IMG_CACHE[id] + '"' : '') + ' alt="' + esc(alt) + '"' + (extra || '') + '>';
+    }
+    var u = safeImg(src);
+    return u ? '<img src="' + esc(u) + '" alt="' + esc(alt) + '"' + (extra || '') + '>' : '';
+  }
+  function hidratarImgs() {
+    var els = document.querySelectorAll("img[data-fs]:not([src])");
+    for (var k = 0; k < els.length; k++) (function (el) {
+      var id = el.getAttribute("data-fs");
+      if (IMG_CACHE[id]) { el.src = IMG_CACHE[id]; return; }
+      if (!IMG_PEND[id]) IMG_PEND[id] = fetch(DOC_URL.replace(/estado$/, id)).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+        var u = d && d.fields && d.fields.data && d.fields.data.stringValue;
+        if (u && /^data:image\/(webp|jpeg|png);base64,/.test(u)) IMG_CACHE[id] = u;
+        return IMG_CACHE[id];
+      }).catch(function () { return null; });
+      IMG_PEND[id].then(function (u) { if (u) { var all = document.querySelectorAll('img[data-fs="' + id + '"]'); for (var j = 0; j < all.length; j++) all[j].src = u; } });
+    })(els[k]);
+  }
+  // Achica la foto en el navegador y la guarda como documento en Firestore.
+  function subirImagen(file) {
+    return new Promise(function (ok, fail) {
+      if (!file || !/^image\//.test(file.type)) return fail(new Error("Elige un archivo de imagen (JPG, PNG o WEBP)."));
+      var url = URL.createObjectURL(file), im = new Image();
+      im.onload = function () {
+        URL.revokeObjectURL(url);
+        var max = 720, w = im.naturalWidth, h = im.naturalHeight, sc = Math.min(1, max / Math.max(w, h));
+        var cv = document.createElement("canvas"); cv.width = Math.round(w * sc); cv.height = Math.round(h * sc);
+        cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height);
+        var q = 0.85, data = cv.toDataURL("image/webp", q);
+        if (data.indexOf("data:image/webp") !== 0) data = cv.toDataURL("image/png");
+        while (data.length > 650000 && q > 0.3) { q -= 0.15; data = cv.toDataURL("image/webp", q); }
+        if (data.length > 900000) return fail(new Error("La imagen es demasiado pesada. Prueba con una más pequeña."));
+        ok(data);
+      };
+      im.onerror = function () { URL.revokeObjectURL(url); fail(new Error("No se pudo leer la imagen.")); };
+      im.src = url;
+    }).then(function (data) {
+      var id = "img-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      return token().then(function (tk) {
+        return fetch(DOC_URL.replace(/estado$/, id), {
+          method: "PATCH", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
+          body: JSON.stringify({ fields: { data: { stringValue: data } } })
+        });
+      }).then(function (r) {
+        if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo subir (" + r.status + ").");
+        IMG_CACHE[id] = data;
+        return "fs:" + id;
+      });
+    });
+  }
+
   function buscarPremio(id) {
     for (var k = 0; k < estado.premios.length; k++) if (estado.premios[k].id === id) return k;
     return -1;
@@ -139,7 +224,7 @@
 
   /* ================= Vista pública ================= */
   function tarjeta(p) {
-    var img = safeImg(p.img);
+    var img = imgTag(p.img, p.nombre, ' loading="lazy"');
     var est = p.estado === "proxima" ? "proxima" : (p.estado === "cerrada" ? "cerrada" : "activa");
     var estTxt = est === "activa" ? "Abierta" : (est === "proxima" ? "Próximamente" : "Cerrada");
     var cupos = num(p.cupos, 0), part = num(p.participantes, 0), cred = num(p.creditos, 0);
@@ -149,10 +234,10 @@
     var boton;
     if (est === "activa") {
       boton = link && !lleno
-        ? '<a class="btn btn-yellow" href="' + esc(link) + '" target="_blank" rel="noopener">Participar</a>'
-        : '<button class="btn btn-yellow" type="button" disabled>' + (lleno ? "Cupos llenos" : "Participar") + '</button>';
+        ? lnk("btn btn-yellow", link, "btnParticipar", true)
+        : (vivo() ? lnk("btn btn-yellow", "", "btnParticipar") : '<button class="btn btn-yellow" type="button" disabled>' + (lleno ? "Cupos llenos" : esc(estado.textos.btnParticipar)) + '</button>');
     } else if (est === "proxima") {
-      boton = '<button class="btn btn-ghost" type="button" disabled>Muy pronto</button>';
+      boton = vivo() ? lnk("btn btn-ghost", "", "btnPronto") : '<button class="btn btn-ghost" type="button" disabled>' + esc(estado.textos.btnPronto) + '</button>';
     } else {
       boton = '<div class="pill">' + (p.ganador ? 'Ganador: <b style="color:var(--yellow)">' + esc(p.ganador) + '</b>' : 'Sorteo realizado') + '</div>';
     }
@@ -169,12 +254,16 @@
                              : '<button type="button" class="danger" data-a="pedirBorrar" data-id="' + id + '" title="Borrar" aria-label="Borrar">✕</button>') +
       '</div>' : '';
     var picInner = admin.imgEdit === p.id && V
-      ? '<form class="imgform" data-id="' + id + '"><label for="img-' + id + '">Link de la imagen</label><input id="img-' + id + '" inputmode="url" placeholder="https://…" value="' + esc(p.img) + '"><div><button class="btn btn-yellow btn-sm" type="submit">Usar</button> <button class="btn btn-ghost btn-sm" type="button" data-a="imgCancel">Cancelar</button></div></form>'
+      ? '<form class="imgform" data-id="' + id + '">' +
+        '<label class="btn btn-fuchsia btn-sm upl" for="up-' + id + '">' + (admin.subiendo === p.id ? 'Subiendo…' : 'Subir desde mi PC') + '</label>' +
+        '<input id="up-' + id + '" class="upfile" data-id="' + id + '" type="file" accept="image/*" hidden>' +
+        '<label for="img-' + id + '">o pega un link</label><input id="img-' + id + '" inputmode="url" placeholder="https://…" value="' + esc(esFs(p.img) ? "" : p.img) + '">' +
+        '<div class="imgacts"><button class="btn btn-yellow btn-sm" type="submit">Usar link</button><button class="btn btn-ghost btn-sm" type="button" data-a="imgCancel">Cerrar</button></div>' +
+        (admin.imgErr ? '<p class="imgerr">' + esc(admin.imgErr) + '</p>' : '') + '</form>'
       : (V ? '<button type="button" class="imgbtn" data-a="imgEdit" data-id="' + id + '">Cambiar imagen</button>' : '');
     return '<article class="card frame' + (V ? ' editing' : '') + '" style="--r:' + colorRareza(p.rareza) + '"><div class="in">' +
       '<div class="rbar"></div>' + tools +
-      (img ? '<div class="pic"><img src="' + esc(img) + '" alt="' + esc(p.nombre) + '" loading="lazy">'
-           : '<div class="pic noimg"><span class="q">?</span>') +
+      (img ? '<div class="pic">' + img : '<div class="pic noimg"><span class="q">?</span>') +
       (V ? '<button type="button" class="status ' + est + '" data-a="ciclarEstado" data-id="' + id + '" title="Clic para cambiar el estado">' + estTxt + ' ⟳</button>'
          : '<span class="status ' + est + '">' + estTxt + '</span>') + picInner + '</div>' +
       '<div class="body">' +
@@ -182,7 +271,7 @@
          : (p.rareza ? '<div class="rarity">' + esc(p.rareza) + '</div>' : '')) +
       '<h3' + ed("p:" + p.id + ":nombre", "Nombre del premio") + '>' + esc(V ? p.nombre : (p.nombre || "Premio")) + '</h3>' +
       (p.descripcion || V ? '<p class="desc"' + ed("p:" + p.id + ":descripcion", "Descripción (opcional)") + '>' + esc(p.descripcion) + '</p>' : '') +
-      '<div class="meta"><span class="cost"><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small>créditos</small></span><span class="pill">' + partTxt + '</span></div>' +
+      '<div class="meta"><span class="cost"><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small' + ed("t:lblCreditos", "créditos") + '>' + esc(estado.textos.lblCreditos) + '</small></span><span class="pill">' + partTxt + '</span></div>' +
       (est === "activa" && p.cierre ? '<div class="timer" data-cierre="' + esc(p.cierre) + '">' + esc(restante(p.cierre)) + '</div>' : '') +
       (est === "proxima" && p.cierre ? '<div class="pill">Cierra el ' + esc(fechaCorta(p.cierre)) + '</div>' : '') +
       boton + '</div></div></article>';
@@ -202,69 +291,72 @@
     var wa = waBonito(estado.whatsapp);
     var T = estado.textos;
 
+    var V = vivo();
+    function sec(kk, k1, k2, subk) {
+      return '<div class="sec-title">' + tx("div", kk, 'class="kicker"') +
+        '<h2>' + (k1 ? tx("span", k1, 'class="t1"') + ' ' : '') + tx("span", k2) + '</h2>' +
+        (subk ? tx("p", subk) : '') + '<div class="orn">◆</div></div>';
+    }
     var html = '' +
       '<header class="topbar gutter"><div class="wrap">' +
-      '<a class="logo" href="#inicio">RAYAS <i>STORE</i></a>' +
+      '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
       '<nav class="nav"><a class="navlink" href="#rifas">Rifas</a><a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' +
       '<button class="lock" type="button" data-a="admin">' + (admin.puede ? "Panel admin" : "Admin") + '</button>' +
       '</nav></div></header>' +
 
       '<section class="hero gutter" id="inicio"><div class="wrap">' +
-      '<div class="kicker">Rifas de Dota 2</div>' +
-      (vivo() ? '<h1' + ed("t:titulo", "Título") + '>' + esc(T.titulo) + '</h1>' : '<h1>' + tituloHtml(T.titulo) + '</h1>') +
-      '<p' + ed("t:subtitulo", "Texto debajo del título") + '>' + esc(T.subtitulo) + '</p>' +
-      '<div class="actions"><a class="btn btn-yellow" href="#rifas">Ver rifas</a>' +
-      (linkCreditos ? '<a class="btn btn-fuchsia" href="' + esc(linkCreditos) + '" target="_blank" rel="noopener">Pedir créditos gratis</a>' : '') +
+      tx("div", "kicker", 'class="kicker"') +
+      (V ? '<h1' + ed("t:titulo", "Título") + '>' + esc(T.titulo) + '</h1>' : '<h1>' + tituloHtml(T.titulo) + '</h1>') +
+      tx("p", "subtitulo") +
+      '<div class="actions">' + lnk("btn btn-yellow", "#rifas", "btnVer") +
+      (linkCreditos || V ? lnk("btn btn-fuchsia", linkCreditos, "btnCreditos", true) : '') +
       '</div>' +
-      '<div class="badges"><span class="badge"><b>◆</b>Créditos gratis</span><span class="badge"><b>◆</b>Ganador al azar</span><span class="badge"><b>◆</b>Entrega por Steam</span></div>' +
+      '<div class="badges">' + ["badge1", "badge2", "badge3"].map(function (k) { return '<span class="badge"><b>◆</b>' + tx("span", k) + '</span>'; }).join("") + '</div>' +
       '</div></section>' +
 
       '<section class="section gutter" id="rifas"><div class="wrap">' +
-      secTitle("Premios en juego", 'Rifas <span>activas</span>', "Cada premio indica cuántos créditos cuesta entrar.") +
-      (visibles.length || vivo()
+      sec("rifasKicker", "rifasT1", "rifasT2", "rifasSub") +
+      (visibles.length || V
         ? '<div class="grid">' + visibles.map(tarjeta).join("") +
-          (vivo() ? '<button type="button" class="addcard" data-a="nuevoVivo"><span>+</span>Agregar premio</button>' : '') + '</div>'
-        : '<div class="empty frame"><div class="in"><strong>Pronto nuevas rifas</strong>Pide tus créditos y te avisamos cuando abra la próxima.</div></div>') +
+          (V ? '<button type="button" class="addcard" data-a="nuevoVivo"><span>+</span>Agregar premio</button>' : '') + '</div>'
+        : '<div class="empty frame"><div class="in">' + tx("strong", "vacioT") + tx("span", "vacioS") + '</div></div>') +
       '</div></section>' +
 
       '<section class="band lava gutter" id="como"><div class="wrap">' +
-      secTitle("Paso a paso", 'Cómo <span>participar</span>') +
-      '<div class="steps">' +
-      '<div class="step frame"><div class="in"><span class="n">1</span><h3>Escríbenos</h3><p>Manda un mensaje al encargado por WhatsApp con tu nombre o usuario de Steam.</p></div></div>' +
-      '<div class="step frame"><div class="in"><span class="n">2</span><h3>Recibe créditos</h3><p>El encargado te da créditos gratis. No se compran ni tienen valor en dinero.</p></div></div>' +
-      '<div class="step frame"><div class="in"><span class="n">3</span><h3>Entra a la rifa</h3><p>Elige el premio y usa tus créditos. Al cierre, el ganador sale al azar.</p></div></div>' +
-      '</div>' +
-      (linkCreditos ? '<div style="text-align:center;margin-top:30px"><a class="btn btn-fuchsia" href="' + esc(linkCreditos) + '" target="_blank" rel="noopener">Pedir mis créditos</a></div>' : '') +
+      sec("comoKicker", "comoT1", "comoT2") +
+      '<div class="steps">' + [1, 2, 3].map(function (n) {
+        return '<div class="step frame"><div class="in"><span class="n">' + n + '</span>' + tx("h3", "paso" + n + "T") + tx("p", "paso" + n) + '</div></div>';
+      }).join("") + '</div>' +
+      (linkCreditos || V ? '<div style="text-align:center;margin-top:30px">' + lnk("btn btn-fuchsia", linkCreditos, "btnCreditos2", true) + '</div>' : '') +
       '</div></section>' +
 
       '<section class="band sombra gutter" id="ganadores"><div class="wrap">' +
-      secTitle("Salón de la fama", '<span>Ganadores</span>') +
-      (vivo() && cerradas.length ? '<p class="hint" style="text-align:center;margin:-10px 0 18px">Rifas cerradas: escribe el ganador en cada tarjeta.</p><div class="grid">' + cerradas.map(tarjeta).join("") + '</div>' :
+      sec("ganKicker", null, "ganT") +
+      (V && cerradas.length ? '<p class="hint" style="text-align:center;margin:-10px 0 18px">Rifas cerradas: escribe el ganador en cada tarjeta.</p><div class="grid">' + cerradas.map(tarjeta).join("") + '</div>' :
        cerradas.length
         ? '<div class="winners">' + cerradas.map(function (p) {
-            var img = safeImg(p.img);
-            return '<div class="winner frame"><div class="in"><div class="thumb">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '') + '</div>' +
+            return '<div class="winner frame"><div class="in"><div class="thumb">' + imgTag(p.img, "", ' loading="lazy"') + '</div>' +
               '<div class="who"><b>' + esc(p.ganador || "Por anunciar") + '</b><span>' + esc(p.nombre) + (p.cierre ? ' · ' + esc(fechaCorta(p.cierre)) : '') + '</span></div>' +
               (p.ganador ? '<span class="crown">GANÓ</span>' : '') + '</div></div>';
           }).join("") + '</div>'
-        : '<div class="empty frame"><div class="in"><strong>Aún no hay ganadores</strong>Cuando cierre la primera rifa, el ganador aparecerá aquí.</div></div>') +
+        : '<div class="empty frame"><div class="in">' + tx("strong", "ganVacioT") + tx("span", "ganVacioS") + '</div></div>') +
       '</div></section>' +
 
       '<section class="section gutter" id="reglas"><div class="wrap" style="max-width:820px">' +
-      secTitle("Juego limpio", 'Reglas') +
+      sec("reglasKicker", null, "reglasT") +
       '<div class="rules frame gold"><div class="in"><ul>' + T.reglas.map(function (r, k) {
         return '<li><span' + ed("r:" + k, "Escribe la regla") + '>' + esc(r) + '</span>' +
-          (vivo() ? '<button type="button" class="rdel" data-a="borrarRegla" data-i="' + k + '" title="Quitar regla" aria-label="Quitar regla">✕</button>' : '') + '</li>';
+          (V ? '<button type="button" class="rdel" data-a="borrarRegla" data-i="' + k + '" title="Quitar regla" aria-label="Quitar regla">✕</button>' : '') + '</li>';
       }).join("") + '</ul>' +
-      (vivo() ? '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:16px" data-a="nuevaRegla">+ Agregar regla</button>' : '') +
+      (V ? '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:16px" data-a="nuevaRegla">+ Agregar regla</button>' : '') +
       '</div></div>' +
       '</div></section>' +
 
       '<footer class="footer gutter"><div class="wrap">' +
-      '<span class="logo">RAYAS <i>STORE</i></span>' +
-      (vivo() ? '<span>WhatsApp: <span class="wa"' + ed("w:whatsapp", "51987654321") + '>' + esc(soloDigitos(estado.whatsapp)) + '</span></span>'
-              : (wa ? '<span>WhatsApp: <span class="wa">' + esc(wa) + '</span></span>' : '')) +
-      '<span>No afiliado a Valve. Dota 2 es una marca de Valve Corporation.</span>' +
+      '<span class="logo">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
+      (V ? '<span>WhatsApp: <span class="wa"' + ed("w:whatsapp", "51987654321") + '>' + esc(soloDigitos(estado.whatsapp)) + '</span></span>'
+         : (wa ? '<span>WhatsApp: <span class="wa">' + esc(wa) + '</span></span>' : '')) +
+      tx("span", "pie") +
       '</div></footer>';
 
     if (admin.puede && !admin.abierto) html += barraEdicion();
@@ -275,6 +367,7 @@
     var top = scrollDrawer ? scrollDrawer.scrollTop : 0;
     app.innerHTML = html;
     document.body.classList.toggle("vivo", vivo());
+    hidratarImgs();
     var nd = document.querySelector(".drawer-body");
     if (nd && top) nd.scrollTop = top;
   }
@@ -323,9 +416,8 @@
 
   function listaPremios() {
     var items = estado.premios.map(function (p, i) {
-      var img = safeImg(p.img);
       var est = p.estado === "proxima" ? "Próximamente" : (p.estado === "cerrada" ? "Cerrada" : "Abierta");
-      return '<div class="aitem"><div class="th">' + (img ? '<img src="' + esc(img) + '" alt="">' : '') + '</div>' +
+      return '<div class="aitem"><div class="th">' + imgTag(p.img, "") + '</div>' +
         '<div class="t"><b>' + esc(p.nombre || "Premio") + '</b><span>' + est + ' · ' + num(p.creditos, 0) + ' créditos</span></div>' +
         '<div class="acts">' +
         '<button class="iconbtn" type="button" aria-label="Subir" title="Subir" data-a="subir" data-i="' + i + '"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
@@ -358,10 +450,10 @@
 
   function formPremio() {
     var p = admin.editando.p;
-    var img = safeImg(p.img);
+    var img = imgTag(p.img, "");
     return '<div class="form">' +
       '<div class="field"><label for="f-img">Imagen del premio (link https://…)</label>' +
-      '<div class="imgprev"><div class="box" id="prevBox">' + (img ? '<img src="' + esc(img) + '" alt="">' : 'Sin imagen') + '</div>' +
+      '<div class="imgprev"><div class="box" id="prevBox">' + (img || 'Sin imagen') + '</div>' +
       '<p class="hint">Copia la imagen del item (clic derecho → Copiar dirección de imagen), por ejemplo desde el Mercado de Steam o la tienda de Dota 2, y pégala aquí.</p></div>' +
       '<input id="f-img" inputmode="url" placeholder="https://…" value="' + esc(p.img) + '"></div>' +
       '<div class="field"><label for="f-nombre">Nombre del premio</label><input id="f-nombre" maxlength="80" value="' + esc(p.nombre) + '"></div>' +
@@ -476,7 +568,7 @@
         leerForm();
         var ed = admin.editando, err = document.getElementById("formErr");
         if (!ed.p.nombre) { if (err) err.textContent = "Escribe el nombre del premio."; var fn = document.getElementById("f-nombre"); if (fn) fn.focus(); return; }
-        if (ed.p.img && !safeImg(ed.p.img)) { if (err) err.textContent = "El link de la imagen debe empezar con https://"; return; }
+        if (ed.p.img && !safeImg(ed.p.img) && !esFs(ed.p.img)) { if (err) err.textContent = "El link de la imagen debe empezar con https://"; return; }
         if (ed.nuevo) estado.premios.unshift(ed.p); else estado.premios[ed.i] = ed.p;
         admin.editando = null; marcarSucio(); render(); break;
       case "cancelar": admin.editando = null; render(); break;
@@ -487,8 +579,8 @@
         estado.premios.push(np); admin.imgEdit = np.id; marcarSucio(); render();
         var h = document.querySelector('[data-edit="p:' + np.id + ':nombre"]'); if (h) { h.scrollIntoView({ block: "center" }); h.focus(); }
         break;
-      case "imgEdit": admin.imgEdit = t.getAttribute("data-id"); render(); var ii = document.getElementById("img-" + admin.imgEdit); if (ii) ii.focus(); break;
-      case "imgCancel": admin.imgEdit = null; render(); break;
+      case "imgEdit": admin.imgErr = ""; admin.imgEdit = t.getAttribute("data-id"); render(); var ii = document.getElementById("img-" + admin.imgEdit); if (ii) ii.focus(); break;
+      case "imgCancel": admin.imgEdit = null; admin.imgErr = ""; render(); break;
       case "ciclarEstado": var ke = buscarPremio(t.getAttribute("data-id")); if (ke >= 0) { var pe = estado.premios[ke]; pe.estado = ESTADOS[(ESTADOS.indexOf(pe.estado || "activa") + 1) % ESTADOS.length]; marcarSucio(); render(); } break;
       case "ciclarRareza": var kr = buscarPremio(t.getAttribute("data-id")); if (kr >= 0) { var pr = estado.premios[kr]; pr.rareza = LISTA_RAREZAS[(LISTA_RAREZAS.indexOf(String(pr.rareza || "").toUpperCase()) + 1) % LISTA_RAREZAS.length]; marcarSucio(); render(); } break;
       case "mover":
@@ -536,6 +628,18 @@
   });
   // Al salir de un campo de texto de la página, refresca la vista previa.
   document.addEventListener("change", function (ev) {
+    if (ev.target.classList && ev.target.classList.contains("upfile") && ev.target.files && ev.target.files[0]) {
+      var pid = ev.target.getAttribute("data-id");
+      admin.subiendo = pid; admin.imgErr = ""; render();
+      subirImagen(ev.target.files[0]).then(function (ref) {
+        var k = buscarPremio(pid);
+        if (k >= 0) { estado.premios[k].img = ref; marcarSucio(); }
+        admin.subiendo = null; admin.imgEdit = null; render();
+      }).catch(function (e) {
+        admin.subiendo = null; admin.imgErr = (e && e.message) || "No se pudo subir la imagen."; render();
+      });
+      return;
+    }
     if (["f-wa", "f-titulo", "f-sub", "f-reglas"].indexOf(ev.target.id) >= 0) render();
   });
 
