@@ -826,6 +826,9 @@
           '<span class="usave">' + (u.guardando ? "Guardando…" : (u.ok && Date.now() - u.ok < 4000 ? "✔ Guardado" : "")) + '</span>' +
           '</div>' +
           '<button type="button" class="btn btn-yellow btn-sm" data-a="editRapido" data-uid="' + id + '">✎ Editar datos</button>' +
+          (u.uid === ADMIN_UID ? '' : (admin.delU === u.uid
+            ? '<div class="hint" style="color:var(--danger)">¿Eliminar a <b>' + esc(u.nombre || u.email) + '</b> y sus participaciones? <button class="btn btn-ghost btn-sm" type="button" data-a="delUSi" data-uid="' + id + '">Sí, eliminar</button> <button class="btn btn-ghost btn-sm" type="button" data-a="delUNo">No</button></div>'
+            : '<button type="button" class="btn btn-ghost btn-sm" data-a="delU" data-uid="' + id + '">🗑 Eliminar cuenta</button>')) +
           '<button type="button" class="pbtn" data-a="verFicha" data-key="u_' + id + '"><span>' + (admin.fichaU === "u_" + u.uid ? "Ocultar ficha" : "Ver ficha completa") + '</span><i>' + (admin.fichaU === "u_" + u.uid ? "▴" : "▾") + '</i></button>' +
           (admin.fichaU === "u_" + u.uid ? detalleUsuario(u.uid) : '') + '</div>';
       }).join("") : '<p class="hint">' + (f ? "Nadie coincide con la búsqueda." : "Todavía nadie se ha registrado.") + '</p>') + '</div>' +
@@ -959,6 +962,19 @@
       method: "PATCH", body: JSON.stringify({ fields: { cantidad: { integerValue: String(nueva) } } })
     }).then(function (r) { if (r.status === 403) throw new Error("falta publicar las reglas nuevas de rayas_part"); if (!r.ok) throw new Error("Error " + r.status); x.cantidad = nueva; render(); })
       .catch(function (e) { admin.addPid = pid; admin.addMsg = "No se guardó: " + e.message; admin.addMsgOk = false; render(); });
+  }
+  function eliminarUsuario(uid) {
+    var base = "projects/" + FB.projectId + "/databases/(default)/documents/", ws = [];
+    Object.keys(partes).forEach(function (pid) { (partes[pid] || []).forEach(function (x) { if (x.uid === uid) ws.push({ delete: base + "rayas_part/" + pid + "_" + uid }); }); });
+    ws.push({ delete: base + "rayas_users/" + uid });
+    admin.uMsg = "Eliminando…"; render();
+    token().then(function (tk) {
+      return fetch(BASE.replace(/documents\/$/, "documents:commit"), { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ writes: ws }) });
+    }).then(function (r) {
+      if (r.status === 403) throw new Error("Firebase no permite borrar usuarios todavía: falta la regla 'allow delete: if isAdmin();' en rayas_users.");
+      if (!r.ok) throw new Error("Error " + r.status);
+      admin.delU = null; admin.usuarios = null; admin.uMsg = ""; return cargarParts().catch(function () {});
+    }).then(function () { render(); }).catch(function (e) { admin.delU = null; admin.uMsg = e.message; render(); });
   }
   function crearCuentaPrueba() {
     var n = ((admin.usuarios || []).filter(function (u) { return /^Prueba \d+/.test(u.nombre); }).length) + 1, r = Math.random().toString(36).slice(2, 8);
@@ -1189,6 +1205,9 @@
       case "copiar": var txtc = t.getAttribute("data-txt"), tu = (admin.usuarios || []).filter(function (x) { return x.tradelink === txtc; })[0];
         try { navigator.clipboard.writeText(txtc); } catch (e4) { /* sin portapapeles */ }
         if (tu) tu.copiado = Date.now(); render(); break;
+      case "delU": admin.delU = t.getAttribute("data-uid"); render(); break;
+      case "delUNo": admin.delU = null; render(); break;
+      case "delUSi": eliminarUsuario(t.getAttribute("data-uid")); break;
       case "quitarPart": admin.quitarP = t.getAttribute("data-id") + "_" + t.getAttribute("data-uid"); render(); break;
       case "quitarPartNo": admin.quitarP = null; render(); break;
       case "quitarPartSi": quitarParticipacion(t.getAttribute("data-id"), t.getAttribute("data-uid")); break;
