@@ -388,3 +388,21 @@ exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "Am
   const r = await fetch(String(RECORDATORIO_URL.value()).trim(), { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ recordatorio: true, fecha: rec.hoyLima(), pedidos: lista }) });
   console.log("recordatorio enviado", lista.length, r.status);
 });
+
+/* ---- Admin: rellenar un item de "Comprar items" desde su link del Mercado de Steam ---- */
+const steam = require("./steam");
+exports.itemSteam = onRequest(
+  { region: REGION, cors: ORIGENES, maxInstances: 2, timeoutSeconds: 45 },
+  async (req, res) => {
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
+    const uid = await uidDeLaPeticion(req);
+    if (uid !== ADMIN_UID) return res.status(403).json({ error: "Solo el administrador puede usar esto." });
+    const nombre = steam.nombreDesdeLink((req.body || {}).link);
+    if (!nombre) return res.status(400).json({ error: "Pega un link del Mercado de Steam de Dota 2 (steamcommunity.com/market/listings/570/…)." });
+    try {
+      res.json({ ok: true, item: await steam.leerItem(nombre) });
+    } catch (e) {
+      res.status(502).json({ error: (e && e.message) || "No se pudo leer el item de Steam." });
+    }
+  }
+);
