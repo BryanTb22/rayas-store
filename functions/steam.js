@@ -1,6 +1,7 @@
 "use strict";
 // Lee un item del Mercado de la Comunidad de Steam (Dota 2, appid 570) y devuelve los datos para el formulario de "Comprar items".
 // Steam no permite consultarlo desde el navegador (CORS), por eso lo hace una función del servidor.
+const HEROES = require("./heroes");
 const UA = "Mozilla/5.0 (compatible; RayasStore/1.0)";
 const TIPOS = ["Wearable", "Courier", "Ward", "HUD Skin", "Announcer", "Bundle", "Loading Screen", "Pennant", "Sticker"];
 const RAREZAS = { immortal: "INMORTAL", arcana: "ARCANO", legendary: "LEGENDARIO", mythical: "MÍTICO", rare: "RARO", uncommon: "POCO COMÚN", common: "COMÚN" };
@@ -82,11 +83,18 @@ function assetDeHtml(html) {
 // Página nueva de Steam: muestra "Quality: Exalted  Rarity: Arcana  Type: Wearable  Slot: Weapon  Hero: …" como texto.
 function etiquetasDeTexto(html) {
   const txt = String(html || "").replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&apos;/g, "'").replace(/\s+/g, " ");
+    .replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&#x27;|&apos;/g, "'").replace(/\s+/g, " ");
   const out = {};
   const re = /\b(Quality|Rarity|Type|Slot|Hero|Used By)\s*:\s*([A-Za-z][A-Za-z' .\-]{0,38}?)(?=\s+(?:Quality|Rarity|Type|Slot|Hero|Used By)\s*:|\s{2,}|[,.;]\s|$|\s+(?:Compare|Description|Sold|Steam|Buy|Market|Sell)\b)/g;
   let m;
   while ((m = re.exec(txt))) { const k = m[1].toLowerCase().replace("used by", "hero"); if (!out[k]) out[k] = m[2].trim(); }
+  // El héroe va al final de las etiquetas y no hay un separador claro: se reconoce por la lista de héroes.
+  const hm = txt.match(/\b(?:Hero|Used By)\s*:\s*(.{1,80})/i);
+  if (hm) {
+    const resto = hm[1].toLowerCase();
+    const h = HEROES.filter((n) => resto.indexOf(n.toLowerCase()) === 0).sort((a, b) => b.length - a.length)[0];
+    if (h) out.hero = h;
+  }
   const i = txt.search(/\bQuality\s*:/);
   out._trozo = i >= 0 ? txt.slice(i, i + 220) : "";
   return out;
