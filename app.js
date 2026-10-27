@@ -469,6 +469,11 @@
         '<button class="btn btn-yellow" type="button" data-a="recargaWsp">💬 Pagar por WhatsApp · sin comisión</button>' : '') +
         (pagosOn() ? '<p class="hint" style="font-size:.78rem;opacity:.85">Tarjeta: pago seguro con Culqi desde S/ ' + PAGOS.min + ', tus créditos se suman solos. <b>Efectivo (PagoEfectivo), QR y billeteras: desde S/ ' + PAGOS.minYape + '</b>: te damos un código, pagas cuando quieras (hasta 24 h) y tus créditos se suman solos al confirmarse.</p>' : '') +
         '<p class="hint" style="font-size:.78rem;opacity:.85">¿Montos menores a S/ ' + PAGOS.minYape + ' con Yape, o prefieres pagar con una persona? Elige <b>Pagar por WhatsApp</b> y te atiende el encargado, que carga tus créditos él mismo. Los créditos usados en una rifa no se devuelven.</p>' + cerrar;
+    } else if (m.tipo === "item") {
+      var mi = modalItemHtml(m); h = mi.h; btns = mi.btns + cerrar;
+    } else if (m.tipo === "itemOk") {
+      h = '<h3>¡Compra lista! 🎉</h3><p class="hint">Compraste <b>' + esc(m.nombre) + '</b>. Pedido <b>' + esc(m.code) + '</b>. Te quedan <b>' + m.saldo + '</b> créditos. Te escribiremos para entregártelo por Steam; asegúrate de tener tu link de intercambio en tu cuenta.</p>';
+      btns = cerrar;
     } else if (m.tipo === "yape") {
       var yp = estado.yape || {};
       h = '<h3>Pagar con Yape 💜</h3><p class="hint">Yapea <b>S/ ' + fmtSol(m.sel) + '</b> (sin comisión) y avísanos por WhatsApp con tu captura. Te cargamos <b>' + creditosPara(m.sel) + ' créditos</b> a tu cuenta.</p>' +
@@ -633,7 +638,7 @@
       '<div class="elegir" role="dialog" aria-label="Elegir contacto"><h3>¿Con quién quieres hablar?</h3>' +
       '<p class="hint">Elige a quién escribirle por WhatsApp para pedir tus créditos.</p>' +
       contactos().map(function (c) {
-        return '<a class="contacto" href="' + esc(waLinkA(c.numero, msgCred(cuenta.perfil))) + '" target="_blank" rel="noopener">' + avatar(c) +
+        return '<a class="contacto" href="' + esc(waLinkA(c.numero, elegirMsg || msgCred(cuenta.perfil))) + '" target="_blank" rel="noopener">' + avatar(c) +
           '<span class="cinfo"><b>' + esc(c.nombre) + '</b><small>' + esc(waBonito(c.numero)) + '</small></span><span class="go">Escribir ›</span></a>';
       }).join("") +
       '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarElegir">Cerrar</button></div>';
@@ -788,6 +793,207 @@
         return "fs:" + id;
       });
     });
+  }
+
+  /* ================= Comprar items (catálogo que agrega el admin a mano) ================= */
+  var ITEMS_URL = "https://compraritem-seqcayr4iq-uc.a.run.app";
+  var ITEM_TIPOS = ["Wearable", "Courier", "Ward", "HUD Skin", "Announcer", "Bundle", "Loading Screen", "Pennant", "Sticker", "Otro"];
+  var ITEM_CALIDADES = ["Standard", "Genuine", "Unusual", "Inscribed", "Autographed", "Heroic", "Corrupted", "Frozen", "Cursed", "Infused", "Exalted"];
+  var items = { lista: [], cargado: false, cargando: false, err: "" };
+  var filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", limite: 48 };
+  var elegirMsg = null;
+  function sinTildes(t) { return String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+  function fmtPrecio(n) { return "S/ " + (Math.round(Number(n) * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
+  function itemDeDoc(d) {
+    var f = (d && d.fields) || {};
+    function sv(k) { return f[k] && f[k].stringValue || ""; }
+    function nv(k) { return f[k] ? Number(f[k].doubleValue !== undefined ? f[k].doubleValue : (f[k].integerValue || 0)) : 0; }
+    return { id: d.name.split("/").pop(), nombre: sv("nombre"), img: sv("img"), precio: nv("precio"), stock: f.stock ? nv("stock") : 1,
+      tipo: sv("tipo"), heroe: sv("heroe"), ranura: sv("ranura"), rareza: sv("rareza"), calidad: sv("calidad"),
+      activo: f.activo ? f.activo.booleanValue !== false : true, creado: f.creado && f.creado.timestampValue || "" };
+  }
+  function itemAFields(it) {
+    var s = function (v) { return { stringValue: String(v || "") }; };
+    return { fields: { nombre: s(it.nombre), img: s(it.img), precio: { doubleValue: Number(it.precio) }, stock: { integerValue: String(Math.max(0, Math.floor(Number(it.stock) || 0))) },
+      tipo: s(it.tipo), heroe: s(it.heroe), ranura: s(it.ranura), rareza: s(it.rareza), calidad: s(it.calidad), activo: { booleanValue: it.activo !== false },
+      creado: { timestampValue: it.creado || new Date().toISOString() } } };
+  }
+  function cargarItems(forzar) {
+    if (items.cargando || (items.cargado && !forzar)) return;
+    items.cargando = true; items.err = "";
+    var acc = [];
+    function pag(t) {
+      return fetch(BASE + "rayas_items?pageSize=300" + (t ? "&pageToken=" + encodeURIComponent(t) : ""), { cache: "no-store" }).then(function (r) {
+        if (!r.ok) throw new Error("No se pudo cargar el catálogo (" + r.status + ").");
+        return r.json();
+      }).then(function (j) {
+        (j.documents || []).forEach(function (d) { acc.push(itemDeDoc(d)); });
+        return j.nextPageToken && acc.length < 2000 ? pag(j.nextPageToken) : null;
+      });
+    }
+    pag("").then(function () { items.lista = acc; items.cargado = true; }).catch(function (e) { items.err = e.message || "No se pudo cargar el catálogo."; })
+      .then(function () { items.cargando = false; render(); });
+  }
+  function itemsFiltrados() {
+    var q = sinTildes(filtros.q), mn = parseFloat(filtros.min), mx = parseFloat(filtros.max);
+    var l = items.lista.filter(function (it) {
+      if (!it.activo && !admin.puede) return false;
+      if (filtros.tipo && it.tipo !== filtros.tipo) return false;
+      if (filtros.heroe && it.heroe !== filtros.heroe) return false;
+      if (filtros.ranura && it.ranura !== filtros.ranura) return false;
+      if (filtros.rareza && it.rareza !== filtros.rareza) return false;
+      if (filtros.calidad && it.calidad !== filtros.calidad) return false;
+      if (isFinite(mn) && it.precio < mn) return false;
+      if (isFinite(mx) && it.precio > mx) return false;
+      if (q && sinTildes(it.nombre + " " + it.heroe + " " + it.tipo).indexOf(q) < 0) return false;
+      return true;
+    });
+    l.sort(function (a, b) {
+      if (filtros.orden === "menor") return a.precio - b.precio;
+      if (filtros.orden === "mayor") return b.precio - a.precio;
+      if (filtros.orden === "nombre") return a.nombre.localeCompare(b.nombre);
+      return String(b.creado).localeCompare(String(a.creado));
+    });
+    return l;
+  }
+  function distintos(k, base) {
+    var set = {}, out = [];
+    (base || []).concat(items.lista.map(function (x) { return x[k]; })).forEach(function (v) { if (v && !set[v]) { set[v] = 1; out.push(v); } });
+    return out.sort(function (a, b) { return a.localeCompare(b); });
+  }
+  function opciones(lista, sel, vacio) {
+    return '<option value="">' + esc(vacio) + '</option>' + lista.map(function (v) { return '<option value="' + esc(v) + '"' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join("");
+  }
+  function itemCardHtml(it) {
+    var agot = it.stock <= 0, col = colorRareza(it.rareza);
+    return '<article class="icard' + (agot ? ' agot' : '') + (it.activo ? '' : ' oculto') + '" data-a="itVer" data-id="' + esc(it.id) + '" tabindex="0" role="button" aria-label="Ver ' + esc(it.nombre) + '">' +
+      '<div class="ithumb" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') +
+      (agot ? '<span class="itag agotado">Agotado</span>' : (it.stock > 1 ? '<span class="itag">x' + it.stock + '</span>' : '')) + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
+      '<div class="ibody"><h4>' + esc(it.nombre) + '</h4>' +
+      '<div class="imeta">' + (it.rareza ? '<span style="color:' + col + '">' + esc(it.rareza) + '</span>' : '') + (it.calidad ? '<span>' + esc(it.calidad) + '</span>' : '') + (it.heroe ? '<span>' + esc(it.heroe) + '</span>' : '') + '</div>' +
+      '<div class="iprice"><b>' + fmtPrecio(it.precio) + '</b><span class="ibuy">' + (agot ? 'Agotado' : 'Comprar') + '</span></div></div></article>';
+  }
+  function gridItemsHtml() {
+    if (items.err) return '<div class="empty frame"><div class="in"><strong>No se pudo cargar</strong><span>' + esc(items.err) + '</span></div></div>';
+    if (!items.cargado) return '<div class="empty frame"><div class="in"><strong>Cargando items…</strong></div></div>';
+    var l = itemsFiltrados();
+    if (!l.length) return '<div class="empty frame"><div class="in"><strong>' + (items.lista.length ? 'Ningún item coincide' : 'Pronto nuevos items') + '</strong><span>' + (items.lista.length ? 'Prueba con otros filtros.' : 'Estamos subiendo el catálogo.') + '</span></div></div>';
+    return '<div class="igrid">' + l.slice(0, filtros.limite).map(itemCardHtml).join("") + '</div>' +
+      (l.length > filtros.limite ? '<div style="text-align:center;margin-top:18px"><button class="btn btn-ghost" type="button" data-a="itMas">Ver más (' + (l.length - filtros.limite) + ')</button></div>' : '');
+  }
+  function pintarItems() {
+    var g = document.getElementById("itemsGrid"); if (!g) return;
+    g.innerHTML = gridItemsHtml(); hidratarImgs();
+    var c = document.getElementById("itemsCuenta"); if (c) c.textContent = items.cargado ? itemsFiltrados().length + " items" : "";
+  }
+  function comprarHtml() {
+    var tabs = ['<button type="button" class="itab' + (!filtros.tipo ? ' on' : '') + '" data-a="itTipo" data-v="">Todos</button>'].concat(ITEM_TIPOS.map(function (t) {
+      return '<button type="button" class="itab' + (filtros.tipo === t ? ' on' : '') + '" data-a="itTipo" data-v="' + esc(t) + '">' + esc(t) + '</button>';
+    })).join("");
+    var filt = '<aside class="ifilt"><details' + (window.innerWidth > 820 ? ' open' : '') + '><summary>Filtros</summary>' +
+      '<div class="ff"><label>Precio (S/)</label><div class="ff2"><input id="fi-min" inputmode="decimal" placeholder="Desde" value="' + esc(filtros.min) + '"><input id="fi-max" inputmode="decimal" placeholder="Hasta" value="' + esc(filtros.max) + '"></div></div>' +
+      '<div class="ff"><label for="fi-heroe">Héroe</label><select id="fi-heroe">' + opciones(distintos("heroe"), filtros.heroe, "Todos") + '</select></div>' +
+      '<div class="ff"><label for="fi-ranura">Ranura</label><select id="fi-ranura">' + opciones(distintos("ranura"), filtros.ranura, "Todas") + '</select></div>' +
+      '<div class="ff"><label for="fi-rareza">Rareza</label><select id="fi-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), filtros.rareza, "Todas") + '</select></div>' +
+      '<div class="ff"><label for="fi-calidad">Calidad</label><select id="fi-calidad">' + opciones(distintos("calidad", ITEM_CALIDADES), filtros.calidad, "Todas") + '</select></div>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-a="itReset" style="width:100%">Restablecer filtros</button></details></aside>';
+    return '<section class="section gutter" id="comprar"><div class="wrap">' +
+      '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><div class="orn">◆</div></div>' +
+      (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Textos y contactos.</p>') +
+      '<div class="itabs">' + tabs + '</div>' +
+      '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar items…" value="' + esc(filtros.q) + '" autocomplete="off">' +
+      '<select id="fi-orden" aria-label="Ordenar">' + [["nuevo", "Más nuevos"], ["menor", "Precio: menor a mayor"], ["mayor", "Precio: mayor a menor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (filtros.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
+      '<span class="icount" id="itemsCuenta"></span></div><div id="itemsGrid">' + gridItemsHtml() + '</div></div></div></div></section>';
+  }
+  function filtroEvento(el) {
+    var id = el.id;
+    var mapa = { "fi-q": "q", "fi-min": "min", "fi-max": "max", "fi-heroe": "heroe", "fi-ranura": "ranura", "fi-rareza": "rareza", "fi-calidad": "calidad", "fi-orden": "orden" };
+    if (!mapa[id]) return false;
+    filtros[mapa[id]] = el.value; filtros.limite = 48; pintarItems(); return true;
+  }
+  function itemPorId(id) { for (var k = 0; k < items.lista.length; k++) if (items.lista[k].id === id) return items.lista[k]; return null; }
+  function modalItemHtml(m) {
+    var it = itemPorId(m.id); if (!it) return { h: '<h3>Item no encontrado</h3>', btns: '' };
+    var cred = Math.ceil(it.precio - 1e-9), agot = it.stock <= 0, col = colorRareza(it.rareza);
+    var h = '<h3>' + esc(it.nombre) + '</h3>' +
+      '<div class="ithumb big" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') + '</div>' +
+      '<p class="hint">' + [it.rareza, it.calidad, it.tipo, it.heroe, it.ranura].filter(Boolean).map(esc).join(' · ') + '</p>' +
+      '<p class="resumen">Precio: <b>' + fmtPrecio(it.precio) + '</b> · o <b>' + cred + ' créditos</b></p>' +
+      (agot ? '<p class="hint" style="color:var(--danger)">Este item está agotado.</p>' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> créditos.</p>' : '<p class="hint">Para pagar con créditos entra a tu cuenta.</p>'));
+    var btns = agot ? '' : ('<button class="btn btn-fuchsia" type="button" data-a="itCred" data-id="' + esc(it.id) + '">💎 Pagar con ' + cred + ' créditos</button>' +
+      (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="itWsp" data-id="' + esc(it.id) + '">💬 Comprar por WhatsApp</button>' : ''));
+    return { h: h, btns: btns };
+  }
+  function mensajeItem(it) {
+    var p = cuenta.perfil;
+    return "¡Hola! 👋🔥 Quiero comprar este item de *RAYAS STORE* 🛒\n\n🎮 *" + it.nombre + "*" + (it.calidad ? " (" + it.calidad + ")" : "") + "\n💰 Precio: " + fmtPrecio(it.precio) +
+      (p ? "\n\n👤 " + p.nombre + " (📧 " + p.email + ")" : "") + "\n\n¿Sigue disponible? 🙏✨";
+  }
+  function comprarItemCreditos(id) {
+    var it = itemPorId(id); if (!it) return;
+    if (!cuenta.perfil) { modal = null; cuenta.modo = "login"; cuenta.msg = "Entra a tu cuenta para pagar con créditos."; cuenta.msgTipo = ""; render(); return; }
+    modal = { tipo: "cargando" }; render();
+    token().then(function (tk) {
+      return fetch(ITEMS_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ id: id }) });
+    }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok) { modal = { tipo: "error", msg: (x.j && x.j.error) || "No se pudo completar la compra." }; render(); cargarItems(true); return; }
+        modal = { tipo: "itemOk", code: x.j.code, nombre: it.nombre, saldo: x.j.saldo }; render();
+        cargarPerfil(); cargarItems(true);
+      }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : "No se pudo completar la compra. No se descontaron créditos." }; render(); });
+  }
+  /* --- Admin: pestaña Items --- */
+  function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", activo: true, creado: "" }; }
+  function tabItems() {
+    if (!items.cargado && !items.cargando) cargarItems();
+    var F = admin.itemForm;
+    var form = '';
+    if (F) form = '<div class="grp"><h3>' + (F.id ? 'Editar item' : 'Nuevo item') + '</h3>' +
+      (F.img ? '<div class="yapeqr"><img data-fs="' + esc(F.img.slice(3)) + '" alt="" width="140" height="140" style="width:140px;height:auto"></div>' : '') +
+      '<div class="cav"><label class="btn btn-ghost btn-sm" for="it-file">' + (admin.subiendo === "item" ? 'Subiendo…' : (F.img ? 'Cambiar foto' : 'Subir foto')) + '</label><input id="it-file" class="itfile" type="file" accept="image/*" hidden>' +
+      (F.img ? '<button type="button" class="btn btn-ghost btn-sm" data-a="itQuitarFoto">Quitar foto</button>' : '') + '</div>' +
+      '<div class="field"><label for="it-nombre">Nombre</label><input id="it-nombre" maxlength="90" value="' + esc(F.nombre) + '"></div>' +
+      '<div class="field"><label for="it-precio">Precio en soles (S/)</label><input id="it-precio" inputmode="decimal" value="' + esc(F.precio) + '"></div>' +
+      '<div class="field"><label for="it-stock">Stock (cuántos tienes)</label><input id="it-stock" inputmode="numeric" value="' + esc(F.stock) + '"></div>' +
+      '<div class="field"><label for="it-tipo">Tipo</label><select id="it-tipo">' + opciones(ITEM_TIPOS, F.tipo, "—") + '</select></div>' +
+      '<div class="field"><label for="it-heroe">Héroe</label><input id="it-heroe" list="dl-heroe" maxlength="40" value="' + esc(F.heroe) + '"><datalist id="dl-heroe">' + distintos("heroe").map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
+      '<div class="field"><label for="it-ranura">Ranura (Weapon, Head, Back…)</label><input id="it-ranura" list="dl-ranura" maxlength="40" value="' + esc(F.ranura) + '"><datalist id="dl-ranura">' + distintos("ranura").map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
+      '<div class="field"><label for="it-rareza">Rareza</label><select id="it-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), F.rareza, "—") + '</select></div>' +
+      '<div class="field"><label for="it-calidad">Calidad</label><input id="it-calidad" list="dl-calidad" maxlength="30" value="' + esc(F.calidad) + '"><datalist id="dl-calidad">' + distintos("calidad", ITEM_CALIDADES).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
+      '<label class="chk"><input type="checkbox" id="it-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
+      (admin.itemMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.itemMsg) + '</p>' : '') +
+      '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="itGuardar">' + (admin.itemGuardando ? 'Guardando…' : '💾 Guardar item') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="itCerrarForm">Cancelar</button></div></div>';
+    var lista = items.lista.slice().sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); });
+    return '<div class="grp"><h3>Items en venta (' + items.lista.length + ')</h3>' +
+      '<button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button>' +
+      '<p class="hint">Los cambios se guardan al instante (no hace falta "Guardar y publicar"). Cuando vendas uno por WhatsApp, baja su stock aquí.</p></div>' + form +
+      '<div class="grp">' + (items.err ? '<p class="hint" style="color:var(--danger)">' + esc(items.err) + '</p>' : '') + (!items.cargado ? '<p class="hint">Cargando…</p>' : lista.map(function (it) {
+        return '<div class="itrow"><div class="itrow-t">' + (it.img ? imgTag(it.img, "", ' width="44" height="44"') : '<span class="sinfoto">—</span>') + '<span><b>' + esc(it.nombre) + '</b><small>' + fmtPrecio(it.precio) + ' · stock ' + it.stock + (it.activo ? '' : ' · OCULTO') + '</small></span></div>' +
+          '<div class="itrow-b"><button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(it.id) + '">✎</button>' +
+          (admin.itemDel === it.id ? '<button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger)" data-a="itBorrarSi" data-id="' + esc(it.id) + '">¿Borrar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itBorrar" data-id="' + esc(it.id) + '">🗑</button>') + '</div></div>';
+      }).join("")) + '</div>';
+  }
+  function guardarItem() {
+    var F = admin.itemForm; if (!F || admin.itemGuardando) return;
+    var precio = parseFloat(String(F.precio).replace(",", ".")), stock = parseInt(F.stock, 10);
+    if (!F.nombre.trim()) { admin.itemMsg = "Escribe el nombre del item."; render(); return; }
+    if (!isFinite(precio) || precio <= 0) { admin.itemMsg = "Pon un precio mayor a 0."; render(); return; }
+    if (!isFinite(stock) || stock < 0) stock = 1;
+    var it = { id: F.id || ("it-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), nombre: F.nombre.trim(), img: F.img, precio: Math.round(precio * 100) / 100, stock: stock,
+      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), activo: F.activo, creado: F.creado || new Date().toISOString() };
+    admin.itemGuardando = true; admin.itemMsg = ""; render();
+    fsPedir("rayas_items/" + encodeURIComponent(it.id), { method: "PATCH", body: JSON.stringify(itemAFields(it)) }).then(function (r) {
+      if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
+      var k = items.lista.map(function (x) { return x.id; }).indexOf(it.id);
+      if (k >= 0) items.lista[k] = it; else items.lista.unshift(it);
+      admin.itemForm = null; admin.itemGuardando = false; render();
+    }).catch(function (e) { admin.itemGuardando = false; admin.itemMsg = e.message || "No se pudo guardar."; render(); });
+  }
+  function borrarItem(id) {
+    fsPedir("rayas_items/" + encodeURIComponent(id), { method: "DELETE" }).then(function (r) {
+      if (!r.ok) throw new Error("No se pudo borrar (" + r.status + ").");
+      items.lista = items.lista.filter(function (x) { return x.id !== id; }); admin.itemDel = null; render();
+    }).catch(function (e) { admin.itemMsg = e.message; admin.itemDel = null; render(); });
   }
 
   function buscarPremio(id) {
@@ -984,7 +1190,8 @@
           return '<a class="svc frame' + (estado.secciones.items ? ' gold' : '') + '" href="#' + v + '"><div class="in">' + (estado.secciones.items ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">' + (c ? '🛒' : '💰') + '</span><h3>' + (c ? 'Comprar items' : 'Vender items') + '</h3><p>' + (c ? 'Compra items de Dota 2 de forma segura.' : 'Vende tus items de Dota 2 de forma segura.') + '</p><span class="btn btn-fuchsia">' + (c ? 'Ver items' : 'Vender') + '</span></div></a>';
         }).join("") : '') +
         '</div></div></section>';
-      var itemsHtml = '<section class="section gutter" id="' + vista + '"><div class="wrap">' +
+      if (vista === "comprar") cargarItems();
+      var itemsHtml = vista === "comprar" ? comprarHtml() : '<section class="section gutter" id="' + vista + '"><div class="wrap">' +
         '<div class="sec-title"><div class="kicker">Próximamente</div><h2><span class="t1">' + (vista === "vender" ? 'Vender' : 'Comprar') + '</span> <span>items</span></h2><div class="orn">◆</div></div>' +
         (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Página cuando esté lista.</p>') +
         '<div class="empty frame"><div class="in"><strong>Estamos preparando esta sección</strong><span>Muy pronto podrás ' + (vista === "vender" ? 'vender' : 'comprar') + ' items de Dota 2 aquí.</span></div></div>' +
@@ -1198,8 +1405,9 @@
     else cuerpo = '<div class="tabs" role="tablist">' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="premios" aria-selected="' + (admin.tab === "premios") + '">Premios</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="usuarios" aria-selected="' + (admin.tab === "usuarios") + '">Usuarios y créditos</button>' +
+      '<button class="tab" role="tab" type="button" data-a="tab" data-t="items" aria-selected="' + (admin.tab === "items") + '">Items</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="pagina" aria-selected="' + (admin.tab === "pagina") + '">Textos y contactos</button>' +
-      '</div>' + (admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : listaPremios()));
+      '</div>' + (admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : listaPremios())));
     return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar</button></div>' +
       '<div class="drawer-body">' + cuerpo + '</div>' +
@@ -1572,6 +1780,23 @@
       case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; render(); break;
       case "editRapido": admin.fichaU = "u_" + t.getAttribute("data-uid"); admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cantPart": var xq = (partes[t.getAttribute("data-id")] || []).filter(function (y) { return y.uid === t.getAttribute("data-uid"); })[0]; if (xq) guardarCantidad(t.getAttribute("data-id"), xq.uid, xq.cantidad + Number(t.getAttribute("data-d"))); break;
+      case "itTipo": filtros.tipo = t.getAttribute("data-v") || ""; filtros.limite = 48; render(); break;
+      case "itReset": filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", limite: 48 }; render(); break;
+      case "itMas": filtros.limite += 48; pintarItems(); break;
+      case "itVer": modal = { tipo: "item", id: t.getAttribute("data-id") }; render(); hidratarImgs(); break;
+      case "itWsp":
+        var iw = itemPorId(t.getAttribute("data-id")), cw = contactos();
+        if (iw && cw.length > 1) { modal = null; elegirMsg = mensajeItem(iw); elegirAbierto = true; render(); }
+        else if (iw && cw.length === 1) window.open(waLinkA(cw[0].numero, mensajeItem(iw)), "_blank", "noopener");
+        break;
+      case "itCred": comprarItemCreditos(t.getAttribute("data-id")); break;
+      case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; render(); break;
+      case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock) }); admin.itemMsg = ""; render(); hidratarImgs(); } break;
+      case "itCerrarForm": admin.itemForm = null; admin.itemMsg = ""; render(); break;
+      case "itQuitarFoto": if (admin.itemForm) { admin.itemForm.img = ""; render(); } break;
+      case "itGuardar": guardarItem(); break;
+      case "itBorrar": admin.itemDel = t.getAttribute("data-id"); render(); break;
+      case "itBorrarSi": borrarItem(t.getAttribute("data-id")); break;
       case "crearPrueba": crearCuentaPrueba(); break;
       case "subU": admin.subU = t.getAttribute("data-s"); render(); break;
       case "crearCuenta": crearCuentaAdmin(); break;
@@ -1608,13 +1833,13 @@
       case "yapeAvisar":
         if (modal && modal.tipo === "yape") {
           montoWsp = modal.sel; var hy = creditoHref();
-          if (hy === "#elegir") { modal = null; elegirAbierto = true; render(); }
+          if (hy === "#elegir") { modal = null; elegirMsg = null; elegirAbierto = true; render(); }
           else { montoWsp = 0; if (hy) window.open(hy, "_blank", "noopener"); }
         } break;
       case "recargaWsp":
         if (modal && modal.tipo === "recarga" && modal.sel) {
           montoWsp = modal.sel; var hw = creditoHref();
-          if (hw === "#elegir") { modal = null; elegirAbierto = true; render(); }
+          if (hw === "#elegir") { modal = null; elegirMsg = null; elegirAbierto = true; render(); }
           else { montoWsp = 0; if (hw) window.open(hw, "_blank", "noopener"); }
         } break;
       case "confirmarPart": confirmarPart(); break;
@@ -1628,8 +1853,8 @@
       case "ruletaGuardar": ruleta = null; publicar(); break;
       case "repeticion": abrirRepeticion(t.getAttribute("data-id")); break;
       case "olvide": ev.preventDefault(); recuperarClave(); break;
-      case "elegir": ev.preventDefault(); modal = null; elegirAbierto = true; render(); break;
-      case "cerrarElegir": elegirAbierto = false; montoWsp = 0; render(); break;
+      case "elegir": ev.preventDefault(); modal = null; elegirMsg = null; elegirAbierto = true; render(); break;
+      case "cerrarElegir": elegirMsg = null; elegirAbierto = false; montoWsp = 0; render(); break;
       case "editContactos": admin.abierto = true; admin.tab = "pagina"; render(); break;
       case "quitarGan": var kg = buscarPremio(t.getAttribute("data-id")); if (kg >= 0) { estado.premios[kg].ganador = ""; estado.premios[kg].ganadorUid = ""; estado.premios[kg].resultado = ""; delete estado.premios[kg].replay; marcarSucio(); render(); } break;
       case "quitarFoto": estado.contactos[i].foto = ""; marcarSucio(); render(); break;
@@ -1710,7 +1935,15 @@
     }
     marcarSucio(); actualizarPie();
   }
+  function formItemEvento(el) {
+    var F = admin.itemForm; if (!F || !el.id || el.id.indexOf("it-") !== 0) return false;
+    var m = { "it-nombre": "nombre", "it-precio": "precio", "it-stock": "stock", "it-tipo": "tipo", "it-heroe": "heroe", "it-ranura": "ranura", "it-rareza": "rareza", "it-calidad": "calidad" };
+    if (el.id === "it-activo") { F.activo = el.checked; return true; }
+    if (m[el.id]) { F[m[el.id]] = el.value; return true; }
+    return false;
+  }
   document.addEventListener("input", function (ev) {
+    if (filtroEvento(ev.target) || formItemEvento(ev.target)) return;
     if (ev.target.closest && ev.target.closest("[data-edit]")) { aplicarEdicion(ev.target.closest("[data-edit]")); return; }
     if (ev.target.id === "u-buscar") {
       admin.uFiltro = ev.target.value;
@@ -1735,6 +1968,13 @@
   });
   // Al salir de un campo de texto de la página, refresca la vista previa.
   document.addEventListener("change", function (ev) {
+    if (filtroEvento(ev.target) || formItemEvento(ev.target)) return;
+    if (ev.target.classList && ev.target.classList.contains("itfile") && ev.target.files && ev.target.files[0]) {
+      admin.subiendo = "item"; admin.itemMsg = ""; render();
+      subirImagen(ev.target.files[0], 640).then(function (ref) { if (admin.itemForm) admin.itemForm.img = ref; admin.subiendo = null; render(); hidratarImgs(); })
+        .catch(function (e) { admin.subiendo = null; admin.itemMsg = (e && e.message) || "No se pudo subir la foto."; render(); });
+      return;
+    }
     if (ev.target.id === "f-hasta") { var fc = document.getElementById("f-cierre"); if (fc) { fc.disabled = ev.target.checked; if (ev.target.checked) fc.value = ""; } return; }
     if (ev.target.classList && ev.target.classList.contains("credset")) { guardarCreditos(ev.target.getAttribute("data-uid"), num(ev.target.value, 0)); return; }
     if (ev.target.classList && ev.target.classList.contains("upfile") && ev.target.files && ev.target.files[0]) {
@@ -2001,7 +2241,7 @@
         var t = ev.target;
         if (t === d || t.closest(".promo-x") || t.id === "promoNo") { cerrar(); return; }
         if (t.id === "promoPagar") { cerrar(); abrirRecarga(); return; }
-        if (t.id === "promoCta") { cerrar(); if (href === "#elegir") { ev.preventDefault(); elegirAbierto = true; render(); } else cerrar(); }
+        if (t.id === "promoCta") { cerrar(); if (href === "#elegir") { ev.preventDefault(); elegirMsg = null; elegirAbierto = true; render(); } else cerrar(); }
       });
       document.addEventListener("keydown", tecla);
     }
