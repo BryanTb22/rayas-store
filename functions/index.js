@@ -8,6 +8,7 @@ const admin = require("firebase-admin");
 const { packPorSoles, MIN_ORDEN, totalConComision } = require("./packs");
 const culqi = require("./culqi");
 const sets = require("./sets");
+const inv = require("./inventario");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -242,6 +243,31 @@ exports.comprarItem = onRequest(
       if (m === "SIN_PRECIO") return res.status(400).json({ error: "Este item no tiene precio. Pídelo por WhatsApp." });
       console.error("comprarItem", e);
       return res.status(500).json({ error: "No se pudo completar la compra. No se descontaron créditos; intenta de nuevo." });
+    }
+  }
+);
+
+/* ---------- Vender items: inventario de Dota 2 del cliente (por su trade link) ---------- */
+exports.inventario = onRequest(
+  { region: REGION, cors: ORIGENES, maxInstances: 3, timeoutSeconds: 30 },
+  async (req, res) => {
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
+    const sid = inv.steamIdDeTradeLink((req.body || {}).link);
+    if (!sid) return res.status(400).json({ error: "Ese no parece un trade link. Debe tener ?partner=…&token=…" });
+    try {
+      const r = await fetch("https://steamcommunity.com/inventory/" + sid + "/570/2?l=english&count=2000", {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; RayasStore/1.0)", "Accept": "application/json" }
+      });
+      if (r.status === 403 || r.status === 401) return res.status(403).json({ error: "Tu inventario es privado. En Steam: Perfil → Editar perfil → Privacidad → Inventario: Público." });
+      if (r.status === 429) return res.status(429).json({ error: "Steam está limitando las consultas. Intenta de nuevo en unos minutos." });
+      if (r.status === 500) return res.status(404).json({ error: "No se pudo leer ese inventario. Revisa tu trade link y que tu inventario sea público." });
+      if (!r.ok) return res.status(502).json({ error: "Steam no respondió (" + r.status + "). Intenta de nuevo." });
+      const data = await r.json();
+      if (!data || !data.assets) return res.json({ ok: true, items: [], noTradables: 0 });
+      return res.json(Object.assign({ ok: true }, inv.agrupar(data)));
+    } catch (e) {
+      console.error("inventario", e);
+      return res.status(502).json({ error: "No se pudo consultar Steam. Intenta de nuevo en un momento." });
     }
   }
 );
