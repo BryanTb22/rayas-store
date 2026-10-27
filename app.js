@@ -884,7 +884,12 @@
       '<button class="btn btn-yellow btn-sm" type="button" data-a="crearCuenta">+ Crear cuenta</button> <button class="btn btn-ghost btn-sm" type="button" data-a="crearPrueba">🧪 Crear cuenta de prueba</button>' +
       (admin.ncMsg ? '<p class="hint" style="color:var(--' + (admin.ncOk ? 'ok' : 'danger') + ')">' + esc(admin.ncMsg) + '</p>' : '') +
       '<small class="hint">Pásale al usuario su correo y contraseña. Luego puede cambiarla con "¿Olvidaste tu contraseña?".</small></div>';
-    return formNueva + '<div class="grp"><h3>Usuarios (' + admin.usuarios.length + ')</h3>' +
+    var sub = admin.subU === "crear" ? "crear" : "lista";
+    var subtabs = '<div class="subtabs" role="tablist">' +
+      '<button class="subtab" type="button" role="tab" data-a="subU" data-s="lista" aria-selected="' + (sub === "lista") + '">👥 Usuarios (' + admin.usuarios.length + ')</button>' +
+      '<button class="subtab" type="button" role="tab" data-a="subU" data-s="crear" aria-selected="' + (sub === "crear") + '">➕ Crear cuenta</button></div>';
+    if (sub === "crear") return subtabs + formNueva;
+    return subtabs + '<div class="grp"><h3>Usuarios (' + admin.usuarios.length + ')</h3>' +
       '<div class="field"><label for="u-buscar">Buscar</label><input id="u-buscar" placeholder="Nombre, Steam, correo o WhatsApp" value="' + esc(admin.uFiltro) + '"></div>' +
       (admin.uMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.uMsg) + '</p>' : '') +
       '<div class="ulist">' + (lista.length ? lista.map(function (u) {
@@ -1271,6 +1276,7 @@
       case "editRapido": admin.fichaU = "u_" + t.getAttribute("data-uid"); admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cantPart": var xq = (partes[t.getAttribute("data-id")] || []).filter(function (y) { return y.uid === t.getAttribute("data-uid"); })[0]; if (xq) guardarCantidad(t.getAttribute("data-id"), xq.uid, xq.cantidad + Number(t.getAttribute("data-d"))); break;
       case "crearPrueba": crearCuentaPrueba(); break;
+      case "subU": admin.subU = t.getAttribute("data-s"); render(); break;
       case "crearCuenta": crearCuentaAdmin(); break;
       case "addPart": agregarParticipante(t.getAttribute("data-id")); break;
       case "editU": admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
