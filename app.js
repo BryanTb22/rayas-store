@@ -716,7 +716,18 @@
     if (admin.usuarios === null) { cargarUsuarios(); return '<p class="hint">Cargando usuarios…</p>'; }
     var f = admin.uFiltro.trim().toLowerCase();
     var lista = admin.usuarios.filter(function (u) { return !f || (u.nombre + " " + u.email + " " + u.whatsapp + " " + u.tradelink).toLowerCase().indexOf(f) >= 0; });
-    return '<div class="grp"><h3>Usuarios (' + admin.usuarios.length + ')</h3>' +
+    var nc = admin.nc || {};
+    var formNueva = '<div class="grp"><h3>Crear cuenta nueva</h3>' +
+      '<div class="field"><label for="nc-nombre">Nombre</label><input id="nc-nombre" maxlength="60" value="' + esc(nc.nombre) + '"></div>' +
+      '<div class="field"><label for="nc-email">Correo</label><input id="nc-email" type="email" autocomplete="off" value="' + esc(nc.email) + '"></div>' +
+      '<div class="field"><label for="nc-pass">Contraseña (mínimo 6)</label><input id="nc-pass" type="text" autocomplete="off" value="' + esc(nc.pass) + '"></div>' +
+      '<div class="field"><label for="nc-wsp">WhatsApp</label><input id="nc-wsp" inputmode="tel" placeholder="+51..." value="' + esc(nc.wsp) + '"></div>' +
+      '<div class="field"><label for="nc-trade">Trade link de Steam (opcional)</label><input id="nc-trade" value="' + esc(nc.trade) + '"></div>' +
+      '<div class="field"><label for="nc-cred">Créditos iniciales</label><input id="nc-cred" type="number" min="0" step="1" value="' + esc(nc.cred || "0") + '"></div>' +
+      '<button class="btn btn-yellow btn-sm" type="button" data-a="crearCuenta">+ Crear cuenta</button>' +
+      (admin.ncMsg ? '<p class="hint" style="color:var(--' + (admin.ncOk ? 'ok' : 'danger') + ')">' + esc(admin.ncMsg) + '</p>' : '') +
+      '<small class="hint">Pásale al usuario su correo y contraseña. Luego puede cambiarla con "¿Olvidaste tu contraseña?".</small></div>';
+    return formNueva + '<div class="grp"><h3>Usuarios (' + admin.usuarios.length + ')</h3>' +
       '<div class="field"><label for="u-buscar">Buscar</label><input id="u-buscar" placeholder="Nombre, Steam, correo o WhatsApp" value="' + esc(admin.uFiltro) + '"></div>' +
       (admin.uMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.uMsg) + '</p>' : '') +
       '<div class="ulist">' + (lista.length ? lista.map(function (u) {
@@ -859,6 +870,36 @@
       method: "PATCH", body: JSON.stringify({ fields: { cantidad: { integerValue: String(nueva) } } })
     }).then(function (r) { if (r.status === 403) throw new Error("falta publicar las reglas nuevas de rayas_part"); if (!r.ok) throw new Error("Error " + r.status); x.cantidad = nueva; render(); })
       .catch(function (e) { admin.addPid = pid; admin.addMsg = "No se guardó: " + e.message; admin.addMsgOk = false; render(); });
+  }
+  function crearCuentaAdmin() {
+    var g = function (i) { var e = document.getElementById(i); return e ? e.value.trim() : ""; };
+    var d = { nombre: g("nc-nombre"), email: g("nc-email").toLowerCase(), pass: document.getElementById("nc-pass") ? document.getElementById("nc-pass").value : "", wsp: g("nc-wsp"), trade: g("nc-trade"), cred: g("nc-cred") };
+    admin.nc = d; admin.ncOk = false;
+    var cred = Math.max(0, Math.floor(Number(d.cred) || 0));
+    if (!d.nombre || !d.email || d.pass.length < 6) { admin.ncMsg = "Falta nombre, correo o la contraseña (mínimo 6 caracteres)."; render(); return; }
+    if (d.trade && !tradeValido(d.trade)) { admin.ncMsg = "El trade link no es válido."; render(); return; }
+    admin.ncMsg = "Creando cuenta…"; admin.ncOk = true; render();
+    fetch("https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + encodeURIComponent(FB.apiKey), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: d.email, password: d.pass, returnSecureToken: true })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.idToken) throw new Error((j.error && j.error.message) || "SIGNUP_FAILED");
+      return fetch(BASE + "rayas_users/" + encodeURIComponent(j.localId) + "?currentDocument.exists=false", {
+        method: "PATCH", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + j.idToken },
+        body: JSON.stringify({ fields: { nombre: { stringValue: d.nombre }, whatsapp: { stringValue: d.wsp }, email: { stringValue: d.email }, tradelink: { stringValue: d.trade }, creditos: { integerValue: "0" }, creado: { timestampValue: new Date().toISOString() } } })
+      }).then(function (r) {
+        if (!r.ok) throw new Error("PERFIL_" + r.status);
+        if (!cred) return;
+        return fsPedir("rayas_users/" + encodeURIComponent(j.localId) + "?updateMask.fieldPaths=creditos&currentDocument.exists=true", { method: "PATCH", body: JSON.stringify({ fields: { creditos: { integerValue: String(cred) } } }) });
+      });
+    }).then(function () {
+      admin.nc = null; admin.ncMsg = "✔ Cuenta creada: " + d.email; admin.ncOk = true; admin.usuarios = null; render();
+    }).catch(function (e) {
+      var m = String(e && e.message);
+      admin.ncOk = false;
+      admin.ncMsg = /EMAIL_EXISTS/.test(m) ? "Ese correo ya tiene cuenta." : (/WEAK_PASSWORD/.test(m) ? "Contraseña muy débil." : (/INVALID_EMAIL/.test(m) ? "Correo no válido." : (/^PERFIL_/.test(m) ? "La cuenta se creó pero falló el perfil (" + m + ")." : "No se pudo crear: " + m)));
+      render();
+    });
   }
   function agregarParticipante(pid) {
     var sel = document.getElementById("add-u-" + pid), qn = document.getElementById("add-q-" + pid); if (!sel || !qn) return;
@@ -1044,6 +1085,7 @@
       case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; render(); break;
       case "editRapido": admin.fichaU = "u_" + t.getAttribute("data-uid"); admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cantPart": var xq = (partes[t.getAttribute("data-id")] || []).filter(function (y) { return y.uid === t.getAttribute("data-uid"); })[0]; if (xq) guardarCantidad(t.getAttribute("data-id"), xq.uid, xq.cantidad + Number(t.getAttribute("data-d"))); break;
+      case "crearCuenta": crearCuentaAdmin(); break;
       case "addPart": agregarParticipante(t.getAttribute("data-id")); break;
       case "editU": admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cancelarU": admin.editU = null; admin.uMsg = ""; render(); break;
