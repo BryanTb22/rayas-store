@@ -12,6 +12,15 @@ function nombreDesdeLink(link) {
   try { const n = decodeURIComponent(m[1]).trim(); return n && n.length <= 150 ? n : null; } catch (e) { return null; }
 }
 
+// "Styles: Style 1 Style 2 (Locked) Style 3 (Locked)" -> { n: 3, ok: [1] }
+function parseEstilos(txt) {
+  const m = String(txt || "").match(/Styles?\s*:\s*((?:Style\s*\d+\s*(?:\(\s*Locked\s*\))?\s*)+)/i);
+  if (!m) return null;
+  let n = 0; const ok = []; const re = /Style\s*(\d+)\s*(\(\s*Locked\s*\))?/gi; let x;
+  while ((x = re.exec(m[1]))) { const k = parseInt(x[1], 10); if (k > n) n = k; if (!x[2]) ok.push(k); }
+  return n > 1 && n <= 8 ? { n, ok } : null;
+}
+
 function limpiaTag(s) { return String(s || "").replace(/^(Rarity|Quality|Type|Slot|Hero)_/i, "").replace(/_/g, " ").trim(); }
 
 function tipoDe(t) {
@@ -48,6 +57,8 @@ function interpretar(asset, heroes) {
     const h = heroes.find((n) => base.indexOf(" " + n + " ") >= 0 || base.indexOf(n + ",") >= 0);
     if (h) out.heroe = h;
   }
+  const est = parseEstilos(texto);
+  if (est) { out.estilos = est.n; out.estOk = est.ok.join(","); }
   const tipoTxt = String(a.type || "");
   if (!out.tipo) out.tipo = tipoDe(tipoTxt) || (tipoTxt ? "Otro" : "");
   if (!out.rareza) { const w = tipoTxt.split(/\s+/)[0].toLowerCase(); if (RAREZAS[w]) out.rareza = RAREZAS[w]; }
@@ -95,6 +106,8 @@ function etiquetasDeTexto(html) {
     const h = HEROES.filter((n) => resto.indexOf(n.toLowerCase()) === 0).sort((a, b) => b.length - a.length)[0];
     if (h) out.hero = h;
   }
+  const es = parseEstilos(txt);
+  if (es) { out.estilos = es.n; out.estOk = es.ok.join(","); }
   const i = txt.search(/\bQuality\s*:/);
   out._trozo = i >= 0 ? txt.slice(i, i + 220) : "";
   return out;
@@ -124,6 +137,7 @@ async function leerItem(nombre, heroes) {
   if ((!datos.tipo || datos.tipo === "Otro") && etiq.type) datos.tipo = tipoDe(etiq.type) || datos.tipo;
   if (!datos.rareza && etiq.rarity) datos.rareza = RAREZAS[etiq.rarity.toLowerCase()] || "";
   if ((!datos.calidad || datos.calidad === "Standard") && etiq.quality) datos.calidad = etiq.quality;
+  if (!datos.estilos && etiq.estilos) { datos.estilos = etiq.estilos; datos.estOk = etiq.estOk; }
   datos.diag = (!datos.heroe || !datos.ranura) ? (etiq._trozo || "sin etiquetas en la página") : "";
   if (precioUsd === null) {
     try {
@@ -146,4 +160,4 @@ async function leerItem(nombre, heroes) {
   return datos;
 }
 
-module.exports = { etiquetasDeTexto, nombreDesdeLink, interpretar, assetDeHtml, leerItem };
+module.exports = { parseEstilos, etiquetasDeTexto, nombreDesdeLink, interpretar, assetDeHtml, leerItem };
