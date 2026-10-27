@@ -724,7 +724,7 @@
       '<div class="field"><label for="nc-wsp">WhatsApp</label><input id="nc-wsp" inputmode="tel" placeholder="+51..." value="' + esc(nc.wsp) + '"></div>' +
       '<div class="field"><label for="nc-trade">Trade link de Steam (opcional)</label><input id="nc-trade" value="' + esc(nc.trade) + '"></div>' +
       '<div class="field"><label for="nc-cred">Créditos iniciales</label><input id="nc-cred" type="number" min="0" step="1" value="' + esc(nc.cred || "0") + '"></div>' +
-      '<button class="btn btn-yellow btn-sm" type="button" data-a="crearCuenta">+ Crear cuenta</button>' +
+      '<button class="btn btn-yellow btn-sm" type="button" data-a="crearCuenta">+ Crear cuenta</button> <button class="btn btn-ghost btn-sm" type="button" data-a="crearPrueba">🧪 Crear cuenta de prueba</button>' +
       (admin.ncMsg ? '<p class="hint" style="color:var(--' + (admin.ncOk ? 'ok' : 'danger') + ')">' + esc(admin.ncMsg) + '</p>' : '') +
       '<small class="hint">Pásale al usuario su correo y contraseña. Luego puede cambiarla con "¿Olvidaste tu contraseña?".</small></div>';
     return formNueva + '<div class="grp"><h3>Usuarios (' + admin.usuarios.length + ')</h3>' +
@@ -871,9 +871,14 @@
     }).then(function (r) { if (r.status === 403) throw new Error("falta publicar las reglas nuevas de rayas_part"); if (!r.ok) throw new Error("Error " + r.status); x.cantidad = nueva; render(); })
       .catch(function (e) { admin.addPid = pid; admin.addMsg = "No se guardó: " + e.message; admin.addMsgOk = false; render(); });
   }
-  function crearCuentaAdmin() {
+  function crearCuentaPrueba() {
+    var n = ((admin.usuarios || []).filter(function (u) { return /^Prueba \d+/.test(u.nombre); }).length) + 1, r = Math.random().toString(36).slice(2, 8);
+    var d = { nombre: "Prueba " + n, email: "prueba" + n + "." + r + "@prueba.rayas.trade", pass: "Prueba-" + r + "9", wsp: "+51900000000", trade: "", cred: "100" };
+    crearCuentaAdmin(d);
+  }
+  function crearCuentaAdmin(pre) {
     var g = function (i) { var e = document.getElementById(i); return e ? e.value.trim() : ""; };
-    var d = { nombre: g("nc-nombre"), email: g("nc-email").toLowerCase(), pass: document.getElementById("nc-pass") ? document.getElementById("nc-pass").value : "", wsp: g("nc-wsp"), trade: g("nc-trade"), cred: g("nc-cred") };
+    var d = pre || { nombre: g("nc-nombre"), email: g("nc-email").toLowerCase(), pass: document.getElementById("nc-pass") ? document.getElementById("nc-pass").value : "", wsp: g("nc-wsp"), trade: g("nc-trade"), cred: g("nc-cred") };
     admin.nc = d; admin.ncOk = false;
     var cred = Math.max(0, Math.floor(Number(d.cred) || 0));
     if (!d.nombre || !d.email || d.pass.length < 6) { admin.ncMsg = "Falta nombre, correo o la contraseña (mínimo 6 caracteres)."; render(); return; }
@@ -893,7 +898,7 @@
         return fsPedir("rayas_users/" + encodeURIComponent(j.localId) + "?updateMask.fieldPaths=creditos&currentDocument.exists=true", { method: "PATCH", body: JSON.stringify({ fields: { creditos: { integerValue: String(cred) } } }) });
       });
     }).then(function () {
-      admin.nc = null; admin.ncMsg = "✔ Cuenta creada: " + d.email; admin.ncOk = true; admin.usuarios = null; render();
+      admin.nc = null; admin.ncMsg = pre ? "✔ Cuenta de prueba creada. Correo: " + d.email + " · Contraseña: " + d.pass + " · 100 créditos" : "✔ Cuenta creada: " + d.email; admin.ncOk = true; admin.usuarios = null; render();
     }).catch(function (e) {
       var m = String(e && e.message);
       admin.ncOk = false;
@@ -1085,6 +1090,7 @@
       case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; render(); break;
       case "editRapido": admin.fichaU = "u_" + t.getAttribute("data-uid"); admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cantPart": var xq = (partes[t.getAttribute("data-id")] || []).filter(function (y) { return y.uid === t.getAttribute("data-uid"); })[0]; if (xq) guardarCantidad(t.getAttribute("data-id"), xq.uid, xq.cantidad + Number(t.getAttribute("data-d"))); break;
+      case "crearPrueba": crearCuentaPrueba(); break;
       case "crearCuenta": crearCuentaAdmin(); break;
       case "addPart": agregarParticipante(t.getAttribute("data-id")); break;
       case "editU": admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
