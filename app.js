@@ -19,6 +19,7 @@
     min: 3, max: 500, minYape: 6,   // monto libre (solo para mostrar; el servidor valida lo mismo en functions/packs.js)
     url: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/cobrar",
     urlOrden: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/crearOrden",
+    urlItemSteam: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/itemSteam",
     js: "https://checkout.culqi.com/js/v4"
   };
   var PACKS_UI = [
@@ -1108,12 +1109,38 @@
     }
   }
   /* --- Admin: pestaña Items --- */
-  function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", activo: true, creado: "" }; }
+  function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", activo: true, creado: "", link: "" }; }
+  /* Rellena el formulario a partir del link del Mercado de Steam (lo lee la función itemSteam, solo admin). */
+  function rellenarDesdeSteam() {
+    var F = admin.itemForm; if (!F || admin.steamCargando) return;
+    if (!/steamcommunity\.com\/market\/listings\/570\//i.test(F.link || "")) { admin.itemMsg = "Pega un link del Mercado de Steam de Dota 2 (…/market/listings/570/…)."; render(); return; }
+    admin.steamCargando = true; admin.itemMsg = ""; admin.steamInfo = ""; render();
+    token().then(function (tk) {
+      return fetch(PAGOS.urlItemSteam, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ link: F.link.trim() }) });
+    }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j.item) throw new Error(j.error || "No se pudo leer el item (" + r.status + ")."); return j.item; }); })
+      .then(function (d) {
+        if (d.nombre) F.nombre = d.nombre;
+        if (d.tipo) F.tipo = ITEM_TIPOS.indexOf(d.tipo) >= 0 ? d.tipo : "Otro";
+        if (d.heroe) F.heroe = d.heroe;
+        if (d.ranura) F.ranura = d.ranura;
+        if (d.rareza && LISTA_RAREZAS.indexOf(d.rareza) >= 0) F.rareza = d.rareza;
+        if (d.calidad) F.calidad = d.calidad;
+        admin.steamInfo = d.precioUsd ? "Precio en Steam: US$ " + d.precioUsd.toFixed(2) + " (referencia). Pon tú el precio en soles." : "Pon tú el precio en soles.";
+        if (!d.imgData) return null;
+        return fetch(d.imgData).then(function (x) { return x.blob(); }).then(function (b) { return subirImagen(new File([b], "item.png", { type: b.type || "image/png" }), 640); })
+          .then(function (ref) { F.img = ref; }).catch(function () { admin.steamInfo += " (La foto no se pudo guardar: súbela a mano.)"; });
+      })
+      .then(function () { admin.steamCargando = false; render(); hidratarImgs(); })
+      .catch(function (e) { admin.steamCargando = false; admin.itemMsg = (e && e.message === "NO_SESSION") ? "Vuelve a iniciar sesión." : ((e && e.message) || "No se pudo leer el item."); render(); });
+  }
   function irAlForm() { var e = document.getElementById("itForm"); if (e && e.scrollIntoView) e.scrollIntoView({ behavior: "smooth", block: "center" }); }
   function itemFormHtml() {
     var F = admin.itemForm;
     var form = '';
     if (F) form = '<div class="grp" id="itForm"><h3>' + (F.id ? 'Editar item' : 'Nuevo item') + '</h3>' +
+      '<div class="field"><label for="it-link">Link del Mercado de Steam</label><input id="it-link" inputmode="url" placeholder="https://steamcommunity.com/market/listings/570/…" value="' + esc(F.link || "") + '"></div>' +
+      '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="itSteam">' + (admin.steamCargando ? 'Leyendo Steam…' : '⚡ Rellenar desde Steam') + '</button></div>' +
+      (admin.steamInfo ? '<p class="hint">' + esc(admin.steamInfo) + '</p>' : '') +
       (F.img ? '<div class="yapeqr"><img data-fs="' + esc(F.img.slice(3)) + '" alt="" width="140" height="140" style="width:140px;height:auto"></div>' : '') +
       '<div class="cav"><label class="btn btn-ghost btn-sm" for="it-file">' + (admin.subiendo === "item" ? 'Subiendo…' : (F.img ? 'Cambiar foto' : 'Subir foto')) + '</label><input id="it-file" class="itfile" type="file" accept="image/*" hidden>' +
       (F.img ? '<button type="button" class="btn btn-ghost btn-sm" data-a="itQuitarFoto">Quitar foto</button>' : '') + '</div>' +
@@ -1972,11 +1999,12 @@
         break;
       case "cpGuardar": case "cpBulk": case "cpEditar": case "cpCancelar": case "cpBorrar": case "cpBorrarSi": accionCompras(a, t); break;
       case "itCred": comprarItemCreditos(t.getAttribute("data-id")); break;
-      case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; render(); irAlForm(); break;
+      case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; admin.steamInfo = ""; render(); irAlForm(); break;
       case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock) }); admin.itemMsg = ""; render(); hidratarImgs(); irAlForm(); } break;
       case "itCerrarForm": admin.itemForm = null; admin.itemMsg = ""; render(); break;
       case "itQuitarFoto": if (admin.itemForm) { admin.itemForm.img = ""; render(); } break;
       case "itGuardar": guardarItem(); break;
+      case "itSteam": rellenarDesdeSteam(); break;
       case "itBorrar": admin.itemDel = t.getAttribute("data-id"); render(); break;
       case "itBorrarSi": borrarItem(t.getAttribute("data-id")); break;
       case "crearPrueba": crearCuentaPrueba(); break;
@@ -2119,7 +2147,7 @@
   }
   function formItemEvento(el) {
     var F = admin.itemForm; if (!F || !el.id || el.id.indexOf("it-") !== 0) return false;
-    var m = { "it-nombre": "nombre", "it-precio": "precio", "it-stock": "stock", "it-tipo": "tipo", "it-heroe": "heroe", "it-ranura": "ranura", "it-rareza": "rareza", "it-calidad": "calidad" };
+    var m = { "it-link": "link", "it-nombre": "nombre", "it-precio": "precio", "it-stock": "stock", "it-tipo": "tipo", "it-heroe": "heroe", "it-ranura": "ranura", "it-rareza": "rareza", "it-calidad": "calidad" };
     if (el.id === "it-activo") { F.activo = el.checked; return true; }
     if (m[el.id]) { F[m[el.id]] = el.value; return true; }
     return false;
