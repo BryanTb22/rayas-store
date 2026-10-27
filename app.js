@@ -856,6 +856,7 @@
     });
     return l;
   }
+  var HEROES_DOTA = ["Abaddon", "Alchemist", "Ancient Apparition", "Anti-Mage", "Arc Warden", "Axe", "Bane", "Batrider", "Beastmaster", "Bloodseeker", "Bounty Hunter", "Brewmaster", "Bristleback", "Broodmother", "Centaur Warrunner", "Chaos Knight", "Chen", "Clinkz", "Clockwerk", "Crystal Maiden", "Dark Seer", "Dark Willow", "Dawnbreaker", "Dazzle", "Death Prophet", "Disruptor", "Doom", "Dragon Knight", "Drow Ranger", "Earth Spirit", "Earthshaker", "Elder Titan", "Ember Spirit", "Enchantress", "Enigma", "Faceless Void", "Grimstroke", "Gyrocopter", "Hoodwink", "Huskar", "Invoker", "Io", "Jakiro", "Juggernaut", "Keeper of the Light", "Kez", "Kunkka", "Largo", "Legion Commander", "Leshrac", "Lich", "Lifestealer", "Lina", "Lion", "Lone Druid", "Luna", "Lycan", "Magnus", "Marci", "Mars", "Medusa", "Meepo", "Mirana", "Monkey King", "Morphling", "Muerta", "Naga Siren", "Nature's Prophet", "Necrophos", "Night Stalker", "Nyx Assassin", "Ogre Magi", "Omniknight", "Oracle", "Outworld Destroyer", "Pangolier", "Phantom Assassin", "Phantom Lancer", "Phoenix", "Primal Beast", "Puck", "Pudge", "Pugna", "Queen of Pain", "Razor", "Riki", "Ringmaster", "Rubick", "Sand King", "Shadow Demon", "Shadow Fiend", "Shadow Shaman", "Silencer", "Skywrath Mage", "Slardar", "Slark", "Snapfire", "Sniper", "Spectre", "Spirit Breaker", "Storm Spirit", "Sven", "Techies", "Templar Assassin", "Terrorblade", "Tidehunter", "Timbersaw", "Tinker", "Tiny", "Treant Protector", "Troll Warlord", "Tusk", "Underlord", "Undying", "Ursa", "Vengeful Spirit", "Venomancer", "Viper", "Visage", "Void Spirit", "Warlock", "Weaver", "Windranger", "Winter Wyvern", "Witch Doctor", "Wraith King", "Zeus"];
   function distintos(k, base) {
     var set = {}, out = [];
     (base || []).concat(items.lista.map(function (x) { return x[k]; })).forEach(function (v) { if (v && !set[v]) { set[v] = 1; out.push(v); } });
@@ -869,6 +870,7 @@
     return '<article class="icard' + (agot ? ' agot' : '') + (it.activo ? '' : ' oculto') + '" data-a="itVer" data-id="' + esc(it.id) + '" tabindex="0" role="button" aria-label="Ver ' + esc(it.nombre) + '">' +
       '<div class="ithumb" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') +
       (agot ? '<span class="itag agotado">Agotado</span>' : (it.stock > 1 ? '<span class="itag">x' + it.stock + '</span>' : '')) + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
+      (admin.puede ? '<div class="itadmb"><button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(it.id) + '" aria-label="Editar">✎</button>' + (admin.itemDel === it.id ? '<button type="button" class="btn btn-sm itdel" data-a="itBorrarSi" data-id="' + esc(it.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itBorrar" data-id="' + esc(it.id) + '" aria-label="Quitar">🗑</button>') + '</div>' : '') +
       '<div class="ibody"><h4>' + esc(it.nombre) + '</h4>' +
       '<div class="imeta">' + (it.rareza ? '<span style="color:' + col + '">' + esc(it.rareza) + '</span>' : '') + (it.calidad ? '<span>' + esc(it.calidad) + '</span>' : '') + (it.heroe ? '<span>' + esc(it.heroe) + '</span>' : '') + '</div>' +
       '<div class="iprice"><b>' + fmtPrecio(it.precio) + '</b><span class="ibuy">' + (agot ? 'Agotado' : 'Comprar') + '</span></div></div></article>';
@@ -892,7 +894,7 @@
     })).join("");
     var filt = '<aside class="ifilt"><details' + (window.innerWidth > 820 ? ' open' : '') + '><summary>Filtros</summary>' +
       '<div class="ff"><label>Precio (S/)</label><div class="ff2"><input id="fi-min" inputmode="decimal" placeholder="Desde" value="' + esc(filtros.min) + '"><input id="fi-max" inputmode="decimal" placeholder="Hasta" value="' + esc(filtros.max) + '"></div></div>' +
-      '<div class="ff"><label for="fi-heroe">Héroe</label><select id="fi-heroe">' + opciones(distintos("heroe"), filtros.heroe, "Todos") + '</select></div>' +
+      '<div class="ff"><label for="fi-heroe">Héroe</label><select id="fi-heroe">' + opciones(distintos("heroe", HEROES_DOTA), filtros.heroe, "Todos") + '</select></div>' +
       '<div class="ff"><label for="fi-ranura">Ranura</label><select id="fi-ranura">' + opciones(distintos("ranura"), filtros.ranura, "Todas") + '</select></div>' +
       '<div class="ff"><label for="fi-rareza">Rareza</label><select id="fi-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), filtros.rareza, "Todas") + '</select></div>' +
       '<div class="ff"><label for="fi-calidad">Calidad</label><select id="fi-calidad">' + opciones(distintos("calidad", ITEM_CALIDADES), filtros.calidad, "Todas") + '</select></div>' +
@@ -900,6 +902,7 @@
     return '<section class="section gutter" id="comprar"><div class="wrap">' +
       '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><div class="orn">◆</div></div>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Textos y contactos.</p>') +
+      (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + itemFormHtml() : '') +
       '<div class="itabs">' + tabs + '</div>' +
       '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar items…" value="' + esc(filtros.q) + '" autocomplete="off">' +
       '<select id="fi-orden" aria-label="Ordenar">' + [["nuevo", "Más nuevos"], ["menor", "Precio: menor a mayor"], ["mayor", "Precio: mayor a menor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (filtros.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
@@ -1105,11 +1108,11 @@
   }
   /* --- Admin: pestaña Items --- */
   function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", activo: true, creado: "" }; }
-  function tabItems() {
-    if (!items.cargado && !items.cargando) cargarItems();
+  function irAlForm() { var e = document.getElementById("itForm"); if (e && e.scrollIntoView) e.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  function itemFormHtml() {
     var F = admin.itemForm;
     var form = '';
-    if (F) form = '<div class="grp"><h3>' + (F.id ? 'Editar item' : 'Nuevo item') + '</h3>' +
+    if (F) form = '<div class="grp" id="itForm"><h3>' + (F.id ? 'Editar item' : 'Nuevo item') + '</h3>' +
       (F.img ? '<div class="yapeqr"><img data-fs="' + esc(F.img.slice(3)) + '" alt="" width="140" height="140" style="width:140px;height:auto"></div>' : '') +
       '<div class="cav"><label class="btn btn-ghost btn-sm" for="it-file">' + (admin.subiendo === "item" ? 'Subiendo…' : (F.img ? 'Cambiar foto' : 'Subir foto')) + '</label><input id="it-file" class="itfile" type="file" accept="image/*" hidden>' +
       (F.img ? '<button type="button" class="btn btn-ghost btn-sm" data-a="itQuitarFoto">Quitar foto</button>' : '') + '</div>' +
@@ -1117,13 +1120,18 @@
       '<div class="field"><label for="it-precio">Precio en soles (S/)</label><input id="it-precio" inputmode="decimal" value="' + esc(F.precio) + '"></div>' +
       '<div class="field"><label for="it-stock">Stock (cuántos tienes)</label><input id="it-stock" inputmode="numeric" value="' + esc(F.stock) + '"></div>' +
       '<div class="field"><label for="it-tipo">Tipo</label><select id="it-tipo">' + opciones(ITEM_TIPOS, F.tipo, "—") + '</select></div>' +
-      '<div class="field"><label for="it-heroe">Héroe</label><input id="it-heroe" list="dl-heroe" maxlength="40" value="' + esc(F.heroe) + '"><datalist id="dl-heroe">' + distintos("heroe").map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
+      '<div class="field"><label for="it-heroe">Héroe</label><input id="it-heroe" list="dl-heroe" maxlength="40" value="' + esc(F.heroe) + '"><datalist id="dl-heroe">' + distintos("heroe", HEROES_DOTA).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
       '<div class="field"><label for="it-ranura">Ranura (Weapon, Head, Back…)</label><input id="it-ranura" list="dl-ranura" maxlength="40" value="' + esc(F.ranura) + '"><datalist id="dl-ranura">' + distintos("ranura").map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
       '<div class="field"><label for="it-rareza">Rareza</label><select id="it-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), F.rareza, "—") + '</select></div>' +
       '<div class="field"><label for="it-calidad">Calidad</label><input id="it-calidad" list="dl-calidad" maxlength="30" value="' + esc(F.calidad) + '"><datalist id="dl-calidad">' + distintos("calidad", ITEM_CALIDADES).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
       '<label class="chk"><input type="checkbox" id="it-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
       (admin.itemMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.itemMsg) + '</p>' : '') +
       '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="itGuardar">' + (admin.itemGuardando ? 'Guardando…' : '💾 Guardar item') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="itCerrarForm">Cancelar</button></div></div>';
+    return form;
+  }
+  function tabItems() {
+    if (!items.cargado && !items.cargando) cargarItems();
+    var form = itemFormHtml();
     var lista = items.lista.slice().sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); });
     return '<div class="grp"><h3>Items en venta (' + items.lista.length + ')</h3>' +
       '<button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button>' +
@@ -1963,8 +1971,8 @@
         break;
       case "cpGuardar": case "cpBulk": case "cpEditar": case "cpCancelar": case "cpBorrar": case "cpBorrarSi": accionCompras(a, t); break;
       case "itCred": comprarItemCreditos(t.getAttribute("data-id")); break;
-      case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; render(); break;
-      case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock) }); admin.itemMsg = ""; render(); hidratarImgs(); } break;
+      case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; render(); irAlForm(); break;
+      case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock) }); admin.itemMsg = ""; render(); hidratarImgs(); irAlForm(); } break;
       case "itCerrarForm": admin.itemForm = null; admin.itemMsg = ""; render(); break;
       case "itQuitarFoto": if (admin.itemForm) { admin.itemForm.img = ""; render(); } break;
       case "itGuardar": guardarItem(); break;
