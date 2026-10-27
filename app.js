@@ -13,7 +13,7 @@
      Mientras esté vacía, la página NO muestra el pago y sigue pidiendo créditos por WhatsApp.
      Los precios de aquí son solo para mostrarlos: el cobro real usa functions/packs.js. */
   var PAGOS = {
-    culqiPk: "",
+    culqiPk: "pk_test_iK8JCBNB6dJmRlUZ",
     url: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/cobrar",
     js: "https://checkout.culqi.com/js/v4"
   };
