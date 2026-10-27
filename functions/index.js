@@ -1,11 +1,14 @@
 "use strict";
 const crypto = require("crypto");
 const { onRequest } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { packPorSoles, MIN_ORDEN } = require("./packs");
 const culqi = require("./culqi");
 const sets = require("./sets");
+const { enviarCorreo } = require("./correo");
+const emails = require("./emails");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -13,7 +16,13 @@ const FV = admin.firestore.FieldValue;
 
 const CULQI_SECRET = defineSecret("CULQI_SECRET_KEY");   // sk_test_... / sk_live_...
 const WEBHOOK_KEY = defineSecret("CULQI_WEBHOOK_KEY");   // clave inventada por ti, va en la URL del webhook
+const RESEND_KEY = defineSecret("RESEND_API_KEY");       // llave de Resend para enviar los correos
 const REGION = "us-central1";
+
+// Correos: cuánto esperar para el recordatorio del código de pago pendiente (las órdenes de Culqi duran 24 h).
+const RECORDATORIO_MIN_HORAS = 2;    // no antes de 2 h después de generar el código
+const RECORDATORIO_MAX_HORAS = 20;   // ni después de 20 h (ya casi vence)
+const EXPIRA_HORAS = 25;             // pasadas 25 h la orden ya venció: se marca "expirada"
 const ORIGENES = ["https://rayas.trade", "https://www.rayas.trade", "https://litlejacob.trade", "https://www.litlejacob.trade"];
 
 /* ---------- utilidades ---------- */
@@ -34,6 +43,31 @@ async function cobroActivo() {
 function igual(a, b) {
   const x = Buffer.from(String(a).trim()), y = Buffer.from(String(b).trim());
   return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+// Desde qué web se hizo el pago (para usar el diseño de correo de esa tienda).
+function tiendaDeOrigen(req) {
+  return /litlejacob/i.test(String(req.get("Origin") || "")) ? "litlejacob" : "rayas";
+}
+const aFecha = (t) => (t && t.toDate ? t.toDate() : new Date());
+
+// Correo de "pago confirmado". Nunca rompe el pago: si falla, queda marcado y el barrido lo reintenta.
+async function correoPagoConfirmado(pagoId, p, u) {
+  const c = emails.confirmacion(p.tienda || "rayas", {
+    id: pagoId, nombre: u.nombre, soles: p.soles, creditos: p.creditosAcreditados,
+    tipo: p.tipo, pagadoEn: aFecha(p.acreditado), saldo: p.saldoTras
+  });
+  await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: u.email, subject: c.subject, html: c.html, text: c.text, clave: "pago-" + pagoId });
+  await db.doc("rayas_pagos/" + pagoId).update({ correoPagoEnviado: true });
+}
+// Se llama justo después de acreditar. Si el pago ya estaba acreditado (aviso repetido), no hace nada.
+async function avisarPagoAcreditado(pagoId, a) {
+  if (!a || a.ya) return;
+  try {
+    const pSnap = await db.doc("rayas_pagos/" + pagoId).get();
+    const uSnap = await db.doc("rayas_users/" + pSnap.data().uid).get();
+    if (!uSnap.exists || !uSnap.data().email) return;
+    await correoPagoConfirmado(pagoId, pSnap.data(), uSnap.data());
+  } catch (e) { console.error("correo de pago", pagoId, e); }
 }
 
 /*
@@ -63,7 +97,8 @@ async function acreditar(pagoId, chargeId) {
     tx.update(uRef, cambiosUsuario);
     tx.update(pRef, {
       estado: "acreditado", chargeId: chargeId, creditosAcreditados: creditos,
-      promoAplicada: conPromo, acreditado: FV.serverTimestamp()
+      promoAplicada: conPromo, acreditado: FV.serverTimestamp(),
+      saldoTras: saldo + creditos, correoPagoEnviado: false   // false = falta enviar el correo de confirmación
     });
     return { ya: false, creditos: creditos, saldo: saldo + creditos, promo: conPromo };
   });
@@ -71,7 +106,7 @@ async function acreditar(pagoId, chargeId) {
 
 /* ---------- 1) El cliente paga: recibe un token de Culqi y lo manda aquí ---------- */
 exports.cobrar = onRequest(
-  { region: REGION, cors: ORIGENES, secrets: [CULQI_SECRET], maxInstances: 5, timeoutSeconds: 60 },
+  { region: REGION, cors: ORIGENES, secrets: [CULQI_SECRET, RESEND_KEY], maxInstances: 5, timeoutSeconds: 60 },
   async (req, res) => {
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
@@ -98,7 +133,7 @@ exports.cobrar = onRequest(
     // Registro del intento ANTES de cobrar: sirve de rastro y de llave contra duplicados.
     const pRef = db.collection("rayas_pagos").doc();
     await pRef.set({
-      uid: uid, packId: pack.id, soles: pack.soles, baseCreditos: pack.base,
+      uid: uid, tienda: tiendaDeOrigen(req), packId: pack.id, soles: pack.soles, baseCreditos: pack.base,
       promoCreditos: pack.promo || 0, estado: "procesando", creado: FV.serverTimestamp()
     });
 
@@ -121,6 +156,7 @@ exports.cobrar = onRequest(
 
     try {
       const a = await acreditar(pRef.id, r.cargo.id);
+      await avisarPagoAcreditado(pRef.id, a);   // correo de "pago confirmado" (no rompe el pago si falla)
       return res.json({ ok: true, creditos: a.creditos, saldo: a.saldo, promo: !!a.promo });
     } catch (e) {
       // Cobrado pero no acreditado: queda marcado para que el webhook o el admin lo resuelvan.
@@ -215,7 +251,7 @@ exports.crearOrden = onRequest(
 
     const pRef = db.collection("rayas_pagos").doc();
     await pRef.set({
-      uid: uid, tipo: "orden", packId: pack.id, soles: pack.soles, baseCreditos: pack.base,
+      uid: uid, tienda: tiendaDeOrigen(req), tipo: "orden", packId: pack.id, soles: pack.soles, baseCreditos: pack.base,
       promoCreditos: pack.promo || 0, estado: "procesando", creado: FV.serverTimestamp()
     });
     let r;
@@ -245,7 +281,7 @@ exports.crearOrden = onRequest(
  *   https://us-central1-litlejacob-store.cloudfunctions.net/webhookCulqi?k=TU_CULQI_WEBHOOK_KEY
  */
 exports.webhookCulqi = onRequest(
-  { region: REGION, secrets: [CULQI_SECRET, WEBHOOK_KEY], maxInstances: 3 },
+  { region: REGION, secrets: [CULQI_SECRET, WEBHOOK_KEY, RESEND_KEY], maxInstances: 3 },
   async (req, res) => {
     if (req.method !== "POST") return res.status(405).end();
     if (!igual(req.query.k || "", WEBHOOK_KEY.value())) return res.status(403).end();
@@ -262,7 +298,7 @@ exports.webhookCulqi = onRequest(
         if (!pSnap.exists) return res.status(200).send("pago desconocido");
         const p = pSnap.data();
         if (p.ordenId !== data.id || g.orden.metadata.uid !== p.uid || !culqi.ordenPagada(g.orden, p.soles * 100)) return res.status(200).send("no pagado");
-        await acreditar(pagoId, data.id);
+        await avisarPagoAcreditado(pagoId, await acreditar(pagoId, data.id));
         return res.status(200).send("ok");
       } catch (e) {
         console.error("webhookCulqi orden", e);
@@ -282,11 +318,73 @@ exports.webhookCulqi = onRequest(
       if (g.cargo.metadata.uid !== p.uid || !culqi.cargoPagado(g.cargo, p.soles * 100)) {
         return res.status(200).send("no pagado");
       }
-      await acreditar(pagoId, chargeId);
+      await avisarPagoAcreditado(pagoId, await acreditar(pagoId, chargeId));
       return res.status(200).send("ok");
     } catch (e) {
       console.error("webhookCulqi", e);
       return res.status(500).send("error");   // Culqi reintenta
+    }
+  }
+);
+
+/* ---------- 3) Barrido programado (cada 30 minutos): correos ----------
+ * a) Recordatorio ÚNICO a quien generó un código de pago (efectivo / QR / billetera) y aún no pagó.
+ *    Solo entre RECORDATORIO_MIN_HORAS y RECORDATORIO_MAX_HORAS después de generarlo (el código dura 24 h).
+ * b) Marca como "expirado" lo que lleva más de EXPIRA_HORAS pendiente.
+ * c) Reintenta los correos de "pago confirmado" que fallaron (correoPagoEnviado === false).
+ * Los pagos acreditados ANTES de activar esto no tienen ese campo, así que no se les envía nada.
+ */
+exports.barridoPagos = onSchedule(
+  { region: REGION, schedule: "every 30 minutes", secrets: [RESEND_KEY], timeoutSeconds: 120, maxInstances: 1 },
+  async () => {
+    const ahora = Date.now();
+
+    // a) y b) pendientes
+    const pend = await db.collection("rayas_pagos").where("estado", "==", "pendiente").get();
+    for (const doc of pend.docs) {
+      const p = doc.data();
+      const creado = p.creado && p.creado.toMillis ? p.creado.toMillis() : 0;
+      if (!creado) continue;
+      const horas = (ahora - creado) / 3600000;
+      if (horas >= EXPIRA_HORAS) { await doc.ref.update({ estado: "expirado", expirado: FV.serverTimestamp() }); continue; }
+      if (p.recordatorioEnviado || horas < RECORDATORIO_MIN_HORAS || horas > RECORDATORIO_MAX_HORAS) continue;
+
+      // Se reserva el envío en una transacción: si justo se pagó (o ya se envió) no se manda nada.
+      const reservado = await db.runTransaction(async (tx) => {
+        const s = await tx.get(doc.ref);
+        const d = s.data();
+        if (d.estado !== "pendiente" || d.recordatorioEnviado) return false;
+        tx.update(doc.ref, { recordatorioEnviado: true, recordatorioEn: FV.serverTimestamp() });
+        return true;
+      });
+      if (!reservado) continue;
+
+      try {
+        const uSnap = await db.doc("rayas_users/" + p.uid).get();
+        const u = uSnap.exists ? uSnap.data() : null;
+        if (!u || !u.email) continue;   // sin correo no hay a quién avisar
+        const c = emails.recordatorio(p.tienda || "rayas", {
+          id: doc.id, nombre: u.nombre, soles: p.soles,
+          creditos: p.promoCreditos && !u.promoUsada ? p.promoCreditos : p.baseCreditos,
+          expiraEn: new Date(creado + 24 * 3600000)
+        });
+        await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: u.email, subject: c.subject, html: c.html, text: c.text, clave: "recordatorio-" + doc.id });
+      } catch (e) {
+        console.error("recordatorio", doc.id, e);
+        await doc.ref.update({ recordatorioEnviado: false });   // se reintenta en la próxima pasada
+      }
+    }
+
+    // c) correos de pago confirmado que fallaron
+    const sin = await db.collection("rayas_pagos").where("correoPagoEnviado", "==", false).get();
+    for (const doc of sin.docs) {
+      const p = doc.data();
+      if (p.estado !== "acreditado") continue;
+      try {
+        const uSnap = await db.doc("rayas_users/" + p.uid).get();
+        if (!uSnap.exists || !uSnap.data().email) continue;
+        await correoPagoConfirmado(doc.id, p, uSnap.data());
+      } catch (e) { console.error("reintento correo de pago", doc.id, e); }
     }
   }
 );
