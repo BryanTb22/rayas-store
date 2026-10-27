@@ -14,9 +14,8 @@
      Los precios de aquí son solo para mostrarlos: el cobro real usa functions/packs.js. */
   var PAGOS = {
     culqiPk: "pk_test_iK8JCBNB6dJmRlUZ",
-    // true = el pago solo aparece si la dirección lleva ?pagotest=1 (para probar en la web real sin que lo vean los clientes).
-    // Cuando pases a llaves reales (pk_live_…) y todo funcione, ponlo en false.
-    soloPrueba: true,
+    // El pago lo prende/apaga el admin en el panel (Textos y contactos → "Cobrar con Culqi").
+    // Con ?pagotest=1 en la dirección se ve siempre, para probar sin prender el interruptor.
     min: 3, max: 500, minYape: 6,   // monto libre (solo para mostrar; el servidor valida lo mismo en functions/packs.js)
     url: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/cobrar",
     js: "https://checkout.culqi.com/js/v4"
@@ -27,7 +26,7 @@
     { id: "p50", soles: 50, base: 50, promo: 55 },
     { id: "p100", soles: 100, base: 100, promo: 110 }
   ];
-  function pagosOn() { return !!PAGOS.culqiPk && (!PAGOS.soloPrueba || /[?&]pagotest=1(&|$)/.test(location.search)); }
+  function pagosOn() { return !!PAGOS.culqiPk && (!!(estado.pagos && estado.pagos.culqi) || /[?&]pagotest=1(&|$)/.test(location.search)); }
 
   function leerSesion() { try { return JSON.parse(localStorage.getItem(SES_KEY) || "null"); } catch (e) { return null; } }
   function guardarSesion(s) { try { if (s) localStorage.setItem(SES_KEY, JSON.stringify(s)); else localStorage.removeItem(SES_KEY); } catch (e) { /* sin almacenamiento */ } }
@@ -90,7 +89,7 @@
       method: "PATCH",
       body: JSON.stringify({ fields: {
         nombre: { stringValue: d.nombre }, whatsapp: { stringValue: d.whatsapp },
-        email: { stringValue: d.email }, tradelink: { stringValue: d.tradelink }, creditos: { integerValue: "0" }, creado: { timestampValue: new Date().toISOString() }
+        email: { stringValue: d.email }, tradelink: { stringValue: d.tradelink }, steam: { stringValue: d.steam || "" }, creditos: { integerValue: "0" }, creado: { timestampValue: new Date().toISOString() }
       } })
     }).then(function (r) { if (!r.ok) throw new Error("PERFIL_" + r.status); });
   }
@@ -103,6 +102,30 @@
   // Link de intercambio de Steam: https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc
   function tradeValido(u) { return /^https:\/\/steamcommunity\.com\/tradeoffer\/new\/\?partner=\d+&token=[\w-]+$/.test(String(u || "").trim()); }
   var TRADE_AYUDA = '<a href="https://steamcommunity.com/my/tradeoffers/privacy#trade_offer_access_url" target="_blank" rel="noopener">¿Dónde encuentro mi link?</a>';
+  // ID de Steam = código de amigo. Acepta el código, el SteamID64 o el link del perfil (/profiles/7656…).
+  function steamNorm(v) {
+    v = String(v || "").trim();
+    if (!v) return "";
+    var largo = /765611\d{11}/.exec(v);
+    if (largo && typeof BigInt === "function") return (BigInt(largo[0]) - BigInt("76561197960265728")).toString();
+    var d = v.replace(/[\s.-]/g, "");
+    return /^\d{3,11}$/.test(d) ? d : null;
+  }
+  // Lee el campo de Steam; si está vacío lo saca del trade link (partner=…). null = inválido.
+  function leerSteam(idSteam, trade) {
+    var el = document.getElementById(idSteam), v = steamNorm(el ? el.value : "");
+    if (v === "") { var m = /[?&]partner=(\d{3,11})/.exec(String(trade || "")); v = m ? m[1] : ""; }
+    return v;
+  }
+  function avisoSteam(idSteam, v) {
+    var el = document.getElementById(idSteam); if (!el) return;
+    el.setCustomValidity(v === null ? "Tu ID de Steam son solo números (ej. 123456789) o el link de tu perfil." : "Escribe tu ID de Steam (código de amigo).");
+    el.reportValidity(); el.addEventListener("input", function () { el.setCustomValidity(""); }, { once: true });
+  }
+  function campoSteam(id, valor) {
+    return '<div class="field"><label for="' + id + '">ID de Steam (código de amigo)</label><input id="' + id + '" inputmode="numeric" maxlength="80" placeholder="Ej. 123456789"' + (valor ? ' value="' + esc(valor) + '"' : '') + '>' +
+      '<p class="hint">En Steam: <b>Amigos → Añadir un amigo</b> → "Tu código de amigo". Lo usamos para agregarte. También puedes pegar el link de tu perfil.</p></div>';
+  }
   function esAdmin() { return uidSesion() === ADMIN_UID; }
 
   // Firestore REST con la sesión actual.
@@ -181,6 +204,7 @@
       c = c && typeof c === "object" ? c : {};
       return { id: String(c.id || ("c" + i)), nombre: typeof c.nombre === "string" ? c.nombre : "", numero: String(c.numero || "").replace(/\D+/g, ""), activo: c.activo !== false, foto: typeof c.foto === "string" ? c.foto : "" };
     });
+    st.pagos = { culqi: !!(st.pagos && st.pagos.culqi) };
     if (!Array.isArray(st.premios)) st.premios = [];
     var fo = st.fotos && typeof st.fotos === "object" ? st.fotos : {};
     st.fotos = {}; ["logo", "hero", "lava", "sombra"].forEach(function (k) { st.fotos[k] = /^fs:img-[\w\-]+$/.test(String(fo[k] || "")) ? fo[k] : ""; });
@@ -943,7 +967,7 @@
       cuerpo = '<form class="drawer-body form" id="formRegistro">' +
         '<p class="hint">Crea tu cuenta para recibir créditos y participar en las rifas.</p>' + btnGoogle() +
         '<div class="field"><label for="r-nombre">Nombre o apodo</label><input id="r-nombre" maxlength="40" required autocomplete="nickname"></div>' +
-        '<div class="field"><label for="r-trade">Link de intercambio de Steam (trade link)</label><input id="r-trade" inputmode="url" required placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…">' +
+        campoSteam("r-steam") + '<div class="field"><label for="r-trade">Link de intercambio de Steam (trade link)</label><input id="r-trade" inputmode="url" required placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…">' +
         '<p class="hint">Ahí te enviamos el item si ganas. ' + TRADE_AYUDA + '</p></div>' +
         '<div class="field"><label for="r-wa">WhatsApp</label><input id="r-wa" inputmode="tel" maxlength="20" placeholder="987 654 321" required></div>' +
         '<div class="field"><label for="r-email">Correo</label><input id="r-email" type="email" autocomplete="email" required></div>' +
@@ -956,7 +980,7 @@
       cuerpo = '<form class="drawer-body form" id="formCompletar">' +
         '<p class="hint">Entraste con <b>' + esc(ses0.email || "") + '</b>, pero aún no tienes perfil en Rayas Store. Complétalo para participar en las rifas.</p>' +
         '<div class="field"><label for="c-nombre">Nombre o apodo</label><input id="c-nombre" maxlength="40" required autocomplete="nickname"></div>' +
-        '<div class="field"><label for="c-trade">Link de intercambio de Steam (trade link)</label><input id="c-trade" inputmode="url" required placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…">' +
+        campoSteam("c-steam") + '<div class="field"><label for="c-trade">Link de intercambio de Steam (trade link)</label><input id="c-trade" inputmode="url" required placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…">' +
         '<p class="hint">' + TRADE_AYUDA + '</p></div>' +
         '<div class="field"><label for="c-wa">WhatsApp</label><input id="c-wa" inputmode="tel" maxlength="20" placeholder="987 654 321" required></div>' +
         '<button class="btn btn-fuchsia" type="submit">Guardar mi perfil</button>' + msg +
@@ -974,7 +998,7 @@
           '<div class="field"><label for="p-nombre">Nombre o apodo</label><input id="p-nombre" maxlength="40" required value="' + esc(p.nombre) + '"></div>' +
           '<div class="field"><label for="p-wa">WhatsApp</label><input id="p-wa" inputmode="tel" maxlength="30" required value="' + esc(p.whatsapp) + '"></div>' +
           '<div class="field"><label for="p-email">Correo</label><input id="p-email" value="' + esc(p.email) + '" disabled></div>' +
-          '<div class="field"><label for="p-trade">Link de intercambio de Steam</label><input id="p-trade" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(p.tradelink) + '"></div>' +
+          campoSteam("p-steam", p.steam) + (p.steam ? '' : '<p class="hint" style="color:var(--fuchsia)">Agrega tu ID de Steam para que podamos agregarte y enviarte tus premios.</p>') + '<div class="field"><label for="p-trade">Link de intercambio de Steam</label><input id="p-trade" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(p.tradelink) + '"></div>' +
           (p.tradelink ? '' : '<p class="hint" style="color:var(--fuchsia)">Sin trade link no podemos enviarte el item si ganas.</p>') +
           '<p class="hint">' + TRADE_AYUDA + '</p>' +
           '<div><button class="btn btn-yellow btn-sm" type="submit">Guardar cambios</button></div>' +
@@ -1285,7 +1309,10 @@
 
   function tabPagina() {
     var T = estado.textos;
-    return (estado.contactos || []).map(function (c, k) {
+    return '<div class="grp"><h3>Cobro con Culqi (tarjeta / Yape)</h3>' +
+      '<label class="chk"><input type="checkbox" class="c-pagos"' + (estado.pagos && estado.pagos.culqi ? ' checked' : '') + '> Cobrar con Culqi (los clientes ven el botón de pago)</label>' +
+      '<p class="hint">' + (estado.pagos && estado.pagos.culqi ? 'ACTIVO: los clientes pueden recargar con tarjeta o Yape.' : 'APAGADO: los clientes solo piden créditos por WhatsApp.') + ' Recuerda pulsar <b>Publicar</b> para que el cambio lo vean todos. Este interruptor vale para las dos páginas.</p></div>' +
+      (estado.contactos || []).map(function (c, k) {
       return '<div class="grp contacto-ed"><h3>Contacto ' + (k + 1) + ' · ' + esc(c.nombre || "sin nombre") + '</h3>' +
         '<div class="cav">' + avatar(c) +
         '<label class="btn btn-ghost btn-sm" for="cf-' + k + '">' + (admin.subiendo === "c" + k ? "Subiendo…" : "Subir foto") + '</label>' +
@@ -1597,6 +1624,7 @@
       return;
     }
     var tc = ev.target;
+    if (tc.classList && tc.classList.contains("c-pagos")) { estado.pagos = { culqi: tc.checked }; marcarSucio(); render(); return; }
     if (tc.classList && tc.classList.contains("c-activo")) { estado.contactos[Number(tc.getAttribute("data-i"))].activo = tc.checked; marcarSucio(); render(); return; }
     if (tc.classList && (tc.classList.contains("c-nombre") || tc.classList.contains("c-num"))) { render(); return; }
     if (tc.classList && tc.classList.contains("cfile") && tc.files && tc.files[0]) {
@@ -1656,12 +1684,14 @@
       var nom = document.getElementById("p-nombre").value.trim(), wa = document.getElementById("p-wa").value.trim();
       if (!nom || !wa) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "Nombre y WhatsApp no pueden quedar vacíos."; return; }
       if (!tradeValido(val)) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "Ese link no parece un trade link de Steam. Cópialo completo."; return; }
+      var stm = leerSteam("p-steam", val);
+      if (!stm) { msgEl.style.color = "var(--danger)"; msgEl.textContent = stm === null ? "Tu ID de Steam son solo números (ej. 123456789) o el link de tu perfil." : "Escribe tu ID de Steam (código de amigo)."; return; }
       msgEl.style.color = ""; msgEl.textContent = "Guardando…";
-      fsPedir("rayas_users/" + encodeURIComponent(uidSesion()) + "?updateMask.fieldPaths=nombre&updateMask.fieldPaths=whatsapp&updateMask.fieldPaths=tradelink&currentDocument.exists=true", {
-        method: "PATCH", body: JSON.stringify({ fields: { nombre: { stringValue: nom }, whatsapp: { stringValue: wa }, tradelink: { stringValue: val } } })
+      fsPedir("rayas_users/" + encodeURIComponent(uidSesion()) + "?updateMask.fieldPaths=nombre&updateMask.fieldPaths=whatsapp&updateMask.fieldPaths=tradelink&updateMask.fieldPaths=steam&currentDocument.exists=true", {
+        method: "PATCH", body: JSON.stringify({ fields: { nombre: { stringValue: nom }, whatsapp: { stringValue: wa }, tradelink: { stringValue: val }, steam: { stringValue: stm } } })
       }).then(function (r) {
         if (!r.ok) throw new Error("Error " + r.status);
-        if (cuenta.perfil) { cuenta.perfil.nombre = nom; cuenta.perfil.whatsapp = wa; cuenta.perfil.tradelink = val; }
+        if (cuenta.perfil) { cuenta.perfil.nombre = nom; cuenta.perfil.whatsapp = wa; cuenta.perfil.tradelink = val; cuenta.perfil.steam = stm; }
         render(); var m2 = document.getElementById("tradeMsg"); if (m2) { m2.style.color = "var(--ok)"; m2.textContent = "✔ Cambios guardados."; }
       }).catch(function (e) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "No se pudo guardar (" + e.message + ")."; });
     } else if (ev.target.id === "formCompletar") {
@@ -1674,9 +1704,11 @@
         tc.addEventListener("input", function () { tc.setCustomValidity(""); }, { once: true });
         return;
       }
+      dc.steam = leerSteam("c-steam", dc.tradelink);
+      if (!dc.steam) { avisoSteam("c-steam", dc.steam); return; }
       var sc = ev.target.querySelector('[role="status"]'); if (sc) { sc.style.color = ""; sc.textContent = "Guardando…"; }
       crearPerfil(ses, dc).then(function () {
-        cuenta.perfil = { uid: ses.uid, nombre: dc.nombre, whatsapp: dc.whatsapp, email: dc.email, tradelink: dc.tradelink, creditos: 0 };
+        cuenta.perfil = { uid: ses.uid, nombre: dc.nombre, whatsapp: dc.whatsapp, email: dc.email, tradelink: dc.tradelink, steam: dc.steam, creditos: 0 };
         cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarParts();
       }).catch(function (e) { cuenta.msg = "No se pudo guardar tu perfil (" + (e && e.message) + "). Avísale al encargado."; cuenta.msgTipo = "err"; render(); });
     } else if (ev.target.id === "formRegistro") {
@@ -1689,6 +1721,8 @@
         ti.addEventListener("input", function () { ti.setCustomValidity(""); }, { once: true });
         return;
       }
+      datos.steam = leerSteam("r-steam", datos.tradelink);
+      if (!datos.steam) { avisoSteam("r-steam", datos.steam); return; }
       var st2 = ev.target.querySelector('[role="status"]'); if (st2) { st2.style.color = ""; st2.textContent = "Creando tu cuenta…"; }
       function entrarConPerfil(ses) {
         /* El correo ya existía (p. ej. cliente de LitleJacob o registro a medias): si la contraseña coincide, solo completamos el perfil. */
@@ -1703,7 +1737,7 @@
         return login(datos.email, pass).then(entrarConPerfil, function () { throw new Error("EMAIL_EXISTS_PASS"); });
       }).then(function (res) {
         if (res === "EXISTE") { cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); return; }
-        cuenta.perfil = { uid: uidSesion(), nombre: datos.nombre, whatsapp: datos.whatsapp, email: datos.email, tradelink: datos.tradelink, creditos: 0 };
+        cuenta.perfil = { uid: uidSesion(), nombre: datos.nombre, whatsapp: datos.whatsapp, email: datos.email, tradelink: datos.tradelink, steam: datos.steam, creditos: 0 };
         cuenta.modo = "perfil"; cuenta.msg = ""; render();
       }).catch(function (e) {
         var m = String(e && e.message || "");
@@ -1711,7 +1745,7 @@
         cuenta.msgTipo = "err";
         if (m === "EMAIL_EXISTS_PASS") { cuenta.modo = "login"; render(); var le = document.getElementById("l-email"); if (le) le.value = datos.email; return; }
         render();
-        ["r-nombre", "r-wa", "r-email", "r-trade"].forEach(function (id, i) { var el = document.getElementById(id); if (el) el.value = [datos.nombre, datos.whatsapp, datos.email, datos.tradelink][i]; });
+        ["r-nombre", "r-wa", "r-email", "r-trade", "r-steam"].forEach(function (id, i) { var el = document.getElementById(id); if (el) el.value = [datos.nombre, datos.whatsapp, datos.email, datos.tradelink, datos.steam || ""][i]; });
       });
     }
   });

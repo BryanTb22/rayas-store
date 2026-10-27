@@ -5,6 +5,7 @@ const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { packPorSoles } = require("./packs");
 const culqi = require("./culqi");
+const sets = require("./sets");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -20,6 +21,15 @@ async function uidDeLaPeticion(req) {
   const h = String(req.get("Authorization") || "");
   if (!h.startsWith("Bearer ")) return null;
   try { return (await admin.auth().verifyIdToken(h.slice(7))).uid; } catch (e) { return null; }
+}
+const ADMIN_UID = "eLEZkdXiG5b0PpxHQCCei8D0Qxy1";
+// Lee el interruptor que el admin publica en rayas/estado (campo json -> pagos.culqi).
+async function cobroActivo() {
+  try {
+    const s = await db.doc("rayas/estado").get();
+    const j = s.exists ? JSON.parse(String(s.data().json || "{}")) : {};
+    return !!(j.pagos && j.pagos.culqi === true);
+  } catch (e) { return false; }
 }
 function igual(a, b) {
   const x = Buffer.from(String(a).trim()), y = Buffer.from(String(b).trim());
@@ -67,6 +77,14 @@ exports.cobrar = onRequest(
     const uid = await uidDeLaPeticion(req);
     if (!uid) return res.status(401).json({ error: "Inicia sesión para recargar." });
 
+    // Interruptor del admin (Panel → Textos y contactos → "Cobrar con Culqi"). Apagado = nadie cobra, salvo el admin para probar.
+    const esAdmin = uid === ADMIN_UID;
+    if (!esAdmin && !(await cobroActivo())) return res.status(403).json({ error: "Los pagos en línea están desactivados por ahora. Pide tus créditos por WhatsApp." });
+    // Candado: con llaves de PRUEBA (sk_test_) solo el admin puede "pagar"; así nadie recibe créditos gratis por error.
+    if (!esAdmin && String(CULQI_SECRET.value()).trim().startsWith("sk_test")) {
+      return res.status(403).json({ error: "Los pagos en línea aún no están habilitados. Pide tus créditos por WhatsApp." });
+    }
+
     const body = req.body || {};
     const pack = packPorSoles(body.soles);
     const tokenId = String(body.tokenId || "");
@@ -108,6 +126,62 @@ exports.cobrar = onRequest(
       // Cobrado pero no acreditado: queda marcado para que el webhook o el admin lo resuelvan.
       await pRef.update({ estado: "cobrado_sin_acreditar", chargeId: r.cargo.id, error: String(e && e.message || e) });
       return res.status(500).json({ error: "Tu pago se recibió pero hubo un problema al sumar los créditos. Escríbenos por WhatsApp con tu correo; no pagues otra vez." });
+    }
+  }
+);
+
+/* ---------- 1b) Comprar sets caché de LitleJacob Store con créditos ----------
+ * POST { items: [{ id, qty, name }] } con la sesión del cliente.
+ * Descuenta los créditos y crea el pedido (estado "pagado") en una sola transacción.
+ */
+exports.comprarSets = onRequest(
+  { region: REGION, cors: ORIGENES, maxInstances: 5, timeoutSeconds: 30 },
+  async (req, res) => {
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
+    const uid = await uidDeLaPeticion(req);
+    if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con créditos." });
+
+    const liveSnap = await db.doc("live/catalog").get();
+    const live = liveSnap.exists ? (liveSnap.data().sets || {}) : {};
+    let q;
+    try { q = sets.cotizar((req.body || {}).items, live); }
+    catch (e) {
+      const m = String(e && e.message || "");
+      const msg = /^AGOTADO|^SIN_STOCK/.test(m) ? "Uno de los sets de tu carrito ya no tiene stock. Actualiza la página y revisa tu carrito."
+        : /^SIN_PRECIO/.test(m) ? "Uno de los sets no tiene precio disponible. Pídelo por WhatsApp."
+        : "Tu carrito no es válido. Actualiza la página e intenta de nuevo.";
+      return res.status(400).json({ error: msg });
+    }
+
+    const uRef = db.doc("rayas_users/" + uid);
+    const code = sets.nuevoCodigo();
+    const oRef = db.doc("orders/" + code);
+    try {
+      const r = await db.runTransaction(async (tx) => {
+        const u = await tx.get(uRef);
+        if (!u.exists) throw new Error("SIN_PERFIL");
+        const d = u.data();
+        const saldo = Number(d.creditos || 0);
+        if (saldo < q.creditos) { const er = new Error("SIN_CREDITOS"); er.falta = q.creditos - saldo; throw er; }
+        const pedido = {
+          code: code, customerName: String(d.nombre || "Cliente").slice(0, 60), steamId: String(d.steam || "").slice(0, 20),
+          items: q.lineas.map((l) => ({ id: l.id, name: l.name, qty: l.qty, price: l.price })),
+          count: q.count, subtotal: q.subtotal, discount: q.discount, total: q.total,
+          status: "pagado", createdAt: FV.serverTimestamp(),
+          paidWith: "creditos", creditos: q.creditos, uid: uid,
+          email: String(d.email || ""), tradelink: String(d.tradelink || "")
+        };
+        if (d.whatsapp) pedido.phone = String(d.whatsapp).slice(0, 40);
+        tx.update(uRef, { creditos: FV.increment(-q.creditos) });
+        tx.create(oRef, pedido);
+        return { saldo: saldo - q.creditos };
+      });
+      return res.json({ ok: true, code: code, creditos: q.creditos, total: q.total, saldo: r.saldo });
+    } catch (e) {
+      if (e && e.message === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanzan los créditos. Te faltan " + e.falta + ".", falta: e.falta });
+      if (e && e.message === "SIN_PERFIL") return res.status(400).json({ error: "Completa tu perfil antes de comprar." });
+      console.error("comprarSets", e);
+      return res.status(500).json({ error: "No se pudo completar la compra. No se descontaron créditos; intenta de nuevo." });
     }
   }
 );
