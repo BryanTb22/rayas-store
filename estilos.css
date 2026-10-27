@@ -108,7 +108,7 @@ body::before {
 /* ---------- Portada ---------- */
 .hero {
   position: relative; overflow: hidden; isolation: isolate;
-  background: url("img/art-dota2.jpg") 70% 18% / cover no-repeat;
+  background: var(--art-hero, url("img/art-dota2.jpg")) 70% 18% / cover no-repeat;
   border-bottom: 1px solid var(--line);
 }
 .hero::before {
@@ -173,7 +173,7 @@ body::before {
 .card .pic.noimg {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--bg) 35%, transparent), var(--bg)),
-    url("img/art-lava.jpg") center / cover;
+    var(--art-lava, url("img/art-lava.jpg")) center / cover;
   display: grid; place-items: center;
 }
 .card .pic.noimg .q { font-family: var(--title); font-weight: 700; font-size: 44px; color: var(--yellow); text-shadow: 0 0 24px var(--fuchsia); }
@@ -207,13 +207,13 @@ body::before {
   background:
     linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 78%, transparent) 25%, color-mix(in srgb, var(--bg) 78%, transparent) 75%, var(--bg) 100%),
     linear-gradient(90deg, color-mix(in srgb, #1b2f8f 45%, transparent), color-mix(in srgb, var(--fuchsia) 25%, transparent)),
-    url("img/art-lava.jpg") center / cover;
+    var(--art-lava, url("img/art-lava.jpg")) center / cover;
 }
 .band.sombra::before {
   background:
     linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 70%, transparent) 30%, color-mix(in srgb, var(--bg) 82%, transparent) 100%),
     linear-gradient(90deg, color-mix(in srgb, var(--bg) 92%, transparent) 0%, color-mix(in srgb, var(--bg) 45%, transparent) 70%, color-mix(in srgb, #1b2f8f 35%, transparent)),
-    url("img/art-sombra.jpg") right 30% / cover;
+    var(--art-sombra, url("img/art-sombra.jpg")) right 30% / cover;
 }
 
 /* ---------- Pasos ---------- */
@@ -625,3 +625,8 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 #ganadores .winner .crown { top: 14px; right: 16px; font-size: 20px; padding: 5px 16px; }
 #ganadores .winner .btn { padding-block: 15px; font-size: 14px; }
 @media (max-width: 520px) { #rifas .cost b { font-size: 56px; } #ganadores .winner .thumb { width: 96px; height: 96px; } #ganadores .winner .who b { font-size: 26px; } }
+
+.fotobtns { position: absolute; z-index: 6; display: flex; gap: 8px; flex-wrap: wrap; }
+.fotobtns .imgbtn { position: static; transform: none; }
+.fb-hero, .fb-lava, .fb-sombra { top: 14px; right: 16px; }
+.fb-logo { position: relative; margin: -6px 0 10px; }

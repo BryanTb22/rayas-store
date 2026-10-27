@@ -126,6 +126,8 @@
       return { id: String(c.id || ("c" + i)), nombre: typeof c.nombre === "string" ? c.nombre : "", numero: String(c.numero || "").replace(/\D+/g, ""), activo: c.activo !== false, foto: typeof c.foto === "string" ? c.foto : "" };
     });
     if (!Array.isArray(st.premios)) st.premios = [];
+    var fo = st.fotos && typeof st.fotos === "object" ? st.fotos : {};
+    st.fotos = {}; ["logo", "hero", "lava", "sombra"].forEach(function (k) { st.fotos[k] = /^fs:img-[\w\-]+$/.test(String(fo[k] || "")) ? fo[k] : ""; });
     var t = st.textos && typeof st.textos === "object" ? st.textos : {};
     var nt = {};
     Object.keys(TEXTOS_BASE).forEach(function (k) {
@@ -488,6 +490,33 @@
     var u = safeImg(src);
     return u ? '<img src="' + esc(u) + '" alt="' + esc(alt) + '"' + (extra || '') + '>' : '';
   }
+  function cargarFs(id) {
+    if (IMG_CACHE[id]) return Promise.resolve(IMG_CACHE[id]);
+    if (!IMG_PEND[id]) IMG_PEND[id] = fetch(DOC_URL.replace(/estado$/, id)).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      var u = d && d.fields && d.fields.data && d.fields.data.stringValue;
+      if (u && /^data:image\/(webp|jpeg|png);base64,/.test(u)) IMG_CACHE[id] = u;
+      return IMG_CACHE[id];
+    }).catch(function () { return null; });
+    return IMG_PEND[id];
+  }
+  var FOTO_VARS = { hero: "--art-hero", lava: "--art-lava", sombra: "--art-sombra" };
+  function aplicarFotos() {
+    var F = estado.fotos || {}, root = document.documentElement.style;
+    Object.keys(FOTO_VARS).forEach(function (k) {
+      if (!esFs(F[k])) { root.removeProperty(FOTO_VARS[k]); return; }
+      cargarFs(F[k].slice(3)).then(function (u) { if (u && esFs(estado.fotos[k])) root.setProperty(FOTO_VARS[k], 'url("' + u + '")'); });
+    });
+    var logos = document.querySelectorAll(".hero-logo, .logo-img");
+    if (esFs(F.logo)) cargarFs(F.logo.slice(3)).then(function (u) { if (u) for (var i = 0; i < logos.length; i++) logos[i].src = u; });
+    else for (var i = 0; i < logos.length; i++) if (logos[i].getAttribute("src") !== "img/logo.webp") logos[i].src = "img/logo.webp";
+  }
+  var FOTO_TXT = { logo: "Cambiar logo", hero: "Cambiar fondo de portada", lava: "Cambiar fondo (Cómo participar)", sombra: "Cambiar fondo (Ganadores)" };
+  function fotoBtn(k) {
+    if (!vivo()) return "";
+    var st = admin.fotoSt && admin.fotoSt.k === k ? admin.fotoSt.txt : "";
+    return '<div class="fotobtns fb-' + k + '"><button type="button" class="imgbtn" data-a="foto" data-k="' + k + '">📷 ' + esc(st || FOTO_TXT[k]) + '</button>' +
+      (estado.fotos[k] ? '<button type="button" class="imgbtn" data-a="fotoQuitar" data-k="' + k + '">↺ Original</button>' : '') + '</div>';
+  }
   function hidratarImgs() {
     var els = document.querySelectorAll("img[data-fs]:not([src])");
     for (var k = 0; k < els.length; k++) (function (el) {
@@ -636,8 +665,8 @@
             : '<button class="lock" type="button" data-a="entrar">Entrar</button><button class="lock hot" type="button" data-a="registro">Crear cuenta</button>'))) +
       '</nav></div></header>' +
 
-      '<section class="hero gutter" id="inicio"><div class="wrap">' +
-      '<img class="hero-logo" src="img/logo.webp" alt="Rayas Store" width="132" height="132">' +
+      '<section class="hero gutter" id="inicio">' + fotoBtn("hero") + '<div class="wrap">' +
+      '<img class="hero-logo" src="img/logo.webp" alt="Rayas Store" width="132" height="132">' + fotoBtn("logo") +
       tx("div", "kicker", 'class="kicker"') +
       (V ? '<h1' + ed("t:titulo", "Título") + '>' + esc(T.titulo) + '</h1>' : '<h1>' + tituloHtml(T.titulo) + '</h1>') +
       tx("p", "subtitulo") +
@@ -655,7 +684,7 @@
         : '<div class="empty frame"><div class="in">' + tx("strong", "vacioT") + tx("span", "vacioS") + '</div></div>') +
       '</div></section>' +
 
-      '<section class="band lava gutter" id="como"><div class="wrap">' +
+      '<section class="band lava gutter" id="como">' + fotoBtn("lava") + '<div class="wrap">' +
       sec("comoKicker", "comoT1", "comoT2") +
       '<div class="steps">' + [1, 2, 3].map(function (n) {
         return '<div class="step frame"><div class="in"><span class="n">' + n + '</span>' + tx("h3", "paso" + n + "T") + tx("p", "paso" + n) + '</div></div>';
@@ -663,7 +692,7 @@
       (linkCreditos || V ? '<div style="text-align:center;margin-top:30px">' + lnk("btn btn-fuchsia", linkCreditos, "btnCreditos2", true) + '</div>' : '') +
       '</div></section>' +
 
-      '<section class="band sombra gutter" id="ganadores"><div class="wrap">' +
+      '<section class="band sombra gutter" id="ganadores">' + fotoBtn("sombra") + '<div class="wrap">' +
       sec("ganKicker", null, "ganT") +
       (V && cerradas.length ? '<p class="hint" style="text-align:center;margin:-10px 0 18px">Rifas cerradas: escribe el ganador en cada tarjeta.</p><div class="grid">' + cerradas.map(tarjeta).join("") + '</div>' :
        cerradas.length
@@ -705,6 +734,7 @@
     if (ruleta) { ruletaDibujar(ruleta.fin ? ruleta.rot : 0, 0); if (ruleta.fin) ruletaBrillo(); }
     document.body.classList.toggle("vivo", vivo());
     hidratarImgs();
+    aplicarFotos();
     var nd = document.querySelector(".drawer-body");
     if (nd && top) nd.scrollTop = top;
   }
@@ -1300,6 +1330,19 @@
         estado.premios.push(np); admin.imgEdit = np.id; marcarSucio(); render();
         var h = document.querySelector('[data-edit="p:' + np.id + ':nombre"]'); if (h) { h.scrollIntoView({ block: "center" }); h.focus(); }
         break;
+      case "foto": var fk = t.getAttribute("data-k"), inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
+        inp.onchange = function () {
+          if (!inp.files || !inp.files[0]) return;
+          admin.fotoSt = { k: fk, txt: "Subiendo…" }; render();
+          subirImagen(inp.files[0], fk === "logo" ? 512 : 1920).then(function (ref) {
+            estado.fotos[fk] = ref; admin.fotoSt = null; marcarSucio(); render();
+          }).catch(function (e) {
+            admin.fotoSt = { k: fk, txt: (e && e.message) || "No se pudo subir" }; render();
+            setTimeout(function () { admin.fotoSt = null; render(); }, 4500);
+          });
+        };
+        inp.click(); break;
+      case "fotoQuitar": estado.fotos[t.getAttribute("data-k")] = ""; marcarSucio(); render(); break;
       case "imgEdit": admin.imgErr = ""; admin.imgEdit = t.getAttribute("data-id"); render(); var ii = document.getElementById("img-" + admin.imgEdit); if (ii) ii.focus(); break;
       case "imgCancel": admin.imgEdit = null; admin.imgErr = ""; render(); break;
       case "ciclarEstado": var ke = buscarPremio(t.getAttribute("data-id")); if (ke >= 0) { var pe = estado.premios[ke]; pe.estado = ESTADOS[(ESTADOS.indexOf(pe.estado || "activa") + 1) % ESTADOS.length]; if (pe.estado === "cerrada" && !pe.resultado) pe.resultado = new Date().toISOString(); marcarSucio(); render(); } break;
