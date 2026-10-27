@@ -520,9 +520,18 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 .addrow input { width: 64px; background: var(--bg); border: 1px solid var(--line); padding: 8px; text-align: center; }
 
 /* Ruleta */
-.ruleta { width: min(94vw, 460px); text-align: center; align-items: center; }
-.rwrap { position: relative; width: min(82vw, 380px); aspect-ratio: 1; margin: 6px auto; }
-.rwrap canvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 6px 18px rgba(0,0,0,.6)); }
-.rpin { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 30px solid var(--yellow); z-index: 2; filter: drop-shadow(0 2px 4px rgba(0,0,0,.7)); }
-.rwin { font-family: "Cinzel", serif; font-size: 1.25rem; color: var(--yellow); padding: 6px 0; }
+.ruleta { width: min(96vw, 500px); text-align: center; align-items: center; padding: 22px 16px 18px;
+  background: radial-gradient(120% 80% at 50% 0%, rgba(255,45,143,.16), transparent 55%), radial-gradient(90% 60% at 50% 100%, rgba(255,201,60,.10), transparent 60%), #0a1030;
+  border: 2px solid var(--yellow); box-shadow: 0 0 0 4px rgba(255,201,60,.12), 0 0 60px rgba(255,201,60,.18), 0 24px 70px rgba(0,0,0,.7); }
+.ruleta h3 { font-size: 1.3rem; letter-spacing: .04em; text-shadow: 0 0 18px rgba(255,201,60,.45); }
+.rwrap { position: relative; width: min(84vw, 420px); aspect-ratio: 1; margin: 4px auto; }
+.rwrap canvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 8px 22px rgba(0,0,0,.7)); }
+.rpin { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); width: 34px; height: 46px; z-index: 2; transform-origin: 50% 8px;
+  background: linear-gradient(160deg, #fff0b0, #e8b93d 45%, #8a5a0f); clip-path: polygon(50% 100%, 6% 22%, 24% 0, 76% 0, 94% 22%); filter: drop-shadow(0 3px 5px rgba(0,0,0,.8)); }
+.rpin::after { content: ""; position: absolute; left: 50%; top: 9px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: #0a0f26; box-shadow: inset 0 0 0 2px #ffe08a; }
+.rpin.tick { animation: rtick .12s ease-out; }
+@keyframes rtick { 0% { transform: translateX(-50%) rotate(-16deg); } 100% { transform: translateX(-50%) rotate(0); } }
+.rwin { font-family: "Cinzel", serif; font-size: 1.35rem; color: var(--yellow-2); padding: 6px 0; text-shadow: 0 0 22px rgba(255,201,60,.8); animation: rwin 1.2s ease-in-out infinite alternate; }
+.rwin b { color: #fff; }
+@keyframes rwin { from { transform: scale(1); } to { transform: scale(1.06); } }
 .rbtns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }

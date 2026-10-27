@@ -278,7 +278,7 @@
   }
 
   /* ================= Ruleta ================= */
-  var ruleta = null, RCOL = ["#c9302c", "#e8a317", "#2a8f6a", "#7a3fb5", "#2672c9", "#d1478b", "#3a9aa8", "#8c5a2b"];
+  var ruleta = null, RCOL = [["#d94a3a", "#9c1f1b", "#5a0d0d"], ["#38b07e", "#1d7a54", "#0b3d2a"], ["#e8b93d", "#a8741a", "#5e3d08"], ["#9a63d6", "#5f3399", "#2c1450"], ["#3d94e0", "#1f5f9f", "#0d2c52"], ["#ec5fa0", "#a52a68", "#521232"]];
   function ruletaSegs(lista) {
     var tot = 0; lista.forEach(function (x) { tot += (x.cantidad || x.c || 1); });
     var acc = 0;
@@ -304,21 +304,61 @@
     ruleta = { modo: "replay", pid: pid, segs: ruletaSegs(rp.segs), w: rp.w, rot: rp.rot, dur: rp.dur || 7000, fin: false, run: false, fecha: rp.fecha };
     render();
   }
-  function ruletaDibujar(rotDeg) {
+  var rLogo = null;
+  function ruletaDibujar(rotDeg, t) {
     var cv = document.getElementById("ruleta-cv"); if (!cv || !ruleta) return;
-    var ctx = cv.getContext("2d"), W = cv.width, R = W / 2 - 8, cx = W / 2;
+    if (!rLogo) { rLogo = new Image(); rLogo.src = "img/logo.webp"; rLogo.onload = function () { ruletaDibujar(ruleta && ruleta.fin ? ruleta.rot : (ruleta ? ruleta.rotAct || 0 : 0), 0); }; }
+    var ctx = cv.getContext("2d"), W = cv.width, cx = W / 2, R = W / 2 - 34, rim = R + 22, i, PI = Math.PI;
+    t = t || 0; ruleta.rotAct = rotDeg;
     ctx.clearRect(0, 0, W, W);
-    ctx.save(); ctx.translate(cx, cx); ctx.rotate((rotDeg - 90) * Math.PI / 180);
-    ruleta.segs.forEach(function (g) {
-      var a0 = g.a0 * Math.PI / 180, a1 = g.a1 * Math.PI / 180;
+    // aro exterior metálico dorado
+    var gr = ctx.createLinearGradient(0, 0, W, W);
+    gr.addColorStop(0, "#fff0b0"); gr.addColorStop(.35, "#c9921f"); gr.addColorStop(.6, "#6b4710"); gr.addColorStop(1, "#e8b93d");
+    ctx.beginPath(); ctx.arc(cx, cx, rim + 10, 0, 2 * PI); ctx.fillStyle = gr; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cx, rim - 2, 0, 2 * PI); ctx.fillStyle = "#0a0f26"; ctx.fill();
+    // luces del aro
+    var N = 28;
+    for (i = 0; i < N; i++) {
+      var a = i / N * 2 * PI, on = ruleta.fin ? (Math.floor(t / 250) + i) % 2 === 0 : (ruleta.run ? (Math.floor(t / 90) + i) % 2 === 0 : i % 2 === 0);
+      var bx = cx + Math.cos(a) * (rim + 4), by = cx + Math.sin(a) * (rim + 4);
+      ctx.beginPath(); ctx.arc(bx, by, 4.5, 0, 2 * PI);
+      ctx.fillStyle = on ? "#fff3b8" : "#7a5a18"; ctx.shadowColor = on ? "#ffc93c" : "transparent"; ctx.shadowBlur = on ? 12 : 0; ctx.fill(); ctx.shadowBlur = 0;
+    }
+    // ruleta
+    ctx.save(); ctx.translate(cx, cx); ctx.rotate((rotDeg - 90) * PI / 180);
+    ruleta.segs.forEach(function (g, k) {
+      var a0 = g.a0 * PI / 180, a1 = g.a1 * PI / 180, base = RCOL[k % RCOL.length];
+      var rg = ctx.createRadialGradient(0, 0, R * .12, 0, 0, R);
+      rg.addColorStop(0, base[0]); rg.addColorStop(.75, base[1]); rg.addColorStop(1, base[2]);
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a0, a1); ctx.closePath();
-      ctx.fillStyle = g.col; ctx.fill(); ctx.strokeStyle = "#0a0c1f"; ctx.lineWidth = 2; ctx.stroke();
-      ctx.save(); ctx.rotate((a0 + a1) / 2); ctx.textAlign = "right"; ctx.fillStyle = "#fff";
-      ctx.font = "bold " + Math.max(11, Math.min(20, (a1 - a0) * R * 0.5)) + "px Barlow, sans-serif";
-      ctx.textBaseline = "middle"; ctx.fillText(g.n, R - 14, 0); ctx.restore();
+      ctx.fillStyle = rg; ctx.fill();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = "#f2c45a"; ctx.stroke();
+      // texto
+      ctx.save(); ctx.rotate((a0 + a1) / 2); ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      var fs = Math.max(12, Math.min(22, (a1 - a0) * R * 0.55));
+      ctx.font = "700 " + fs + "px Cinzel, serif";
+      ctx.shadowColor = "rgba(0,0,0,.85)"; ctx.shadowBlur = 4; ctx.fillStyle = "#fff6d6";
+      ctx.fillText(g.n, R - 20, 0); ctx.shadowBlur = 0; ctx.restore();
     });
+    // brillo ganador
+    if (ruleta.fin) {
+      var gw = ruleta.segs[ruleta.w], pul = .5 + .5 * Math.sin(t / 220);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, gw.a0 * PI / 180, gw.a1 * PI / 180); ctx.closePath();
+      ctx.fillStyle = "rgba(255,230,140," + (0.12 + 0.18 * pul) + ")"; ctx.fill();
+      ctx.lineWidth = 5; ctx.strokeStyle = "rgba(255,240,170," + (0.7 + 0.3 * pul) + ")"; ctx.shadowColor = "#ffc93c"; ctx.shadowBlur = 18; ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    // anillo interior
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, 2 * PI); ctx.lineWidth = 5; ctx.strokeStyle = "#c9921f"; ctx.stroke();
     ctx.restore();
-    ctx.beginPath(); ctx.arc(cx, cx, 26, 0, 7); ctx.fillStyle = "#0a0c1f"; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = "#e8a317"; ctx.stroke();
+    // centro con logo
+    ctx.beginPath(); ctx.arc(cx, cx, 50, 0, 2 * PI); ctx.fillStyle = gr; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cx, 43, 0, 2 * PI); ctx.fillStyle = "#0a0f26"; ctx.fill();
+    if (rLogo && rLogo.complete && rLogo.naturalWidth) { ctx.save(); ctx.beginPath(); ctx.arc(cx, cx, 40, 0, 2 * PI); ctx.clip(); ctx.drawImage(rLogo, cx - 40, cx - 40, 80, 80); ctx.restore(); }
+  }
+  function ruletaBrillo() {
+    var rt = ruleta, t0 = Date.now(); if (rt.brillo) return; rt.brillo = true;
+    function f() { if (ruleta !== rt || !rt.fin || !document.getElementById("ruleta-cv")) return; ruletaDibujar(rt.rot, Date.now() - t0); requestAnimationFrame(f); }
+    requestAnimationFrame(f);
   }
   function ruletaGirar() {
     if (!ruleta || ruleta.run) return;
@@ -327,7 +367,10 @@
     function paso() {
       if (ruleta !== rt) return;
       var x = Math.min(1, (Date.now() - t0) / rt.dur), e = 1 - Math.pow(1 - x, 4);
-      ruletaDibujar(rt.rot * e);
+      var ang = rt.rot * e; ruletaDibujar(ang, Date.now() - t0);
+      var puntoA = (((-ang) % 360) + 360) % 360, idx = 0; rt.segs.forEach(function (g, q) { if (puntoA >= g.a0 && puntoA < g.a1) idx = q; });
+      if (rt.ult !== undefined && rt.ult !== idx) { var pin = document.querySelector(".rpin"); if (pin) { pin.classList.remove("tick"); void pin.offsetWidth; pin.classList.add("tick"); } }
+      rt.ult = idx;
       if (x < 1) { requestAnimationFrame(paso); return; }
       rt.run = false; rt.fin = true; ruletaFin();
     }
@@ -658,7 +701,7 @@
     var scrollDrawer = document.querySelector(".drawer-body");
     var top = scrollDrawer ? scrollDrawer.scrollTop : 0;
     app.innerHTML = html;
-    if (ruleta) ruletaDibujar(ruleta.fin ? ruleta.rot : 0);
+    if (ruleta) { ruletaDibujar(ruleta.fin ? ruleta.rot : 0, 0); if (ruleta.fin) ruletaBrillo(); }
     document.body.classList.toggle("vivo", vivo());
     hidratarImgs();
     var nd = document.querySelector(".drawer-body");
