@@ -79,12 +79,25 @@ function assetDeHtml(html) {
   return null;
 }
 
+// Página nueva de Steam: muestra "Quality: Exalted  Rarity: Arcana  Type: Wearable  Slot: Weapon  Hero: …" como texto.
+function etiquetasDeTexto(html) {
+  const txt = String(html || "").replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&apos;/g, "'").replace(/\s+/g, " ");
+  const out = {};
+  const re = /\b(Quality|Rarity|Type|Slot|Hero|Used By)\s*:\s*([A-Za-z][A-Za-z' .\-]{0,38}?)(?=\s+(?:Quality|Rarity|Type|Slot|Hero|Used By)\s*:|\s{2,}|[,.;]\s|$|\s+(?:Compare|Description|Sold|Steam|Buy|Market|Sell)\b)/g;
+  let m;
+  while ((m = re.exec(txt))) { const k = m[1].toLowerCase().replace("used by", "hero"); if (!out[k]) out[k] = m[2].trim(); }
+  const i = txt.search(/\bQuality\s*:/);
+  out._trozo = i >= 0 ? txt.slice(i, i + 220) : "";
+  return out;
+}
+
 async function leerItem(nombre, heroes) {
   const enc = encodeURIComponent(nombre);
-  let asset = null, precioUsd = null;
+  let asset = null, precioUsd = null, etiq = {};
   try {
     const r = await pedir("https://steamcommunity.com/market/listings/570/" + enc);
-    if (r.ok) asset = assetDeHtml(await r.text());
+    if (r.ok) { const html = await r.text(); asset = assetDeHtml(html); etiq = etiquetasDeTexto(html); }
   } catch (e) { /* se intenta el otro camino */ }
   if (!asset) {
     const r = await pedir("https://steamcommunity.com/market/search/render/?query=" + enc + "&appid=570&norender=1&count=10");
@@ -97,6 +110,13 @@ async function leerItem(nombre, heroes) {
   }
   const datos = interpretar(asset, heroes);
   if (!datos.nombre) datos.nombre = nombre;
+  // Lo que Steam muestra como texto en la página completa lo que falte.
+  if (!datos.heroe && etiq.hero) datos.heroe = etiq.hero;
+  if (!datos.ranura && etiq.slot) datos.ranura = etiq.slot;
+  if ((!datos.tipo || datos.tipo === "Otro") && etiq.type) datos.tipo = tipoDe(etiq.type) || datos.tipo;
+  if (!datos.rareza && etiq.rarity) datos.rareza = RAREZAS[etiq.rarity.toLowerCase()] || "";
+  if ((!datos.calidad || datos.calidad === "Standard") && etiq.quality) datos.calidad = etiq.quality;
+  datos.diag = (!datos.heroe || !datos.ranura) ? (etiq._trozo || "sin etiquetas en la página") : "";
   if (precioUsd === null) {
     try {
       const r = await pedir("https://steamcommunity.com/market/priceoverview/?appid=570&currency=1&market_hash_name=" + enc, 8000);
@@ -118,4 +138,4 @@ async function leerItem(nombre, heroes) {
   return datos;
 }
 
-module.exports = { nombreDesdeLink, interpretar, assetDeHtml, leerItem };
+module.exports = { etiquetasDeTexto, nombreDesdeLink, interpretar, assetDeHtml, leerItem };
