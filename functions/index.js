@@ -247,6 +247,27 @@ exports.comprarItem = onRequest(
   }
 );
 
+/* Límite de consultas: cuenta intentos por clave (IP o steamId) en una ventana de tiempo, con Firestore. */
+async function dentroDelLimite(clave, max, ventanaMs) {
+  const id = "inv_" + crypto.createHash("sha256").update(String(clave)).digest("hex").slice(0, 32);
+  const ref = db.doc("rayas_limites/" + id);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const s = await tx.get(ref);
+      const ahora = Date.now();
+      let d = s.exists ? s.data() : null;
+      if (!d || ahora - d.desde > ventanaMs) d = { desde: ahora, n: 0 };
+      if (d.n >= max) return false;
+      tx.set(ref, { desde: d.desde, n: d.n + 1 });
+      return true;
+    });
+  } catch (e) { console.error("limite", e); return true; } // si falla el contador, no bloquea a clientes reales
+}
+function ipDeLaPeticion(req) {
+  const xf = String(req.get("X-Forwarded-For") || "").split(",").map((x) => x.trim()).filter(Boolean);
+  return xf.length ? xf[xf.length - 1] : (req.ip || "desconocida");
+}
+
 /* ---------- Vender items: inventario de Dota 2 del cliente (por su trade link) ---------- */
 exports.inventario = onRequest(
   { region: REGION, cors: ORIGENES, maxInstances: 3, timeoutSeconds: 30 },
@@ -254,6 +275,10 @@ exports.inventario = onRequest(
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const sid = inv.steamIdDeTradeLink((req.body || {}).link);
     if (!sid) return res.status(400).json({ error: "Ese no parece un trade link. Debe tener ?partner=…&token=…" });
+    // Máximo 12 consultas cada 10 min por conexión y 6 por inventario, para que nadie sature a Steam desde aquí.
+    const okIp = await dentroDelLimite("ip:" + ipDeLaPeticion(req), 12, 10 * 60 * 1000);
+    const okSid = okIp && await dentroDelLimite("sid:" + sid, 6, 10 * 60 * 1000);
+    if (!okIp || !okSid) return res.status(429).json({ error: "Demasiadas consultas seguidas. Espera unos minutos e intenta de nuevo." });
     try {
       const r = await fetch("https://steamcommunity.com/inventory/" + sid + "/570/2?l=english&count=2000", {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; RayasStore/1.0)", "Accept": "application/json" }
