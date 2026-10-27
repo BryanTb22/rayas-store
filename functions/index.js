@@ -13,7 +13,7 @@ const FV = admin.firestore.FieldValue;
 const CULQI_SECRET = defineSecret("CULQI_SECRET_KEY");   // sk_test_... / sk_live_...
 const WEBHOOK_KEY = defineSecret("CULQI_WEBHOOK_KEY");   // clave inventada por ti, va en la URL del webhook
 const REGION = "us-central1";
-const ORIGENES = ["https://rayas.trade", "https://www.rayas.trade"];
+const ORIGENES = ["https://rayas.trade", "https://www.rayas.trade", "https://litlejacob.trade", "https://www.litlejacob.trade"];
 
 /* ---------- utilidades ---------- */
 async function uidDeLaPeticion(req) {
