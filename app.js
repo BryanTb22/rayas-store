@@ -33,7 +33,7 @@
   }
 
   /* ================= Entrar con Google ================= */
-  var GOOGLE_CLIENT_ID = "";
+  var GOOGLE_CLIENT_ID = "547624378539-m3dct3sir3r9vbe51hm6q1ojejg1i14q.apps.googleusercontent.com";
   function loginGoogle(cred) {
     return fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=" + encodeURIComponent(FB.apiKey), {
       method: "POST", headers: { "Content-Type": "application/json" },
