@@ -276,6 +276,87 @@
     var im = imgTag(c.foto, c.nombre, "");
     return '<span class="avatar">' + (im || esc((c.nombre || "?").charAt(0).toUpperCase())) + '</span>';
   }
+
+  /* ================= Ruleta ================= */
+  var ruleta = null, RCOL = ["#c9302c", "#e8a317", "#2a8f6a", "#7a3fb5", "#2672c9", "#d1478b", "#3a9aa8", "#8c5a2b"];
+  function ruletaSegs(lista) {
+    var tot = 0; lista.forEach(function (x) { tot += (x.cantidad || x.c || 1); });
+    var acc = 0;
+    return lista.map(function (x, i) {
+      var c = x.cantidad || x.c || 1, a0 = acc / tot * 360; acc += c;
+      return { uid: x.uid || "", n: String(x.nombre || x.n || "?").slice(0, 24), c: c, a0: a0, a1: acc / tot * 360, col: RCOL[i % RCOL.length] };
+    });
+  }
+  function abrirRuleta(pid) {
+    var k = buscarPremio(pid), lp = k >= 0 ? (partes[estado.premios[k].id] || []) : [];
+    if (!lp.length) return;
+    var segs = ruletaSegs(lp), tot = 0; segs.forEach(function (g) { tot += g.c; });
+    var r = Math.random() * tot, w = 0, ac = 0;
+    for (var i = 0; i < segs.length; i++) { ac += segs[i].c; if (r < ac) { w = i; break; } }
+    var g = segs[w], off = (Math.random() * 0.7 - 0.35) * (g.a1 - g.a0), th = (g.a0 + g.a1) / 2 + off;
+    var rot = 360 * 6 + ((360 - th) % 360 + 360) % 360;
+    ruleta = { modo: "sorteo", pid: pid, segs: segs, w: w, rot: rot, dur: 7000, fin: false, run: false };
+    render();
+  }
+  function abrirRepeticion(pid) {
+    var k = buscarPremio(pid); if (k < 0) return;
+    var rp = estado.premios[k].replay; if (!rp || !rp.segs || !rp.segs.length) return;
+    ruleta = { modo: "replay", pid: pid, segs: ruletaSegs(rp.segs), w: rp.w, rot: rp.rot, dur: rp.dur || 7000, fin: false, run: false, fecha: rp.fecha };
+    render();
+  }
+  function ruletaDibujar(rotDeg) {
+    var cv = document.getElementById("ruleta-cv"); if (!cv || !ruleta) return;
+    var ctx = cv.getContext("2d"), W = cv.width, R = W / 2 - 8, cx = W / 2;
+    ctx.clearRect(0, 0, W, W);
+    ctx.save(); ctx.translate(cx, cx); ctx.rotate((rotDeg - 90) * Math.PI / 180);
+    ruleta.segs.forEach(function (g) {
+      var a0 = g.a0 * Math.PI / 180, a1 = g.a1 * Math.PI / 180;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a0, a1); ctx.closePath();
+      ctx.fillStyle = g.col; ctx.fill(); ctx.strokeStyle = "#0a0c1f"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.save(); ctx.rotate((a0 + a1) / 2); ctx.textAlign = "right"; ctx.fillStyle = "#fff";
+      ctx.font = "bold " + Math.max(11, Math.min(20, (a1 - a0) * R * 0.5)) + "px Barlow, sans-serif";
+      ctx.textBaseline = "middle"; ctx.fillText(g.n, R - 14, 0); ctx.restore();
+    });
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(cx, cx, 26, 0, 7); ctx.fillStyle = "#0a0c1f"; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = "#e8a317"; ctx.stroke();
+  }
+  function ruletaGirar() {
+    if (!ruleta || ruleta.run) return;
+    ruleta.run = true; ruleta.fin = false; var t0 = Date.now(), rt = ruleta;
+    var btn = document.getElementById("ruleta-go"); if (btn) btn.disabled = true;
+    function paso() {
+      if (ruleta !== rt) return;
+      var x = Math.min(1, (Date.now() - t0) / rt.dur), e = 1 - Math.pow(1 - x, 4);
+      ruletaDibujar(rt.rot * e);
+      if (x < 1) { requestAnimationFrame(paso); return; }
+      rt.run = false; rt.fin = true; ruletaFin();
+    }
+    requestAnimationFrame(paso);
+  }
+  function ruletaFin() {
+    var rt = ruleta, g = rt.segs[rt.w];
+    if (rt.modo === "sorteo") {
+      var k = buscarPremio(rt.pid);
+      if (k >= 0) {
+        var p = estado.premios[k];
+        p.ganador = g.n; p.ganadorUid = g.uid; p.resultado = new Date().toISOString(); p.estado = "cerrada";
+        p.replay = { segs: rt.segs.map(function (y) { return { n: y.n, c: y.c }; }), w: rt.w, rot: rt.rot, dur: rt.dur, fecha: p.resultado };
+        marcarSucio();
+      }
+    }
+    render();
+  }
+  function modalRuleta() {
+    var rt = ruleta, g = rt.segs[rt.w], p = estado.premios[buscarPremio(rt.pid)] || {};
+    return '<div class="scrim scrim-top"></div><div class="elegir ruleta" role="dialog" aria-label="Ruleta"><h3>' + (rt.modo === "replay" ? '🎬 Repetición del sorteo' : '🎲 Sorteo') + ' · ' + esc(p.nombre || "") + '</h3>' +
+      '<div class="rwrap"><div class="rpin"></div><canvas id="ruleta-cv" width="440" height="440"></canvas></div>' +
+      (rt.fin ? '<div class="rwin">🏆 ¡Ganador: <b>' + esc(g.n) + '</b>!</div>' + (rt.modo === "replay" && rt.fecha ? '<p class="hint">Sorteo realizado: ' + esc(fechaHora(rt.fecha)) + '</p>' : '') : '<p class="hint">' + rt.segs.length + ' participante' + (rt.segs.length === 1 ? '' : 's') + '. Más cupos = más espacio en la ruleta.</p>') +
+      '<div class="rbtns">' +
+      (!rt.fin && !rt.run ? '<button class="btn btn-yellow" id="ruleta-go" type="button" data-a="ruletaGirar">' + (rt.modo === "replay" ? '▶ Ver repetición' : '🎰 ¡Girar!') + '</button>' : '') +
+      (rt.fin && rt.modo === "sorteo" ? '<button class="btn btn-fuchsia" type="button" data-a="ruletaGuardar">Guardar y publicar resultado</button>' : '') +
+      (rt.fin && rt.modo === "replay" ? '<button class="btn btn-ghost" type="button" data-a="ruletaOtra">↻ Ver otra vez</button>' : '') +
+      (!rt.run ? '<button class="btn btn-ghost btn-sm" type="button" data-a="ruletaCerrar">Cerrar</button>' : '') + '</div></div>';
+  }
   function modalElegir() {
     return '<div class="scrim scrim-top" data-a="cerrarElegir"></div>' +
       '<div class="elegir" role="dialog" aria-label="Elegir contacto"><h3>¿Con quién quieres hablar?</h3>' +
@@ -479,7 +560,7 @@
       (est === "activa" && !p.cierre && +p.cupos > 0 ? '<div class="pill fechas">Cierra al agotar cupos</div>' : '') +
       (est === "proxima" && p.inicio && tiempoDe(p.inicio) ? '<div class="pill fechas">Abre: ' + esc(fechaHora(p.inicio)) + '</div>' : '') +
       (est === "proxima" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + '</div>' : '') +
-      boton + '</div></div></article>';
+      boton + (est === "cerrada" && p.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + id + '" style="margin-top:8px">🎬 Ver repetición</button>' : '') + '</div></div></article>';
   }
 
   function secTitle(kicker, htmlTitle, sub) {
@@ -545,7 +626,7 @@
         ? '<div class="winners">' + cerradas.map(function (p) {
             return '<div class="winner frame"><div class="in"><div class="thumb">' + imgTag(p.img, "", ' loading="lazy"') + '</div>' +
               '<div class="who"><b>' + esc(p.ganador || "Por anunciar") + '</b><span>' + esc(p.nombre) + (p.cierre ? ' · ' + esc(fechaCorta(p.cierre)) : '') + '</span></div>' +
-              (p.ganador ? '<span class="crown">GANÓ</span>' : '') + '</div></div>';
+              (p.ganador ? '<span class="crown">GANÓ</span>' : '') + (p.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + esc(p.id) + '">🎬 Ver repetición</button>' : '') + '</div></div>';
           }).join("") + '</div>'
         : '<div class="empty frame"><div class="in">' + tx("strong", "ganVacioT") + tx("span", "ganVacioS") + '</div></div>') +
       '</div></section>' +
@@ -567,7 +648,8 @@
       tx("span", "pie") +
       '</div></footer>';
 
-    if (modal) html += modalAviso();
+    if (ruleta) html += modalRuleta();
+    else if (modal) html += modalAviso();
     else if (elegirAbierto && contactos().length > 1) html += modalElegir();
     if (admin.puede && !admin.abierto) html += barraEdicion();
     if (admin.puede && admin.abierto) html += '<div class="scrim" data-a="cerrar"></div>' + panelAdmin();
@@ -576,6 +658,7 @@
     var scrollDrawer = document.querySelector(".drawer-body");
     var top = scrollDrawer ? scrollDrawer.scrollTop : 0;
     app.innerHTML = html;
+    if (ruleta) ruletaDibujar(ruleta.fin ? ruleta.rot : 0);
     document.body.classList.toggle("vivo", vivo());
     hidratarImgs();
     var nd = document.querySelector(".drawer-body");
@@ -861,7 +944,7 @@
         (admin.usuarios && libres.length ? '<div class="addp"><label for="add-u-' + pid + '">Agregar participante</label><div class="addrow"><select id="add-u-' + pid + '">' +
           libres.map(function (u) { return '<option value="' + esc(u.uid) + '">' + esc(u.nombre || u.email) + '</option>'; }).join("") +
           '</select><input id="add-q-' + pid + '" type="number" min="1" max="100" value="1" aria-label="Cupos"><button class="btn btn-ghost btn-sm" type="button" data-a="addPart" data-id="' + pid + '">Agregar</button></div><small class="hint">Se agrega sin descontar créditos.</small>' + (admin.addPid === p.id && admin.addMsg ? '<p class="hint" style="color:' + (admin.addMsgOk ? 'var(--ok)' : 'var(--danger)') + '" role="status">' + esc(admin.addMsg) + '</p>' : '') + '</div>' : '') +
-        (l.length ? '<button class="btn btn-ghost btn-sm" type="button" data-a="sortear" data-id="' + pid + '">🎲 Sortear ganador</button>' : '') + '</div>';
+        (l.length ? '<button class="btn btn-ghost btn-sm" type="button" data-a="sortear" data-id="' + pid + '">🎰 Sortear con ruleta</button>' + (p.replay ? ' <button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + pid + '">🎬 Ver repetición</button>' : '') : '') + '</div>';
     }).join("");
   }
   function guardarCantidad(pid, uid, nueva) {
@@ -1107,12 +1190,17 @@
       case "qtyMas": if (modal && modal.tipo === "confirmar" && modal.qty < modal.max) { modal.qty++; render(); } break;
       case "qtyMenos": if (modal && modal.tipo === "confirmar" && modal.qty > 1) { modal.qty--; render(); } break;
       case "cerrarModal": modal = null; render(); break;
-      case "sortear": var ks = buscarPremio(t.getAttribute("data-id")); var lp = ks >= 0 ? (partes[estado.premios[ks].id] || []) : []; if (lp.length) { var bolsa = []; lp.forEach(function (y) { for (var n = 0; n < (y.cantidad || 1); n++) bolsa.push(y); }); var gw = bolsa[Math.floor(Math.random() * bolsa.length)]; estado.premios[ks].ganador = gw.nombre; estado.premios[ks].ganadorUid = gw.uid; estado.premios[ks].resultado = new Date().toISOString(); estado.premios[ks].estado = "cerrada"; marcarSucio(); render(); } break;
+      case "sortear": abrirRuleta(t.getAttribute("data-id")); break;
+      case "ruletaGirar": ruletaGirar(); break;
+      case "ruletaOtra": if (ruleta) { ruleta.fin = false; ruleta.run = false; render(); } break;
+      case "ruletaCerrar": ruleta = null; render(); break;
+      case "ruletaGuardar": ruleta = null; publicar(); break;
+      case "repeticion": abrirRepeticion(t.getAttribute("data-id")); break;
       case "olvide": ev.preventDefault(); recuperarClave(); break;
       case "elegir": ev.preventDefault(); modal = null; elegirAbierto = true; render(); break;
       case "cerrarElegir": elegirAbierto = false; render(); break;
       case "editContactos": admin.abierto = true; admin.tab = "pagina"; render(); break;
-      case "quitarGan": var kg = buscarPremio(t.getAttribute("data-id")); if (kg >= 0) { estado.premios[kg].ganador = ""; estado.premios[kg].ganadorUid = ""; estado.premios[kg].resultado = ""; marcarSucio(); render(); } break;
+      case "quitarGan": var kg = buscarPremio(t.getAttribute("data-id")); if (kg >= 0) { estado.premios[kg].ganador = ""; estado.premios[kg].ganadorUid = ""; estado.premios[kg].resultado = ""; delete estado.premios[kg].replay; marcarSucio(); render(); } break;
       case "quitarFoto": estado.contactos[i].foto = ""; marcarSucio(); render(); break;
       case "cerrarCuenta": quitarHash(); cuenta.modo = null; render(); break;
       case "cred": var uu = (admin.usuarios || []).filter(function (x) { return x.uid === t.getAttribute("data-uid"); })[0]; if (uu && !uu.guardando) guardarCreditos(uu.uid, uu.creditos + Number(t.getAttribute("data-d"))); break;

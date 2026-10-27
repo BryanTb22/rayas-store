@@ -518,3 +518,11 @@ body.vivo .logo [data-edit] { min-width: 1ch; }
 .addrow { display: flex; gap: 6px; }
 .addrow select { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); padding: 8px; }
 .addrow input { width: 64px; background: var(--bg); border: 1px solid var(--line); padding: 8px; text-align: center; }
+
+/* Ruleta */
+.ruleta { width: min(94vw, 460px); text-align: center; align-items: center; }
+.rwrap { position: relative; width: min(82vw, 380px); aspect-ratio: 1; margin: 6px auto; }
+.rwrap canvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 6px 18px rgba(0,0,0,.6)); }
+.rpin { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 30px solid var(--yellow); z-index: 2; filter: drop-shadow(0 2px 4px rgba(0,0,0,.7)); }
+.rwin { font-family: "Cinzel", serif; font-size: 1.25rem; color: var(--yellow); padding: 6px 0; }
+.rbtns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
