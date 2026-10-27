@@ -275,7 +275,10 @@
     var link = waLink("Hola, quiero participar en la rifa de " + p.nombre + " (" + cred + " créditos)." + yo);
     var boton;
     if (est === "activa") {
-      boton = link && !lleno
+      var sinCuenta = !vivo() && !lleno && !cuenta.perfil && !leerSesion();
+      boton = sinCuenta
+        ? '<button class="btn btn-yellow" type="button" data-a="registro" data-need="1">' + esc(estado.textos.btnParticipar) + '</button>'
+        : link && !lleno
         ? lnk("btn btn-yellow", link, "btnParticipar", true)
         : (vivo() ? lnk("btn btn-yellow", "", "btnParticipar") : '<button class="btn btn-yellow" type="button" disabled>' + (lleno ? "Cupos llenos" : esc(estado.textos.btnParticipar)) + '</button>');
     } else if (est === "proxima") {
@@ -683,7 +686,7 @@
         if (admin.puede) admin.abierto = true; else { cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; }
         render(); break;
       case "entrar": ev.preventDefault(); cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); break;
-      case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); break;
+      case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = t.getAttribute("data-need") ? "Para participar primero crea una cuenta en la página." : ""; cuenta.msgTipo = t.getAttribute("data-need") ? "err" : ""; render(); break;
       case "miCuenta": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); break;
       case "cerrarCuenta": quitarHash(); cuenta.modo = null; render(); break;
       case "cred": var uu = (admin.usuarios || []).filter(function (x) { return x.uid === t.getAttribute("data-uid"); })[0]; if (uu && !uu.guardando) guardarCreditos(uu.uid, uu.creditos + Number(t.getAttribute("data-d"))); break;
