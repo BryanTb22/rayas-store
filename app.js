@@ -14,9 +14,8 @@
      Los precios de aquí son solo para mostrarlos: el cobro real usa functions/packs.js. */
   var PAGOS = {
     culqiPk: "pk_test_iK8JCBNB6dJmRlUZ",
-    // true = el pago solo aparece si la dirección lleva ?pagotest=1 (para probar en la web real sin que lo vean los clientes).
-    // Cuando pases a llaves reales (pk_live_…) y todo funcione, ponlo en false.
-    soloPrueba: true,
+    // El pago lo prende/apaga el admin en el panel (Textos y contactos → "Cobrar con Culqi").
+    // Con ?pagotest=1 en la dirección se ve siempre, para probar sin prender el interruptor.
     min: 3, max: 500, minYape: 6,   // monto libre (solo para mostrar; el servidor valida lo mismo en functions/packs.js)
     url: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/cobrar",
     js: "https://checkout.culqi.com/js/v4"
@@ -27,7 +26,7 @@
     { id: "p50", soles: 50, base: 50, promo: 55 },
     { id: "p100", soles: 100, base: 100, promo: 110 }
   ];
-  function pagosOn() { return !!PAGOS.culqiPk && (!PAGOS.soloPrueba || /[?&]pagotest=1(&|$)/.test(location.search)); }
+  function pagosOn() { return !!PAGOS.culqiPk && (!!(estado.pagos && estado.pagos.culqi) || /[?&]pagotest=1(&|$)/.test(location.search)); }
 
   function leerSesion() { try { return JSON.parse(localStorage.getItem(SES_KEY) || "null"); } catch (e) { return null; } }
   function guardarSesion(s) { try { if (s) localStorage.setItem(SES_KEY, JSON.stringify(s)); else localStorage.removeItem(SES_KEY); } catch (e) { /* sin almacenamiento */ } }
@@ -205,6 +204,7 @@
       c = c && typeof c === "object" ? c : {};
       return { id: String(c.id || ("c" + i)), nombre: typeof c.nombre === "string" ? c.nombre : "", numero: String(c.numero || "").replace(/\D+/g, ""), activo: c.activo !== false, foto: typeof c.foto === "string" ? c.foto : "" };
     });
+    st.pagos = { culqi: !!(st.pagos && st.pagos.culqi) };
     if (!Array.isArray(st.premios)) st.premios = [];
     var fo = st.fotos && typeof st.fotos === "object" ? st.fotos : {};
     st.fotos = {}; ["logo", "hero", "lava", "sombra"].forEach(function (k) { st.fotos[k] = /^fs:img-[\w\-]+$/.test(String(fo[k] || "")) ? fo[k] : ""; });
@@ -1309,7 +1309,10 @@
 
   function tabPagina() {
     var T = estado.textos;
-    return (estado.contactos || []).map(function (c, k) {
+    return '<div class="grp"><h3>Cobro con Culqi (tarjeta / Yape)</h3>' +
+      '<label class="chk"><input type="checkbox" class="c-pagos"' + (estado.pagos && estado.pagos.culqi ? ' checked' : '') + '> Cobrar con Culqi (los clientes ven el botón de pago)</label>' +
+      '<p class="hint">' + (estado.pagos && estado.pagos.culqi ? 'ACTIVO: los clientes pueden recargar con tarjeta o Yape.' : 'APAGADO: los clientes solo piden créditos por WhatsApp.') + ' Recuerda pulsar <b>Publicar</b> para que el cambio lo vean todos. Este interruptor vale para las dos páginas.</p></div>' +
+      (estado.contactos || []).map(function (c, k) {
       return '<div class="grp contacto-ed"><h3>Contacto ' + (k + 1) + ' · ' + esc(c.nombre || "sin nombre") + '</h3>' +
         '<div class="cav">' + avatar(c) +
         '<label class="btn btn-ghost btn-sm" for="cf-' + k + '">' + (admin.subiendo === "c" + k ? "Subiendo…" : "Subir foto") + '</label>' +
@@ -1621,6 +1624,7 @@
       return;
     }
     var tc = ev.target;
+    if (tc.classList && tc.classList.contains("c-pagos")) { estado.pagos = { culqi: tc.checked }; marcarSucio(); render(); return; }
     if (tc.classList && tc.classList.contains("c-activo")) { estado.contactos[Number(tc.getAttribute("data-i"))].activo = tc.checked; marcarSucio(); render(); return; }
     if (tc.classList && (tc.classList.contains("c-nombre") || tc.classList.contains("c-num"))) { render(); return; }
     if (tc.classList && tc.classList.contains("cfile") && tc.files && tc.files[0]) {

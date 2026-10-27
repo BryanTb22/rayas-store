@@ -75,3 +75,9 @@ Cambié los textos por defecto (ya no dicen "créditos gratis"). Si en el panel 
 guardaste textos propios, **esos siguen mandando**: revísalos. Dos reglas son borrador y debes confirmarlas tú:
 - "Los créditos usados en una rifa no se devuelven. Si hay un error en tu recarga, escríbenos por WhatsApp."
 - "S/ 1 = 1 crédito."
+
+## Interruptor y paso a producción
+
+- **Interruptor:** Panel admin → *Textos y contactos* → "Cobrar con Culqi" → **Publicar**. Apagado: los clientes solo piden créditos por WhatsApp. Vale para las dos páginas (comparten `rayas/estado`). El servidor también lo revisa (`cobroActivo()` en `functions/index.js`); el admin siempre puede probar.
+- **Candado de pruebas:** mientras el secreto sea `sk_test_…`, solo el admin puede "pagar" (nadie recibe créditos gratis por error).
+- **Pasar a real:** (1) activar el comercio en CulqiPanel y copiar `pk_live_…` y `sk_live_…`; (2) `firebase functions:secrets:set CULQI_SECRET_KEY --data-file clave.txt` con la `sk_live_`; (3) poner la `pk_live_` en `PAGOS.culqiPk` de `app.js` y `rifas.js`; (4) registrar el webhook también en el entorno de producción de Culqi; (5) `firebase deploy --only functions`; (6) probar con un pago real pequeño; (7) encender el interruptor.

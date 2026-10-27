@@ -21,6 +21,15 @@ async function uidDeLaPeticion(req) {
   if (!h.startsWith("Bearer ")) return null;
   try { return (await admin.auth().verifyIdToken(h.slice(7))).uid; } catch (e) { return null; }
 }
+const ADMIN_UID = "eLEZkdXiG5b0PpxHQCCei8D0Qxy1";
+// Lee el interruptor que el admin publica en rayas/estado (campo json -> pagos.culqi).
+async function cobroActivo() {
+  try {
+    const s = await db.doc("rayas/estado").get();
+    const j = s.exists ? JSON.parse(String(s.data().json || "{}")) : {};
+    return !!(j.pagos && j.pagos.culqi === true);
+  } catch (e) { return false; }
+}
 function igual(a, b) {
   const x = Buffer.from(String(a).trim()), y = Buffer.from(String(b).trim());
   return x.length === y.length && crypto.timingSafeEqual(x, y);
@@ -66,6 +75,14 @@ exports.cobrar = onRequest(
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
     if (!uid) return res.status(401).json({ error: "Inicia sesión para recargar." });
+
+    // Interruptor del admin (Panel → Textos y contactos → "Cobrar con Culqi"). Apagado = nadie cobra, salvo el admin para probar.
+    const esAdmin = uid === ADMIN_UID;
+    if (!esAdmin && !(await cobroActivo())) return res.status(403).json({ error: "Los pagos en línea están desactivados por ahora. Pide tus créditos por WhatsApp." });
+    // Candado: con llaves de PRUEBA (sk_test_) solo el admin puede "pagar"; así nadie recibe créditos gratis por error.
+    if (!esAdmin && String(CULQI_SECRET.value()).trim().startsWith("sk_test")) {
+      return res.status(403).json({ error: "Los pagos en línea aún no están habilitados. Pide tus créditos por WhatsApp." });
+    }
 
     const body = req.body || {};
     const pack = packPorSoles(body.soles);
