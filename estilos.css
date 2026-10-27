@@ -750,3 +750,11 @@ html, body { overflow-x: clip; max-width: 100%; }
 #promoPop .promo-x { position: absolute; top: -12px; right: -12px; z-index: 2; width: 40px; height: 40px; border-radius: 50%; border: 2px solid #fff; background: #d11a2a; color: #fff; font-size: 18px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.6); }
 #promoPop .promo-acts { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 #rifas .pill.maxp, .pill.maxp { display: inline-block; align-self: flex-start; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--yellow, #fff) 55%, transparent); color: var(--yellow, #fff); font-weight: 800; letter-spacing: .02em; background: color-mix(in srgb, var(--yellow, #fff) 10%, transparent); opacity: 1; }
+
+/* Recarga de créditos */
+.packs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.packs .pack { display: grid; gap: 2px; justify-items: center; padding: 14px 10px; text-align: center; }
+.packs .pack b { font-size: 1.35rem; }
+.packs .pack span { font-size: .9rem; font-weight: 700; }
+.packs .pack small { font-weight: 600; opacity: .9; }
+@media (max-width: 380px) { .packs { grid-template-columns: 1fr; } }

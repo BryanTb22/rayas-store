@@ -8,6 +8,26 @@
   var ADMIN_UID = "eLEZkdXiG5b0PpxHQCCei8D0Qxy1";
   var BASE = "https://firestore.googleapis.com/v1/projects/" + FB.projectId + "/databases/(default)/documents/";
 
+  /* ================= Pagos (Culqi) =================
+     culqiPk = llave PÚBLICA de Culqi (pk_test_… para probar, pk_live_… para cobrar de verdad).
+     Mientras esté vacía, la página NO muestra el pago y sigue pidiendo créditos por WhatsApp.
+     Los precios de aquí son solo para mostrarlos: el cobro real usa functions/packs.js. */
+  var PAGOS = {
+    culqiPk: "pk_test_iK8JCBNB6dJmRlUZ",
+    // true = el pago solo aparece si la dirección lleva ?pagotest=1 (para probar en la web real sin que lo vean los clientes).
+    // Cuando pases a llaves reales (pk_live_…) y todo funcione, ponlo en false.
+    soloPrueba: true,
+    url: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/cobrar",
+    js: "https://checkout.culqi.com/js/v4"
+  };
+  var PACKS_UI = [
+    { id: "p10", soles: 10, base: 10 },
+    { id: "p20", soles: 20, base: 20 },
+    { id: "p50", soles: 50, base: 50, promo: 55 },
+    { id: "p100", soles: 100, base: 100, promo: 110 }
+  ];
+  function pagosOn() { return !!PAGOS.culqiPk && (!PAGOS.soloPrueba || /[?&]pagotest=1(&|$)/.test(location.search)); }
+
   function leerSesion() { try { return JSON.parse(localStorage.getItem(SES_KEY) || "null"); } catch (e) { return null; } }
   function guardarSesion(s) { try { if (s) localStorage.setItem(SES_KEY, JSON.stringify(s)); else localStorage.removeItem(SES_KEY); } catch (e) { /* sin almacenamiento */ } }
 
@@ -99,7 +119,8 @@
       uid: d && d.name ? d.name.split("/").pop() : "",
       nombre: sv("nombre"), steam: sv("steam"), whatsapp: sv("whatsapp"), email: sv("email"), tradelink: sv("tradelink"),
       creditos: f.creditos ? Number(f.creditos.integerValue || f.creditos.doubleValue || 0) : 0,
-      creado: f.creado && f.creado.timestampValue || ""
+      creado: f.creado && f.creado.timestampValue || "",
+      promoUsada: !!(f.promoUsada && f.promoUsada.booleanValue === true)
     };
   }
   function token() {
@@ -118,28 +139,28 @@
 
   /* ================= Estado ================= */
   var TEXTOS_BASE = {
-    titulo: "Gana items de Dota 2 gratis",
-    subtitulo: "Pide tus créditos gratis al encargado, elige el premio que quieres y entra a la rifa. Sin pagar nada.",
+    titulo: "Gana items de Dota 2",
+    subtitulo: "Recarga tus créditos, elige el premio que quieres y entra a la rifa. El ganador sale al azar.",
     logo1: "RAYAS", logo2: "STORE",
     kicker: "Rifas de Dota 2",
-    btnVer: "Ver rifas", btnCreditos: "Pedir créditos gratis",
-    badge1: "Créditos gratis", badge2: "Ganador al azar", badge3: "Entrega por Steam",
+    btnVer: "Ver rifas", btnCreditos: "Recargar créditos",
+    badge1: "Promo primera recarga", badge2: "Ganador al azar", badge3: "Entrega por Steam",
     rifasKicker: "Premios en juego", rifasT1: "Rifas", rifasT2: "activas", rifasSub: "Cada premio indica cuántos créditos cuesta entrar.",
-    vacioT: "Pronto nuevas rifas", vacioS: "Pide tus créditos y te avisamos cuando abra la próxima.",
+    vacioT: "Pronto nuevas rifas", vacioS: "Recarga tus créditos y te avisamos cuando abra la próxima.",
     msgCredPerfil: "¡Hola! 👋🔥 Soy *{nombre}* (📧 {correo}).\n\n💎 Quiero recargar créditos para participar en las rifas de *RAYAS STORE* 🎁🏆\n\n¿Me ayudas con mi recarga? 🙏✨",
     msgCredVisita: "¡Hola! 👋🔥 Quiero mis créditos para las rifas de *RAYAS STORE* 💎🎁\n\n¿Me ayudas? 🙏✨",
     btnParticipar: "Participar", btnPronto: "Muy pronto", lblCreditos: "créditos",
     comoKicker: "Paso a paso", comoT1: "Cómo", comoT2: "participar",
-    paso1T: "Escríbenos", paso1: "Manda un mensaje al encargado por WhatsApp con tu nombre o usuario de Steam.",
-    paso2T: "Recibe créditos", paso2: "El encargado te da créditos gratis. No se compran ni tienen valor en dinero.",
+    paso1T: "Crea tu cuenta", paso1: "Regístrate con tu correo o con Google y deja tu link de intercambio de Steam.",
+    paso2T: "Recarga créditos", paso2: "Recarga desde tu cuenta (S/ 1 = 1 crédito). Tu primera recarga puede traer créditos de regalo.",
     paso3T: "Entra a la rifa", paso3: "Elige el premio y usa tus créditos. Al cierre, el ganador sale al azar.",
-    btnCreditos2: "Pedir mis créditos",
+    btnCreditos2: "Recargar mis créditos",
     ganKicker: "Salón de la fama", ganT: "Ganadores", ganVacioT: "Aún no hay ganadores", ganVacioS: "Cuando cierre la primera rifa, el ganador aparecerá aquí.",
     reglasKicker: "Juego limpio", reglasT: "Reglas",
     pie: "No afiliado a Valve. Dota 2 es una marca de Valve Corporation.",
     reglas: [
-      "Los créditos son gratis. No se compran, no se venden y no tienen valor en dinero.",
-      "Los créditos se entregan solo al comunicarte con el encargado de la página.",
+      "Los créditos se compran en esta página (S/ 1 = 1 crédito) y solo sirven para participar en las rifas.",
+      "Los créditos usados en una rifa no se devuelven. Si hay un error en tu recarga, escríbenos por WhatsApp.",
       "El ganador se elige al azar cuando cierra la rifa y se anuncia en esta página.",
       "El item se entrega por Steam. El ganador debe tener su cuenta lista para recibir regalos.",
       "Si el ganador no responde en 48 horas, se elige a otro participante."
@@ -284,13 +305,81 @@
       modal = { tipo: "ok", p: p, qty: qty, mio: misParts[p.id] }; render();
     }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo participar." }; render(); });
   }
+  /* ---- Recarga de créditos con Culqi ---- */
+  var culqiCarga = null;
+  function cargarCulqi() {
+    if (window.Culqi) return Promise.resolve();
+    if (!culqiCarga) culqiCarga = new Promise(function (ok, no) {
+      var sc = document.createElement("script"); sc.src = PAGOS.js; sc.async = true;
+      sc.onload = ok; sc.onerror = function () { culqiCarga = null; no(new Error("No se pudo cargar el pago. Revisa tu conexión e intenta de nuevo.")); };
+      document.head.appendChild(sc);
+    });
+    return culqiCarga;
+  }
+  function abrirRecarga() {
+    if (admin.puede) { modal = { tipo: "error", msg: "Estás con la cuenta de administrador. Entra con una cuenta de usuario para recargar." }; render(); return; }
+    if (!cuenta.perfil) {
+      if (leerSesion()) { modal = { tipo: "error", msg: "Estamos cargando tu cuenta. Intenta de nuevo en un momento." }; cargarPerfil(); }
+      else { cuenta.modo = "registro"; cuenta.msg = "Para recargar primero crea una cuenta en la página."; cuenta.msgTipo = "err"; }
+      render(); return;
+    }
+    modal = { tipo: "recarga" }; render();
+  }
+  function iniciarPago(packId) {
+    var pk = PACKS_UI.filter(function (x) { return x.id === packId; })[0];
+    if (!pk || !cuenta.perfil) return;
+    modal = { tipo: "cargando" }; render();
+    cargarCulqi().then(function () {
+      var C = window.Culqi;
+      window.culqi = function () {   // Culqi llama a esta función cuando termina el pago en su ventana
+        if (C.token && C.token.id) { var tid = C.token.id; try { C.close(); } catch (e) { /* ya cerrada */ } cobrarToken(pk, tid); }
+        else { modal = { tipo: "error", msg: (C.error && (C.error.user_message || C.error.merchant_message)) || "No se pudo procesar el pago." }; render(); }
+      };
+      C.publicKey = PAGOS.culqiPk;
+      C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de créditos", amount: pk.soles * 100 });
+      C.options({ lang: "es", installments: false, paymentMethods: { tarjeta: true, yape: true, billetera: false, bancaMovil: false, agente: false, cuotealo: false } });
+      modal = null; render(); C.open();
+    }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo abrir el pago." }; render(); });
+  }
+  function cobrarToken(pk, tokenId) {
+    modal = { tipo: "cargando" }; render();
+    token().then(function (tk) {
+      return fetch(PAGOS.url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ packId: pk.id, tokenId: tokenId }) });
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (x) {
+      if (!x.ok || !x.j.ok) throw new Error(x.j.error || "No se pudo confirmar el pago. Si te cobraron, escríbenos por WhatsApp con tu correo; no pagues otra vez.");
+      cuenta.perfil.creditos = Number(x.j.saldo) || (cuenta.perfil.creditos + Number(x.j.creditos || 0));
+      if (x.j.promo) cuenta.perfil.promoUsada = true;
+      modal = { tipo: "recargaOk", creditos: x.j.creditos, promo: !!x.j.promo }; render();
+    }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo completar el pago." }; render(); });
+  }
+  // Botón "recargar": abre el pago si está activo, si no cae al WhatsApp de siempre.
+  function btnRecargar(cls, key, href) {
+    if (vivo() || !pagosOn()) return href || vivo() ? lnk(cls, href, key, true) : "";
+    return '<button class="' + cls + '" type="button" data-a="recargar">' + esc(estado.textos[key]) + '</button>';
+  }
+
   function modalAviso() {
     var m = modal, c = cuenta.perfil, h = "", btns = "";
     var cerrar = '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>';
     if (m.tipo === "sinSaldo") {
       var rl = creditoHref();
       h = '<h3>Créditos insuficientes 😕</h3><p class="hint">La rifa de <b>' + esc(m.p.nombre) + '</b> cuesta <b>' + m.p.cred + '</b> créditos y tú tienes <b>' + (c ? c.creditos : 0) + '</b>. Recarga créditos para poder participar.</p>';
-      btns = (rl ? '<a class="btn btn-yellow" href="' + esc(rl) + '"' + (rl === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>💎 Recargar créditos</a>' : '') + cerrar;
+      btns = (pagosOn() ? '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar con Yape o tarjeta</button>' : '') +
+        (rl ? '<a class="btn btn-yellow" href="' + esc(rl) + '"' + (rl === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>💎 ' + (pagosOn() ? 'Pedir por WhatsApp' : 'Recargar créditos') + '</a>' : '') + cerrar;
+    } else if (m.tipo === "recarga") {
+      var primera = c && !c.promoUsada;
+      h = '<h3>Recargar créditos 💎</h3><p class="hint">S/ 1 = 1 crédito. Paga con <b>Yape</b> o tarjeta.' + (primera ? ' <b>¡Tu primera recarga trae créditos extra!</b>' : '') + '</p>' +
+        '<div class="packs">' + PACKS_UI.map(function (pk) {
+          var extra = primera && pk.promo ? pk.promo : 0;
+          return '<button class="btn ' + (extra ? 'btn-fuchsia' : 'btn-yellow') + ' pack" type="button" data-a="pack" data-id="' + pk.id + '">' +
+            '<b>S/ ' + pk.soles + '</b><span>' + (extra ? extra + ' créditos <small>(+' + (extra - pk.base) + ' de regalo)</small>' : pk.base + ' créditos') + '</span></button>';
+        }).join("") + '</div>';
+      btns = cerrar;
+    } else if (m.tipo === "recargaOk") {
+      h = '<h3>¡Recarga lista! 🎉</h3><p class="hint">Se sumaron <b>' + m.creditos + '</b> créditos' + (m.promo ? ' (incluye tu regalo de primera recarga 🎁)' : '') + '. Ahora tienes <b>' + (c ? c.creditos : 0) + '</b>.</p>';
+      btns = '<button class="btn btn-yellow" type="button" data-a="cerrarModal">Ver rifas</button>';
     } else if (m.tipo === "confirmar") {
       var tot = m.qty * m.p.cred;
       h = '<h3>¿Entrar a la rifa? 🎟️</h3><p class="hint">Rifa: <b>' + esc(m.p.nombre) + '</b> · ' + m.p.cred + ' créditos por cupo.' + (m.mio ? ' Ya tienes <b>' + m.mio + '</b> ' + (m.mio === 1 ? 'cupo' : 'cupos') + '.' : '') + '</p>' +
@@ -709,7 +798,7 @@
       (V ? '<h1' + ed("t:titulo", "Título") + '>' + esc(T.titulo) + '</h1>' : '<h1>' + tituloHtml(T.titulo) + '</h1>') +
       tx("p", "subtitulo") +
       '<div class="actions">' + lnk("btn btn-yellow", "#rifas", "btnVer") +
-      (linkCreditos || V ? lnk("btn btn-fuchsia", linkCreditos, "btnCreditos", true) : '') +
+      btnRecargar("btn btn-fuchsia", "btnCreditos", linkCreditos) +
       '</div>' +
       '<div class="badges">' + ["badge1", "badge2", "badge3"].map(function (k) { return '<span class="badge"><b>◆</b>' + tx("span", k) + '</span>'; }).join("") + '</div>' +
       '</div></section>' +
@@ -727,7 +816,7 @@
       '<div class="steps">' + [1, 2, 3].map(function (n) {
         return '<div class="step frame"><div class="in"><span class="n">' + n + '</span>' + tx("h3", "paso" + n + "T") + tx("p", "paso" + n) + '</div></div>';
       }).join("") + '</div>' +
-      (linkCreditos || V ? '<div style="text-align:center;margin-top:30px">' + lnk("btn btn-fuchsia", linkCreditos, "btnCreditos2", true) + '</div>' : '') +
+      (linkCreditos || V || pagosOn() ? '<div style="text-align:center;margin-top:30px">' + btnRecargar("btn btn-fuchsia", "btnCreditos2", linkCreditos) + '</div>' : '') +
       '</div></section>' +
 
       '<section class="band sombra gutter" id="ganadores">' + fotoBtn("sombra") + '<div class="wrap">' +
@@ -868,8 +957,12 @@
           '<p class="hint">' + TRADE_AYUDA + '</p>' +
           '<div><button class="btn btn-yellow btn-sm" type="submit">Guardar cambios</button></div>' +
           '<p class="hint" role="status" id="tradeMsg"></p></form>' +
-          '<div class="grp"><p class="hint">Para recibir créditos, escribe al encargado. Él los carga en tu cuenta.</p>' +
-          (link ? '<a class="btn btn-yellow" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Pedir créditos por WhatsApp</a>' : '') + '</div>'
+          '<div class="grp">' + (pagosOn()
+            ? '<p class="hint">Recarga con Yape o tarjeta y los créditos se suman al instante.' + (p.promoUsada ? '' : ' ¡Tu primera recarga trae créditos extra! 🎁') + '</p>' +
+              '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar créditos</button>' +
+              (link ? '<p class="hint">¿Algún problema con tu recarga? Escríbenos.</p><a class="btn btn-ghost btn-sm" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Escribir por WhatsApp</a>' : '')
+            : '<p class="hint">Para recibir créditos, escribe al encargado. Él los carga en tu cuenta.</p>' +
+              (link ? '<a class="btn btn-yellow" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Pedir créditos por WhatsApp</a>' : '')) + '</div>'
         : '<p class="hint">' + (cuenta.msg ? esc(cuenta.msg) : "Cargando tu cuenta…") + '</p>') +
         '<div class="grp"><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div></div>';
     } else {
@@ -1335,6 +1428,8 @@
       case "quitarPartNo": admin.quitarP = null; render(); break;
       case "quitarPartSi": quitarParticipacion(t.getAttribute("data-id"), t.getAttribute("data-uid"), t.getAttribute("data-dev") === "1"); break;
       case "participar": iniciarParticipar(t.getAttribute("data-id")); break;
+      case "recargar": abrirRecarga(); break;
+      case "pack": iniciarPago(t.getAttribute("data-id")); break;
       case "confirmarPart": confirmarPart(); break;
       case "qtyMas": if (modal && modal.tipo === "confirmar" && modal.qty < modal.max) { modal.qty++; render(); } break;
       case "qtyMenos": if (modal && modal.tipo === "confirmar" && modal.qty > 1) { modal.qty--; render(); } break;
@@ -1684,13 +1779,15 @@
       d.id = "promoPop"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Promoción de primera recarga");
       d.innerHTML = '<div class="promo-box"><button type="button" class="promo-x" aria-label="Cerrar">✕</button>' +
         '<img src="img/promo-rifas.jpg" alt="Primera recarga: S/ 50 = 55 créditos, S/ 100 = 110 créditos" width="1080" height="1350">' +
-        '<div class="promo-acts">' + (href ? '<a class="btn btn-yellow" id="promoCta" href="' + esc(href) + '"' + (href === "#elegir" ? '' : ' target="_blank" rel="noopener"') + '>Pedir créditos</a>' : '') +
+        '<div class="promo-acts">' + (pagosOn() ? '<button type="button" class="btn btn-yellow" id="promoPagar">Recargar ahora</button>'
+          : (href ? '<a class="btn btn-yellow" id="promoCta" href="' + esc(href) + '"' + (href === "#elegir" ? '' : ' target="_blank" rel="noopener"') + '>Pedir créditos</a>' : '')) +
         '<button type="button" class="btn btn-ghost" id="promoNo">Ahora no</button></div></div>';
       document.body.appendChild(d);
       requestAnimationFrame(function () { d.classList.add("on"); });
       d.addEventListener("click", function (ev) {
         var t = ev.target;
         if (t === d || t.closest(".promo-x") || t.id === "promoNo") { cerrar(); return; }
+        if (t.id === "promoPagar") { cerrar(); abrirRecarga(); return; }
         if (t.id === "promoCta") { cerrar(); if (href === "#elegir") { ev.preventDefault(); elegirAbierto = true; render(); } else cerrar(); }
       });
       document.addEventListener("keydown", tecla);
