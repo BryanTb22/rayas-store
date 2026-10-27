@@ -947,8 +947,14 @@
         (l.length ? '<button class="btn btn-ghost btn-sm" type="button" data-a="sortear" data-id="' + pid + '">🎰 Sortear con ruleta</button>' + (p.replay ? ' <button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + pid + '">🎬 Ver repetición</button>' : '') : '') + '</div>';
     }).join("");
   }
+  function cuposLibresAdmin(pid) {
+    var k = buscarPremio(pid); if (k < 0) return 100;
+    var p = estado.premios[k], cupos = num(p.cupos, 0);
+    return cupos > 0 ? cupos - Math.max(num(p.participantes, 0), tomados(pid)) : 100;
+  }
   function guardarCantidad(pid, uid, nueva) {
     var x = (partes[pid] || []).filter(function (y) { return y.uid === uid; })[0]; if (!x || nueva < 1) return;
+    if (nueva > x.cantidad && nueva - x.cantidad > cuposLibresAdmin(pid)) { admin.addPid = pid; admin.addMsg = "No hay suficientes cupos libres (quedan " + Math.max(0, cuposLibresAdmin(pid)) + "). Sube el límite de cupos del premio si quieres más."; admin.addMsgOk = false; render(); return; }
     fsPedir("rayas_part/" + encodeURIComponent(pid + "_" + uid) + "?updateMask.fieldPaths=cantidad&currentDocument.exists=true", {
       method: "PATCH", body: JSON.stringify({ fields: { cantidad: { integerValue: String(nueva) } } })
     }).then(function (r) { if (r.status === 403) throw new Error("falta publicar las reglas nuevas de rayas_part"); if (!r.ok) throw new Error("Error " + r.status); x.cantidad = nueva; render(); })
@@ -992,7 +998,8 @@
   function agregarParticipante(pid) {
     var sel = document.getElementById("add-u-" + pid), qn = document.getElementById("add-q-" + pid); if (!sel || !qn) return;
     var u = usuarioPorUid(sel.value), q = Math.max(1, Math.min(100, Math.floor(Number(qn.value) || 1))), k = buscarPremio(pid); if (!u || k < 0) return;
-    var pr = estado.premios[k];
+    var pr = estado.premios[k], lib = cuposLibresAdmin(pid);
+    if (q > lib) { admin.addPid = pid; admin.addMsg = lib <= 0 ? "La rifa ya está llena (" + num(pr.cupos, 0) + " cupos). Sube el límite de cupos del premio para agregar más." : "Solo quedan " + lib + " cupos libres."; admin.addMsgOk = false; render(); return; }
     admin.addPid = pid; admin.addMsg = "Agregando…"; admin.addMsgOk = true; render();
     fsPedir("rayas_part/" + encodeURIComponent(pid + "_" + u.uid) + "?currentDocument.exists=false", {
       method: "PATCH", body: JSON.stringify({ fields: { uid: { stringValue: u.uid }, nombre: { stringValue: u.nombre }, premio: { stringValue: pid }, premioNombre: { stringValue: pr.nombre }, costo: { integerValue: "0" }, cantidad: { integerValue: String(q) }, creado: { timestampValue: new Date().toISOString() } } })
