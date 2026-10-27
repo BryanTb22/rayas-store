@@ -942,6 +942,167 @@
         cargarPerfil(); cargarItems(true);
       }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : "No se pudo completar la compra. No se descontaron créditos." }; render(); });
   }
+  /* ===== Vender items: el cliente pega su trade link y ve sus items; tú pones los precios de compra ===== */
+  var INV_URL = "https://inventario-seqcayr4iq-uc.a.run.app";
+  var ven = { link: "", cargando: false, err: "", lista: null, noTrad: 0, sel: {}, precios: [], pCargado: false, pCargando: false, q: "" };
+  function claveCompra(n) { return sinTildes(n).replace(/\s+/g, " ").trim(); }
+  function slugCompra(n) { return claveCompra(n).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || ("x" + Date.now().toString(36)); }
+  function cargarPrecios(forzar) {
+    if (ven.pCargando || (ven.pCargado && !forzar)) return;
+    ven.pCargando = true;
+    var acc = [];
+    function pag(t) {
+      return fetch(BASE + "rayas_compra?pageSize=300" + (t ? "&pageToken=" + encodeURIComponent(t) : ""), { cache: "no-store" }).then(function (r) {
+        if (!r.ok) throw new Error("precios " + r.status);
+        return r.json();
+      }).then(function (j) {
+        (j.documents || []).forEach(function (d) {
+          var f = d.fields || {};
+          acc.push({ id: d.name.split("/").pop(), nombre: f.nombre && f.nombre.stringValue || "", precio: f.precio ? Number(f.precio.doubleValue !== undefined ? f.precio.doubleValue : (f.precio.integerValue || 0)) : 0 });
+        });
+        return j.nextPageToken && acc.length < 3000 ? pag(j.nextPageToken) : null;
+      });
+    }
+    pag("").then(function () { ven.precios = acc; ven.pCargado = true; }).catch(function () { /* sin lista: todo sale a consultar */ ven.pCargado = true; })
+      .then(function () { ven.pCargando = false; render(); });
+  }
+  function precioCompra(nombre) {
+    var k = claveCompra(nombre);
+    for (var i = 0; i < ven.precios.length; i++) if (claveCompra(ven.precios[i].nombre) === k) return ven.precios[i].precio;
+    return null;
+  }
+  function verInventario() {
+    var link = String(ven.link || "").trim();
+    if (!/[?&]partner=\d+/.test(link)) { ven.err = "Pega tu trade link completo (debe incluir partner= y token=)."; render(); return; }
+    ven.cargando = true; ven.err = ""; ven.lista = null; ven.sel = {}; render();
+    fetch(INV_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ link: link }) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        ven.cargando = false;
+        if (!x.ok) { ven.err = (x.j && x.j.error) || "No se pudo leer tu inventario."; }
+        else { ven.lista = x.j.items || []; ven.noTrad = x.j.noTradables || 0; }
+        render(); hidratarImgs();
+      }).catch(function () { ven.cargando = false; ven.err = "No se pudo conectar. Intenta de nuevo."; render(); });
+  }
+  function ventaTotales() {
+    var n = 0, tot = 0, sinP = 0;
+    (ven.lista || []).forEach(function (g) {
+      var c = ven.sel[g.k] || 0; if (!c) return;
+      n += c; var p = precioCompra(g.name); if (p === null) sinP += c; else tot += p * c;
+    });
+    return { n: n, tot: tot, sinP: sinP };
+  }
+  function venderCardHtml(g, idx) {
+    var p = precioCompra(g.name), c = ven.sel[g.k] || 0;
+    return '<article class="icard' + (c ? ' vsel' : '') + '"><div class="ithumb" style="--rar:' + esc(g.color || "#8a8fb0") + '">' + (imgTag(g.icon, g.name, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') +
+      (g.n > 1 ? '<span class="itag">x' + g.n + '</span>' : '') + '</div>' +
+      '<div class="ibody"><h4>' + esc(g.name) + '</h4>' +
+      '<div class="iprice"><b>' + (p === null ? 'Consultar' : fmtPrecio(p)) + '</b></div>' +
+      '<div class="vstep"><button type="button" class="btn btn-ghost btn-sm" data-a="venMenos" data-i="' + idx + '" aria-label="Quitar uno"' + (c ? '' : ' disabled') + '>−</button>' +
+      '<span>' + c + '</span><button type="button" class="btn btn-ghost btn-sm" data-a="venMas" data-i="' + idx + '" aria-label="Agregar uno"' + (c >= g.n ? ' disabled' : '') + '>+</button></div></div></article>';
+  }
+  function venderHtml() {
+    var q = sinTildes(ven.q);
+    var cuerpo;
+    if (ven.cargando) cuerpo = '<div class="empty frame"><div class="in"><strong>Leyendo tu inventario…</strong><span>Puede tardar unos segundos.</span></div></div>';
+    else if (ven.lista === null) cuerpo = '<div class="empty frame"><div class="in"><strong>Pega tu trade link para empezar</strong><span>Verás tus items de Dota 2 que se pueden intercambiar y el precio al que te los compramos.</span></div></div>';
+    else if (!ven.lista.length) cuerpo = '<div class="empty frame"><div class="in"><strong>No hay items intercambiables</strong><span>Revisa que tu inventario de Dota 2 sea público y tenga items que puedas tradear.</span></div></div>';
+    else {
+      var vis = ven.lista.map(function (g, i) { return { g: g, i: i }; }).filter(function (o) { return !q || sinTildes(o.g.name).indexOf(q) >= 0; });
+      vis.sort(function (a, b) { var pa = precioCompra(a.g.name), pb = precioCompra(b.g.name); return (pb === null ? -1 : pb) - (pa === null ? -1 : pa); });
+      var T = ventaTotales();
+      cuerpo = '<div class="ibar"><input id="ven-q" type="search" placeholder="Buscar en tu inventario…" value="' + esc(ven.q) + '" autocomplete="off"><span class="icount">' + ven.lista.length + ' tipos de item' + (ven.noTrad ? ' · ' + ven.noTrad + ' no intercambiables' : '') + '</span></div>' +
+        '<div class="igrid">' + (vis.length ? vis.map(function (o) { return venderCardHtml(o.g, o.i); }).join("") : '') + '</div>' +
+        '<div class="vbar"><div><b>' + T.n + '</b> item' + (T.n === 1 ? '' : 's') + ' elegido' + (T.n === 1 ? '' : 's') + (T.n ? ' · Total: <b>' + fmtPrecio(T.tot) + '</b>' + (T.sinP ? ' + ' + T.sinP + ' a consultar' : '') : '') + '</div>' +
+        '<button class="btn btn-yellow" type="button" data-a="venWsp"' + (T.n && contactos().length ? '' : ' disabled') + '>💬 Vender por WhatsApp</button></div>';
+    }
+    return '<section class="section gutter" id="vender"><div class="wrap">' +
+      '<div class="sec-title"><div class="kicker">Tus items</div><h2><span class="t1">Vender</span> <span>items</span></h2><div class="orn">◆</div></div>' +
+      (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Textos y contactos.</p>') +
+      '<div class="vlink frame"><div class="in"><label for="ven-link">Tu trade link de Steam</label>' +
+      '<div class="vrow"><input id="ven-link" type="url" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(ven.link) + '" autocomplete="off">' +
+      '<button class="btn btn-fuchsia" type="button" data-a="venVer"' + (ven.cargando ? ' disabled' : '') + '>Ver mi inventario</button></div>' +
+      '<p class="hint">Tu inventario de Dota 2 debe estar en <b>Público</b>. Tu trade link lo encuentras en Steam → Inventario → Ofertas de intercambio → "¿Quién puede enviarme ofertas?".' +
+      (cuenta.perfil && cuenta.perfil.tradelink && !ven.link ? ' <button type="button" class="btn btn-ghost btn-sm" data-a="venMio">Usar el de mi cuenta</button>' : '') + '</p>' +
+      (ven.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(ven.err) + '</p>' : '') + '</div></div>' + cuerpo + '</div></section>';
+  }
+  function mensajeVenta() {
+    var p = cuenta.perfil, T = ventaTotales(), l = [];
+    (ven.lista || []).forEach(function (g) {
+      var c = ven.sel[g.k] || 0; if (!c) return;
+      var pr = precioCompra(g.name);
+      l.push("• " + c + "x " + g.name + " — " + (pr === null ? "precio a consultar" : fmtPrecio(pr * c)));
+    });
+    return "¡Hola! 👋 Quiero *VENDER* estos items a *RAYAS STORE* 💰\n\n" + l.join("\n") + "\n\n🧾 Total: " + fmtPrecio(T.tot) + (T.sinP ? " + " + T.sinP + " a consultar" : "") +
+      "\n🔗 Mi trade link: " + String(ven.link).trim() + (p ? "\n\n👤 " + p.nombre + " (📧 " + p.email + ")" : "") + "\n\n¿Me confirmas? 🙏✨";
+  }
+  function ventaEvento(el) {
+    if (el.id === "ven-link") { ven.link = el.value; return true; }
+    if (el.id === "ven-q") {
+      ven.q = el.value; var pos = el.selectionStart; render();
+      var nq = document.getElementById("ven-q"); if (nq) { nq.focus(); try { nq.setSelectionRange(pos, pos); } catch (e) { /* nada */ } }
+      hidratarImgs(); return true;
+    }
+    if (el.id === "cp-nombre" || el.id === "cp-precio" || el.id === "cp-bulk") {
+      admin.cp = admin.cp || {}; admin.cp[el.id.slice(3)] = el.value; return true;
+    }
+    return false;
+  }
+  /* --- Admin: pestaña Compras (precios a los que compras) --- */
+  function tabCompras() {
+    if (!ven.pCargado && !ven.pCargando) cargarPrecios();
+    var C = admin.cp = admin.cp || {};
+    var lista = ven.precios.slice().sort(function (a, b) { return a.nombre.localeCompare(b.nombre); });
+    return '<div class="grp"><h3>Lista de precios de compra</h3>' +
+      '<p class="hint">Aquí pones cuánto pagas por cada item. Los items de los clientes que estén en esta lista salen con precio; el resto sale "Consultar". El nombre debe ser igual al de Steam (en inglés), por ejemplo <b>Inscribed Golden Sunscorch Whip</b>.</p>' +
+      '<div class="field"><label for="cp-nombre">Nombre del item</label><input id="cp-nombre" maxlength="120" value="' + esc(C.nombre || "") + '"></div>' +
+      '<div class="field"><label for="cp-precio">Precio que pagas (S/)</label><input id="cp-precio" inputmode="decimal" value="' + esc(C.precio || "") + '"></div>' +
+      '<div class="cav"><button class="btn btn-fuchsia btn-sm" type="button" data-a="cpGuardar">' + (C.edit ? 'Guardar cambios' : 'Agregar a la lista') + '</button>' + (C.edit ? '<button class="btn btn-ghost btn-sm" type="button" data-a="cpCancelar">Cancelar</button>' : '') + '</div>' +
+      '<details style="margin-top:12px"><summary>Pegar varios a la vez</summary><p class="hint">Una línea por item: <b>Nombre = precio</b></p>' +
+      '<textarea id="cp-bulk" rows="6" style="width:100%">' + esc(C.bulk || "") + '</textarea>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-a="cpBulk">Guardar lista pegada</button></details>' +
+      (C.msg ? '<p class="hint" role="status">' + esc(C.msg) + '</p>' : '') + '</div>' +
+      '<div class="grp"><h3>' + lista.length + ' en la lista</h3>' + (lista.length ? lista.map(function (r) {
+        return '<div class="uitem"><div><b>' + esc(r.nombre) + '</b> — ' + fmtPrecio(r.precio) + '</div><div class="cav">' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-a="cpEditar" data-id="' + esc(r.id) + '">Editar</button>' +
+          (C.del === r.id ? '<button class="btn btn-fuchsia btn-sm" type="button" data-a="cpBorrarSi" data-id="' + esc(r.id) + '">¿Seguro? Borrar</button>' : '<button class="btn btn-ghost btn-sm" type="button" data-a="cpBorrar" data-id="' + esc(r.id) + '">Borrar</button>') + '</div></div>';
+      }).join("") : '<p class="hint">Todavía no hay precios.</p>') + '</div>';
+  }
+  function guardarPrecio(nombre, precio) {
+    nombre = String(nombre || "").trim();
+    var p = parseFloat(String(precio).replace(",", "."));
+    if (!nombre || !isFinite(p) || p <= 0) return Promise.reject(new Error("Revisa el nombre y el precio."));
+    var id = slugCompra(nombre);
+    return fsPedir("rayas_compra/" + encodeURIComponent(id), { method: "PATCH", body: JSON.stringify({ fields: { nombre: { stringValue: nombre }, precio: { doubleValue: Math.round(p * 100) / 100 } } }) }).then(function (r) {
+      if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
+      var k = -1; ven.precios.forEach(function (x, i) { if (x.id === id) k = i; });
+      var o = { id: id, nombre: nombre, precio: Math.round(p * 100) / 100 };
+      if (k >= 0) ven.precios[k] = o; else ven.precios.push(o);
+    });
+  }
+  function accionCompras(a, t) {
+    var C = admin.cp = admin.cp || {};
+    if (a === "cpGuardar") {
+      guardarPrecio(C.nombre, C.precio).then(function () { admin.cp = { msg: "Guardado ✔" }; render(); }).catch(function (e) { C.msg = e.message; render(); });
+    } else if (a === "cpBulk") {
+      var lineas = String(C.bulk || "").split(/\n+/).map(function (s) { var m = /^(.+?)\s*[=;\t]\s*([\d.,]+)\s*$/.exec(s.trim()); return m ? [m[1], m[2]] : null; }).filter(Boolean);
+      if (!lineas.length) { C.msg = "No encontré líneas con el formato Nombre = precio."; render(); return; }
+      var ok = 0;
+      lineas.reduce(function (pr, l) { return pr.then(function () { return guardarPrecio(l[0], l[1]).then(function () { ok++; }, function () { /* sigue */ }); }); }, Promise.resolve())
+        .then(function () { admin.cp = { msg: "Se guardaron " + ok + " de " + lineas.length + " líneas." }; render(); });
+    } else if (a === "cpEditar") {
+      var r = ven.precios.filter(function (x) { return x.id === t.getAttribute("data-id"); })[0];
+      if (r) { admin.cp = { nombre: r.nombre, precio: String(r.precio), edit: true }; render(); }
+    } else if (a === "cpCancelar") { admin.cp = {}; render(); }
+    else if (a === "cpBorrar") { C.del = t.getAttribute("data-id"); render(); }
+    else if (a === "cpBorrarSi") {
+      var id = t.getAttribute("data-id");
+      fsPedir("rayas_compra/" + encodeURIComponent(id), { method: "DELETE" }).then(function (r2) {
+        if (!r2.ok) throw new Error("No se pudo borrar (" + r2.status + ").");
+        ven.precios = ven.precios.filter(function (x) { return x.id !== id; }); C.del = null; render();
+      }).catch(function (e) { C.msg = e.message; render(); });
+    }
+  }
   /* --- Admin: pestaña Items --- */
   function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", activo: true, creado: "" }; }
   function tabItems() {
@@ -1191,7 +1352,8 @@
         }).join("") : '') +
         '</div></div></section>';
       if (vista === "comprar") cargarItems();
-      var itemsHtml = vista === "comprar" ? comprarHtml() : '<section class="section gutter" id="' + vista + '"><div class="wrap">' +
+      if (vista === "vender") cargarPrecios();
+      var itemsHtml = vista === "comprar" ? comprarHtml() : vista === "vender" ? venderHtml() : '<section class="section gutter" id="' + vista + '"><div class="wrap">' +
         '<div class="sec-title"><div class="kicker">Próximamente</div><h2><span class="t1">' + (vista === "vender" ? 'Vender' : 'Comprar') + '</span> <span>items</span></h2><div class="orn">◆</div></div>' +
         (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Página cuando esté lista.</p>') +
         '<div class="empty frame"><div class="in"><strong>Estamos preparando esta sección</strong><span>Muy pronto podrás ' + (vista === "vender" ? 'vender' : 'comprar') + ' items de Dota 2 aquí.</span></div></div>' +
@@ -1406,8 +1568,9 @@
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="premios" aria-selected="' + (admin.tab === "premios") + '">Premios</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="usuarios" aria-selected="' + (admin.tab === "usuarios") + '">Usuarios y créditos</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="items" aria-selected="' + (admin.tab === "items") + '">Items</button>' +
+      '<button class="tab" role="tab" type="button" data-a="tab" data-t="compras" aria-selected="' + (admin.tab === "compras") + '">Compras</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="pagina" aria-selected="' + (admin.tab === "pagina") + '">Textos y contactos</button>' +
-      '</div>' + (admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : listaPremios())));
+      '</div>' + (admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : listaPremios()))));
     return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar</button></div>' +
       '<div class="drawer-body">' + cuerpo + '</div>' +
@@ -1789,6 +1952,16 @@
         if (iw && cw.length > 1) { modal = null; elegirMsg = mensajeItem(iw); elegirAbierto = true; render(); }
         else if (iw && cw.length === 1) window.open(waLinkA(cw[0].numero, mensajeItem(iw)), "_blank", "noopener");
         break;
+      case "venVer": verInventario(); break;
+      case "venMio": if (cuenta.perfil) { ven.link = cuenta.perfil.tradelink || ""; render(); } break;
+      case "venMas": var gm = ven.lista && ven.lista[Number(t.getAttribute("data-i"))]; if (gm) { ven.sel[gm.k] = Math.min(gm.n, (ven.sel[gm.k] || 0) + 1); render(); hidratarImgs(); } break;
+      case "venMenos": var gn = ven.lista && ven.lista[Number(t.getAttribute("data-i"))]; if (gn) { ven.sel[gn.k] = Math.max(0, (ven.sel[gn.k] || 0) - 1); render(); hidratarImgs(); } break;
+      case "venWsp":
+        var cv = contactos();
+        if (cv.length > 1) { modal = null; elegirMsg = mensajeVenta(); elegirAbierto = true; render(); }
+        else if (cv.length === 1) window.open(waLinkA(cv[0].numero, mensajeVenta()), "_blank", "noopener");
+        break;
+      case "cpGuardar": case "cpBulk": case "cpEditar": case "cpCancelar": case "cpBorrar": case "cpBorrarSi": accionCompras(a, t); break;
       case "itCred": comprarItemCreditos(t.getAttribute("data-id")); break;
       case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; render(); break;
       case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock) }); admin.itemMsg = ""; render(); hidratarImgs(); } break;
@@ -1943,7 +2116,7 @@
     return false;
   }
   document.addEventListener("input", function (ev) {
-    if (filtroEvento(ev.target) || formItemEvento(ev.target)) return;
+    if (filtroEvento(ev.target) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.closest && ev.target.closest("[data-edit]")) { aplicarEdicion(ev.target.closest("[data-edit]")); return; }
     if (ev.target.id === "u-buscar") {
       admin.uFiltro = ev.target.value;
@@ -1968,7 +2141,7 @@
   });
   // Al salir de un campo de texto de la página, refresca la vista previa.
   document.addEventListener("change", function (ev) {
-    if (filtroEvento(ev.target) || formItemEvento(ev.target)) return;
+    if (filtroEvento(ev.target) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.classList && ev.target.classList.contains("itfile") && ev.target.files && ev.target.files[0]) {
       admin.subiendo = "item"; admin.itemMsg = ""; render();
       subirImagen(ev.target.files[0], 640).then(function (ref) { if (admin.itemForm) admin.itemForm.img = ref; admin.subiendo = null; render(); hidratarImgs(); })
