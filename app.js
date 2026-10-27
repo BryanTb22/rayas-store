@@ -848,7 +848,7 @@
         }).join("") +
         (admin.usuarios && libres.length ? '<div class="addp"><label for="add-u-' + pid + '">Agregar participante</label><div class="addrow"><select id="add-u-' + pid + '">' +
           libres.map(function (u) { return '<option value="' + esc(u.uid) + '">' + esc(u.nombre || u.email) + '</option>'; }).join("") +
-          '</select><input id="add-q-' + pid + '" type="number" min="1" max="100" value="1" aria-label="Cupos"><button class="btn btn-ghost btn-sm" type="button" data-a="addPart" data-id="' + pid + '">Agregar</button></div><small class="hint">Se agrega sin descontar créditos.</small></div>' : '') +
+          '</select><input id="add-q-' + pid + '" type="number" min="1" max="100" value="1" aria-label="Cupos"><button class="btn btn-ghost btn-sm" type="button" data-a="addPart" data-id="' + pid + '">Agregar</button></div><small class="hint">Se agrega sin descontar créditos.</small>' + (admin.addPid === p.id && admin.addMsg ? '<p class="hint" style="color:' + (admin.addMsgOk ? 'var(--ok)' : 'var(--danger)') + '" role="status">' + esc(admin.addMsg) + '</p>' : '') + '</div>' : '') +
         (l.length ? '<button class="btn btn-ghost btn-sm" type="button" data-a="sortear" data-id="' + pid + '">🎲 Sortear ganador</button>' : '') + '</div>';
     }).join("");
   }
@@ -856,19 +856,23 @@
     var x = (partes[pid] || []).filter(function (y) { return y.uid === uid; })[0]; if (!x || nueva < 1) return;
     fsPedir("rayas_part/" + encodeURIComponent(pid + "_" + uid) + "?updateMask.fieldPaths=cantidad&currentDocument.exists=true", {
       method: "PATCH", body: JSON.stringify({ fields: { cantidad: { integerValue: String(nueva) } } })
-    }).then(function (r) { if (!r.ok) throw new Error("Error " + r.status); x.cantidad = nueva; render(); })
-      .catch(function (e) { admin.uMsg = "No se guardó: " + e.message; render(); });
+    }).then(function (r) { if (r.status === 403) throw new Error("falta publicar las reglas nuevas de rayas_part"); if (!r.ok) throw new Error("Error " + r.status); x.cantidad = nueva; render(); })
+      .catch(function (e) { admin.addPid = pid; admin.addMsg = "No se guardó: " + e.message; admin.addMsgOk = false; render(); });
   }
   function agregarParticipante(pid) {
     var sel = document.getElementById("add-u-" + pid), qn = document.getElementById("add-q-" + pid); if (!sel || !qn) return;
     var u = usuarioPorUid(sel.value), q = Math.max(1, Math.min(100, Math.floor(Number(qn.value) || 1))), k = buscarPremio(pid); if (!u || k < 0) return;
     var pr = estado.premios[k];
+    admin.addPid = pid; admin.addMsg = "Agregando…"; admin.addMsgOk = true; render();
     fsPedir("rayas_part/" + encodeURIComponent(pid + "_" + u.uid) + "?currentDocument.exists=false", {
       method: "PATCH", body: JSON.stringify({ fields: { uid: { stringValue: u.uid }, nombre: { stringValue: u.nombre }, premio: { stringValue: pid }, premioNombre: { stringValue: pr.nombre }, costo: { integerValue: "0" }, cantidad: { integerValue: String(q) }, creado: { timestampValue: new Date().toISOString() } } })
     }).then(function (r) {
+      if (r.status === 403) throw new Error("Firebase no lo permite: falta publicar las reglas nuevas de rayas_part (las del mensaje anterior).");
+      if (r.status === 409) throw new Error("Ese usuario ya participa en esta rifa. Ajusta sus cupos en su ficha.");
       if (!r.ok) throw new Error("Error " + r.status);
-      (partes[pid] = partes[pid] || []).push({ uid: u.uid, nombre: u.nombre, costo: 0, cantidad: q, creado: new Date().toISOString(), premioNombre: pr.nombre }); render();
-    }).catch(function (e) { admin.uMsg = "No se pudo agregar: " + e.message; render(); });
+      (partes[pid] = partes[pid] || []).push({ uid: u.uid, nombre: u.nombre, costo: 0, cantidad: q, creado: new Date().toISOString(), premioNombre: pr.nombre });
+      admin.addMsg = "✔ " + u.nombre + " agregado con " + q + (q === 1 ? " cupo." : " cupos."); admin.addMsgOk = true; render();
+    }).catch(function (e) { admin.addMsg = e.message; admin.addMsgOk = false; render(); });
   }
   function listaPremios() {
     var items = estado.premios.map(function (p, i) {
