@@ -774,3 +774,7 @@ html, body { overflow-x: clip; max-width: 100%; }
 .otrorow input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: inherit; font: inherit; }
 .resumen { margin: 0; text-align: center; font-size: 1.05rem; }
 .resumen b { color: var(--yellow); }
+
+/* QR de Yape centrado */
+.yapeqr { display: flex; justify-content: center; margin: 10px 0; }
+.yapeqr img { width: 240px; max-width: 100%; height: auto; border-radius: 8px; }
