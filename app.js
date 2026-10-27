@@ -1025,6 +1025,7 @@
       '<div class="vlink frame"><div class="in"><label for="ven-link">Tu trade link de Steam</label>' +
       '<div class="vrow"><input id="ven-link" type="url" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(ven.link) + '" autocomplete="off">' +
       '<button class="btn btn-fuchsia" type="button" data-a="venVer"' + (ven.cargando ? ' disabled' : '') + '>Ver mi inventario</button></div>' +
+      '<p class="hint">' + TRADE_AYUDA + '</p>' +
       '<p class="hint">Tu inventario de Dota 2 debe estar en <b>Público</b>. Tu trade link lo encuentras en Steam → Inventario → Ofertas de intercambio → "¿Quién puede enviarme ofertas?".' +
       (cuenta.perfil && cuenta.perfil.tradelink && !ven.link ? ' <button type="button" class="btn btn-ghost btn-sm" data-a="venMio">Usar el de mi cuenta</button>' : '') + '</p>' +
       (ven.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(ven.err) + '</p>' : '') + '</div></div>' + cuerpo + '</div></section>';
