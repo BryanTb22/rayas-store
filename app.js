@@ -161,6 +161,7 @@
     reglas: [
       "Los créditos se compran en esta página (S/ 1 = 1 crédito) y solo sirven para participar en las rifas.",
       "Los créditos usados en una rifa no se devuelven. Si hay un error en tu recarga, escríbenos por WhatsApp.",
+      "Los pagos se procesan con Culqi (tarjeta o Yape). Esta página no guarda los datos de tu tarjeta.",
       "El ganador se elige al azar cuando cierra la rifa y se anuncia en esta página.",
       "El item se entrega por Steam. El ganador debe tener su cuenta lista para recibir regalos.",
       "Si el ganador no responde en 48 horas, se elige a otro participante."
@@ -376,6 +377,7 @@
           return '<button class="btn ' + (extra ? 'btn-fuchsia' : 'btn-yellow') + ' pack" type="button" data-a="pack" data-id="' + pk.id + '">' +
             '<b>S/ ' + pk.soles + '</b><span>' + (extra ? extra + ' créditos <small>(+' + (extra - pk.base) + ' de regalo)</small>' : pk.base + ' créditos') + '</span></button>';
         }).join("") + '</div>';
+      h += '<p class="hint" style="font-size:.78rem;opacity:.8">Pagos seguros con Culqi. Al pagar aceptas las reglas: los créditos usados en una rifa no se devuelven. ¿Problemas con tu recarga? Escríbenos por WhatsApp.</p>';
       btns = cerrar;
     } else if (m.tipo === "recargaOk") {
       h = '<h3>¡Recarga lista! 🎉</h3><p class="hint">Se sumaron <b>' + m.creditos + '</b> créditos' + (m.promo ? ' (incluye tu regalo de primera recarga 🎁)' : '') + '. Ahora tienes <b>' + (c ? c.creditos : 0) + '</b>.</p>';
