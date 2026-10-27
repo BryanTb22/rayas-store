@@ -18,6 +18,7 @@
     // Con ?pagotest=1 en la dirección se ve siempre, para probar sin prender el interruptor.
     min: 3, max: 500, minYape: 6,   // monto libre (solo para mostrar; el servidor valida lo mismo en functions/packs.js)
     url: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/cobrar",
+    urlOrden: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/crearOrden",
     js: "https://checkout.culqi.com/js/v4"
   };
   var PACKS_UI = [
@@ -388,6 +389,26 @@
       modal = { tipo: "recargaOk", creditos: x.j.creditos, promo: !!x.j.promo }; render();
     }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo completar el pago." }; render(); });
   }
+  // Efectivo / QR / billeteras: el servidor crea una ORDEN en Culqi y la ventana de Culqi muestra el código.
+  function iniciarEfectivo(soles) {
+    soles = Number(soles);
+    if (!cuenta.perfil || !(soles >= PAGOS.minYape && soles <= PAGOS.max) || Math.floor(soles) !== soles) return;
+    modal = { tipo: "cargando" }; render();
+    token().then(function (tk) {
+      return fetch(PAGOS.urlOrden, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ soles: soles }) });
+    }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok || !x.j.ok) throw new Error(x.j.error || "No se pudo generar el código de pago.");
+        return cargarCulqi().then(function () {
+          var C = window.Culqi;
+          window.culqi = function () { /* en órdenes no hay token: el pago llega por aviso de Culqi */ };
+          C.publicKey = PAGOS.culqiPk;
+          C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de créditos", amount: soles * 100, order: x.j.ordenId });
+          C.options({ lang: "es", installments: false, paymentMethods: { tarjeta: false, yape: false, billetera: true, bancaMovil: true, agente: true, cuotealo: false } });
+          modal = { tipo: "efectivoPend", soles: soles }; render(); C.open();
+        });
+      }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo generar el código de pago." }; render(); });
+  }
   // Botón "recargar": abre el pago si está activo, si no cae al WhatsApp de siempre.
   function btnRecargar(cls, key, href) {
     if (vivo() || !pagosOn()) return href || vivo() ? lnk(cls, href, key, true) : "";
@@ -420,9 +441,14 @@
         (sel ? '<p class="resumen">Pagas <b>S/ ' + sel + '</b> y recibes <b>' + cred + ' créditos</b>' + (cred > sel ? ' 🎁' : '') + '</p>' +
           '<p class="hint"><b>2.</b> Elige cómo quieres pagar</p>' : '');
       btns = (sel ? '<button class="btn btn-fuchsia" type="button" data-a="pagarCulqi">💳 Pagar con tarjeta · al instante</button>' +
+        (sel >= PAGOS.minYape ? '<button class="btn btn-yellow" type="button" data-a="pagarEfectivo">💵 Efectivo / QR / billeteras</button>' : '') +
         '<button class="btn btn-yellow" type="button" data-a="recargaWsp">💬 Pagar por WhatsApp</button>' : '') +
-        '<p class="hint" style="font-size:.78rem;opacity:.85">Tarjeta: pago seguro con Culqi desde S/ ' + PAGOS.min + ', tus créditos se suman solos. <b>Yape / QR: desde S/ ' + PAGOS.minYape + '</b> (si no te aparece en el pago, usa tarjeta o WhatsApp).</p>' +
+        '<p class="hint" style="font-size:.78rem;opacity:.85">Tarjeta: pago seguro con Culqi desde S/ ' + PAGOS.min + ', tus créditos se suman solos. <b>Efectivo (PagoEfectivo), QR y billeteras: desde S/ ' + PAGOS.minYape + '</b>: te damos un código, pagas cuando quieras (hasta 24 h) y tus créditos se suman solos al confirmarse.</p>' +
         '<p class="hint" style="font-size:.78rem;opacity:.85">¿Montos menores a S/ ' + PAGOS.minYape + ' con Yape, o prefieres pagar con una persona? Elige <b>Pagar por WhatsApp</b> y te atiende el encargado, que carga tus créditos él mismo. Los créditos usados en una rifa no se devuelven.</p>' + cerrar;
+    } else if (m.tipo === "efectivoPend") {
+      h = '<h3>Código de pago listo 💵</h3><p class="hint">Se abrió tu código de pago por <b>S/ ' + m.soles + '</b>. Págalo en un agente, banco, app bancaria o con QR (vale por 24 horas). Cuando Culqi lo confirme, tus créditos se suman solos; puede tardar unos minutos.</p>' +
+        '<p class="hint">Tienes <b>' + (c ? c.creditos : 0) + '</b> créditos ahora.</p>';
+      btns = '<button class="btn btn-fuchsia" type="button" data-a="refrescarSaldo">🔄 Ya pagué · actualizar mi saldo</button>' + cerrar;
     } else if (m.tipo === "recargaOk") {
       h = '<h3>¡Recarga lista! 🎉</h3><p class="hint">Se sumaron <b>' + m.creditos + '</b> créditos' + (m.promo ? ' (incluye tu regalo de primera recarga 🎁)' : '') + '. Ahora tienes <b>' + (c ? c.creditos : 0) + '</b>.</p>';
       btns = '<button class="btn btn-yellow" type="button" data-a="cerrarModal">Ver rifas</button>';
@@ -1488,6 +1514,8 @@
           render();
         } break;
       case "pagarCulqi": if (modal && modal.tipo === "recarga" && modal.sel) iniciarPago(modal.sel); break;
+      case "pagarEfectivo": if (modal && modal.tipo === "recarga" && modal.sel) iniciarEfectivo(modal.sel); break;
+      case "refrescarSaldo": cargarPerfil().then(function () { render(); }); break;
       case "recargaWsp":
         if (modal && modal.tipo === "recarga" && modal.sel) {
           montoWsp = modal.sel; var hw = creditoHref();

@@ -10,6 +10,7 @@
  */
 const MIN_SOLES = 3;
 const MAX_SOLES = 500;
+const MIN_ORDEN = 6;   // mínimo de Culqi para QR / PagoEfectivo / billeteras (órdenes)
 
 const PACKS = {
   10: { soles: 10, base: 10 },
@@ -25,4 +26,4 @@ function packPorSoles(valor) {
   return p ? { id: "p" + s, soles: p.soles, base: p.base, promo: p.promo || 0 } : { id: "custom", soles: s, base: s, promo: 0 };
 }
 
-module.exports = { PACKS, MIN_SOLES, MAX_SOLES, packPorSoles };
+module.exports = { PACKS, MIN_SOLES, MAX_SOLES, MIN_ORDEN, packPorSoles };
