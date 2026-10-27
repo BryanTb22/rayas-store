@@ -1,6 +1,8 @@
 "use strict";
 const crypto = require("crypto");
 const { onRequest } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+const rec = require("./recordatorio");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { packPorSoles, MIN_ORDEN, totalConComision } = require("./packs");
@@ -292,3 +294,14 @@ exports.webhookCulqi = onRequest(
     }
   }
 );
+
+/* ---------- recordatorio diario de entregas (8:00 a. m. hora de Lima) ---------- */
+const RECORDATORIO_URL = defineSecret("RECORDATORIO_URL"); // dirección /exec de tu Apps Script que manda el correo
+exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "America/Lima", region: REGION, secrets: [RECORDATORIO_URL] }, async () => {
+  const [os, cs] = await Promise.all([db.collection("orders").where("status", "==", "pagado").get(), db.collection("customers").get()]);
+  const clientes = {}; cs.forEach((d) => { clientes[d.id] = d.data(); });
+  const lista = rec.resumen(rec.pedidosParaEntregar(os.docs.map((d) => d.data()), clientes, rec.hoyLima()));
+  if (!lista.length) return;
+  const r = await fetch(String(RECORDATORIO_URL.value()).trim(), { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ recordatorio: true, fecha: rec.hoyLima(), pedidos: lista }) });
+  console.log("recordatorio enviado", lista.length, r.status);
+});
