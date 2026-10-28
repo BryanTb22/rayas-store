@@ -887,3 +887,7 @@ html, body { overflow-x: clip; max-width: 100%; }
 .estilos .est { color: var(--fg); }
 .estilos .est.lock { color: var(--danger); }
 .estchk { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+
+/* Lista desplegable de los selectores: fondo oscuro y texto claro (antes salía gris con letras blancas) */
+select option { background-color: #0b1430; color: #f2efe6; }
+select option:checked, select option:hover { background-color: #1b2a63; color: #fff; }
