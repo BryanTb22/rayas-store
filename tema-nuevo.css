@@ -94,3 +94,125 @@ html.tn ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--ye
 
 @media (max-width: 760px) { #tnFondo i { filter: blur(60px); } html.tn .card:hover, html.tn .icard:hover { transform: none; } }
 @media (prefers-reduced-motion: reduce) { #tnFondo i { animation: none !important; } #tnParticulas { display: none; } html.tn .btn::after { display: none; } }
+
+/* =====================================================================
+   AFINADO (ronda 2): íconos, tipografía, menú, tarjetas, paneles
+   ===================================================================== */
+/* ---------- Íconos ---------- */
+html.tn .tn-i { display: inline-flex; width: 1.15em; height: 1.15em; vertical-align: -.2em; flex: none; }
+html.tn .tn-i svg { width: 100%; height: 100%; }
+html.tn .svc-tab .tn-i { width: 20px; height: 20px; font-size: 20px; }
+html.tn .svc-tab span.tn-i { font-size: 20px; }
+html.tn .btn .tn-i { width: 1.2em; height: 1.2em; vertical-align: -.22em; }
+html.tn .tn-badge { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; margin-left: 2px; border-radius: 999px; font: 800 12px/1 var(--body); letter-spacing: 0; background: linear-gradient(180deg, var(--fuchsia), #d81470); color: #fff; box-shadow: 0 0 12px rgba(255, 45, 143, .6); }
+
+/* ---------- Tipografía: Cinzel solo para títulos; el resto en una sola familia ---------- */
+html.tn { --tn-ui: var(--body); }
+html.tn .svc-tab, html.tn .nav .lock, html.tn .itab, html.tn .btn { font-family: var(--tn-ui); font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+html.tn .svc-tab { font-size: 13.5px; }
+html.tn .btn { font-size: 13px; }
+html.tn .btn-sm { font-size: 12px; }
+html.tn .itab { font-size: 13px; }
+html.tn .iprice b, html.tn .pp-top b, html.tn .ofr-p b, html.tn .cost b { font-family: var(--num); font-weight: 600; letter-spacing: .02em; color: var(--yellow-2); }
+html.tn .iprice b { font-size: 28px; line-height: 1; }
+html.tn .pp-top b { font-size: 46px; line-height: 1; }
+html.tn .ofr-p b { font-size: 24px; line-height: 1; }
+html.tn .ibody h4 { font-family: var(--body); font-weight: 700; font-size: 15px; line-height: 1.3; min-height: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html.tn .ofr-top h3, html.tn .ofr h3 { font-family: var(--body); font-size: 17px; font-weight: 800; letter-spacing: .04em; display: flex; align-items: center; gap: 8px; }
+html.tn .ofr h3 .tn-i { color: var(--yellow); }
+html.tn .grp h3, html.tn .itm-box h3 { font-family: var(--title); letter-spacing: .04em; }
+html.tn .field label, html.tn .ff label { font-size: 11px; font-weight: 800; letter-spacing: .14em; color: var(--muted); }
+html.tn .sec-title h2 span, html.tn .hero h1 em { text-shadow: none; }
+html.tn .sec-title h2 { filter: drop-shadow(0 4px 22px rgba(255, 201, 60, .18)); }
+html.tn .kicker { font-family: var(--tn-ui); font-weight: 700; font-size: 12.5px; letter-spacing: .28em; }
+
+/* ---------- Menú de secciones: una barra compacta ---------- */
+html.tn .svcbar { background: rgba(6, 12, 36, .5); backdrop-filter: blur(14px); border-bottom: 1px solid var(--tn-borde); }
+html.tn .svcbar .wrap { padding-block: 8px; gap: 8px; justify-content: center; }
+html.tn .svc-tab { flex: 0 0 auto; padding: 9px 18px; border-radius: 999px; gap: 8px; border-color: var(--tn-borde); background: rgba(255, 255, 255, .05); color: var(--fg); box-shadow: none; transition: transform .2s, background .2s, box-shadow .2s, border-color .2s; }
+html.tn .svc-tab:hover { transform: translateY(-1px); border-color: rgba(255, 201, 60, .6); background: rgba(255, 201, 60, .08); }
+html.tn .svc-tab.comprar, html.tn .svc-tab.vender, html.tn .svc-tab.recargar { color: var(--fg); background: rgba(255, 255, 255, .05); border-color: var(--tn-borde); box-shadow: none; }
+html.tn .svc-tab.comprar .tn-i { color: var(--yellow); }
+html.tn .svc-tab.vender .tn-i { color: var(--fuchsia); }
+html.tn .svc-tab.recargar { background: linear-gradient(180deg, #ff5aa5, var(--fuchsia) 60%, #d81470); border-color: transparent; color: #fff; box-shadow: 0 6px 20px rgba(255, 45, 143, .4); margin-left: auto; }
+html.tn .svc-tab.on, html.tn .svc-tab.comprar.on, html.tn .svc-tab.vender.on { outline: 0; background: linear-gradient(180deg, var(--yellow-2), var(--yellow)); color: var(--on-yellow); border-color: transparent; box-shadow: 0 6px 22px rgba(255, 201, 60, .4); }
+html.tn .svc-tab.on .tn-i { color: var(--on-yellow); }
+html.tn .svc-tab.carrito { background: rgba(255, 255, 255, .05); }
+@media (max-width: 760px) { html.tn .svcbar .wrap { justify-content: flex-start; } html.tn .svc-tab.recargar { margin-left: 0; } html.tn .svc-tab { padding: 8px 14px; font-size: 12.5px; } }
+
+/* ---------- Tarjetas de items ---------- */
+html.tn .icard { border-radius: 20px; }
+html.tn .ithumb { border-bottom: 0; background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--rar, #888) 34%, transparent), transparent 68%), rgba(3, 6, 20, .55); position: relative; }
+html.tn .ithumb::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, transparent, var(--rar, var(--line)), transparent); box-shadow: 0 0 16px var(--rar, transparent); }
+html.tn .ibody { padding: 14px 16px 16px; gap: 10px; }
+html.tn .imeta { gap: 6px; font-size: 10.5px; }
+html.tn .imeta span { padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, .07); letter-spacing: .06em; text-transform: uppercase; line-height: 1.2; color: #c6cff0; }
+html.tn .imeta span:first-child { background: color-mix(in srgb, currentColor 14%, transparent); border: 1px solid color-mix(in srgb, currentColor 45%, transparent); }
+html.tn .imeta .gem { color: #9ee8ff; background: rgba(120, 220, 255, .1); }
+html.tn .iprice { padding-top: 4px; }
+html.tn .ibuy { background: linear-gradient(180deg, var(--yellow-2), var(--yellow)); color: var(--on-yellow); padding: 8px 16px; font-size: 12px; letter-spacing: .1em; box-shadow: 0 4px 14px rgba(255, 201, 60, .3); }
+html.tn .icard:hover .ibuy { box-shadow: 0 6px 20px rgba(255, 201, 60, .55); }
+html.tn .isteam { border-top: 1px solid rgba(255, 224, 138, .1); font-size: 12px; }
+html.tn .isteam-go { background: rgba(255, 255, 255, .05); border-color: var(--tn-borde); }
+html.tn .itag { top: 10px; right: 10px; background: rgba(5, 10, 28, .75); backdrop-filter: blur(6px); border-color: var(--tn-borde); font-size: 11px; letter-spacing: .04em; }
+html.tn .itag.agotado { background: rgba(122, 16, 32, .85); border-color: rgba(255, 120, 140, .4); left: 10px; right: auto; }
+html.tn .itag.oc { left: 10px; bottom: 12px; top: auto; color: var(--yellow-2); }
+html.tn .icard.agot { opacity: .55; filter: saturate(.6); }
+html.tn .itadmb { top: 10px; left: 10px; gap: 6px; }
+html.tn .itadmb .btn { width: 32px; height: 32px; min-height: 0; padding: 0; border-radius: 50%; background: rgba(5, 10, 28, .78); backdrop-filter: blur(8px); box-shadow: inset 0 0 0 1px var(--tn-borde); }
+html.tn .itadmb .btn:hover { background: var(--yellow); color: var(--on-yellow); }
+html.tn .itadmb .btn .tn-i { width: 15px; height: 15px; }
+html.tn .itadmb .itdel { width: auto; padding: 0 12px; border-radius: 999px; }
+html.tn .itadmb .btn:hover::after { display: none; }
+
+/* ---------- Paneles de administrador: barras compactas ---------- */
+html.tn .itadm { margin-bottom: 10px; }
+html.tn .itadm.frame { box-shadow: none; border-radius: 16px; }
+html.tn .itadm.frame > .in { border-radius: 15px; padding: 8px 14px; gap: 8px 10px; background: rgba(255, 255, 255, .035); }
+html.tn .itadm .in > b { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--yellow-2); margin-right: 4px; }
+html.tn .itadm .hint { flex: 1 1 100%; font-size: 12px; opacity: .75; order: 9; }
+@media (min-width: 1000px) { html.tn .itadm .hint { flex: 1 1 280px; order: 0; } }
+html.tn .itadm .btn { padding: 8px 14px; }
+
+/* ---------- Filtros y buscador ---------- */
+html.tn .ifilt { border-radius: 20px; padding: 6px 18px 18px; }
+html.tn .ifilt summary { font-family: var(--tn-ui); font-weight: 800; letter-spacing: .16em; font-size: 13px; text-transform: uppercase; color: var(--yellow-2); padding: 12px 0; }
+html.tn .ifilt .ff { margin-bottom: 14px; }
+html.tn .ifilt input, html.tn .ifilt select, html.tn .ibar input, html.tn .ibar select { height: 44px; border-radius: 14px; }
+html.tn .ibar input { padding-left: 16px; }
+html.tn .itabs { border-radius: 20px; padding: 8px 10px; gap: 4px; }
+html.tn .itab { padding: 9px 16px; }
+html.tn .icount, html.tn .hint { color: var(--muted); }
+
+/* ---------- Ruta de navegación ---------- */
+html.tn .ipg-crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; letter-spacing: .04em; margin-bottom: 14px; }
+html.tn .ipg-crumb a { color: var(--muted); text-decoration: none; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .05); }
+html.tn .ipg-crumb a:hover { color: var(--yellow); background: rgba(255, 201, 60, .1); }
+html.tn .ipg-crumb > span:not(:last-child) { opacity: .5; }
+html.tn .ipg-crumb > span:last-child { color: var(--yellow-2); font-weight: 700; }
+
+/* ---------- Página de un item y ofertas ---------- */
+html.tn .ipg-t { font-family: var(--title); letter-spacing: .03em; margin-bottom: 20px; }
+html.tn .ipg-foto { border-radius: 24px; border: 1px solid var(--tn-borde); }
+html.tn .ipg-attrs > div { padding: 12px 8px; font-size: 15px; border-bottom: 1px solid rgba(255, 224, 138, .1); }
+html.tn .ipg-attrs dt { font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); align-self: center; }
+html.tn .ipg-attrs dd { font-weight: 700; }
+html.tn .ipg-precio { border-radius: 22px; border: 1px solid rgba(255, 201, 60, .5); border-left-width: 1px; }
+html.tn .pp-dto { border-radius: 999px; }
+html.tn .ipg-tag { border-radius: 999px; backdrop-filter: blur(8px); }
+html.tn .ofr-t { border-radius: 20px; overflow: hidden; }
+html.tn .ofr-h { font-family: var(--tn-ui); font-weight: 800; font-size: 11px; letter-spacing: .14em; padding: 12px 18px; }
+html.tn .ofr-r { padding: 14px 18px; border-top: 1px solid rgba(255, 224, 138, .08); }
+html.tn .ofr-f input { height: 42px; border-radius: 14px; }
+html.tn .ofr-ed { font-size: 11.5px; }
+
+/* ---------- Barra inferior de edición, más liviana ---------- */
+html.tn .editbar { background: rgba(6, 12, 36, .72); backdrop-filter: blur(16px); border-top: 1px solid var(--tn-borde); box-shadow: 0 -10px 30px rgba(0, 0, 0, .35); }
+html.tn .editbar .wrap { padding-block: 8px; }
+html.tn .editbar .btn { padding: 9px 16px; }
+
+/* ---------- Ajustes tras revisar capturas ---------- */
+html.tn .icard .imeta { height: auto; min-height: 52px; overflow: visible; align-content: flex-start; }
+html.tn .iprice b { white-space: nowrap; font-size: 26px; }
+html.tn .iprice { flex-wrap: nowrap; }
+html.tn .pp-btns .btn { white-space: normal; text-align: center; line-height: 1.25; }
