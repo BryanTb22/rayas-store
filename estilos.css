@@ -1141,3 +1141,5 @@ input[type=search], input[type=text], input[type=number], input[type=url], input
 .idesc .g-ki .gdot{background:#ffa646}
 .ofr-r.enc{background:rgba(120,230,150,.08)}
 .ofr-in{color:#7ee787;border-color:#7ee787}
+.ofr-ed{white-space:nowrap}
+.ipg-edit{margin:12px 0 18px}
