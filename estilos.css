@@ -1330,3 +1330,4 @@ html { scroll-padding-top: 84px; }
 .fhead .fnom a { white-space: nowrap; }
 .urow, .urow-h { min-width: 0; max-width: 100%; box-sizing: border-box; }
 .urow-h .uav { margin-right: -2px; }
+.ficha > * { min-width: 0; max-width: 100%; }
