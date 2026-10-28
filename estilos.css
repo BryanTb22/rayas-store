@@ -1097,3 +1097,13 @@ input[type=search], input[type=text], input[type=number], input[type=url], input
 .carr-t small{color:var(--muted)}
 .carr-q{display:flex;align-items:center;gap:6px;flex:0 0 auto}
 .carr-q > span{min-width:20px;text-align:center;font-weight:800}
+/* Carrito: que nada se salga del cuadro */
+.carl{min-width:0}
+.carr{min-width:0}
+.carr-t{flex:1 1 0;min-width:0}
+.carr-t > span{flex:1 1 0;min-width:0}
+.carr-t b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.carr-q{flex:0 0 auto}
+.carr-q .btn{min-width:34px;padding-inline:10px}
+.carr-t b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;text-align:left;line-height:1.25}
+.carr-t small{text-align:left}
