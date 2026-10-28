@@ -996,3 +996,10 @@ select option:checked, select option:hover { background-color: #1b2a63; color: #
   .stk-info { flex-basis: calc(100% - 60px); }
   .stk-qty { margin-left: auto; }
 }
+
+/* Tarjetas uniformes: misma foto, mismas líneas y misma base sin importar el tamaño de la imagen original */
+.icard .ithumb { aspect-ratio: 3 / 2; overflow: hidden; min-height: 0; flex: none; }
+.icard .ithumb img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; }
+.icard .ibody h4 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 2.5em; min-height: 0; }
+.icard .imeta { line-height: 1.35; height: 3.6em; overflow: hidden; align-content: flex-start; }
+.icard .isteam { min-height: 37px; margin-top: 4px; }
