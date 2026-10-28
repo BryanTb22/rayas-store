@@ -83,10 +83,10 @@ exports.cobrar = onRequest(
 
     // Interruptor del admin (Panel → Textos y contactos → "Cobrar con Culqi"). Apagado = nadie cobra, salvo el admin para probar.
     const esAdmin = uid === ADMIN_UID;
-    if (!esAdmin && !(await cobroActivo())) return res.status(403).json({ error: "Los pagos en línea están desactivados por ahora. Pide tus créditos por WhatsApp." });
+    if (!esAdmin && !(await cobroActivo())) return res.status(403).json({ error: "Los pagos en línea están desactivados por ahora. Pide tu recarga por WhatsApp." });
     // Candado: con llaves de PRUEBA (sk_test_) solo el admin puede "pagar"; así nadie recibe créditos gratis por error.
     if (!esAdmin && String(CULQI_SECRET.value()).trim().startsWith("sk_test")) {
-      return res.status(403).json({ error: "Los pagos en línea aún no están habilitados. Pide tus créditos por WhatsApp." });
+      return res.status(403).json({ error: "Los pagos en línea aún no están habilitados. Pide tu recarga por WhatsApp." });
     }
 
     const body = req.body || {};
@@ -115,7 +115,7 @@ exports.cobrar = onRequest(
     } catch (e) {
       // Sin respuesta de Culqi: NO sabemos si cobró. Queda para revisión (y el webhook puede acreditarlo).
       await pRef.update({ estado: "revisar", error: String(e && e.message || e) });
-      return res.status(502).json({ error: "No pudimos confirmar el pago. Si te cobraron, los créditos llegarán solos en unos minutos; no pagues otra vez." });
+      return res.status(502).json({ error: "No pudimos confirmar el pago. Si te cobraron, tu saldo llegará solo en unos minutos; no pagues otra vez." });
     }
 
     if (!r.pagado) {
@@ -130,7 +130,7 @@ exports.cobrar = onRequest(
     } catch (e) {
       // Cobrado pero no acreditado: queda marcado para que el webhook o el admin lo resuelvan.
       await pRef.update({ estado: "cobrado_sin_acreditar", chargeId: r.cargo.id, error: String(e && e.message || e) });
-      return res.status(500).json({ error: "Tu pago se recibió pero hubo un problema al sumar los créditos. Escríbenos por WhatsApp con tu correo; no pagues otra vez." });
+      return res.status(500).json({ error: "Tu pago se recibió pero hubo un problema al sumar tu saldo. Escríbenos por WhatsApp con tu correo; no pagues otra vez." });
     }
   }
 );
@@ -144,7 +144,7 @@ exports.comprarSets = onRequest(
   async (req, res) => {
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
-    if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con créditos." });
+    if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con tu saldo." });
 
     const liveSnap = await db.doc("live/catalog").get();
     const live = liveSnap.exists ? (liveSnap.data().sets || {}) : {};
@@ -183,10 +183,10 @@ exports.comprarSets = onRequest(
       });
       return res.json({ ok: true, code: code, creditos: q.creditos, total: q.total, saldo: r.saldo });
     } catch (e) {
-      if (e && e.message === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanzan los créditos. Te faltan " + e.falta + ".", falta: e.falta });
+      if (e && e.message === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanza el saldo. Te faltan " + e.falta + ".", falta: e.falta });
       if (e && e.message === "SIN_PERFIL") return res.status(400).json({ error: "Completa tu perfil antes de comprar." });
       console.error("comprarSets", e);
-      return res.status(500).json({ error: "No se pudo completar la compra. No se descontaron créditos; intenta de nuevo." });
+      return res.status(500).json({ error: "No se pudo completar la compra. No se descontó saldo; intenta de nuevo." });
     }
   }
 );
@@ -199,7 +199,7 @@ exports.comprarItem = onRequest(
   async (req, res) => {
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
-    if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con créditos." });
+    if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con tu saldo." });
     // Acepta { id } (1 unidad) o { items: [{ id, qty }] } (carrito, hasta 20 líneas).
     const body = req.body || {};
     let pedidoLineas = Array.isArray(body.items) ? body.items : [{ id: body.id, qty: 1 }];
@@ -253,12 +253,12 @@ exports.comprarItem = onRequest(
       return res.json({ ok: true, code: code, creditos: r.creditos, saldo: r.saldo, count: r.count });
     } catch (e) {
       const m = e && e.message;
-      if (m === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanzan los créditos. Te faltan " + e.falta + ".", falta: e.falta });
+      if (m === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanza el saldo. Te faltan " + e.falta + ".", falta: e.falta });
       if (m === "SIN_PERFIL") return res.status(400).json({ error: "Completa tu perfil antes de comprar." });
       if (m === "AGOTADO" || m === "NO_EXISTE") return res.status(400).json({ error: "Uno de los items ya no está disponible (o no alcanza el stock). Revisa tu carrito." });
       if (m === "SIN_PRECIO") return res.status(400).json({ error: "Este item no tiene precio. Pídelo por WhatsApp." });
       console.error("comprarItem", e);
-      return res.status(500).json({ error: "No se pudo completar la compra. No se descontaron créditos; intenta de nuevo." });
+      return res.status(500).json({ error: "No se pudo completar la compra. No se descontó saldo; intenta de nuevo." });
     }
   }
 );
@@ -332,9 +332,9 @@ exports.crearOrden = onRequest(
     const uid = await uidDeLaPeticion(req);
     if (!uid) return res.status(401).json({ error: "Inicia sesión para recargar." });
     const esAdmin = uid === ADMIN_UID;
-    if (!esAdmin && !(await cobroActivo())) return res.status(403).json({ error: "Los pagos en línea están desactivados por ahora. Pide tus créditos por WhatsApp." });
+    if (!esAdmin && !(await cobroActivo())) return res.status(403).json({ error: "Los pagos en línea están desactivados por ahora. Pide tu recarga por WhatsApp." });
     if (!esAdmin && String(CULQI_SECRET.value()).trim().startsWith("sk_test")) {
-      return res.status(403).json({ error: "Los pagos en línea aún no están habilitados. Pide tus créditos por WhatsApp." });
+      return res.status(403).json({ error: "Los pagos en línea aún no están habilitados. Pide tu recarga por WhatsApp." });
     }
     const pack = packPorSoles((req.body || {}).soles);
     if (!pack || pack.soles < MIN_ORDEN) return res.status(400).json({ error: "Para pagar en efectivo o con QR el monto mínimo es S/ " + MIN_ORDEN + "." });
@@ -553,12 +553,12 @@ exports.participarRifa = onRequest(
       return res.json({ ok: true, saldo: r.saldo, mio: r.mio, gastado: total });
     } catch (e) {
       const m = e && e.message;
-      if (m === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanzan los créditos. Te faltan " + e.falta + ".", falta: e.falta });
+      if (m === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanza el saldo. Te faltan " + e.falta + ".", falta: e.falta });
       if (m === "SIN_PERFIL") return res.status(400).json({ error: "Completa tu perfil antes de participar." });
       if (m === "SIN_CUPOS") return res.status(409).json({ error: "No quedan suficientes cupos en esta rifa." });
       if (m === "TOPE") return res.status(409).json({ error: "Superas el máximo de cupos permitido por persona en esta rifa." });
       console.error("participarRifa", e);
-      return res.status(500).json({ error: "No se pudo registrar tu participación. No se descontaron créditos; intenta de nuevo." });
+      return res.status(500).json({ error: "No se pudo registrar tu participación. No se descontó saldo; intenta de nuevo." });
     }
   }
 );
