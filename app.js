@@ -879,12 +879,14 @@
     pag("").then(function () { items.lista = acc; items.cargado = true; }).catch(function (e) { items.err = e.message || "No se pudo cargar el catálogo."; })
       .then(function () { items.cargando = false; render(); });
   }
+  // "Anti-Mage" y "Anti-Mage (Wei)" cuentan como el mismo héroe al filtrar.
+  function claveHeroe(h) { return sinTildes(String(h || "").replace(/\s*\([^)]*\)\s*/g, " ")).trim(); }
   function itemsFiltrados() {
     var q = sinTildes(filtros.q), mn = parseFloat(filtros.min), mx = parseFloat(filtros.max);
     var l = items.lista.filter(function (it) {
       if (!it.activo && !admin.puede) return false;
       if (filtros.tipo && it.tipo !== filtros.tipo) return false;
-      if (filtros.heroe && it.heroe !== filtros.heroe) return false;
+      if (filtros.heroe && claveHeroe(it.heroe) !== claveHeroe(filtros.heroe)) return false;
       if (filtros.ranura && it.ranura !== filtros.ranura) return false;
       if (filtros.rareza && it.rareza !== filtros.rareza) return false;
       if (filtros.calidad && it.calidad !== filtros.calidad) return false;
@@ -1668,7 +1670,7 @@
     fsPedir("rayas_items/" + encodeURIComponent(it.id), { method: "PATCH", body: JSON.stringify(itemAFields(it)) }).then(function (r) {
       if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
       var k = items.lista.map(function (x) { return x.id; }).indexOf(it.id);
-      if (k >= 0) items.lista[k] = it; else items.lista.unshift(it);
+      if (k >= 0) items.lista[k] = it; else { items.lista.unshift(it); filtros.q = ""; filtros.min = ""; filtros.max = ""; filtros.tipo = ""; filtros.heroe = ""; filtros.ranura = ""; filtros.rareza = ""; filtros.calidad = ""; filtros.pag = 0; }
       admin.itemForm = null; admin.itemGuardando = false; render();
     }).catch(function (e) { admin.itemGuardando = false; admin.itemMsg = e.message || "No se pudo guardar."; render(); });
   }
