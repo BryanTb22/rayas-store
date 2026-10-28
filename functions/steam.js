@@ -113,21 +113,56 @@ function etiquetasDeTexto(html) {
   return out;
 }
 
+const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+const norm = (t) => String(t || "").toLowerCase().replace(/\s+/g, " ").trim();
+
 async function leerItem(nombre, heroes) {
   const enc = encodeURIComponent(nombre);
-  let asset = null, precioUsd = null, etiq = {};
+  let asset = null, precioUsd = null, etiq = {}, existe = false;
+  const pistas = [];   // qué respondió Steam en cada intento (para el mensaje de error)
   try {
     const r = await pedir("https://steamcommunity.com/market/listings/570/" + enc);
-    if (r.ok) { const html = await r.text(); asset = assetDeHtml(html); etiq = etiquetasDeTexto(html); }
-  } catch (e) { /* se intenta el otro camino */ }
+    pistas.push("página " + r.status);
+    if (r.ok) { const html = await r.text(); asset = assetDeHtml(html); etiq = etiquetasDeTexto(html); if (asset || /market_listing_largeimage|market_listing_item_name/.test(html)) existe = true; }
+  } catch (e) { pistas.push("página sin respuesta"); }
   if (!asset) {
-    const r = await pedir("https://steamcommunity.com/market/search/render/?query=" + enc + "&appid=570&norender=1&count=10");
-    if (!r.ok) throw new Error("Steam no respondió (" + r.status + "). Intenta de nuevo en un minuto.");
-    const j = await r.json();
-    const f = (j.results || []).find((x) => x.hash_name === nombre) || null;
-    if (!f) throw new Error("No encontré ese item en el Mercado de Steam. Revisa el link.");
-    asset = Object.assign({}, f.asset_description || {}, { name: (f.asset_description || {}).name || f.name });
-    if (typeof f.sell_price === "number") precioUsd = f.sell_price / 100;
+    // Búsqueda del mercado: hasta 2 intentos (Steam a veces responde vacío cuando limita las consultas).
+    for (let k = 0; k < 2 && !asset; k++) {
+      if (k) await dormir(2500);
+      try {
+        const r = await pedir("https://steamcommunity.com/market/search/render/?query=" + enc + "&appid=570&norender=1&count=20&l=english");
+        pistas.push("búsqueda " + r.status);
+        if (!r.ok) continue;
+        const j = await r.json().catch(() => null);
+        const lista = (j && j.results) || [];
+        if (!lista.length) { pistas.push("sin resultados"); continue; }
+        const n = norm(nombre);
+        const f = lista.find((x) => x.hash_name === nombre) || lista.find((x) => norm(x.hash_name) === n || norm(x.name) === n) || (lista.length === 1 ? lista[0] : null);
+        if (!f) { pistas.push("sin coincidencia exacta (" + lista.length + " resultados)"); continue; }
+        existe = true;
+        asset = Object.assign({}, f.asset_description || {}, { name: (f.asset_description || {}).name || f.name });
+        if (typeof f.sell_price === "number") precioUsd = f.sell_price / 100;
+      } catch (e) { pistas.push("búsqueda sin respuesta"); }
+    }
+  }
+  if (!asset) {
+    // Último recurso: si el item tiene precio en el mercado, al menos se devuelve nombre y precio.
+    let p = null;
+    try {
+      const r = await pedir("https://steamcommunity.com/market/priceoverview/?appid=570&currency=1&market_hash_name=" + enc, 8000);
+      pistas.push("precio " + r.status);
+      if (r.ok) p = await r.json();
+    } catch (e) { pistas.push("precio sin respuesta"); }
+    const v = p && p.success ? parseFloat(String(p.lowest_price || p.median_price || "").replace(/[^0-9.]/g, "")) : NaN;
+    if (p && p.success) {
+      const q = nombre.match(/^(Exalted|Heroic|Corrupted|Frozen|Cursed|Infused|Genuine|Unusual|Inscribed|Autographed)\b/i);
+      return { nombre, tipo: "", heroe: "", ranura: "", rareza: "", calidad: q ? q[1] : "Standard", precioUsd: isFinite(v) ? v : null, imgData: null,
+        diag: "Steam no entregó héroe, ranura ni rareza (" + pistas.join(", ") + "): complétalos a mano" };
+    }
+    const limitado = pistas.some((x) => /429/.test(x));
+    throw new Error(limitado
+      ? "Steam está limitando las consultas desde el servidor (429). Espera 1 o 2 minutos y vuelve a pulsar \"Rellenar desde Steam\"."
+      : "No pude leer ese item en el Mercado de Steam (" + pistas.join(", ") + "). Revisa el link o llena los datos a mano.");
   }
   const datos = interpretar(asset, heroes);
   if (!datos.nombre) datos.nombre = nombre;
