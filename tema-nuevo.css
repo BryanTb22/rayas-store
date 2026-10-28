@@ -4,7 +4,8 @@
    Mismos colores de siempre (azul noche, amarillo y fucsia); cambia la forma:
    fondo con luz y partículas, tarjetas de cristal, botones con brillo.
    ===================================================================== */
-html.tn { --tn-glow-y: rgba(255, 201, 60, .35); --tn-glow-f: rgba(255, 45, 143, .32); --tn-cristal: rgba(15, 26, 60, .62); --tn-cristal-2: rgba(22, 35, 77, .55); --tn-borde: rgba(255, 224, 138, .16); }
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap");
+html.tn { --tn-logo: "Rajdhani", "Oswald", "Arial Narrow", sans-serif; --tn-glow-y: rgba(255, 201, 60, .35); --tn-glow-f: rgba(255, 45, 143, .32); --tn-cristal: rgba(15, 26, 60, .62); --tn-cristal-2: rgba(22, 35, 77, .55); --tn-borde: rgba(255, 224, 138, .16); }
 
 /* ---------- Fondo vivo ---------- */
 html.tn body { background: #050a1c; }
@@ -43,10 +44,11 @@ html.tn .sec-title h2 span:not(.t1) { background: linear-gradient(100deg, var(--
 html.tn .orn { color: var(--yellow); filter: drop-shadow(0 0 10px var(--tn-glow-y)); }
 
 /* ---------- Marcos y tarjetas de cristal ---------- */
-html.tn .frame { clip-path: none; border-radius: 22px; background: linear-gradient(145deg, rgba(255, 224, 138, .35), rgba(255, 224, 138, .08) 40%, rgba(255, 45, 143, .22)); box-shadow: 0 10px 34px rgba(0, 0, 0, .35); }
-html.tn .frame > .in { clip-path: none; border-radius: 21px; background: linear-gradient(180deg, var(--tn-cristal-2), var(--tn-cristal)); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); }
-html.tn .frame.gold { background: linear-gradient(135deg, rgba(255, 201, 60, .7), rgba(255, 224, 138, .1) 40%, rgba(255, 45, 143, .5)); }
-html.tn .card.frame { background: linear-gradient(160deg, color-mix(in srgb, var(--r) 75%, transparent), rgba(255, 224, 138, .08) 45%, color-mix(in srgb, var(--r) 40%, transparent)); }
+html.tn .frame { clip-path: none; border-radius: 22px; background: transparent; padding: 0; box-shadow: 0 10px 34px rgba(0, 0, 0, .35); --tn-b1: rgba(255, 224, 138, .38); --tn-b2: rgba(255, 224, 138, .08); --tn-b3: rgba(255, 45, 143, .26); }
+html.tn .frame::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(145deg, var(--tn-b1), var(--tn-b2) 42%, var(--tn-b3)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); pointer-events: none; z-index: 3; }
+html.tn .frame > .in { clip-path: none; border-radius: 22px; background: linear-gradient(180deg, var(--tn-cristal-2), var(--tn-cristal)); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); overflow: hidden; }
+html.tn .frame.gold { --tn-b1: rgba(255, 201, 60, .8); --tn-b2: rgba(255, 224, 138, .12); --tn-b3: rgba(255, 45, 143, .55); }
+html.tn .card.frame { --tn-b1: color-mix(in srgb, var(--r) 80%, transparent); --tn-b2: rgba(255, 224, 138, .1); --tn-b3: color-mix(in srgb, var(--r) 40%, transparent); }
 html.tn .card { transition: transform .25s cubic-bezier(.2, .8, .2, 1), filter .25s; }
 html.tn .card:hover { transform: translateY(-6px) scale(1.01); filter: drop-shadow(0 16px 34px color-mix(in srgb, var(--r) 45%, transparent)); }
 html.tn .card .rbar { height: 3px; }
@@ -277,3 +279,50 @@ html.tn .imeta .gem { display: inline-flex; align-items: center; gap: 4px; }
 /* Aviso de "Rifas activas": en cristal con borde dorado (antes era un bloque amarillo muy fuerte) */
 html.tn #rifas .sec-title > p { background: linear-gradient(180deg, rgba(255, 201, 60, .14), rgba(255, 201, 60, .05)); color: var(--yellow-2); border: 1px solid rgba(255, 201, 60, .4); box-shadow: 0 8px 30px rgba(255, 201, 60, .12); backdrop-filter: blur(10px); animation: none; font-family: var(--tn-ui); font-weight: 700; letter-spacing: .04em; text-shadow: none; padding: 12px 22px; font-size: clamp(14px, 1.6vw, 17px); }
 html.tn #rifas .sec-title > p::before { content: ""; width: 1.4em; height: 1.4em; flex: none; filter: none; background: var(--yellow); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M18.09 10.37A6 6 0 1 1 10.34 18'/%3E%3Cpath d='M7 6h1v4'/%3E%3Cpath d='m16.71 13.88.7.71-2.82 2.82'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='M18.09 10.37A6 6 0 1 1 10.34 18'/%3E%3Cpath d='M7 6h1v4'/%3E%3Cpath d='m16.71 13.88.7.71-2.82 2.82'/%3E%3C/svg%3E") center / contain no-repeat; }
+
+/* =====================================================================
+   RONDA 4: logo con tipografía nueva + rifas modernizadas
+   ===================================================================== */
+/* ---------- Logo "RAYAS STORE": condensada, deportiva, con degradado ---------- */
+html.tn .logo { font-family: 'Barlow Condensed', var(--body); font-weight: 800; font-size: 30px; letter-spacing: .09em; text-transform: uppercase; line-height: 1; text-shadow: none; }
+html.tn .logo span { background: linear-gradient(180deg, #fff0b0, var(--yellow) 55%, #e0a514); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 14px rgba(255, 201, 60, .35)); }
+html.tn .logo i { font-style: normal; background: linear-gradient(180deg, #ff8cc4, var(--fuchsia) 60%, #d81470); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 14px rgba(255, 45, 143, .4)); }
+html.tn .footer .logo { font-size: 24px; }
+@media (max-width: 560px) { html.tn .logo { font-size: 24px; } }
+@media (max-width: 430px) { html.tn .logo { font-size: 21px; letter-spacing: .06em; } }
+
+/* ---------- Rifas: tarjetas modernas ---------- */
+html.tn #rifas .grid { gap: 30px; }
+html.tn .card { transition: transform .3s cubic-bezier(.2, .8, .2, 1), filter .3s; }
+html.tn .card:hover { transform: translateY(-8px); filter: drop-shadow(0 22px 40px color-mix(in srgb, var(--r) 38%, transparent)); }
+html.tn .card.frame { border-radius: 28px; background: linear-gradient(165deg, color-mix(in srgb, var(--r) 70%, transparent), rgba(255, 224, 138, .06) 38%, rgba(255, 255, 255, .04) 70%, color-mix(in srgb, var(--r) 35%, transparent)); box-shadow: 0 14px 44px rgba(0, 0, 0, .4); }
+html.tn .card.frame > .in { border-radius: 27px; overflow: hidden; background: radial-gradient(120% 60% at 50% -5%, color-mix(in srgb, var(--r) 22%, transparent), transparent 70%), linear-gradient(180deg, rgba(22, 35, 77, .78), rgba(8, 14, 38, .92)); }
+html.tn .card .rbar { display: none; }
+html.tn .card .pic { margin: 12px 12px 0; border-radius: 20px; background: radial-gradient(70% 70% at 50% 55%, color-mix(in srgb, var(--r) 42%, transparent), transparent 72%), linear-gradient(180deg, #0a1129, #040813); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+html.tn .card .pic img { filter: drop-shadow(0 14px 22px rgba(0, 0, 0, .65)); transition: transform .4s cubic-bezier(.2, .8, .2, 1); }
+html.tn .card:hover .pic img { transform: scale(1.06) translateY(-2px); }
+html.tn .status { top: 12px; left: 12px; border-radius: 999px; padding: 6px 12px 6px 10px; font-family: var(--tn-ui); font-size: 11px; letter-spacing: .12em; backdrop-filter: blur(8px); display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 4px 16px rgba(0, 0, 0, .35); }
+html.tn .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .9; }
+html.tn .status.activa { background: rgba(255, 201, 60, .95); }
+html.tn .status.activa::before { animation: tnPulso 1.8s ease-in-out infinite; }
+@keyframes tnPulso { 0%, 100% { box-shadow: 0 0 0 0 rgba(29, 22, 0, .45); } 50% { box-shadow: 0 0 0 5px rgba(29, 22, 0, 0); } }
+html.tn .status.cerrada { background: rgba(255, 255, 255, .08); }
+html.tn .card .body { padding: 18px 20px 22px; gap: 12px; }
+html.tn .rarity { align-self: flex-start; padding: 4px 11px; border-radius: 999px; font-family: var(--tn-ui); font-size: 11px; letter-spacing: .16em; background: color-mix(in srgb, var(--r) 16%, transparent); border: 1px solid color-mix(in srgb, var(--r) 55%, transparent); }
+html.tn .card h3 { font-family: var(--tn-ui); font-weight: 800; font-size: 23px; line-height: 1.15; letter-spacing: .01em; }
+html.tn #rifas .card h3 { font-size: 26px; }
+html.tn .card .desc { font-size: 14.5px; line-height: 1.5; }
+html.tn .meta { border-top: 1px solid rgba(255, 224, 138, .12); padding-top: 14px; align-items: center; justify-content: space-between; }
+html.tn .cost b { font-weight: 600; background: linear-gradient(180deg, #fff3c4, var(--yellow) 60%, #e8a30e); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 4px 16px rgba(255, 201, 60, .35)); }
+html.tn .cost small { letter-spacing: .14em; }
+html.tn .meta .pill { padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .08); }
+html.tn .cbar { height: 10px; border-radius: 999px; background: rgba(255, 255, 255, .06); border: 0; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .5); }
+html.tn .cbar i { background: linear-gradient(90deg, #ffb703, var(--yellow-2)); box-shadow: 0 0 14px rgba(255, 201, 60, .6); }
+html.tn .cbar.hot i { background: linear-gradient(90deg, var(--fuchsia), #ff8cc4); box-shadow: 0 0 14px rgba(255, 45, 143, .6); }
+html.tn #rifas .cbar { height: 10px; }
+html.tn .pill.fechas, html.tn .pill.maxp { align-self: flex-start; padding: 6px 13px; border-radius: 999px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .08); font-size: 12.5px; color: #c9d1f2; display: inline-flex; align-items: center; gap: 6px; }
+html.tn .pill.maxp .tn-i { color: var(--yellow); }
+html.tn .timer { font-size: 26px; background: linear-gradient(90deg, var(--yellow-2), var(--fuchsia)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.tn #rifas .card .btn { padding-block: 16px; font-size: 14px; margin-top: 4px; }
+html.tn .card .btn[disabled] { background: rgba(255, 255, 255, .07); color: var(--muted); }
+html.tn .ctools { background: rgba(5, 10, 28, .6); backdrop-filter: blur(8px); border-radius: 0 0 0 14px; }
