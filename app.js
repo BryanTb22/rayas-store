@@ -195,7 +195,7 @@
     vacioT: "Pronto nuevas rifas", vacioS: "Recarga tu saldo y te avisamos cuando abra la próxima.",
     msgCredPerfil: "¡Hola! 👋🔥 Soy *{nombre}* (📧 {correo}).\n\n💎 Quiero recargar saldo para participar en las rifas de *RAYAS STORE* 🎁🏆\n\n¿Me ayudas con mi recarga? 🙏✨",
     msgCredVisita: "¡Hola! 👋🔥 Quiero recargar saldo para las rifas de *RAYAS STORE* 💎🎁\n\n¿Me ayudas? 🙏✨",
-    btnParticipar: "Participar", btnPronto: "Muy pronto", lblCreditos: "por cupo",
+    btnParticipar: "Participar", btnPronto: "Muy pronto", lblCreditos: "por ticket",
     comoKicker: "Paso a paso", comoT1: "Cómo", comoT2: "participar",
     paso1T: "Crea tu cuenta", paso1: "Regístrate con tu correo o con Google y deja tu link de intercambio de Steam.",
     paso2T: "Recarga saldo", paso2: "Recarga desde tu cuenta. Tu primera recarga puede traer saldo de regalo.",
@@ -231,7 +231,7 @@
     var yp = st.yape && typeof st.yape === "object" ? st.yape : {};
     st.yape = { qr: /^fs:img-[\w\-]+$/.test(String(yp.qr || "")) ? yp.qr : "", numero: String(yp.numero || "").replace(/\D+/g, "").slice(0, 12), nombre: typeof yp.nombre === "string" ? yp.nombre.slice(0, 40) : "" };
     (function () { // Todo en soles: limpia textos guardados que aún digan "créditos"
-      var lim = function (x) { return typeof x !== "string" ? x : x.replace(/\(S\/ ?1 ?= ?1 cr[eé]ditos?\)/gi, "").replace(/(\d+) cr[eé]ditos?/gi, "$1 soles").replace(/\bTus cr[eé]ditos/g, "Tu saldo").replace(/\btus cr[eé]ditos/g, "tu saldo").replace(/\bLos cr[eé]ditos/g, "El saldo").replace(/\blos cr[eé]ditos/g, "el saldo").replace(/\bcr[eé]ditos?\b/gi, "saldo").replace(/ {2,}/g, " "); };
+      var lim = function (x) { return typeof x !== "string" ? x : x.replace(/\(S\/ ?1 ?= ?1 cr[eé]ditos?\)/gi, "").replace(/(\d+) cr[eé]ditos?/gi, "$1 soles").replace(/\bTus cr[eé]ditos/g, "Tu saldo").replace(/\btus cr[eé]ditos/g, "tu saldo").replace(/\bLos cr[eé]ditos/g, "El saldo").replace(/\blos cr[eé]ditos/g, "el saldo").replace(/\bcr[eé]ditos?\b/gi, "saldo").replace(/\bcupos\b/g, "tickets").replace(/\bcupo\b/g, "ticket").replace(/\bCupos\b/g, "Tickets").replace(/\bCupo\b/g, "Ticket").replace(/ {2,}/g, " "); };
       if (st.textos && typeof st.textos === "object") Object.keys(st.textos).forEach(function (k) { var v = st.textos[k]; if (typeof v === "string") st.textos[k] = lim(v); else if (Array.isArray(v)) st.textos[k] = v.map(lim); });
     })();
     if (!Array.isArray(st.premios)) st.premios = [];
@@ -339,8 +339,8 @@
     var libres = cupos > 0 ? cupos - Math.max(num(p.participantes, 0), tomados(id)) : 100;
     var permitidos = tope > 0 ? tope - mio : 100;
     var puedePagar = cost > 0 ? Math.floor(cuenta.perfil.creditos / cost) : 100;
-    if (libres <= 0) { modal = { tipo: "error", msg: "Ya no quedan cupos en esta rifa." }; render(); return; }
-    if (permitidos <= 0) { modal = { tipo: "error", msg: "Ya tienes el máximo de cupos permitido en esta rifa (" + tope + ")." }; render(); return; }
+    if (libres <= 0) { modal = { tipo: "error", msg: "Ya no quedan tickets en esta rifa." }; render(); return; }
+    if (permitidos <= 0) { modal = { tipo: "error", msg: "Ya tienes el máximo de tickets permitido en esta rifa (" + tope + ")." }; render(); return; }
     if (puedePagar < 1) { modal = { tipo: "sinSaldo", p: info }; render(); return; }
     modal = { tipo: "confirmar", p: info, qty: 1, max: Math.max(1, Math.min(100, libres, permitidos, puedePagar)), mio: mio, tope: tope }; render();
   }
@@ -495,14 +495,14 @@
       btns = '<button class="btn btn-yellow" type="button" data-a="cerrarModal">Ver rifas</button>';
     } else if (m.tipo === "confirmar") {
       var tot = m.qty * m.p.cred;
-      h = '<h3>¿Entrar a la rifa? 🎟️</h3><p class="hint">Rifa: <b>' + esc(m.p.nombre) + '</b> · ' + m.p.cred + ' soles por cupo.' + (m.mio ? ' Ya tienes <b>' + m.mio + '</b> ' + (m.mio === 1 ? 'cupo' : 'cupos') + '.' : '') + '</p>' +
-        '<div class="qty" role="group" aria-label="Cantidad de cupos"><button type="button" data-a="qtyMenos"' + (m.qty <= 1 ? ' disabled' : '') + ' aria-label="Menos">−</button><span><b>' + m.qty + '</b><small>' + (m.qty === 1 ? 'cupo' : 'cupos') + '</small></span><button type="button" data-a="qtyMas"' + (m.qty >= m.max ? ' disabled' : '') + ' aria-label="Más">+</button></div>' +
-        '<p class="hint">Total: <b>' + tot + '</b> soles. Te quedarán <b>' + (c.creditos - tot) + '</b>.' + (m.max < 100 ? ' Máximo ahora: ' + m.max + '.' : '') + ' Más cupos = más chances de ganar 🍀</p>';
-      btns = '<button class="btn btn-yellow" type="button" data-a="confirmarPart">✔ Confirmar ' + m.qty + (m.qty === 1 ? ' cupo' : ' cupos') + '</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cancelar</button>';
+      h = '<h3>¿Entrar a la rifa? 🎟️</h3><p class="hint">Rifa: <b>' + esc(m.p.nombre) + '</b> · ' + m.p.cred + ' soles por ticket.' + (m.mio ? ' Ya tienes <b>' + m.mio + '</b> ' + (m.mio === 1 ? 'ticket' : 'tickets') + '.' : '') + '</p>' +
+        '<div class="qty" role="group" aria-label="Cantidad de tickets"><button type="button" data-a="qtyMenos"' + (m.qty <= 1 ? ' disabled' : '') + ' aria-label="Menos">−</button><span><b>' + m.qty + '</b><small>' + (m.qty === 1 ? 'ticket' : 'tickets') + '</small></span><button type="button" data-a="qtyMas"' + (m.qty >= m.max ? ' disabled' : '') + ' aria-label="Más">+</button></div>' +
+        '<p class="hint">Total: <b>' + tot + '</b> soles. Te quedarán <b>' + (c.creditos - tot) + '</b>.' + (m.max < 100 ? ' Máximo ahora: ' + m.max + '.' : '') + ' Más tickets = más chances de ganar 🍀</p>';
+      btns = '<button class="btn btn-yellow" type="button" data-a="confirmarPart">✔ Confirmar ' + m.qty + (m.qty === 1 ? ' ticket' : ' tickets') + '</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cancelar</button>';
     } else if (m.tipo === "cargando") {
       h = '<h3>Procesando…</h3><p class="hint">Un momento por favor.</p>';
     } else if (m.tipo === "ok") {
-      h = '<h3>¡Ya estás participando! 🎉</h3><p class="hint">Tomaste <b>' + m.qty + '</b> ' + (m.qty === 1 ? 'cupo' : 'cupos') + ' en la rifa de <b>' + esc(m.p.nombre) + '</b> (en total tienes <b>' + m.mio + '</b>). Te quedan <b>' + (c ? c.creditos : 0) + '</b> soles. ¡Mucha suerte! 🍀🏆</p>';
+      h = '<h3>¡Ya estás participando! 🎉</h3><p class="hint">Tomaste <b>' + m.qty + '</b> ' + (m.qty === 1 ? 'ticket' : 'tickets') + ' en la rifa de <b>' + esc(m.p.nombre) + '</b> (en total tienes <b>' + m.mio + '</b>). Te quedan <b>' + (c ? c.creditos : 0) + '</b> soles. ¡Mucha suerte! 🍀🏆</p>';
       btns = cerrar;
     } else {
       h = '<h3>Ups 😕</h3><p class="hint">' + esc(m.msg || "No se pudo completar.") + '</p>';
@@ -631,7 +631,7 @@
     var rt = ruleta, g = rt.segs[rt.w], p = estado.premios[buscarPremio(rt.pid)] || {};
     return '<div class="scrim scrim-top"></div><div class="elegir ruleta" role="dialog" aria-label="Ruleta"><h3>' + (rt.modo === "replay" ? '🎬 Repetición del sorteo' : '🎲 Sorteo') + ' · ' + esc(p.nombre || "") + '</h3>' +
       '<div class="rwrap"><div class="rpin"></div><canvas id="ruleta-cv" width="440" height="440"></canvas></div>' +
-      (rt.fin ? '<div class="rwin">🏆 ¡Ganador: <b>' + esc(g.n) + '</b>!</div>' + (rt.modo === "replay" && rt.fecha ? '<p class="hint">Sorteo realizado: ' + esc(fechaHora(rt.fecha)) + '</p>' : '') : '<p class="hint">' + rt.segs.length + ' participante' + (rt.segs.length === 1 ? '' : 's') + '. Más cupos = más espacio en la ruleta.</p>') +
+      (rt.fin ? '<div class="rwin">🏆 ¡Ganador: <b>' + esc(g.n) + '</b>!</div>' + (rt.modo === "replay" && rt.fecha ? '<p class="hint">Sorteo realizado: ' + esc(fechaHora(rt.fecha)) + '</p>' : '') : '<p class="hint">' + rt.segs.length + ' participante' + (rt.segs.length === 1 ? '' : 's') + '. Más tickets = más espacio en la ruleta.</p>') +
       '<div class="rbtns">' +
       (!rt.fin && !rt.run ? '<button class="btn btn-yellow" id="ruleta-go" type="button" data-a="ruletaGirar">' + (rt.modo === "replay" ? '▶ Ver repetición' : '🎰 ¡Girar!') + '</button>' : '') +
       (rt.fin && rt.modo === "sorteo" ? '<button class="btn btn-fuchsia" type="button" data-a="ruletaGuardar">Guardar y publicar resultado</button>' : '') +
@@ -1898,7 +1898,7 @@
     var est = p.estado === "proxima" ? "proxima" : (p.estado === "cerrada" ? "cerrada" : (p.estado === "oculta" ? "oculta" : "activa"));
     var estTxt = est === "activa" ? "Abierta" : (est === "proxima" ? "Próximamente" : (est === "oculta" ? "Deshabilitada" : "Cerrada"));
     var cupos = num(p.cupos, 0), part = Math.max(num(p.participantes, 0), tomados(p.id)), cred = num(p.creditos, 0);
-    var partTxt = cupos > 0 ? (part + " / " + cupos + " cupos") : (part + (part === 1 ? " cupo tomado" : " cupos tomados"));
+    var partTxt = cupos > 0 ? (part + " / " + cupos + " tickets") : (part + (part === 1 ? " ticket tomado" : " tickets tomados"));
     var lleno = cupos > 0 && part >= cupos;
     var mio0 = misParts[p.id] || 0, tope0 = num(p.maxPorUsuario, 0), topeOk = tope0 > 0 && mio0 >= tope0;
     var fz = vivo() ? est : fase(p);
@@ -1909,9 +1909,9 @@
       boton = '<button class="btn btn-ghost" type="button" disabled>⏳ Esperando resultado</button>';
     } else if (est === "activa") {
       boton = vivo() ? lnk("btn btn-yellow", "", "btnParticipar")
-        : (lleno ? '<button class="btn btn-yellow" type="button" disabled>Cupos llenos</button>'
-        : (topeOk ? '<button class="btn btn-ghost" type="button" disabled>✔ Tienes ' + mio0 + (mio0 === 1 ? ' cupo (máximo)' : ' cupos (máximo)') + '</button>'
-        : (mio0 ? '<button class="btn btn-yellow" type="button" data-a="participar" data-id="' + esc(p.id) + '">✔ Tienes ' + mio0 + (mio0 === 1 ? ' cupo' : ' cupos') + ' · Comprar más</button>'
+        : (lleno ? '<button class="btn btn-yellow" type="button" disabled>Tickets llenos</button>'
+        : (topeOk ? '<button class="btn btn-ghost" type="button" disabled>✔ Tienes ' + mio0 + (mio0 === 1 ? ' ticket (máximo)' : ' tickets (máximo)') + '</button>'
+        : (mio0 ? '<button class="btn btn-yellow" type="button" data-a="participar" data-id="' + esc(p.id) + '">✔ Tienes ' + mio0 + (mio0 === 1 ? ' ticket' : ' tickets') + ' · Comprar más</button>'
         : '<button class="btn btn-yellow" type="button" data-a="participar" data-id="' + esc(p.id) + '">' + esc(estado.textos.btnParticipar) + '</button>')));
     } else if (est === "oculta") {
       boton = '<button class="btn btn-ghost" type="button" disabled>🙈 Oculta para el público</button>';
@@ -1922,13 +1922,13 @@
     }
     var V = vivo(), id = esc(p.id);
     if (V) {
-      partTxt = '<span' + ed("p:" + p.id + ":participantes", "0") + '>' + part + '</span>' + (cupos > 0 ? ' / ' + cupos + ' cupos' : ' participantes');
+      partTxt = '<span' + ed("p:" + p.id + ":participantes", "0") + '>' + part + '</span>' + (cupos > 0 ? ' / ' + cupos + ' tickets' : ' participantes');
       if (est === "cerrada") boton = '<div class="pill">Ganador: <b style="color:var(--yellow)"' + ed("p:" + p.id + ":ganador", "Escribe el ganador") + '>' + esc(p.ganador) + '</b></div>';
     }
     var tools = V ? '<div class="ctools">' +
       '<button type="button" data-a="mover" data-d="-1" data-id="' + id + '" title="Mover a la izquierda" aria-label="Mover a la izquierda">←</button>' +
       '<button type="button" data-a="mover" data-d="1" data-id="' + id + '" title="Mover a la derecha" aria-label="Mover a la derecha">→</button>' +
-      '<button type="button" data-a="editarId" data-id="' + id + '" title="Más opciones (fecha, cupos…)" aria-label="Más opciones">⚙</button>' +
+      '<button type="button" data-a="editarId" data-id="' + id + '" title="Más opciones (fecha, tickets…)" aria-label="Más opciones">⚙</button>' +
       (admin.borrar === p.id ? '<button type="button" class="danger wide" data-a="borrarId" data-id="' + id + '">¿Borrar?</button>'
                              : '<button type="button" class="danger" data-a="pedirBorrar" data-id="' + id + '" title="Borrar" aria-label="Borrar">✕</button>') +
       '</div>' : '';
@@ -1950,14 +1950,14 @@
          : (p.rareza ? '<div class="rarity">' + esc(p.rareza) + '</div>' : '')) +
       '<h3' + ed("p:" + p.id + ":nombre", "Nombre del premio") + '>' + esc(V ? p.nombre : (p.nombre || "Premio")) + '</h3>' +
       (p.descripcion || V ? '<p class="desc"' + ed("p:" + p.id + ":descripcion", "Descripción (opcional)") + '>' + esc(p.descripcion) + '</p>' : '') +
-      '<div class="meta"><span class="cost"><small>S/</small><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small>por cupo</small></span><span class="pill">' + partTxt + '</span></div>' +
+      '<div class="meta"><span class="cost"><small>S/</small><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small>por ticket</small></span><span class="pill">' + partTxt + '</span></div>' +
       (cupos > 0 ? '<div class="cbar' + (part / cupos >= 0.8 ? ' hot' : '') + '" role="img" aria-label="' + esc(partTxt) + '"><i style="width:' + Math.min(100, Math.round(part / cupos * 100)) + '%"></i></div>' : '') +
       (est === "activa" && p.cierre ? '<div class="timer" data-cierre="' + esc(p.cierre) + '">' + esc(restante(p.cierre)) + '</div>' : '') +
-      (est === "activa" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + (+p.cupos > 0 ? ' o al agotar cupos' : '') + '</div>' : '') +
-      (est === "activa" && !p.cierre && +p.cupos > 0 ? '<div class="pill fechas">Cierra al agotar cupos</div>' : '') +
+      (est === "activa" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + (+p.cupos > 0 ? ' o al agotar tickets' : '') + '</div>' : '') +
+      (est === "activa" && !p.cierre && +p.cupos > 0 ? '<div class="pill fechas">Cierra al agotar tickets</div>' : '') +
       (est === "proxima" && p.inicio && tiempoDe(p.inicio) ? '<div class="pill fechas">Abre: ' + esc(fechaHora(p.inicio)) + '</div>' : '') +
       (est === "proxima" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + '</div>' : '') +
-      ((est === "activa" || est === "proxima") && +p.maxPorUsuario > 0 ? '<div class="pill maxp">🎟️ Máx. ' + (+p.maxPorUsuario) + (+p.maxPorUsuario === 1 ? ' cupo' : ' cupos') + ' por persona</div>' : '') +
+      ((est === "activa" || est === "proxima") && +p.maxPorUsuario > 0 ? '<div class="pill maxp">🎟️ Máx. ' + (+p.maxPorUsuario) + (+p.maxPorUsuario === 1 ? ' ticket' : ' tickets') + ' por persona</div>' : '') +
       boton + (est === "cerrada" && p.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + id + '" style="margin-top:8px">🎬 Ver repetición</button>' : '') + '</div></div></article>';
   }
 
@@ -2152,7 +2152,7 @@
     function item(grupo, it) {
       var p = it.p, x = it.x, f = p.resultado || p.cierre, fr = f ? fechaHora(f) : "";
       var tag = grupo === "gano" ? "🏆 ¡Ganaste!" : (grupo === "perdio" ? "No ganaste" : (p.estado === "cerrada" ? "⏳ Resultado pendiente" : "⏳ En curso"));
-      var lineas = '<small>Entraste: ' + esc(x.creado ? fechaHora(x.creado) : "—") + ' · ' + x.cantidad + (x.cantidad === 1 ? ' cupo' : ' cupos') + ' · ' + x.costo + ' soles</small>';
+      var lineas = '<small>Entraste: ' + esc(x.creado ? fechaHora(x.creado) : "—") + ' · ' + x.cantidad + (x.cantidad === 1 ? ' ticket' : ' tickets') + ' · ' + x.costo + ' soles</small>';
       if (grupo === "curso") lineas += '<small>' + (p.cierre ? 'Cierra: ' + esc(fechaHora(p.cierre)) : 'Aún sin fecha de cierre') + '</small>';
       else lineas += '<small>Resultado: ' + (fr ? esc(fr) : 'sin fecha registrada') + '</small>' +
         '<small>Ganador: <b>' + esc(p.ganador) + '</b></small>' +
@@ -2368,7 +2368,7 @@
       (partes[pid] || []).forEach(function (x) {
         if (x.uid !== uid) return;
         var k = buscarPremio(pid), pr = k >= 0 ? estado.premios[k] : null;
-        rifas.push('<li>' + esc(pr ? pr.nombre : (x.premioNombre || pid)) + ' · ' + x.cantidad + (x.cantidad === 1 ? ' cupo' : ' cupos') + ' · ' + x.costo + ' cr. · ' + esc(x.creado ? fechaHora(x.creado) : "—") +
+        rifas.push('<li>' + esc(pr ? pr.nombre : (x.premioNombre || pid)) + ' · ' + x.cantidad + (x.cantidad === 1 ? ' ticket' : ' tickets') + ' · ' + x.costo + ' cr. · ' + esc(x.creado ? fechaHora(x.creado) : "—") +
           (pr && pr.ganadorUid === uid ? ' · <b>🏆 ganador</b>' : '') + '</li>');
       });
     });
@@ -2387,7 +2387,7 @@
         var aviso = "¡Felicidades " + u.nombre + "! 🏆 Ganaste la rifa de " + p.nombre + " en RAYAS STORE. Te enviaremos el item por Steam a tu trade link. ¡Gracias por participar! 🎉";
         h += '<div class="fbtns"><a class="btn btn-fuchsia btn-sm" target="_blank" rel="noopener" href="' + esc(waLinkA(waNum(u.whatsapp), aviso)) + '">Avisar al ganador por WhatsApp</a></div>';
       }
-      h += '<div class="frow"><span>Cupos</span><div class="adjq"><button class="iconbtn" type="button" data-a="cantPart" data-d="-1" data-uid="' + id + '" data-id="' + esc(p.id) + '"' + ((ctx.cantidad || 1) <= 1 ? ' disabled' : '') + ' aria-label="Quitar un cupo">−</button><b>' + (ctx.cantidad || 1) + '</b><button class="iconbtn" type="button" data-a="cantPart" data-d="1" data-uid="' + id + '" data-id="' + esc(p.id) + '" aria-label="Sumar un cupo">+</button><small>Ajuste manual: no cobra ni devuelve saldo.</small></div></div>';
+      h += '<div class="frow"><span>Tickets</span><div class="adjq"><button class="iconbtn" type="button" data-a="cantPart" data-d="-1" data-uid="' + id + '" data-id="' + esc(p.id) + '"' + ((ctx.cantidad || 1) <= 1 ? ' disabled' : '') + ' aria-label="Quitar un ticket">−</button><b>' + (ctx.cantidad || 1) + '</b><button class="iconbtn" type="button" data-a="cantPart" data-d="1" data-uid="' + id + '" data-id="' + esc(p.id) + '" aria-label="Sumar un ticket">+</button><small>Ajuste manual: no cobra ni devuelve saldo.</small></div></div>';
       var kq = p.id + "_" + uid, dq = ' data-uid="' + id + '" data-id="' + esc(p.id) + '"';
       h += '<div class="fbtns">' + (admin.quitarP === kq
         ? '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartSi"' + dq + ' data-dev="' + (admin.quitarDev ? 1 : 0) + '">Sí, ' + (admin.quitarDev ? 'quitar y devolver ' + (ctx.costo || 0) + ' soles' : 'solo quitar (sin devolver)') + '</button><button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartNo">No</button>'
@@ -2401,7 +2401,7 @@
     return estado.premios.map(function (p) {
       var l = partes[p.id] || [], pid = esc(p.id);
       var libres = (admin.usuarios || []).filter(function (u) { return !l.some(function (x) { return x.uid === u.uid; }); });
-      return '<div class="grp"><h3>Participantes · ' + esc(p.nombre || "Premio") + ' (' + l.length + (l.length === 1 ? ' persona' : ' personas') + ' · ' + tomados(p.id) + '/' + (num(p.cupos, 0) > 0 ? num(p.cupos, 0) : '∞') + ' cupos)</h3>' +
+      return '<div class="grp"><h3>Participantes · ' + esc(p.nombre || "Premio") + ' (' + l.length + (l.length === 1 ? ' persona' : ' personas') + ' · ' + tomados(p.id) + '/' + (num(p.cupos, 0) > 0 ? num(p.cupos, 0) : '∞') + ' tickets)</h3>' +
         (p.ganador ? '<p class="hint">🏆 Ganador: <b>' + esc(p.ganador) + '</b> <button class="btn btn-ghost btn-sm" type="button" data-a="quitarGan" data-id="' + pid + '">Quitar ganador</button></p>' : '') +
         (l.length ? '' : '<p class="hint">Todavía nadie participa en esta rifa.</p>') +
         l.map(function (x) {
@@ -2412,7 +2412,7 @@
         }).join("") +
         (admin.usuarios && libres.length ? '<div class="addp"><label for="add-u-' + pid + '">Agregar participante</label><div class="addrow"><select id="add-u-' + pid + '">' +
           libres.map(function (u) { return '<option value="' + esc(u.uid) + '">' + esc(u.nombre || u.email) + '</option>'; }).join("") +
-          '</select><input id="add-q-' + pid + '" type="number" min="1" max="100" value="1" aria-label="Cupos"><button class="btn btn-ghost btn-sm" type="button" data-a="addPart" data-id="' + pid + '">Agregar</button></div><small class="hint">Se agrega sin descontar saldo.</small>' + (admin.addPid === p.id && admin.addMsg ? '<p class="hint" style="color:' + (admin.addMsgOk ? 'var(--ok)' : 'var(--danger)') + '" role="status">' + esc(admin.addMsg) + '</p>' : '') + '</div>' : '') +
+          '</select><input id="add-q-' + pid + '" type="number" min="1" max="100" value="1" aria-label="Tickets"><button class="btn btn-ghost btn-sm" type="button" data-a="addPart" data-id="' + pid + '">Agregar</button></div><small class="hint">Se agrega sin descontar saldo.</small>' + (admin.addPid === p.id && admin.addMsg ? '<p class="hint" style="color:' + (admin.addMsgOk ? 'var(--ok)' : 'var(--danger)') + '" role="status">' + esc(admin.addMsg) + '</p>' : '') + '</div>' : '') +
         (l.length ? '<button class="btn btn-ghost btn-sm" type="button" data-a="sortear" data-id="' + pid + '">🎰 Sortear con ruleta</button>' + (p.replay ? ' <button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + pid + '">🎬 Ver repetición</button>' : '') : '') + '</div>';
     }).join("");
   }
@@ -2423,7 +2423,7 @@
   }
   function guardarCantidad(pid, uid, nueva) {
     var x = (partes[pid] || []).filter(function (y) { return y.uid === uid; })[0]; if (!x || nueva < 1) return;
-    if (nueva > x.cantidad && nueva - x.cantidad > cuposLibresAdmin(pid)) { admin.addPid = pid; admin.addMsg = "No hay suficientes cupos libres (quedan " + Math.max(0, cuposLibresAdmin(pid)) + "). Sube el límite de cupos del premio si quieres más."; admin.addMsgOk = false; render(); return; }
+    if (nueva > x.cantidad && nueva - x.cantidad > cuposLibresAdmin(pid)) { admin.addPid = pid; admin.addMsg = "No hay suficientes tickets libres (quedan " + Math.max(0, cuposLibresAdmin(pid)) + "). Sube el límite de tickets del premio si quieres más."; admin.addMsgOk = false; render(); return; }
     fsPedir("rayas_part/" + encodeURIComponent(pid + "_" + uid) + "?updateMask.fieldPaths=cantidad&currentDocument.exists=true", {
       method: "PATCH", body: JSON.stringify({ fields: { cantidad: { integerValue: String(nueva) } } })
     }).then(function (r) { if (r.status === 403) throw new Error("falta publicar las reglas nuevas de rayas_part"); if (!r.ok) throw new Error("Error " + r.status); x.cantidad = nueva; render(); })
@@ -2481,16 +2481,16 @@
     var sel = document.getElementById("add-u-" + pid), qn = document.getElementById("add-q-" + pid); if (!sel || !qn) return;
     var u = usuarioPorUid(sel.value), q = Math.max(1, Math.min(100, Math.floor(Number(qn.value) || 1))), k = buscarPremio(pid); if (!u || k < 0) return;
     var pr = estado.premios[k], lib = cuposLibresAdmin(pid);
-    if (q > lib) { admin.addPid = pid; admin.addMsg = lib <= 0 ? "La rifa ya está llena (" + num(pr.cupos, 0) + " cupos). Sube el límite de cupos del premio para agregar más." : "Solo quedan " + lib + " cupos libres."; admin.addMsgOk = false; render(); return; }
+    if (q > lib) { admin.addPid = pid; admin.addMsg = lib <= 0 ? "La rifa ya está llena (" + num(pr.cupos, 0) + " tickets). Sube el límite de tickets del premio para agregar más." : "Solo quedan " + lib + " tickets libres."; admin.addMsgOk = false; render(); return; }
     admin.addPid = pid; admin.addMsg = "Agregando…"; admin.addMsgOk = true; render();
     fsPedir("rayas_part/" + encodeURIComponent(pid + "_" + u.uid) + "?currentDocument.exists=false", {
       method: "PATCH", body: JSON.stringify({ fields: { uid: { stringValue: u.uid }, nombre: { stringValue: u.nombre }, premio: { stringValue: pid }, premioNombre: { stringValue: pr.nombre }, costo: { integerValue: "0" }, cantidad: { integerValue: String(q) }, creado: { timestampValue: new Date().toISOString() } } })
     }).then(function (r) {
       if (r.status === 403) throw new Error("Firebase no lo permite: falta publicar las reglas nuevas de rayas_part (las del mensaje anterior).");
-      if (r.status === 409) throw new Error("Ese usuario ya participa en esta rifa. Ajusta sus cupos en su ficha.");
+      if (r.status === 409) throw new Error("Ese usuario ya participa en esta rifa. Ajusta sus tickets en su ficha.");
       if (!r.ok) throw new Error("Error " + r.status);
       (partes[pid] = partes[pid] || []).push({ uid: u.uid, nombre: u.nombre, costo: 0, cantidad: q, creado: new Date().toISOString(), premioNombre: pr.nombre });
-      admin.addMsg = "✔ " + u.nombre + " agregado con " + q + (q === 1 ? " cupo." : " cupos."); admin.addMsgOk = true; render();
+      admin.addMsg = "✔ " + u.nombre + " agregado con " + q + (q === 1 ? " ticket." : " tickets."); admin.addMsgOk = true; render();
     }).catch(function (e) { admin.addMsg = e.message; admin.addMsgOk = false; render(); });
   }
   function listaPremios() {
@@ -2581,18 +2581,18 @@
       '<div class="field"><label for="f-inicio">Fecha y hora de inicio</label><input id="f-inicio" type="datetime-local" value="' + esc(aLocalInput(p.inicio)) + '"></div>' +
       '<div class="field"><label for="f-cierre">Fecha y hora de cierre</label><input id="f-cierre" type="datetime-local"' + (p.cierre ? '' : ' disabled') + ' value="' + esc(aLocalInput(p.cierre)) + '"></div>' +
       '</div>' +
-      '<label class="chk"><input type="checkbox" id="f-hasta"' + (p.cierre ? '' : ' checked') + '> Sin fecha: cerrar solo cuando se agoten los cupos</label>' +
+      '<label class="chk"><input type="checkbox" id="f-hasta"' + (p.cierre ? '' : ' checked') + '> Sin fecha: cerrar solo cuando se agoten los tickets</label>' +
       '<p class="hint">Inicio: si lo dejas vacío, la rifa empieza cuando publiques. La rifa se abre y se cierra sola en esas horas.</p>' +
       '<div class="row2">' +
       '<div class="field"><label for="f-estado">Estado</label><select id="f-estado">' +
       [['activa', 'Abierta'], ['proxima', 'Próximamente'], ['cerrada', 'Cerrada'], ['oculta', 'Deshabilitada (oculta)']].map(function (o) {
         return '<option value="' + o[0] + '"' + ((p.estado || "activa") === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
       }).join("") + '</select></div>' +
-      '<div class="field"><label for="f-cupos">Cupos (0 = sin límite)</label><input id="f-cupos" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.cupos, 0) + '"></div>' +
+      '<div class="field"><label for="f-cupos">Tickets (0 = sin límite)</label><input id="f-cupos" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.cupos, 0) + '"></div>' +
       '</div>' +
       '<div class="row2">' +
-      '<div class="field"><label for="f-part">Cupos ya vendidos (manual)</label><input id="f-part" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.participantes, 0) + '"></div>' +
-      '<div class="field"><label for="f-max">Máx. cupos por persona (0 = sin límite)</label><input id="f-max" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.maxPorUsuario, 0) + '"></div>' +
+      '<div class="field"><label for="f-part">Tickets ya vendidos (manual)</label><input id="f-part" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.participantes, 0) + '"></div>' +
+      '<div class="field"><label for="f-max">Máx. tickets por persona (0 = sin límite)</label><input id="f-max" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.maxPorUsuario, 0) + '"></div>' +
       '</div>' +
       '<div class="field"><label for="f-ganador">Ganador (al cerrar)</label><input id="f-ganador" maxlength="60" placeholder="Nombre o usuario de Steam" value="' + esc(p.ganador) + '"></div>' +
       '<p class="hint" id="formErr" style="color:var(--danger)"></p>' +
@@ -2617,7 +2617,7 @@
     else if (v("f-cierre") !== null) { var c = v("f-cierre"); var d = c ? new Date(c) : null; p.cierre = d && isFinite(d.getTime()) ? d.toISOString() : ""; }
     if (v("f-part") !== null) p.participantes = num(v("f-part"), 0);
     if (v("f-max") !== null) p.maxPorUsuario = num(v("f-max"), 0);
-    if (v("f-cupos") !== null) { p.cupos = num(v("f-cupos"), 0); var tk = tomados(p.id); if (p.cupos > 0 && p.cupos < tk) { p.cupos = tk; admin.msg = "Ya hay " + tk + " cupos tomados; el límite no puede ser menor."; admin.msgTipo = "err"; } }
+    if (v("f-cupos") !== null) { p.cupos = num(v("f-cupos"), 0); var tk = tomados(p.id); if (p.cupos > 0 && p.cupos < tk) { p.cupos = tk; admin.msg = "Ya hay " + tk + " tickets tomados; el límite no puede ser menor."; admin.msgTipo = "err"; } }
     if (v("f-ganador") !== null) p.ganador = v("f-ganador").trim();
   }
 
