@@ -2095,7 +2095,7 @@
         (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Configuraciones principales.</p>') +
         '<div class="empty frame"><div class="in"><strong>Estamos preparando esta sección</strong><span>Muy pronto podrás ' + (vista === "vender" ? 'vender' : 'comprar') + ' items de Dota 2 aquí.</span></div></div>' +
         '</div></section>';
-      html = a[0] + (vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuraciones principales.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : inicioHtml) + b[1];
+      html = a[0] + (vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : inicioHtml) + b[1];
     })();
     if (ruleta) html += modalRuleta();
     else if (modal && modal.tipo === "stock") html += stkPanelHtml();
@@ -2303,18 +2303,19 @@
       '<button class="btn btn-ghost btn-sm" type="button" data-a="recargarU">Actualizar lista</button></div>';
   }
 
+  var TABS_ADMIN = { config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pagina: "Textos y contactos" };
+  function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : "inicio"; }
+  function tabsDeSeccion(sc) { return sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "compras", "usuarios"] : ["config", "usuarios", "pagina"]; }
   function panelAdmin() {
-    var titulo = admin.editando ? (admin.editando.nuevo ? "Nuevo premio" : "Editar premio") : "Panel admin";
+    var sc = seccionAdmin(), lista = tabsDeSeccion(sc);
+    if (lista.indexOf(admin.tab) < 0) admin.tab = lista[0];
+    var nomSc = sc === "rifas" ? "Rifas" : sc === "items" ? "Compra y venta de items" : "General";
+    var titulo = admin.editando ? (admin.editando.nuevo ? "Nuevo premio" : "Editar premio") : "Panel admin · " + nomSc;
     var cuerpo;
     if (admin.editando) cuerpo = formPremio();
     else cuerpo = '<div class="tabs" role="tablist">' +
-      '<button class="tab" role="tab" type="button" data-a="tab" data-t="config" aria-selected="' + (admin.tab === "config") + '">⚙ Configuraciones principales</button>' +
-      '<button class="tab" role="tab" type="button" data-a="tab" data-t="premios" aria-selected="' + (admin.tab === "premios") + '">Premios</button>' +
-      '<button class="tab" role="tab" type="button" data-a="tab" data-t="usuarios" aria-selected="' + (admin.tab === "usuarios") + '">Usuarios y saldo</button>' +
-      '<button class="tab" role="tab" type="button" data-a="tab" data-t="items" aria-selected="' + (admin.tab === "items") + '">Items</button>' +
-      '<button class="tab" role="tab" type="button" data-a="tab" data-t="compras" aria-selected="' + (admin.tab === "compras") + '">Compras</button>' +
-      '<button class="tab" role="tab" type="button" data-a="tab" data-t="pagina" aria-selected="' + (admin.tab === "pagina") + '">Textos y contactos</button>' +
-      '</div>' + (admin.tab === "config" ? tabConfig() : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : listaPremios()))));
+      lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
+      '</div>' + (admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : listaPremios()))));
     return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar</button></div>' +
       '<div class="drawer-body">' + cuerpo + '</div>' +
@@ -2535,12 +2536,13 @@
     return '<label class="cfg-row' + (on ? ' on' : '') + '"><span class="cfg-tx"><b>' + titulo + '</b><small>' + desc + '</small><em>' + (on ? si : no) + '</em></span>' +
       '<input type="checkbox" class="' + cls + '"' + (on ? ' checked' : '') + '><span class="cfg-sw" aria-hidden="true"></span></label>';
   }
-  function tabConfig() {
+  function tabConfig(sc) {
     var it = !!(estado.secciones && estado.secciones.items), cq = !!(estado.pagos && estado.pagos.culqi);
-    return '<div class="grp cfg"><h3>Configuraciones principales</h3><p class="hint">Activa o desactiva las secciones de la página. Lo desactivado solo lo ves tú (administrador). Pulsa <b>Guardar y publicar</b> para que lo vean todos. Estas opciones son las mismas en Rayas Store y LitleJacob Store.</p>' +
-      swCfg("c-rifas", rifasOn(), "🎟️ Rifas", "Sección de rifas, cómo participar, ganadores y reglas.", "VISIBLE para los clientes", "OCULTA: solo tú la ves") +
-      swCfg("c-items", it, "🛒 Compra y venta de items", "Comprar items, Vender items y Carrito.", "VISIBLE para los clientes", "OCULTA: solo tú la ves") +
-      swCfg("c-pagos", cq, "💳 Culqi (tarjeta / Yape)", "Botón de pago en línea para recargar saldo.", "ACTIVO: pueden recargar con tarjeta o Yape", "APAGADO: solo piden saldo por WhatsApp") +
+    return '<div class="grp cfg"><h3>' + (sc === "rifas" ? 'Configuración de rifas' : sc === "items" ? 'Configuración de compra y venta' : 'Configuraciones principales') + '</h3><p class="hint">Activa o desactiva las secciones de la página. Lo desactivado solo lo ves tú (administrador). Pulsa <b>Guardar y publicar</b> para que lo vean todos. Estas opciones son las mismas en Rayas Store y LitleJacob Store.</p>' +
+      (sc === "items" ? "" : swCfg("c-rifas", rifasOn(), "🎟️ Rifas", "Sección de rifas, cómo participar, ganadores y reglas.", "VISIBLE para los clientes", "OCULTA: solo tú la ves")) +
+      (sc === "rifas" ? "" : swCfg("c-items", it, "🛒 Compra y venta de items", "Comprar items, Vender items y Carrito.", "VISIBLE para los clientes", "OCULTA: solo tú la ves")) +
+      (sc !== "inicio" ? "" : swCfg("c-pagos", cq, "💳 Culqi (tarjeta / Yape)", "Botón de pago en línea para recargar saldo.", "ACTIVO: pueden recargar con tarjeta o Yape", "APAGADO: solo piden saldo por WhatsApp")) +
+      (sc === "inicio" ? "" : '<p class="hint">Las demás opciones (Culqi, Yape, contactos) están en el panel de <b>Inicio</b>.</p>') +
       '</div>';
   }
   function tabPagina() {
