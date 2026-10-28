@@ -862,8 +862,9 @@
     (base || []).concat(items.lista.map(function (x) { return x[k]; })).forEach(function (v) { if (v && !set[v]) { set[v] = 1; out.push(v); } });
     return out.sort(function (a, b) { return a.localeCompare(b); });
   }
+  var COLOR_OPCION = { "ARCANO": "#ade55c", "INMORTAL": "#e4ae39", "LEGENDARIO": "#e455f5", "MÍTICO": "#a37dff", "RARO": "#6f8aff", "POCO COMÚN": "#7db3ec", "COMÚN": "#c3d2e3" };
   function opciones(lista, sel, vacio) {
-    return '<option value="">' + esc(vacio) + '</option>' + lista.map(function (v) { return '<option value="' + esc(v) + '"' + (v === sel ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join("");
+    return '<option value="">' + esc(vacio) + '</option>' + lista.map(function (v) { return '<option value="' + esc(v) + '"' + (v === sel ? ' selected' : '') + (COLOR_OPCION[v] ? ' style="color:' + COLOR_OPCION[v] + ';font-weight:700"' : '') + '>' + esc(v) + '</option>'; }).join("");
   }
   function itemCardHtml(it) {
     var agot = it.stock <= 0, col = colorRareza(it.rareza);
