@@ -1169,3 +1169,20 @@ body.itm-open{overflow:hidden}
 @media (max-width:640px){.rel-fila > .icard{flex-basis:170px}.rel-flechas{display:none}}
 
 .iprice b .desde, .itx-price b .desde { display: block; font: 700 10px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+
+/* ---------- Panel admin: Configuraciones principales ---------- */
+.grp.cfg { display: flex; flex-direction: column; gap: 12px; }
+.cfg-row { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border-radius: 16px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .1); cursor: pointer; transition: background .2s, border-color .2s; }
+.cfg-row:hover { background: rgba(255, 255, 255, .07); }
+.cfg-row.on { border-color: color-mix(in srgb, var(--yellow) 55%, transparent); background: color-mix(in srgb, var(--yellow) 8%, transparent); }
+.cfg-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cfg-tx b { font-size: 16px; color: #fff; }
+.cfg-tx small { font-size: 13px; color: var(--muted); line-height: 1.4; }
+.cfg-tx em { font-style: normal; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--muted); }
+.cfg-row.on .cfg-tx em { color: var(--yellow); }
+.cfg-row input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.cfg-sw { flex: 0 0 auto; width: 52px; height: 30px; border-radius: 999px; background: rgba(255, 255, 255, .14); position: relative; transition: background .2s; }
+.cfg-sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .4); transition: transform .2s; }
+.cfg-row.on .cfg-sw { background: linear-gradient(90deg, var(--yellow), var(--yellow-2, #ffd84d)); }
+.cfg-row.on .cfg-sw::after { transform: translateX(22px); }
+.cfg-row input:focus-visible + .cfg-sw { outline: 2px solid var(--yellow); outline-offset: 2px; }

@@ -227,7 +227,7 @@
       return { id: String(c.id || ("c" + i)), nombre: typeof c.nombre === "string" ? c.nombre : "", numero: String(c.numero || "").replace(/\D+/g, ""), activo: c.activo !== false, foto: typeof c.foto === "string" ? c.foto : "" };
     });
     st.pagos = { culqi: !!(st.pagos && st.pagos.culqi) };
-    st.secciones = { items: !!(st.secciones && st.secciones.items) };
+    st.secciones = { items: !!(st.secciones && st.secciones.items), rifas: !(st.secciones && st.secciones.rifas === false) };
     var yp = st.yape && typeof st.yape === "object" ? st.yape : {};
     st.yape = { qr: /^fs:img-[\w\-]+$/.test(String(yp.qr || "")) ? yp.qr : "", numero: String(yp.numero || "").replace(/\D+/g, "").slice(0, 12), nombre: typeof yp.nombre === "string" ? yp.nombre.slice(0, 40) : "" };
     (function () { // Todo en soles: limpia textos guardados que aún digan "créditos"
@@ -1972,12 +1972,15 @@
     if (!admin.puede) return "";
     return '<label class="chk" style="justify-content:center;margin:6px 0 14px"><input type="checkbox" class="c-items2"' + (estado.secciones && estado.secciones.items ? ' checked' : '') + '> Mostrar "Comprar items" y "Vender items" a los clientes (también en LitleJacob Store)</label>';
   }
+  function rifasOn() { return !(estado.secciones && estado.secciones.rifas === false); }
+  function rifasVisible() { return !!(admin.puede || rifasOn()); }
   function itemsVisible() { return !!(admin.puede || (estado.secciones && estado.secciones.items)); }
   function vistaDeHash() {
     var h = String(location.hash || "").replace("#", "");
     if (VISTA_HASH[h]) vistaActual = VISTA_HASH[h];
     if (/^item\//.test(h) || /^comprar\//.test(h)) vistaActual = "comprar";
     if ((vistaActual === "comprar" || vistaActual === "vender") && !itemsVisible()) vistaActual = "inicio";
+    if (vistaActual === "rifas" && !rifasVisible()) vistaActual = itemsVisible() ? "comprar" : "inicio";
     return vistaActual;
   }
   function render() {
@@ -1998,7 +2001,7 @@
     var html = '' +
       '<header class="topbar gutter"><div class="wrap">' +
       '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
-      '<nav class="nav"><a class="navlink' + (vista === "inicio" ? ' on' : '') + '" href="#inicio">Inicio</a><a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' +
+      '<nav class="nav"><a class="navlink' + (vista === "inicio" ? ' on' : '') + '" href="#inicio">Inicio</a>' + (rifasVisible() ? '<a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' : '') +
       (admin.puede ? '<button class="lock" type="button" data-a="admin">Panel admin</button>'
         : (cuenta.perfil ? '<button class="lock hot misrifas" type="button" data-a="misRifas">🎟️ Mis rifas</button><button class="lock me" type="button" data-a="miCuenta"><b>◆ ' + cuenta.perfil.creditos + '</b> soles<span class="nm"> · ' + esc(cuenta.perfil.nombre || "Mi cuenta") + '</span></button>'
           : (leerSesion() ? '<button class="lock" type="button" data-a="miCuenta">Mi cuenta</button>'
@@ -2007,7 +2010,7 @@
       '<div class="svcbar gutter"><div class="wrap">' +
       (itemsVisible() ? '<a class="svc-tab comprar' + (vista === "comprar" ? ' on' : '') + '" href="#comprar"><span>🛒</span>Comprar items' + (estado.secciones.items ? '' : ' 🔒') + '</a><a class="svc-tab vender' + (vista === "vender" ? ' on' : '') + '" href="#vender"><span>💰</span>Vender items' + (estado.secciones.items ? '' : ' 🔒') + '</a>' : '') +
       (itemsVisible() ? '<button type="button" class="svc-tab carrito" data-a="carAbrir"><span>🛒</span>Carrito' + (carroN() ? ' (' + carroN() + ')' : '') + '</button>' : '') +
-      '<a class="svc-tab' + (vista === "rifas" ? ' on' : '') + '" href="#rifas"><span>🎟️</span>Rifas</a>' +
+      (rifasVisible() ? '<a class="svc-tab' + (vista === "rifas" ? ' on' : '') + '" href="#rifas"><span>🎟️</span>Rifas' + (rifasOn() ? '' : ' 🔒') + '</a>' : '') +
       (linkCreditos || V || recargaOn() ? btnRecargar("svc-tab recargar", "btnRecargarNav", linkCreditos) : '') +
       '</div></div>' +
 
@@ -2075,11 +2078,11 @@
         tx("div", "inicioKicker", 'class="kicker"') +
         (V ? '<h1' + ed("t:inicioTitulo", "Título") + '>' + esc(T.inicioTitulo) + '</h1>' : '<h1>' + tituloHtml(T.inicioTitulo) + '</h1>') +
         tx("p", "inicioSub") +
-        '<div class="actions">' + lnk("btn btn-yellow", "#rifas", "cardRifasBtn") + btnRecargar("btn btn-fuchsia", "btnCreditos", linkCreditos) + '</div>' +
+        '<div class="actions">' + (rifasVisible() ? lnk("btn btn-yellow", "#rifas", "cardRifasBtn") : '') + btnRecargar("btn btn-fuchsia", "btnCreditos", linkCreditos) + '</div>' +
         '</div></section>' +
         '<section class="section gutter" id="secciones"><div class="wrap"><div class="sec-title"><div class="kicker">Nuestras secciones</div><h2><span class="t1">¿Qué</span> <span>buscas?</span></h2><div class="orn">◆</div></div>' +
         '<div class="cards2">' +
-        '<a class="svc frame gold" href="#rifas"><div class="in"><span class="ico">🎟️</span>' + tx("h3", "cardRifasT") + tx("p", "cardRifasD") + '<span class="btn btn-yellow">' + esc(T.cardRifasBtn) + '</span></div></a>' +
+        (rifasVisible() ? '<a class="svc frame' + (rifasOn() ? ' gold' : '') + '" href="#rifas"><div class="in">' + (rifasOn() ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">🎟️</span>' + tx("h3", "cardRifasT") + tx("p", "cardRifasD") + '<span class="btn btn-yellow">' + esc(T.cardRifasBtn) + '</span></div></a>' : '') +
         (itemsVisible() ? ['comprar', 'vender'].map(function (v) {
           var c = v === "comprar";
           return '<a class="svc frame' + (estado.secciones.items ? ' gold' : '') + '" href="#' + v + '"><div class="in">' + (estado.secciones.items ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">' + (c ? '🛒' : '💰') + '</span><h3>' + (c ? 'Comprar items' : 'Vender items') + '</h3><p>' + (c ? 'Compra items de Dota 2 de forma segura.' : 'Vende tus items de Dota 2 de forma segura.') + '</p><span class="btn btn-fuchsia">' + (c ? 'Ver items' : 'Vender') + '</span></div></a>';
@@ -2089,10 +2092,10 @@
       if (vista === "vender") cargarPrecios();
       var itemsHtml = vista === "comprar" ? comprarHtml() : vista === "vender" ? venderHtml() : '<section class="section gutter" id="' + vista + '"><div class="wrap">' +
         '<div class="sec-title"><div class="kicker">Próximamente</div><h2><span class="t1">' + (vista === "vender" ? 'Vender' : 'Comprar') + '</span> <span>items</span></h2><div class="orn">◆</div></div>' +
-        (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Página cuando esté lista.</p>') +
+        (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Configuraciones principales.</p>') +
         '<div class="empty frame"><div class="in"><strong>Estamos preparando esta sección</strong><span>Muy pronto podrás ' + (vista === "vender" ? 'vender' : 'comprar') + ' items de Dota 2 aquí.</span></div></div>' +
         '</div></section>';
-      html = a[0] + (vista === "rifas" ? b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : inicioHtml) + b[1];
+      html = a[0] + (vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuraciones principales.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : inicioHtml) + b[1];
     })();
     if (ruleta) html += modalRuleta();
     else if (modal && modal.tipo === "stock") html += stkPanelHtml();
@@ -2305,12 +2308,13 @@
     var cuerpo;
     if (admin.editando) cuerpo = formPremio();
     else cuerpo = '<div class="tabs" role="tablist">' +
+      '<button class="tab" role="tab" type="button" data-a="tab" data-t="config" aria-selected="' + (admin.tab === "config") + '">⚙ Configuraciones principales</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="premios" aria-selected="' + (admin.tab === "premios") + '">Premios</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="usuarios" aria-selected="' + (admin.tab === "usuarios") + '">Usuarios y saldo</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="items" aria-selected="' + (admin.tab === "items") + '">Items</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="compras" aria-selected="' + (admin.tab === "compras") + '">Compras</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="pagina" aria-selected="' + (admin.tab === "pagina") + '">Textos y contactos</button>' +
-      '</div>' + (admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : listaPremios()))));
+      '</div>' + (admin.tab === "config" ? tabConfig() : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : listaPremios()))));
     return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar</button></div>' +
       '<div class="drawer-body">' + cuerpo + '</div>' +
@@ -2527,14 +2531,21 @@
       '<div class="field"><label for="yape-nom">A nombre de (opcional)</label><input id="yape-nom" class="y-nom" maxlength="40" value="' + esc(y.nombre || "") + '"></div>' +
       '<p class="hint">Recuerda pulsar <b>Publicar</b> para que los clientes lo vean.</p></div>';
   }
+  function swCfg(cls, on, titulo, desc, si, no) {
+    return '<label class="cfg-row' + (on ? ' on' : '') + '"><span class="cfg-tx"><b>' + titulo + '</b><small>' + desc + '</small><em>' + (on ? si : no) + '</em></span>' +
+      '<input type="checkbox" class="' + cls + '"' + (on ? ' checked' : '') + '><span class="cfg-sw" aria-hidden="true"></span></label>';
+  }
+  function tabConfig() {
+    var it = !!(estado.secciones && estado.secciones.items), cq = !!(estado.pagos && estado.pagos.culqi);
+    return '<div class="grp cfg"><h3>Configuraciones principales</h3><p class="hint">Activa o desactiva las secciones de la página. Lo desactivado solo lo ves tú (administrador). Pulsa <b>Guardar y publicar</b> para que lo vean todos.</p>' +
+      swCfg("c-rifas", rifasOn(), "🎟️ Rifas", "Sección de rifas, cómo participar, ganadores y reglas.", "VISIBLE para los clientes", "OCULTA: solo tú la ves") +
+      swCfg("c-items", it, "🛒 Compra y venta de items", "Comprar items, Vender items y Carrito (también en LitleJacob Store).", "VISIBLE para los clientes", "OCULTA: solo tú la ves") +
+      swCfg("c-pagos", cq, "💳 Culqi (tarjeta / Yape)", "Botón de pago en línea para recargar saldo.", "ACTIVO: pueden recargar con tarjeta o Yape", "APAGADO: solo piden saldo por WhatsApp") +
+      '</div>';
+  }
   function tabPagina() {
     var T = estado.textos;
-    return '<div class="grp"><h3>Secciones de la página</h3>' +
-      '<label class="chk"><input type="checkbox" class="c-items"' + (estado.secciones && estado.secciones.items ? ' checked' : '') + '> Mostrar "Comprar items" y "Vender items" a los clientes</label>' +
-      '<p class="hint">' + (estado.secciones && estado.secciones.items ? 'VISIBLE: los clientes ven Comprar y Vender items.' : 'OCULTAS: solo tú ves Comprar y Vender items. Recuerda pulsar Publicar.') + '</p></div>' +
-      yapeAdminHtml() + '<div class="grp"><h3>Cobro con Culqi (tarjeta / Yape)</h3>' +
-      '<label class="chk"><input type="checkbox" class="c-pagos"' + (estado.pagos && estado.pagos.culqi ? ' checked' : '') + '> Cobrar con Culqi (los clientes ven el botón de pago)</label>' +
-      '<p class="hint">' + (estado.pagos && estado.pagos.culqi ? 'ACTIVO: los clientes pueden recargar con tarjeta o Yape.' : 'APAGADO: los clientes solo piden saldo por WhatsApp.') + ' Recuerda pulsar <b>Publicar</b> para que el cambio lo vean todos. Este interruptor vale para las dos páginas.</p></div>' +
+    return yapeAdminHtml() +
       (estado.contactos || []).map(function (c, k) {
       return '<div class="grp contacto-ed"><h3>Contacto ' + (k + 1) + ' · ' + esc(c.nombre || "sin nombre") + '</h3>' +
         '<div class="cav">' + avatar(c) +
@@ -2965,8 +2976,9 @@
       }).catch(function (e) { admin.subiendo = null; admin.imgErr = (e && e.message) || "No se pudo subir la imagen."; render(); });
       return;
     }
-    if (tc.classList && tc.classList.contains("c-items")) { estado.secciones = { items: tc.checked }; marcarSucio(); render(); return; }
-    if (tc.classList && tc.classList.contains("c-items2")) { estado.secciones = { items: tc.checked }; marcarSucio(); publicar(); return; }
+    if (tc.classList && tc.classList.contains("c-rifas")) { estado.secciones = { items: !!estado.secciones.items, rifas: tc.checked }; marcarSucio(); render(); return; }
+    if (tc.classList && tc.classList.contains("c-items")) { estado.secciones = { items: tc.checked, rifas: estado.secciones.rifas !== false }; marcarSucio(); render(); return; }
+    if (tc.classList && tc.classList.contains("c-items2")) { estado.secciones = { items: tc.checked, rifas: estado.secciones.rifas !== false }; marcarSucio(); publicar(); return; }
     if (tc.classList && tc.classList.contains("c-pagos")) { estado.pagos = { culqi: tc.checked }; marcarSucio(); render(); return; }
     if (tc.classList && tc.classList.contains("c-activo")) { estado.contactos[Number(tc.getAttribute("data-i"))].activo = tc.checked; marcarSucio(); render(); return; }
     if (tc.classList && (tc.classList.contains("c-nombre") || tc.classList.contains("c-num"))) { render(); return; }
