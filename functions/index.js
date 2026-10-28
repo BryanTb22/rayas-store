@@ -555,8 +555,8 @@ exports.participarRifa = onRequest(
       const m = e && e.message;
       if (m === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanza el saldo. Te faltan " + e.falta + ".", falta: e.falta });
       if (m === "SIN_PERFIL") return res.status(400).json({ error: "Completa tu perfil antes de participar." });
-      if (m === "SIN_CUPOS") return res.status(409).json({ error: "No quedan suficientes cupos en esta rifa." });
-      if (m === "TOPE") return res.status(409).json({ error: "Superas el máximo de cupos permitido por persona en esta rifa." });
+      if (m === "SIN_CUPOS") return res.status(409).json({ error: "No quedan suficientes tickets en esta rifa." });
+      if (m === "TOPE") return res.status(409).json({ error: "Superas el máximo de tickets permitido por persona en esta rifa." });
       console.error("participarRifa", e);
       return res.status(500).json({ error: "No se pudo registrar tu participación. No se descontó saldo; intenta de nuevo." });
     }
