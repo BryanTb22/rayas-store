@@ -1013,3 +1013,31 @@ select option:checked, select option:hover { background-color: #1b2a63; color: #
 .fed-row label{flex:1;display:flex;gap:8px;align-items:center}
 .fed-row input[type=range]{flex:1}
 .fed .sel{border-color:#ffc93c;color:#ffc93c}
+
+/* Gemas (como lis-skins) y ofertas del mismo item */
+.gchip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:.78rem;font-weight:700;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);white-space:nowrap}
+.gchip.g-un{background:rgba(158,232,255,.12);border-color:#9ee8ff;color:#9ee8ff}
+.gchip.g-pr{background:rgba(126,231,135,.12);border-color:#7ee787;color:#7ee787}
+.gchip.g-et{background:rgba(190,150,255,.12);border-color:#be96ff;color:#be96ff}
+.gchip.g-in{background:rgba(255,201,60,.12);border-color:#ffc93c;color:#ffc93c}
+.idesc .grow{display:flex;align-items:center;gap:8px;padding:5px 0}
+.idesc .gdot{width:10px;height:10px;border-radius:50%;background:#8a93b8;flex:none}
+.idesc .g-un .gdot{background:#9ee8ff}.idesc .g-pr .gdot{background:#7ee787}.idesc .g-et .gdot{background:#be96ff}.idesc .g-in .gdot{background:#ffc93c}
+.idesc .gv{font-weight:700}
+.idesc .gk{color:var(--muted);font-weight:400;font-size:.82rem;margin-left:auto}
+.ofr{margin-top:26px}
+.ofr h3{margin:0 0 10px}
+.ofr-t{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ofr-h,.ofr-r{display:grid;grid-template-columns:1fr 70px 110px 80px;gap:10px;align-items:center;padding:10px 14px}
+.ofr-h{background:rgba(255,255,255,.05);font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ofr-r{border-top:1px solid var(--line);color:inherit;text-decoration:none}
+.ofr-r:hover{background:rgba(255,255,255,.05)}
+.ofr-r.cur{background:rgba(255,201,60,.1)}
+.ofr-r.agot{opacity:.55}
+.ofr-g{display:flex;gap:6px;flex-wrap:wrap}
+.ofr-g em{color:var(--muted)}
+.ofr-p small{margin-left:6px;color:var(--muted)}
+.ofr-b{text-align:center;font-weight:700;color:var(--yellow)}
+@media (max-width:640px){.ofr-h,.ofr-r{grid-template-columns:1fr 54px 84px;}.ofr-h span:last-child,.ofr-b{display:none}}
+.gform .grow-f{display:flex;gap:8px;margin-bottom:8px}
+.gform .grow-f input{flex:1;min-width:0}
