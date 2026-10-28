@@ -2095,7 +2095,7 @@
         (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Configuraciones principales.</p>') +
         '<div class="empty frame"><div class="in"><strong>Estamos preparando esta sección</strong><span>Muy pronto podrás ' + (vista === "vender" ? 'vender' : 'comprar') + ' items de Dota 2 aquí.</span></div></div>' +
         '</div></section>';
-      html = a[0] + (vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuraciones principales.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : inicioHtml) + b[1];
+      html = a[0] + (vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : inicioHtml) + b[1];
     })();
     if (ruleta) html += modalRuleta();
     else if (modal && modal.tipo === "stock") html += stkPanelHtml();
