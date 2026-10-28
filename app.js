@@ -264,7 +264,7 @@
   function safeImg(src) {
     src = String(src || "").trim();
     if (/^img\/[\w.\-]+$/.test(src)) return src;
-    if (/^https:\/\/[^\s"'<>()]+$/.test(src)) return src;
+    if (/^https:\/\/[^\s"'<>()]+$/.test(src)) return src.replace(/(steamstatic\.com\/economy\/image\/[^\s"'<>()]+)\/(\d+)fx(\d+)f$/, function (m, a, w) { return Number(w) > 256 ? a + "/256fx256f" : m; });
     return "";
   }
   var RAREZAS = { "ARCANO": "#ade55c", "INMORTAL": "#e4ae39", "LEGENDARIO": "#d32ce6", "MÍTICO": "#8847ff", "RARO": "#4b69ff", "POCO COMÚN": "#5e98d9", "COMÚN": "#b0c3d9" };
@@ -718,7 +718,7 @@
       return '<img data-fs="' + esc(id) + '"' + (IMG_CACHE[id] ? ' src="' + IMG_CACHE[id] + '"' : '') + ' alt="' + esc(alt) + '"' + (extra || '') + '>';
     }
     var u = safeImg(src);
-    return u ? '<img src="' + esc(u) + '" alt="' + esc(alt) + '"' + (extra || '') + '>' : '';
+    return u ? '<img src="' + esc(u) + '" alt="' + esc(alt) + '" decoding="async"' + (extra || '') + '>' : '';
   }
   function cargarFs(id) {
     if (IMG_CACHE[id]) return Promise.resolve(IMG_CACHE[id]);
@@ -798,7 +798,7 @@
   var ITEM_TIPOS = ["Wearable", "Courier", "Ward", "HUD Skin", "Announcer", "Bundle", "Loading Screen", "Pennant", "Sticker", "Otro"];
   var ITEM_CALIDADES = ["Standard", "Genuine", "Unusual", "Inscribed", "Autographed", "Heroic", "Corrupted", "Frozen", "Cursed", "Infused", "Exalted"];
   var items = { lista: [], cargado: false, cargando: false, err: "" };
-  var filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", limite: 48 };
+  var filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", limite: 24 };
   var elegirMsg = null;
   function sinTildes(t) { return String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
   function fmtPrecio(n) { return "S/ " + (Math.round(Number(n) * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
@@ -912,7 +912,7 @@
     var id = el.id;
     var mapa = { "fi-q": "q", "fi-min": "min", "fi-max": "max", "fi-heroe": "heroe", "fi-ranura": "ranura", "fi-rareza": "rareza", "fi-calidad": "calidad", "fi-orden": "orden" };
     if (!mapa[id]) return false;
-    filtros[mapa[id]] = el.value; filtros.limite = 48; pintarItems(); return true;
+    filtros[mapa[id]] = el.value; filtros.limite = 24; pintarItems(); return true;
   }
   function itemPorId(id) { for (var k = 0; k < items.lista.length; k++) if (items.lista[k].id === id) return items.lista[k]; return null; }
   function modalItemHtml(m) {
@@ -1289,7 +1289,7 @@
     var I = impEstado(); if (!I.lista || !I.lista.length || I.subiendo) return;
     var base = "projects/" + FB.projectId + "/databases/(default)/documents/", ahora = Date.now(), lote = [], nuevos = [];
     I.lista.forEach(function (g, k) {
-      var it = { id: "inv-" + slugCompra(g.name), nombre: g.name, img: String(g.icon || "").replace(/\/\d+fx\d+f$/, "/360fx360f"), precio: 0, stock: g.n,
+      var it = { id: "inv-" + slugCompra(g.name), nombre: g.name, img: String(g.icon || "").replace(/\/\d+fx\d+f$/, "/256fx256f"), precio: 0, stock: g.n,
         tipo: g.tipo || "Otro", heroe: g.heroe || "", ranura: g.ranura || "", rareza: g.rareza, calidad: g.calidad || "", estilos: 0, estOk: "", activo: false,
         creado: new Date(ahora - k).toISOString() };
       nuevos.push(it);
@@ -2108,9 +2108,9 @@
       case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; render(); break;
       case "editRapido": admin.fichaU = "u_" + t.getAttribute("data-uid"); admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cantPart": var xq = (partes[t.getAttribute("data-id")] || []).filter(function (y) { return y.uid === t.getAttribute("data-uid"); })[0]; if (xq) guardarCantidad(t.getAttribute("data-id"), xq.uid, xq.cantidad + Number(t.getAttribute("data-d"))); break;
-      case "itTipo": filtros.tipo = t.getAttribute("data-v") || ""; filtros.limite = 48; render(); break;
-      case "itReset": filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", limite: 48 }; render(); break;
-      case "itMas": filtros.limite += 48; pintarItems(); break;
+      case "itTipo": filtros.tipo = t.getAttribute("data-v") || ""; filtros.limite = 24; render(); break;
+      case "itReset": filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", limite: 24 }; render(); break;
+      case "itMas": filtros.limite += 24; pintarItems(); break;
       case "itVer": modal = { tipo: "item", id: t.getAttribute("data-id") }; render(); hidratarImgs(); break;
       case "itWsp":
         var iw = itemPorId(t.getAttribute("data-id")), cw = contactos();
