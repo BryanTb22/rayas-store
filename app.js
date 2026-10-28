@@ -1015,7 +1015,7 @@
       '<button type="button" class="btn btn-ghost btn-sm" data-a="itReset" style="width:100%">Restablecer filtros</button></details></aside>';
     return '<section class="section gutter" id="comprar"><div class="wrap">' +
       '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><div class="orn">◆</div></div>' +
-      (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Textos y contactos.</p>') +
+      (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala con el interruptor de abajo cuando esté lista.</p>') + switchItems() +
       (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkAbrir">📦 Stock de items</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + importarHtml() : '') +
       ((filtros.tipo || filtros.heroe) ? migaCatalogoHtml(filtros.tipo, filtros.heroe, "") : '') +
       '<div class="itabs">' + tabs + '</div>' +
@@ -1499,7 +1499,7 @@
     }
     return '<section class="section gutter" id="vender"><div class="wrap">' +
       '<div class="sec-title"><div class="kicker">Tus items</div><h2><span class="t1">Vender</span> <span>items</span></h2><div class="orn">◆</div></div>' +
-      (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Textos y contactos.</p>') +
+      (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala con el interruptor de abajo cuando esté lista.</p>') + switchItems() +
       '<div class="vlink frame"><div class="in"><label for="ven-link">Tu trade link de Steam</label>' +
       '<div class="vrow"><input id="ven-link" type="url" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(ven.link) + '" autocomplete="off">' +
       '<button class="btn btn-fuchsia" type="button" data-a="venVer"' + (ven.cargando ? ' disabled' : '') + '>Ver mi inventario</button></div>' +
@@ -1964,6 +1964,10 @@
 
   var VISTA_HASH = { inicio: "inicio", rifas: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender" };
   var vistaActual = "inicio";
+  function switchItems() {
+    if (!admin.puede) return "";
+    return '<label class="chk" style="justify-content:center;margin:6px 0 14px"><input type="checkbox" class="c-items2"' + (estado.secciones && estado.secciones.items ? ' checked' : '') + '> Mostrar "Comprar items" y "Vender items" a los clientes (también en LitleJacob Store)</label>';
+  }
   function itemsVisible() { return !!(admin.puede || (estado.secciones && estado.secciones.items)); }
   function vistaDeHash() {
     var h = String(location.hash || "").replace("#", "");
@@ -2958,6 +2962,7 @@
       return;
     }
     if (tc.classList && tc.classList.contains("c-items")) { estado.secciones = { items: tc.checked }; marcarSucio(); render(); return; }
+    if (tc.classList && tc.classList.contains("c-items2")) { estado.secciones = { items: tc.checked }; marcarSucio(); publicar(); return; }
     if (tc.classList && tc.classList.contains("c-pagos")) { estado.pagos = { culqi: tc.checked }; marcarSucio(); render(); return; }
     if (tc.classList && tc.classList.contains("c-activo")) { estado.contactos[Number(tc.getAttribute("data-i"))].activo = tc.checked; marcarSucio(); render(); return; }
     if (tc.classList && (tc.classList.contains("c-nombre") || tc.classList.contains("c-num"))) { render(); return; }
