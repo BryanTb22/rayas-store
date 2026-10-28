@@ -582,15 +582,9 @@ html.tn .section { padding-block: var(--tn-sp-5); }
 html.tn .sec-title { margin-bottom: var(--tn-sp-4); }
 @media (max-width: 560px) { html.tn .section { padding-block: 44px; } html.tn .sec-title { margin-bottom: 28px; } html.tn .card h3 { font-size: 24px; } }
 
-/* Barra superior compacta al bajar */
-html.tn .topbar .wrap { transition: padding .25s ease; }
-html.tn .topbar .logo, html.tn .topbar .logo-img { transition: font-size .25s ease, width .25s ease, height .25s ease; }
-html.tn.tn-scrolled .topbar .wrap { padding-block: 4px; }
-html.tn.tn-scrolled .topbar .logo { font-size: 22px; }
-html.tn.tn-scrolled .topbar .logo-img { width: 32px; height: 32px; }
+/* Barra superior al bajar: solo se le añade sombra. NO cambia de tamaño: si la barra se encogía al pasar los 40 px, el contenido se movía,
+   el navegador corregía el scroll hacia arriba, la barra volvía a crecer y la página rebotaba (salto de ~20 px al scrollear). */
 html.tn.tn-scrolled .topbar { box-shadow: 0 8px 28px rgba(0, 0, 0, .35); }
-html.tn.tn-scrolled .svcbar .wrap { padding-block: 6px; }
-@media (max-width: 560px) { html.tn.tn-scrolled .topbar .logo { font-size: 19px; } html.tn.tn-scrolled .topbar .logo-img { width: 28px; height: 28px; } }
 
 /* Foco visible */
 html.tn :focus-visible { outline: 2px solid var(--yellow); outline-offset: 3px; box-shadow: var(--tn-ring); border-radius: 10px; }
@@ -657,3 +651,27 @@ html.tn .icard .iacts .ibuy { padding: 8px 9px; font-size: 10.5px; letter-spacin
 }
 .itaviso { margin: 8px 0; padding: 9px 12px; border-radius: 10px; border: 1px solid rgba(255,201,60,.4); background: rgba(255,201,60,.1); font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 #fi-heroe { width: 100%; }
+
+/* ---------- Rendimiento al hacer scroll ----------
+   El fondo se mueve todo el tiempo (manchas + partículas). Cada elemento con backdrop-filter obliga al navegador a volver a
+   desenfocar lo que hay detrás en CADA cuadro, y con decenas de tarjetas eso dejaba el scroll a trompicones (~7 fps en un equipo lento).
+   Se quita el desenfoque en las piezas repetidas (sus fondos ya son translúcidos, se ven casi igual) y se deja solo en las barras
+   fijas y en los paneles/ventanas, que son pocos. Las manchas del fondo ya vienen difuminadas por su degradado: no necesitan blur(90px). */
+#tnFondo i { filter: none; }
+html.tn .itabs, html.tn .ifilt, html.tn .itadm .in, html.tn .ofr-t, html.tn .idesc, html.tn .ipg-foto, html.tn .impcard, html.tn .imprepo,
+html.tn .badge,
+html.tn .frame > .in,
+html.tn .footer,
+html.tn .btn-ghost,
+html.tn .icard,
+html.tn .itag,
+html.tn .itadmb .btn,
+html.tn .ipg-tag,
+html.tn #rifas .sec-title > p,
+html.tn .status,
+html.tn .ctools,
+html.tn .trust li,
+html.tn .card .soon.full,
+html.tn .card .pic.zoomable::before,
+html.tn #rzoom .rz-x,
+html.tn .fchip { backdrop-filter: none; -webkit-backdrop-filter: none; }

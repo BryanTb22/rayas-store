@@ -28,8 +28,9 @@
       var p = ps[i]; p.y += p.vy; p.x += p.vx + Math.sin(p.t) * .12; p.t += p.ts;
       if (p.y < -10) ps[i] = nueva(true); else if (p.x < -10) p.x = W + 10; else if (p.x > W + 10) p.x = -10;
       var al = p.a * (.55 + .45 * Math.sin(p.t * 3));
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832);
-      ctx.fillStyle = "hsla(" + p.h + ",95%,62%," + al + ")"; ctx.shadowBlur = 10; ctx.shadowColor = "hsla(" + p.h + ",95%,55%,.85)"; ctx.fill();
+      // Brillo con un halo tenue (barato); shadowBlur por partícula era lo más pesado del dibujo.
+      ctx.fillStyle = "hsla(" + p.h + ",95%,55%," + (al * .22) + ")"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3.4, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = "hsla(" + p.h + ",95%,62%," + al + ")"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
     }
     requestAnimationFrame(cuadro);
   }
