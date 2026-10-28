@@ -105,6 +105,8 @@
   var STEAM_LOGO = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-9.96 9.1l5.35 2.2a2.8 2.8 0 0 1 1.6-.5h.15l2.38-3.45v-.05a3.75 3.75 0 1 1 3.75 3.75h-.09l-3.4 2.43a2.8 2.8 0 0 1-5.55.45L2.3 14.3A10 10 0 1 0 12 2zm-4.9 14.5-1.2-.5a2.1 2.1 0 0 0 4-.75 2.1 2.1 0 0 0-2.8-2l1.24.5a1.55 1.55 0 1 1-1.24 2.75zm8.9-5.1a2.5 2.5 0 1 0-2.5-2.5 2.5 2.5 0 0 0 2.5 2.5zm0-.95a1.55 1.55 0 1 1 1.55-1.55 1.55 1.55 0 0 1-1.55 1.55z"/></svg>';
   var steamPre = null;   // datos que trae Steam para sugerir en "Completa tu perfil": { sid, nom }
   function btnSteam() { return '<button type="button" class="sbtn" data-a="steamEntrar">' + STEAM_LOGO + '<span>Entrar con Steam</span></button>'; }
+  // signInWithCustomToken NO devuelve localId: el uid sale del propio token de sesión.
+  function uidDeJwt(t) { try { var p = JSON.parse(atob(String(t).split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); return p.user_id || p.sub || null; } catch (e) { return null; } }
   function steamIr(vincular) {
     var enviar = function (tk) {
       var h = { "Content-Type": "application/json" }; if (tk) h.Authorization = "Bearer " + tk;
@@ -134,7 +136,7 @@
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: o.steamtoken, returnSecureToken: true })
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (!j.idToken) throw new Error((j.error && j.error.message) || "LOGIN_FAILED");
-      guardarSesion({ id: j.idToken, ref: j.refreshToken, exp: Date.now() + (Number(j.expiresIn) || 3600) * 1000 - 60000, email: "", uid: j.localId || null });
+      guardarSesion({ id: j.idToken, ref: j.refreshToken, exp: Date.now() + (Number(j.expiresIn) || 3600) * 1000 - 60000, email: "", uid: j.localId || uidDeJwt(j.idToken) });
       trasEntrar();
     }).catch(function (e) { cuenta.modo = "login"; cuenta.msg = "No se pudo entrar con Steam. " + errSimple(e && e.message); cuenta.msgTipo = "err"; render(); });
     return true;
