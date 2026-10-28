@@ -1051,3 +1051,37 @@ select option:checked, select option:hover { background-color: #1b2a63; color: #
 .stk-ed .field{margin:0 0 8px}
 .stk-ed .field label{display:block;font-size:12px;opacity:.75;margin-bottom:3px}
 .stk-ed input:not([type=checkbox]):not([type=file]),.stk-ed select,.stk-ed textarea{width:100%}
+
+/* ===== Diseño suave: todo redondeado, sin esquinas cortadas ni botones hexagonales ===== */
+:root { --r-sm: 12px; --r-md: 18px; --r-lg: 24px; --sombra: 0 8px 24px rgba(0, 0, 0, .28); }
+.btn { clip-path: none; border-radius: 999px; padding: 13px 26px; letter-spacing: .07em; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
+.btn-sm { padding: 9px 18px; }
+.btn-ghost { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--yellow) 40%, transparent), 0 2px 8px rgba(0, 0, 0, .2); }
+.btn:active { transform: translateY(0) scale(.98); }
+.nav .lock { border-radius: 999px; padding: 7px 16px; }
+.tab, .subtab { border-radius: 999px; }
+.field input, .field select, .field textarea, .ifilt input, .ifilt select, .stk-ctl input, .stk-ctl select, .itfbar input, .itfbar select { border-radius: var(--r-sm); }
+input[type=search], input[type=text], input[type=number], input[type=url], input[type=email], input[type=password], input:not([type]), select, textarea { border-radius: var(--r-sm); }
+.itabs { border-radius: var(--r-md); padding: 8px 10px; }
+.itab { border-radius: 999px; padding: 8px 16px; }
+.ifilt { border-radius: var(--r-md); }
+.icard { border-radius: var(--r-md); box-shadow: var(--sombra); }
+.icard .ithumb { border-radius: var(--r-md) var(--r-md) 0 0; }
+.ibuy { border-radius: 999px; padding: 7px 14px; }
+.isteam-go { border-radius: 999px; }
+.itag, .ipg-tag { border-radius: 999px; }
+.itadmb .btn, .itadmb button { border-radius: 999px; }
+.elegir, .itx-dialog { border-radius: var(--r-lg); }
+.elegir .btn, .elegir .mbtns .btn { border-radius: 999px; }
+.stk-row { border-radius: var(--r-md); }
+.stk-stat, .stk-stats > div { border-radius: var(--r-md); }
+.stk-status, .stk-edbtn, .stk-qty, .stk-qty input, .stk-qty button { border-radius: 999px; }
+.stk-ed { border-radius: 0 0 var(--r-md) var(--r-md); }
+.gchip { border-radius: 999px; }
+.grp, .imprepo, .impcard, .idesc, .ofr-t, .ipg-foto, .ipg-precio { border-radius: var(--r-md); }
+.ipg-foto { overflow: hidden; }
+.ofr-r:last-child { border-radius: 0 0 var(--r-md) var(--r-md); }
+.editbar { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.chk input[type=checkbox] { border-radius: 6px; }
+.yapeqr, .yapeqr img, .fed, .fed canvas { border-radius: var(--r-md); }
+.card .pic, .card .pic img { border-radius: var(--r-md) var(--r-md) 0 0; }
