@@ -1159,3 +1159,11 @@ body.itm-open{overflow:hidden}
   .itm-box .grp{grid-template-columns:1fr;padding:18px 14px 0}
   .itm-box .grp > .cav:last-child{margin:6px -14px 0;padding:12px 14px}
 }
+
+/* Items relacionados: una sola fila que se desliza */
+.rel-fila{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x proximity;padding:4px 2px 14px;scrollbar-width:thin}
+.rel-fila > .icard{flex:0 0 210px;scroll-snap-align:start}
+.rel-flechas{display:flex;gap:8px}
+.rel-f{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--yellow);font-size:18px;cursor:pointer}
+.rel-f:hover{background:rgba(255,255,255,.12)}
+@media (max-width:640px){.rel-fila > .icard{flex-basis:170px}.rel-flechas{display:none}}
