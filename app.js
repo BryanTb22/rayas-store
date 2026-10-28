@@ -1103,6 +1103,12 @@
   function ventaEvento(el) {
     if (el.id === "ven-link") { ven.link = el.value; return true; }
     if (el.id === "imp-link") { impEstado().link = el.value; return true; }
+    if (el.id.indexOf("imp-sel-") === 0) {
+      var Is = impEstado(); Is.sel = Is.sel || {}; Is.sel[el.id.slice(8)] = el.checked;
+      var lab = el.closest && el.closest(".impcard"); if (lab) lab.classList.toggle("off", !el.checked);
+      var bt = document.getElementById("imp-subir"); if (bt) { bt.textContent = impTextoSubir(Is); bt.disabled = !!Is.subiendo || !impCuenta(Is); }
+      return true;
+    }
     if (el.id === "ven-q") {
       ven.q = el.value; var pos = el.selectionStart; render();
       var nq = document.getElementById("ven-q"); if (nq) { nq.focus(); try { nq.setSelectionRange(pos, pos); } catch (e) { /* nada */ } }
@@ -1289,8 +1295,22 @@
       (I.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(I.err) + '</p>' : '') +
       (I.lista ? '<p class="hint"><b>' + I.lista.length + '</b> items nuevos para subir (' + esc(resumen) + ')' + (conGemas ? ', <b>' + conGemas + '</b> con gemas' : '') + '.' + (notas.length ? '<br>' + notas.join('.<br>') + '.' : '') + '<br>Se suben <b>ocultos y sin precio</b>: pon el precio con ✎ y actívalos para que los vean los clientes.</p>' +
         ((I.diag || []).length ? '<p class="hint" style="color:var(--danger)">No pude leer las gemas de: ' + I.diag.map(function (d) { return esc(d.name) + ' (' + esc(d.lineas.join(' / ')) + ')'; }).join('; ') + '. Mándale esta pantalla a Claude para ajustarlo.</p>' : '') +
-        (I.lista.length ? '<button type="button" class="btn btn-yellow btn-sm" data-a="impSubir"' + (I.subiendo ? ' disabled' : '') + '>' + (I.subiendo ? 'Subiendo…' : 'Subir ' + I.lista.length + ' items') + '</button>' : '') : '') +
+        (I.lista.length ? impPrevisualHtml(I) + '<div class="impbar"><button type="button" class="btn btn-ghost btn-sm" data-a="impTodos">Marcar todos</button><button type="button" class="btn btn-ghost btn-sm" data-a="impNinguno">Quitar todos</button>' +
+          '<button type="button" class="btn btn-yellow btn-sm" id="imp-subir" data-a="impSubir"' + (I.subiendo || !impCuenta(I) ? ' disabled' : '') + '>' + impTextoSubir(I) + '</button></div>' : '') : '') +
       (I.msg ? '<p class="hint" role="status">' + esc(I.msg) + '</p>' : '') + '</div></div>';
+  }
+  function impCuenta(I) { var n = 0; (I.lista || []).forEach(function (g, k) { if (I.sel && I.sel[k]) n++; }); return n; }
+  function impTextoSubir(I) { return I.subiendo ? 'Subiendo…' : 'Subir ' + impCuenta(I) + ' de ' + I.lista.length + ' items'; }
+  /* Vista previa: cada item con su foto, rareza, gemas y una casilla para elegir si se sube. */
+  function impPrevisualHtml(I) {
+    return '<div class="impgrid">' + I.lista.map(function (g, k) {
+      var col = colorRareza(g.rareza), on = !!(I.sel && I.sel[k]), gem = g.gemas || [];
+      return '<label class="impcard' + (on ? '' : ' off') + '" style="--rar:' + col + '"><input type="checkbox" id="imp-sel-' + k + '"' + (on ? ' checked' : '') + '>' +
+        '<div class="ithumb" style="--rar:' + col + '">' + (imgTag(String(g.icon || "").replace(/\/\d+fx\d+f$/, "/256fx256f"), g.name, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') + (g.n > 1 ? '<span class="itag">x' + g.n + '</span>' : '') + '</div>' +
+        '<b class="impn">' + esc(g.name) + '</b><span class="impm" style="color:' + col + '">' + esc(g.rareza) + (g.heroe ? ' · ' + esc(g.heroe) : '') + '</span>' +
+        (gem.length ? '<span class="impg">💎 ' + gem.slice(0, 3).map(esc).join('<br>') + (gem.length > 3 ? '<br>+' + (gem.length - 3) + ' más' : '') + '</span>' : '') +
+        (g._repl ? '<span class="impr">Reemplaza uno subido antes</span>' : '') + '</label>';
+    }).join("") + '</div>';
   }
   function impId(g) { return "inv-" + slugCompra(g.name) + (g.sig ? "-" + g.sig : ""); }
   function impTraer() {
@@ -1312,20 +1332,23 @@
           if (!g.sig) { if (porNombre[claveCompra(g.name)]) { ya++; return; } nuevos.push(g); return; }
           var base = "inv-" + slugCompra(g.name), viejo = porId[base];             // subido antes, sin gemas
           if (viejo && !viejo.descripcion && !sinGemas[claveCompra(g.name)]) {
-            if (!viejo.activo && !(viejo.precio > 0)) reemplazar[base] = 1; else { conPrecio++; return; }
+            if (!viejo.activo && !(viejo.precio > 0)) { reemplazar[base] = 1; g._repl = base; } else { conPrecio++; return; }
           }
           nuevos.push(g);
         });
-        I.lista = nuevos; I.borrar = Object.keys(reemplazar); I.yaEstaban = ya; I.conPrecio = conPrecio; I.total = todos.length; I.diag = x.j.diag || [];
+        I.lista = nuevos; I.sel = {}; nuevos.forEach(function (g, k) { I.sel[k] = true; }); I.borrar = Object.keys(reemplazar); I.yaEstaban = ya; I.conPrecio = conPrecio; I.total = todos.length; I.diag = x.j.diag || [];
         if (!todos.length) I.msg = "No hay items intercambiables de esas rarezas en este inventario.";
         render();
       }).catch(function () { I.cargando = false; I.err = "No se pudo conectar. Intenta de nuevo."; render(); });
   }
   function impSubir() {
     var I = impEstado(); if (!I.lista || !I.lista.length || I.subiendo) return;
-    var base = "projects/" + FB.projectId + "/databases/(default)/documents/", ahora = Date.now(), lote = [], nuevos = [];
-    (I.borrar || []).forEach(function (id) { lote.push({ delete: base + "rayas_items/" + id }); });
-    I.lista.forEach(function (g, k) {
+    var elegidos = I.lista.filter(function (g, k) { return I.sel && I.sel[k]; });
+    if (!elegidos.length) { I.err = "Marca al menos un item para subir."; render(); return; }
+    var base = "projects/" + FB.projectId + "/databases/(default)/documents/", ahora = Date.now(), lote = [], nuevos = [], aBorrar = {};
+    elegidos.forEach(function (g) { if (g._repl) aBorrar[g._repl] = 1; });
+    Object.keys(aBorrar).forEach(function (id) { lote.push({ delete: base + "rayas_items/" + id }); });
+    elegidos.forEach(function (g, k) {
       var it = { id: impId(g), nombre: g.name, img: String(g.icon || "").replace(/\/\d+fx\d+f$/, "/256fx256f"), precio: 0, stock: g.n,
         tipo: g.tipo || "Otro", heroe: g.heroe || "", ranura: g.ranura || "", rareza: g.rareza, calidad: g.calidad || "", estilos: 0, estOk: "", descripcion: (g.gemas || []).join("\n"), activo: false,
         creado: new Date(ahora - k).toISOString() };
@@ -1345,9 +1368,9 @@
       });
     }
     lotes(0).then(function () {
-      var quitados = {}; (I.borrar || []).forEach(function (id) { quitados[id] = 1; });
+      var quitados = aBorrar;
       items.lista = nuevos.concat(items.lista.filter(function (x) { return !quitados[x.id]; }));
-      I.subiendo = false; I.lista = []; I.borrar = []; I.msg = "✔ Se subieron " + nuevos.length + " items. Están ocultos y sin precio: edítalos con ✎ para ponerles precio y activarlos. Los que ya tenías no se modificaron.";
+      I.subiendo = false; I.lista = []; I.sel = {}; I.borrar = []; I.msg = "✔ Se subieron " + nuevos.length + " items. Están ocultos y sin precio: edítalos con ✎ para ponerles precio y activarlos. Los que ya tenías no se modificaron.";
       render(); hidratarImgs();
     }).catch(function (e) {
       I.subiendo = false; I.err = (e && e.message || "No se pudo subir.") + (hechos ? " (ya se subieron " + hechos + ")" : ""); render();
@@ -2171,6 +2194,7 @@
       case "impAbrir": impEstado().abierto = true; render(); break;
       case "impCerrar": impEstado().abierto = false; render(); break;
       case "impTraer": impTraer(); break;
+      case "impTodos": case "impNinguno": var Ie = impEstado(); Ie.sel = {}; (Ie.lista || []).forEach(function (g, k) { Ie.sel[k] = t.getAttribute("data-a") === "impTodos"; }); render(); hidratarImgs(); break;
       case "impSubir": impSubir(); break;
       case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; admin.steamInfo = ""; render(); irAlForm(); break;
       case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock), estilos: String(ie.estilos || 0), estOk: ie.estOk || (ie.estilos ? "1" : "") }); admin.itemMsg = ""; render(); hidratarImgs(); irAlForm(); } break;

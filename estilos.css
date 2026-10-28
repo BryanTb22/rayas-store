@@ -903,3 +903,15 @@ select option:checked, select option:hover { background-color: #1b2a63; color: #
 .idesc b { display: block; margin-bottom: 4px; }
 .idesc .gk { color: var(--yellow); font-weight: 700; }
 .imeta .gem { color: #9ee8ff; }
+
+/* Vista previa de la importación de items */
+.impgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; max-height: 480px; overflow: auto; margin: 10px 0; padding: 4px; }
+.impcard { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--bg) 60%, #000); cursor: pointer; text-align: left; }
+.impcard.off { opacity: .4; }
+.impcard input { position: absolute; top: 10px; left: 10px; z-index: 2; width: 18px; height: 18px; accent-color: var(--yellow); }
+.impcard .ithumb { aspect-ratio: 1 / 1; }
+.impcard .impn { font-size: .85rem; line-height: 1.25; }
+.impcard .impm { font-size: .75rem; font-weight: 700; }
+.impcard .impg { font-size: .72rem; color: #9ee8ff; line-height: 1.35; }
+.impcard .impr { font-size: .7rem; color: var(--yellow); }
+.impbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
