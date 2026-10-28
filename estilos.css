@@ -1041,3 +1041,13 @@ select option:checked, select option:hover { background-color: #1b2a63; color: #
 @media (max-width:640px){.ofr-h,.ofr-r{grid-template-columns:1fr 54px 84px;}.ofr-h span:last-child,.ofr-b{display:none}}
 .gform .grow-f{display:flex;gap:8px;margin-bottom:8px}
 .gform .grow-f input{flex:1;min-width:0}
+
+/* Editar item desde el panel de stock */
+.stk-edbtn{background:transparent;border:1px solid rgba(255,255,255,.2);color:inherit;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:15px;flex:none}
+.stk-edbtn.on,.stk-edbtn:hover{border-color:#ffc93c;color:#ffc93c}
+.stk-ed{margin:-4px 0 10px;padding:14px;border:1px solid rgba(255,201,60,.4);border-top:0;border-radius:0 0 10px 10px;background:rgba(255,255,255,.03)}
+.stk-ed-foto{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.stk-ed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.stk-ed .field{margin:0 0 8px}
+.stk-ed .field label{display:block;font-size:12px;opacity:.75;margin-bottom:3px}
+.stk-ed input:not([type=checkbox]):not([type=file]),.stk-ed select,.stk-ed textarea{width:100%}
