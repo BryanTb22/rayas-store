@@ -9,6 +9,10 @@ No pude probarlo contra Steam de verdad desde aquí; solo probé la parte de la 
 - Si entras con Steam por primera vez: se crea la cuenta y te pide **WhatsApp y trade link** (formulario "Completa tu perfil"). Hasta completarlo no puedes comprar ni participar.
 - El administrador **no** puede entrar ni vincular con Steam (sigue con correo/Google).
 
+## Ficha de cliente (datos de Steam)
+Al entrar o vincular con Steam, la función guarda en el perfil del usuario (`rayas_users`) solo datos públicos de su perfil de Steam: foto (`steamAvatar`), país/ciudad si lo tiene público (`steamPais`), si el perfil es público (`steamPublico`) y el enlace (`steamPerfilUrl`). Si Steam no responde, el login sigue igual. **Hay que redesplegar la función** (mismo comando del paso 1) para que se guarden. El admin los ve en Usuarios → ficha. Los usuarios que ya vincularon su Steam antes de esto se actualizan la próxima vez que entren con Steam.
+La ficha también muestra pedidos / total gastado / última compra leyendo la colección `orders` por `uid`; si las reglas no dejan al admin leerla, saldrá "No se pudo leer (revisa permisos)".
+
 ## Pasos
 
 ### 1) Desplegar las funciones (2 funciones nuevas: `steamIniciar` y `steamCallback`)

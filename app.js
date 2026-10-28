@@ -128,7 +128,7 @@
     if (o.steamerror) { cuenta.modo = "login"; cuenta.msg = o.steamerror.slice(0, 160); cuenta.msgTipo = "err"; render(); return true; }
     if (o.steam === "ok") { cuenta.modo = "perfil"; cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); cargarPerfil().then(function () { cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); }); return true; }
     if (!o.steamtoken) return false;
-    steamPre = { sid: String(o.sid || "").replace(/\D/g, ""), nom: String(o.nom || "").slice(0, 40) };
+    steamPre = { sid: String(o.sid || "").replace(/\D/g, ""), nom: String(o.nom || "").slice(0, 40), av: imgSteamOk(o.av) ? String(o.av) : "", pa: String(o.pa || "").replace(/[<>\u0000-\u001f]/g, "").slice(0, 60), pu: o.pu === "1" ? true : (o.pu === "0" ? false : null) };
     cuenta.modo = "login"; cuenta.msg = "Entrando con Steam…"; cuenta.msgTipo = ""; render();
     fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=" + encodeURIComponent(FB.apiKey), {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: o.steamtoken, returnSecureToken: true })
@@ -153,12 +153,19 @@
   }
   function btnGoogle() { return (GOOGLE_CLIENT_ID ? '<div id="g-btn" class="gbtn"></div>' : "") + btnSteam() + '<div class="gsep"><span>o con tu correo</span></div>'; }
   function crearPerfil(ses, d) {
+    var campos = {
+      nombre: { stringValue: d.nombre }, whatsapp: { stringValue: d.whatsapp },
+      email: { stringValue: d.email }, tradelink: { stringValue: d.tradelink }, steam: { stringValue: d.steam || "" }, creditos: { integerValue: "0" }, creado: { timestampValue: new Date().toISOString() }
+    };
+    if (steamPre && steamPre.sid) { // cuenta nueva con Steam: se guardan los datos públicos para la ficha del admin
+      campos.steamId = { stringValue: steamPre.sid }; campos.steamPerfilUrl = { stringValue: "https://steamcommunity.com/profiles/" + steamPre.sid };
+      if (steamPre.av) campos.steamAvatar = { stringValue: steamPre.av };
+      if (steamPre.pa) campos.steamPais = { stringValue: steamPre.pa };
+      if (typeof steamPre.pu === "boolean") campos.steamPublico = { booleanValue: steamPre.pu };
+    }
     return fsPedir("rayas_users/" + encodeURIComponent(ses.uid) + "?currentDocument.exists=false", {
       method: "PATCH",
-      body: JSON.stringify({ fields: {
-        nombre: { stringValue: d.nombre }, whatsapp: { stringValue: d.whatsapp },
-        email: { stringValue: d.email }, tradelink: { stringValue: d.tradelink }, steam: { stringValue: d.steam || "" }, creditos: { integerValue: "0" }, creado: { timestampValue: new Date().toISOString() }
-      } })
+      body: JSON.stringify({ fields: campos })
     }).then(function (r) { if (!r.ok) throw new Error("PERFIL_" + r.status); });
   }
   function uidSesion() {
@@ -204,6 +211,15 @@
       return fetch(BASE + ruta, opts);
     });
   }
+  // Datos de Steam = texto externo: la foto solo si es https de Steam y el enlace solo si es de steamcommunity.com.
+  function imgSteamOk(u) { return /^https:\/\/[a-z0-9.-]+\.(steamstatic\.com|akamaihd\.net|steamusercontent\.com|steamcommunity\.com)\/[^\s"'<>]{1,300}$/i.test(String(u || "")); }
+  function urlSteamOk(u) { return /^https:\/\/steamcommunity\.com\/[^\s"'<>]{1,200}$/.test(String(u || "")); }
+  function avatarUsuario(u, grande) {
+    var cls = "uav" + (grande ? " grande" : "");
+    if (imgSteamOk(u.steamAvatar)) return '<img class="' + cls + '" src="' + esc(u.steamAvatar) + '" alt="" loading="lazy" referrerpolicy="no-referrer">';
+    var n = String(u.nombre || u.email || "?").trim(), h = 0; for (var i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) % 360;
+    return '<span class="' + cls + ' ini" style="--h:' + h + '" aria-hidden="true">' + esc((n.charAt(0) || "?").toUpperCase()) + '</span>';
+  }
   function leerPerfilDoc(d) {
     var f = (d && d.fields) || {};
     var sv = function (k) { return f[k] && f[k].stringValue || ""; };
@@ -212,6 +228,8 @@
       nombre: sv("nombre"), steam: sv("steam"), steamId: sv("steamId"), whatsapp: sv("whatsapp"), email: sv("email"), tradelink: sv("tradelink"),
       creditos: f.creditos ? Number(f.creditos.integerValue || f.creditos.doubleValue || 0) : 0,
       creado: f.creado && f.creado.timestampValue || "",
+      steamAvatar: sv("steamAvatar"), steamPais: sv("steamPais"), steamPerfilUrl: sv("steamPerfilUrl"),
+      steamPublico: f.steamPublico && typeof f.steamPublico.booleanValue === "boolean" ? f.steamPublico.booleanValue : null,
       promoUsada: !!(f.promoUsada && f.promoUsada.booleanValue === true)
     };
   }
@@ -2471,7 +2489,7 @@
       (admin.uMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.uMsg) + '</p>' : '') +
       '<div class="ulist">' + (lista.length ? lista.map(function (u) {
         var id = esc(u.uid), ab = admin.uAbierto === u.uid;
-        var cab = '<button type="button" class="urow-h" data-a="uAbrir" data-uid="' + id + '" aria-expanded="' + ab + '"><b>' + esc(u.nombre || "(sin nombre)") + '</b><span class="usal">S/ ' + esc(u.creditos) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
+        var cab = '<button type="button" class="urow-h" data-a="uAbrir" data-uid="' + id + '" aria-expanded="' + ab + '">' + avatarUsuario(u) + '<b>' + esc(u.nombre || "(sin nombre)") + '</b><span class="usal">S/ ' + esc(u.creditos) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
         if (!ab) return '<div class="urow compact">' + cab + '</div>';
         return '<div class="urow open">' + cab + '<div class="t"><span>WhatsApp: ' + esc(u.whatsapp) + '</span><span>' + esc(u.email) + '</span>' +
           (tradeValido(u.tradelink) ? '<span><a href="' + esc(u.tradelink) + '" target="_blank" rel="noopener">Abrir trade link ↗</a></span>' : '<span style="color:var(--fuchsia)">Sin trade link</span>') + '</div>' +
@@ -2548,6 +2566,18 @@
   }
   function waNum(n) { n = soloDigitos(n); return n.length === 9 ? "51" + n : n; }
   function usuarioPorUid(uid) { return (admin.usuarios || []).filter(function (x) { return x.uid === uid; })[0]; }
+  // Pedidos de un usuario (solo admin, al abrir su ficha): cantidad, total gastado y última compra.
+  function cargarPedidosU(uid) {
+    admin.pedU = admin.pedU || {}; admin.pedCarg = admin.pedCarg || {}; if (admin.pedU[uid] !== undefined || admin.pedCarg[uid]) return;
+    admin.pedCarg[uid] = true;
+    token().then(function (tk) { return fetch(BASE.replace("/documents/", "/documents:runQuery"), { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "orders" }], where: { fieldFilter: { field: { fieldPath: "uid" }, op: "EQUAL", value: { stringValue: uid } } }, limit: 200 } }) }); })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (j) {
+        var n = 0, total = 0, ult = "";
+        (j || []).forEach(function (x) { if (!x.document) return; var f = x.document.fields || {}, m = Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t = f.createdAt && f.createdAt.timestampValue || ""; if (m > 0) { n++; total += m; if (t > ult) ult = t; } });
+        admin.pedU[uid] = { n: n, total: Math.round(total * 100) / 100, ult: ult }; render();
+      }).catch(function () { admin.pedU[uid] = null; render(); });
+  }
   function detalleUsuario(uid, ctx) {
     var u = usuarioPorUid(uid), id = esc(uid);
     if (!u) return '<div class="ficha"><p class="hint">' + (admin.usuarios === null ? "Cargando datos…" : "No se encontró el perfil de este usuario.") + '</p></div>';
@@ -2564,17 +2594,25 @@
       (partes[pid] || []).forEach(function (x) {
         if (x.uid !== uid) return;
         var k = buscarPremio(pid), pr = k >= 0 ? estado.premios[k] : null;
-        rifas.push('<li>' + esc(pr ? pr.nombre : (x.premioNombre || pid)) + ' · ' + x.cantidad + (x.cantidad === 1 ? ' ticket' : ' tickets') + ' · ' + x.costo + ' cr. · ' + esc(x.creado ? fechaHora(x.creado) : "—") +
+        rifas.push('<li>' + esc(pr ? pr.nombre : (x.premioNombre || pid)) + ' · ' + x.cantidad + (x.cantidad === 1 ? ' ticket' : ' tickets') + ' · ' + x.costo + ' soles · ' + esc(x.creado ? fechaHora(x.creado) : "—") +
           (pr && pr.ganadorUid === uid ? ' · <b>🏆 ganador</b>' : '') + '</li>');
       });
     });
-    var h = '<div class="ficha"><div class="fhead"><b>' + esc(u.nombre || "(sin nombre)") + '</b><span class="fcred">◆ ' + u.creditos + ' soles</span></div>' +
+    var ped = (admin.pedU || {})[uid], pedHtml = ped === undefined ? "Cargando…" : (ped === null ? "No se pudo leer (revisa permisos)" : ped.n + (ped.n === 1 ? " pedido" : " pedidos") + (ped.n ? " · S/ " + ped.total + " gastados · última compra " + esc(ped.ult ? fechaHora(ped.ult) : "—") : ""));
+    var tienePerfilSteam = u.steamId || u.steamAvatar || u.steamPais || u.steamPublico !== null;
+    var h = '<div class="ficha"><div class="fhead">' + avatarUsuario(u, true) + '<div class="fnom"><b>' + esc(u.nombre || "(sin nombre)") + '</b>' +
+      (u.steamPais ? '<small>📍 ' + esc(u.steamPais) + '</small>' : '') +
+      (urlSteamOk(u.steamPerfilUrl) ? '<a href="' + esc(u.steamPerfilUrl) + '" target="_blank" rel="noopener noreferrer">Ver perfil de Steam ↗</a>' : '') + '</div>' +
+      '<span class="fcred">◆ ' + u.creditos + ' soles</span></div>' +
+      (u.steamPublico === false ? '<p class="fpriv">🔒 Perfil de Steam privado: no se puede ver su inventario ni verificar la entrega de antemano.</p>' : '') +
+      '<div class="frow"><span>Pedidos</span><div>' + pedHtml + '</div></div>' +
       '<div class="frow"><span>WhatsApp</span><div>' + (soloDigitos(u.whatsapp) ? '<a href="https://wa.me/' + esc(waNum(u.whatsapp)) + '" target="_blank" rel="noopener">' + esc(u.whatsapp) + ' ↗</a>' : '—') + '</div></div>' +
       '<div class="frow"><span>Correo</span><div><a href="mailto:' + esc(u.email) + '">' + esc(u.email) + '</a></div></div>' +
       '<div class="frow"><span>Trade link</span><div>' + (tradeValido(u.tradelink)
         ? '<a href="' + esc(u.tradelink) + '" target="_blank" rel="noopener">Abrir en Steam ↗</a> <button class="iconbtn wide" type="button" data-a="copiar" data-txt="' + esc(u.tradelink) + '">' + (u.copiado && Date.now() - u.copiado < 3000 ? "✔ Copiado" : "Copiar") + '</button>'
         : '<span style="color:var(--fuchsia)">Sin trade link</span>') + '</div></div>' +
-      (u.steam ? '<div class="frow"><span>Steam</span><div>' + esc(u.steam) + '</div></div>' : '') +
+      (u.steam ? '<div class="frow"><span>ID de Steam</span><div>' + esc(u.steam) + '</div></div>' : '') +
+      (u.steamId && u.steamId !== u.steam ? '<div class="frow"><span>SteamID64</span><div>' + esc(u.steamId) + '</div></div>' : '') +
       '<div class="frow"><span>Registro</span><div>' + (u.creado ? esc(fechaHora(u.creado)) : "—") + '</div></div>' +
       '<div class="frow"><span>Rifas</span><div>' + (rifas.length ? '<ul class="frifas">' + rifas.join("") + '</ul>' : "Ninguna todavía") + '</div></div>';
     if (ctx && ctx.p) {
@@ -2886,7 +2924,7 @@
       case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = t.getAttribute("data-need") ? "Para participar primero crea una cuenta en la página." : ""; cuenta.msgTipo = t.getAttribute("data-need") ? "err" : ""; render(); break;
       case "misRifas": cuenta.modo = "rifas"; cuenta.msg = ""; render(); cargarParts(); break;
       case "miCuenta": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); break;
-      case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; render(); break;
+      case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; if (admin.fichaU && /^u_/.test(admin.fichaU)) cargarPedidosU(admin.fichaU.slice(2)); render(); break;
       case "editRapido": admin.fichaU = "u_" + t.getAttribute("data-uid"); admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cantPart": var xq = (partes[t.getAttribute("data-id")] || []).filter(function (y) { return y.uid === t.getAttribute("data-uid"); })[0]; if (xq) guardarCantidad(t.getAttribute("data-id"), xq.uid, xq.cantidad + Number(t.getAttribute("data-d"))); break;
       case "relMov": var rf = t.closest(".ofr").querySelector(".rel-fila"); if (rf) rf.scrollBy({ left: Number(t.getAttribute("data-d")) * Math.max(220, rf.clientWidth * 0.8), behavior: "smooth" }); break;
