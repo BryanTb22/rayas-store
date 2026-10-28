@@ -927,7 +927,7 @@
     return '<section class="section gutter" id="comprar"><div class="wrap">' +
       '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><div class="orn">◆</div></div>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Textos y contactos.</p>') +
-      (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkAbrir">📦 Stock de items</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + itemFormHtml() + importarHtml() : '') +
+      (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkAbrir">📦 Stock de items</button><button type="button" class="btn btn-ghost btn-sm" data-a="stPegar">📋 Pegar precios de Steam</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + stPegarHtml() + itemFormHtml() + importarHtml() : '') +
       '<div class="itabs">' + tabs + '</div>' +
       '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar items…" value="' + esc(filtros.q) + '" autocomplete="off">' +
       '<select id="fi-orden" aria-label="Ordenar">' + [["nuevo", "Más nuevos"], ["menor", "Precio: menor a mayor"], ["mayor", "Precio: mayor a menor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (filtros.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
@@ -1055,6 +1055,7 @@
     it.stock = n; stkRefrescarFila(it); stkGuardar(it);
   }
   function stockEvento(el, tipo) {
+    if (el.id === "stp-txt") { (admin.stp = admin.stp || { texto: "", msg: "" }).texto = el.value; return true; }
     var SK = { "stk-q": "q", "stk-tipo": "tipo", "stk-heroe": "heroe", "stk-ranura": "ranura", "stk-rareza": "rareza", "stk-calidad": "calidad", "stk-estado": "estado", "stk-orden": "orden" };
     if (SK[el.id]) { if (stk[SK[el.id]] === el.value) return true; stk[SK[el.id]] = el.value; stk.pag = 0; pintarStock(); return true; }
     if (el.getAttribute && el.getAttribute("data-stk-in")) { if (tipo === "change") { var it = itemPorId(el.getAttribute("data-stk-in")); if (it) { stkCambiar(it, el.value); el.value = it.stock; } } return true; }
@@ -1414,6 +1415,50 @@
     }).catch(function (e) { admin.itemGuardando = false; admin.itemMsg = e.message || "No se pudo guardar."; render(); });
   }
 
+  /* Admin: pegar la lista "Nombre = precio US$" que genera herramientas/precios-steam.bat (hecha desde tu PC). */
+  function stPegarHtml() {
+    var P = admin.stp; if (!P || !P.abierto) return "";
+    return '<div class="itadm frame"><div class="in" style="display:block"><b>Pegar precios de Steam</b>' +
+      '<p class="hint">Ejecuta <b>herramientas\\precios-steam.bat</b> en tu PC y pega aquí la lista (una línea por item: <b>Nombre = precio en US$</b>).</p>' +
+      '<textarea id="stp-txt" rows="6" placeholder="Hair of the Survivor = 12.40" style="width:100%">' + esc(P.texto || "") + '</textarea>' +
+      '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="stpGuardar"' + (P.guardando ? ' disabled' : '') + '>' + (P.guardando ? 'Guardando…' : 'Guardar precios') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="stpCerrar">Cerrar</button></div>' +
+      (P.msg ? '<p class="hint" role="status">' + esc(P.msg) + '</p>' : '') + '</div></div>';
+  }
+  function stpParsear(txt) {
+    var out = [];
+    String(txt || "").split(/\r?\n/).forEach(function (l) {
+      var k = l.lastIndexOf("="); if (k < 1) return;
+      var n = l.slice(0, k).trim(), raw = l.slice(k + 1).replace(/[^0-9.,]/g, "");
+      raw = raw.indexOf(".") >= 0 ? raw.replace(/,/g, "") : (/,\d{1,2}$/.test(raw) ? raw.replace(",", ".") : raw.replace(/,/g, ""));
+      var v = parseFloat(raw);
+      if (n && isFinite(v) && v > 0) out.push({ nombre: n, usd: v });
+    });
+    return out;
+  }
+  function stpGuardar() {
+    var P = admin.stp; if (!P || P.guardando) return;
+    var filas = stpParsear(P.texto);
+    if (!filas.length) { P.msg = "No encontré líneas con el formato Nombre = precio."; render(); return; }
+    var porClave = {}; items.lista.forEach(function (it) { var k = claveCompra(it.nombre); (porClave[k] = porClave[k] || []).push(it); });
+    var base = "projects/" + FB.projectId + "/databases/(default)/documents/", ahora = new Date().toISOString(), w = [], hechos = 0, sin = [];
+    filas.forEach(function (f) {
+      var ls = porClave[claveCompra(f.nombre)];
+      if (!ls) { sin.push(f.nombre); return; }
+      ls.forEach(function (it) { it.steamUsd = f.usd; it.steamAct = ahora; hechos++; w.push({ update: { name: base + "rayas_items/" + it.id, fields: { steamUsd: { doubleValue: f.usd }, steamAct: { timestampValue: ahora } } }, updateMask: { fieldPaths: ["steamUsd", "steamAct"] }, currentDocument: { exists: true } }); });
+    });
+    if (!w.length) { P.msg = "Ningún nombre coincide con tu catálogo" + (sin.length ? " (ej.: " + sin.slice(0, 3).join(", ") + ")" : "") + "."; render(); return; }
+    P.guardando = true; P.msg = ""; render();
+    var url = BASE.replace(/documents\/$/, "documents:commit");
+    function lote(i) {
+      if (i >= w.length) return Promise.resolve();
+      return token().then(function (tk) { return fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ writes: w.slice(i, i + 50) }) }); })
+        .then(function (r) { if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ")."); return lote(i + 50); });
+    }
+    lote(0).then(function () {
+      P.guardando = false; P.texto = ""; P.msg = "✔ Se actualizó el precio de Steam de " + hechos + " items." + (sin.length ? " No coincidieron " + sin.length + " (" + sin.slice(0, 3).join(", ") + (sin.length > 3 ? "…" : "") + ")." : "");
+      render(); hidratarImgs();
+    }).catch(function (e) { P.guardando = false; P.msg = (e && e.message === "NO_SESSION" ? "Vuelve a iniciar sesión." : e.message) || "No se pudo guardar."; render(); });
+  }
   /* Admin: trae de Steam el precio (US$) de los items visibles y lo guarda para mostrarlo en soles bajo el precio. */
   function steamRefrescar() {
     var S = admin.st || (admin.st = {}); if (S.corriendo) return;
@@ -2363,6 +2408,9 @@
       case "itReset": filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", pag: 0 }; render(); break;
       case "itPag": filtros.pag = Math.max(0, Number(t.getAttribute("data-p")) || 0); pintarItems(); var gp = document.getElementById("itemsGrid"); if (gp && gp.scrollIntoView) gp.scrollIntoView({ block: "start", behavior: "smooth" }); break;
       case "stRefrescar": steamRefrescar(); break;
+      case "stPegar": admin.stp = admin.stp || { texto: "", msg: "" }; admin.stp.abierto = true; render(); break;
+      case "stpCerrar": if (admin.stp) admin.stp.abierto = false; render(); break;
+      case "stpGuardar": stpGuardar(); break;
       case "irSteam": break; // el enlace se abre solo; no abre la ficha del item
       case "itVer": location.hash = "item/" + encodeURIComponent(t.getAttribute("data-id")); break;
       case "stkAbrir": modal = { tipo: "stock" }; stk.msg = ""; render(); break;

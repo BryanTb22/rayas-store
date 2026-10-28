@@ -1,0 +1,5 @@
+PRECIOS DE STEAM DESDE TU PC
+1) Doble clic en precios-steam.bat (necesita Node.js, el mismo que usas para Firebase).
+2) Espera a que termine (unos 3,5 s por item). Copia la lista al portapapeles y la guarda en precios-steam.txt.
+3) En la página: modo admin -> Comprar items -> "Pegar precios de Steam" -> Ctrl+V -> Guardar.
+Opciones (en una consola): node precios-steam.js --todos  (incluye items ocultos)   |   --forzar  (ignora los de menos de 12 h)
