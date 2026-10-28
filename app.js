@@ -22,6 +22,7 @@
     urlParticipar: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/participarRifa",
     urlItemSteam: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/itemSteam",
     urlPreciosSteam: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/preciosSteam",
+    urlSteamIniciar: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/steamIniciar",
     js: "https://checkout.culqi.com/js/v4"
   };
   var PACKS_UI = [
@@ -100,7 +101,57 @@
       window.google.accounts.id.renderButton(el2, { theme: "filled_black", size: "large", shape: "pill", text: "continue_with", locale: "es", width: 320 });
     }).catch(function () { /* sin conexión con Google */ });
   }
-  function btnGoogle() { return GOOGLE_CLIENT_ID ? '<div id="g-btn" class="gbtn"></div><div class="gsep"><span>o con tu correo</span></div>' : ""; }
+  /* ================= Entrar con Steam (OpenID; lo verifica la función steamCallback del servidor) ================= */
+  var STEAM_LOGO = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-9.96 9.1l5.35 2.2a2.8 2.8 0 0 1 1.6-.5h.15l2.38-3.45v-.05a3.75 3.75 0 1 1 3.75 3.75h-.09l-3.4 2.43a2.8 2.8 0 0 1-5.55.45L2.3 14.3A10 10 0 1 0 12 2zm-4.9 14.5-1.2-.5a2.1 2.1 0 0 0 4-.75 2.1 2.1 0 0 0-2.8-2l1.24.5a1.55 1.55 0 1 1-1.24 2.75zm8.9-5.1a2.5 2.5 0 1 0-2.5-2.5 2.5 2.5 0 0 0 2.5 2.5zm0-.95a1.55 1.55 0 1 1 1.55-1.55 1.55 1.55 0 0 1-1.55 1.55z"/></svg>';
+  var steamPre = null;   // datos que trae Steam para sugerir en "Completa tu perfil": { sid, nom }
+  function btnSteam() { return '<button type="button" class="sbtn" data-a="steamEntrar">' + STEAM_LOGO + '<span>Entrar con Steam</span></button>'; }
+  function steamIr(vincular) {
+    var enviar = function (tk) {
+      var h = { "Content-Type": "application/json" }; if (tk) h.Authorization = "Bearer " + tk;
+      return fetch(PAGOS.urlSteamIniciar, { method: "POST", headers: h, body: JSON.stringify({ origen: location.origin, ruta: location.pathname }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j.url) throw new Error(j.error || "No se pudo conectar con Steam."); return j.url; }); });
+    };
+    cuenta.msg = "Abriendo Steam…"; cuenta.msgTipo = ""; render();
+    (vincular ? token() : Promise.resolve(null)).then(enviar).then(function (url) { location.href = url; }).catch(function (e) {
+      cuenta.msg = (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : ((e && e.message) || "No se pudo conectar con Steam. Intenta de nuevo."); cuenta.msgTipo = "err"; render();
+    });
+  }
+  function leerHashSteam() {
+    var h = String(location.hash || "").replace(/^#/, ""); if (!/(^|&)(steamtoken|steam|steamerror)=/.test(h)) return null;
+    var o = {}; h.split("&").forEach(function (kv) { var i = kv.indexOf("="); if (i > 0) { try { o[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); } catch (e) { /* ignorar */ } } });
+    return o;
+  }
+  // Al volver de Steam: canjea el token por una sesión (misma estructura que el login normal) y limpia la dirección.
+  function steamAlCargar() {
+    var o = leerHashSteam(); if (!o) return false;
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* nada */ }
+    if (o.steamerror) { cuenta.modo = "login"; cuenta.msg = o.steamerror.slice(0, 160); cuenta.msgTipo = "err"; render(); return true; }
+    if (o.steam === "ok") { cuenta.modo = "perfil"; cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); cargarPerfil().then(function () { cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); }); return true; }
+    if (!o.steamtoken) return false;
+    steamPre = { sid: String(o.sid || "").replace(/\D/g, ""), nom: String(o.nom || "").slice(0, 40) };
+    cuenta.modo = "login"; cuenta.msg = "Entrando con Steam…"; cuenta.msgTipo = ""; render();
+    fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=" + encodeURIComponent(FB.apiKey), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: o.steamtoken, returnSecureToken: true })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.idToken) throw new Error((j.error && j.error.message) || "LOGIN_FAILED");
+      guardarSesion({ id: j.idToken, ref: j.refreshToken, exp: Date.now() + (Number(j.expiresIn) || 3600) * 1000 - 60000, email: "", uid: j.localId || null });
+      trasEntrar();
+    }).catch(function (e) { cuenta.modo = "login"; cuenta.msg = "No se pudo entrar con Steam. " + errSimple(e && e.message); cuenta.msgTipo = "err"; render(); });
+    return true;
+  }
+  // ID de Steam vinculado: del perfil o, si es una cuenta recién creada con Steam, del token.
+  function steamVinculado() {
+    var p = cuenta.perfil; if (p && p.steamId) return p.steamId;
+    var s = leerSesion(); if (!s || !s.id) return "";
+    try { var c = JSON.parse(atob(s.id.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); return String(c.steamId || ""); } catch (e) { return ""; }
+  }
+  function steamVinculoHtml() {
+    var v = steamVinculado();
+    return '<div class="grp steamlink"><h3>Steam</h3>' + (v
+      ? '<p class="hint" style="color:var(--ok)">✔ Steam vinculado (ID ' + esc(v) + '). Ya puedes entrar con el botón «Entrar con Steam».</p>'
+      : '<p class="hint">Vincula tu Steam y entra con un clic, sin contraseña. No pierdes tu saldo.</p><button type="button" class="sbtn" data-a="steamVincular">' + STEAM_LOGO + '<span>Vincular mi Steam</span></button>') + '</div>';
+  }
+  function btnGoogle() { return (GOOGLE_CLIENT_ID ? '<div id="g-btn" class="gbtn"></div>' : "") + btnSteam() + '<div class="gsep"><span>o con tu correo</span></div>'; }
   function crearPerfil(ses, d) {
     return fsPedir("rayas_users/" + encodeURIComponent(ses.uid) + "?currentDocument.exists=false", {
       method: "PATCH",
@@ -158,7 +209,7 @@
     var sv = function (k) { return f[k] && f[k].stringValue || ""; };
     return {
       uid: d && d.name ? d.name.split("/").pop() : "",
-      nombre: sv("nombre"), steam: sv("steam"), whatsapp: sv("whatsapp"), email: sv("email"), tradelink: sv("tradelink"),
+      nombre: sv("nombre"), steam: sv("steam"), steamId: sv("steamId"), whatsapp: sv("whatsapp"), email: sv("email"), tradelink: sv("tradelink"),
       creditos: f.creditos ? Number(f.creditos.integerValue || f.creditos.doubleValue || 0) : 0,
       creado: f.creado && f.creado.timestampValue || "",
       promoUsada: !!(f.promoUsada && f.promoUsada.booleanValue === true)
@@ -2326,9 +2377,9 @@
       titulo = "Completa tu perfil";
       var ses0 = leerSesion() || {};
       cuerpo = '<form class="drawer-body form" id="formCompletar">' +
-        '<p class="hint">Entraste con <b>' + esc(ses0.email || "") + '</b>, pero aún no tienes perfil en Rayas Store. Complétalo para participar en las rifas.</p>' +
-        '<div class="field"><label for="c-nombre">Nombre o apodo</label><input id="c-nombre" maxlength="40" required autocomplete="nickname"></div>' +
-        campoSteam("c-steam") + '<div class="field"><label for="c-trade">Link de intercambio de Steam (trade link)</label><input id="c-trade" inputmode="url" required placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…">' +
+        '<p class="hint">' + (ses0.email ? 'Entraste con <b>' + esc(ses0.email) + '</b>, pero aún no tienes perfil en Rayas Store.' : '¡Listo, entraste con Steam!') + ' Completa tu perfil (WhatsApp y trade link) para comprar y participar en las rifas.</p>' +
+        '<div class="field"><label for="c-nombre">Nombre o apodo</label><input id="c-nombre" maxlength="40" required autocomplete="nickname"' + (steamPre && steamPre.nom ? ' value="' + esc(steamPre.nom) + '"' : '') + '></div>' +
+        campoSteam("c-steam", steamPre && steamPre.sid ? steamPre.sid : "") + '<div class="field"><label for="c-trade">Link de intercambio de Steam (trade link)</label><input id="c-trade" inputmode="url" required placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…">' +
         '<p class="hint">' + TRADE_AYUDA + '</p></div>' +
         '<div class="field"><label for="c-wa">WhatsApp</label><input id="c-wa" inputmode="tel" maxlength="20" placeholder="987 654 321" required></div>' +
         '<button class="btn btn-fuchsia" type="submit">Guardar mi perfil</button>' + msg +
@@ -2342,7 +2393,7 @@
       var link = creditoHref();
       cuerpo = '<div class="drawer-body">' + (p
         ? '<div class="saldo frame gold"><div class="in"><small>Tu saldo</small><b>S/ ' + p.creditos + '</b>' + (recargaOn() ? '<button class="btn btn-fuchsia btn-recarga" type="button" data-a="recargar">💳 Recargar saldo</button>' : '') + '</div></div>' + movsHtml() +
-          '<form class="grp" id="formTrade"><h3>Mis datos</h3>' +
+          steamVinculoHtml() + '<form class="grp" id="formTrade"><h3>Mis datos</h3>' +
           '<div class="field"><label for="p-nombre">Nombre o apodo</label><input id="p-nombre" maxlength="40" required value="' + esc(p.nombre) + '"></div>' +
           '<div class="field"><label for="p-wa">WhatsApp</label><input id="p-wa" inputmode="tel" maxlength="30" required value="' + esc(p.whatsapp) + '"></div>' +
           '<div class="field"><label for="p-email">Correo</label><input id="p-email" value="' + esc(p.email) + '" disabled></div>' +
@@ -2829,6 +2880,8 @@
       case "admin":
         if (admin.puede) admin.abierto = true; else { cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; }
         render(); break;
+      case "steamEntrar": steamIr(false); break;
+      case "steamVincular": steamIr(true); break;
       case "entrar": ev.preventDefault(); cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); break;
       case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = t.getAttribute("data-need") ? "Para participar primero crea una cuenta en la página." : ""; cuenta.msgTipo = t.getAttribute("data-need") ? "err" : ""; render(); break;
       case "misRifas": cuenta.modo = "rifas"; cuenta.msg = ""; render(); cargarParts(); break;
@@ -3389,5 +3442,5 @@
   cargarParts();
   revisarHash();
   (function () { var h = String(location.hash || "").replace("#", ""); var el = (h === "como" || h === "ganadores" || h === "reglas") ? document.getElementById(h) : null; if (el) el.scrollIntoView(); })();
-  if (leerSesion() && !admin.puede) cargarPerfil();
+  if (!steamAlCargar() && leerSesion() && !admin.puede) cargarPerfil();
 })();

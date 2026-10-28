@@ -1307,3 +1307,10 @@ html { scroll-padding-top: 84px; }
 #promoPop .promo-p em { font-style: normal; font-size: 12px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: #dfe6ff; }
 #promoPop .promo-pill { display: inline-block; margin-top: 16px; padding: 10px 22px; border-radius: 999px; background: linear-gradient(90deg, var(--fuchsia), #ff6bb1); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 15px; box-shadow: 0 6px 20px color-mix(in srgb, var(--fuchsia) 45%, transparent); }
 #promoPop .promo-url { margin-top: 8px; font-size: 13px; font-weight: 700; letter-spacing: .2em; }
+
+/* ---------- Entrar con Steam ---------- */
+.sbtn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 320px; margin: 8px auto 2px; min-height: 44px; padding: 10px 18px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: linear-gradient(180deg, #2a475e, #1b2838); color: #fff; font-weight: 600; font-size: 14px; font-family: inherit; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.35); transition: transform .15s, filter .15s; }
+.sbtn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+.sbtn:focus-visible { outline: 2px solid var(--yellow, #ffd23f); outline-offset: 2px; }
+.sbtn svg { flex: none; }
+.steamlink .sbtn { margin-left: 0; }

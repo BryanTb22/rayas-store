@@ -484,6 +484,9 @@ exports.preciosSteam = onRequest(
   }
 );
 
+/* ---------- Entrar con Steam (OpenID): ver functions/steamlogin.js y STEAM_LOGIN.md ---------- */
+Object.assign(exports, require("./steamlogin").crear({ admin, db, onRequest, REGION, ORIGENES, uidDeLaPeticion, ADMIN_UID }));
+
 /* ---------- Rifas: participar descontando créditos (todo se calcula aquí, nunca en el navegador) ---------- */
 function tiempoRifa(iso) { const t = iso ? new Date(iso).getTime() : 0; return isFinite(t) ? t : 0; }
 function faseRifa(p) {
