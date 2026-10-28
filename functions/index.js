@@ -289,7 +289,7 @@ exports.inventario = onRequest(
       if (!r.ok) return res.status(502).json({ error: "Steam no respondió (" + r.status + "). Intenta de nuevo." });
       const data = await r.json();
       if (!data || !data.assets) return res.json({ ok: true, items: [], noTradables: 0 });
-      return res.json(Object.assign({ ok: true }, inv.agrupar(data)));
+      return res.json(Object.assign({ ok: true }, (req.body || {}).detalle === true ? inv.agruparDetalle(data) : inv.agrupar(data)));
     } catch (e) {
       console.error("inventario", e);
       return res.status(502).json({ error: "No se pudo consultar Steam. Intenta de nuevo en un momento." });
