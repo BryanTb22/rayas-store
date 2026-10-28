@@ -1011,7 +1011,7 @@
   }
 
   /* ===== Admin: panel de stock de items ===== */
-  var stk = { q: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", estado: "all", orden: "nombre", pag: 0, msg: "" }, STK_POR_PAG = 40, STK_TIMERS = {};
+  var stk = { q: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", estado: "all", orden: "nombre", pag: 0, msg: "", ed: null }, STK_POR_PAG = 40, STK_TIMERS = {};
   function stkEstado(it) {
     if (it.stock <= 0) return { cls: "st-zero", txt: "Agotado", key: "zero" };
     if (it.stock <= 2) return { cls: "st-low", txt: "Pocas", key: "low" };
@@ -1049,8 +1049,82 @@
     var e = stkEstado(it), col = colorRareza(it.rareza);
     return '<div class="stk-row" data-id="' + esc(it.id) + '"><div class="stk-thumb" style="--rar:' + col + '">' + (imgTag(it.img, "", ' loading="lazy"') || "") + '</div>' +
       '<div class="stk-info"><div class="stk-name">' + esc(it.nombre) + (it.activo ? '' : ' <em>(oculto)</em>') + '</div><div class="stk-meta"><span style="color:' + col + '">' + esc(it.rareza || "—") + '</span>' + (it.heroe ? ' • ' + esc(it.heroe) : '') + ' • ' + (it.precio > 0 ? fmtPrecio(it.precio) : 'sin precio') + (it.descripcion ? ' • 💎 ' + lineasDesc(it).length : '') + '</div></div>' +
-      '<span class="stk-status ' + e.cls + '">' + e.txt + '</span>' +
-      '<div class="stk-qty"><button type="button" data-a="stkMenos" aria-label="Menos">−</button><input type="number" min="0" step="1" value="' + it.stock + '" id="stk-in-' + esc(it.id) + '" data-stk-in="' + esc(it.id) + '" aria-label="Stock de ' + esc(it.nombre) + '"><button type="button" data-a="stkMas" aria-label="Más">+</button></div></div>';
+      '<button type="button" class="stk-edbtn' + (stk.ed && stk.ed.id === it.id ? ' on' : '') + '" data-a="stkEd" aria-label="Editar ' + esc(it.nombre) + '" title="Editar todos los detalles">✎</button><span class="stk-status ' + e.cls + '">' + e.txt + '</span>' +
+      '<div class="stk-qty"><button type="button" data-a="stkMenos" aria-label="Menos">−</button><input type="number" min="0" step="1" value="' + it.stock + '" id="stk-in-' + esc(it.id) + '" data-stk-in="' + esc(it.id) + '" aria-label="Stock de ' + esc(it.nombre) + '"><button type="button" data-a="stkMas" aria-label="Más">+</button></div></div>' + (stk.ed && stk.ed.id === it.id ? stkEdHtml() : '');
+  }
+  function stkEdHtml() {
+    var F = stk.ed.F, nEst = Number(F.estilos) || 0, g = gemasDe(F);
+    var f = function (id, lab, inner) { return '<div class="field"><label for="sk-' + id + '">' + lab + '</label>' + inner + '</div>'; };
+    var dl = function (id, k, base) { return '<datalist id="' + id + '">' + distintos(k, base).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist>'; };
+    return '<div class="stk-ed" data-ed="' + esc(stk.ed.id) + '">' +
+      '<div class="stk-ed-foto">' + (F.img ? '<div class="yapeqr"><img data-fs="' + esc(F.img.slice(3)) + '" alt="" width="140" style="width:140px;height:auto"></div>' : '') +
+      '<label class="btn btn-ghost btn-sm" for="sk-file">' + (stk.ed.subiendo ? 'Subiendo…' : (F.img ? 'Cambiar foto' : 'Subir foto')) + '</label><input id="sk-file" type="file" accept="image/*" hidden>' +
+      (F.img ? '<button type="button" class="btn btn-ghost btn-sm" data-a="stkQuitarFoto">Quitar foto</button>' : '') + '</div>' +
+      '<div class="stk-ed-grid">' +
+      f("nombre", "Nombre", '<input id="sk-nombre" maxlength="90" value="' + esc(F.nombre) + '">') +
+      f("precio", "Precio en soles (S/)", '<input id="sk-precio" inputmode="decimal" value="' + esc(F.precio) + '">') +
+      f("stock", "Stock", '<input id="sk-stock" inputmode="numeric" value="' + esc(F.stock) + '">') +
+      f("tipo", "Tipo", '<select id="sk-tipo">' + opciones(ITEM_TIPOS, F.tipo, "—") + '</select>') +
+      f("heroe", "Héroe", '<input id="sk-heroe" list="dl-heroe2" maxlength="40" value="' + esc(F.heroe) + '">' + dl("dl-heroe2", "heroe", HEROES_DOTA)) +
+      f("ranura", "Ranura", '<input id="sk-ranura" list="dl-ranura2" maxlength="40" value="' + esc(F.ranura) + '">' + dl("dl-ranura2", "ranura", SLOTS_DOTA)) +
+      f("rareza", "Rareza", '<select id="sk-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), F.rareza, "—") + '</select>') +
+      f("calidad", "Calidad", '<input id="sk-calidad" list="dl-calidad2" maxlength="30" value="' + esc(F.calidad) + '">' + dl("dl-calidad2", "calidad", ITEM_CALIDADES)) +
+      f("estilos", "Estilos", '<select id="sk-estilos">' + ["0", "2", "3", "4", "5", "6"].map(function (v) { return '<option value="' + v + '"' + (String(F.estilos || 0) === v ? ' selected' : '') + '>' + (v === "0" ? "Sin estilos" : v + " estilos") + '</option>'; }).join("") + '</select>') +
+      '</div>' +
+      (nEst > 0 ? '<div class="field"><label>Estilos que SÍ tiene</label><div class="estchk">' + (function () { var o = "", ok = estilosOkLista(F); for (var k = 1; k <= nEst; k++) o += '<label class="chk"><input type="checkbox" id="sk-est-' + k + '"' + (ok.indexOf(k) >= 0 ? ' checked' : '') + '> ' + k + '</label>'; return o; })() + '</div></div>' : '') +
+      '<div class="field gform"><label>💎 Gemas (cada versión con distinta gema lleva su propio precio)</label><datalist id="dl-gtipo2">' + GEMA_TIPOS.map(function (t) { return '<option value="' + esc(t) + '">'; }).join("") + '</datalist>' +
+      (g.length ? g.map(function (x, i) { return '<div class="grow-f"><input id="sk-gt-' + i + '" list="dl-gtipo2" maxlength="30" placeholder="Tipo (Unusual Effect Gem)" value="' + esc(x.t) + '"><input id="sk-gv-' + i + '" maxlength="60" placeholder="Nombre (Candy Caster)" value="' + esc(x.v) + '"><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaDel" data-i="' + i + '" aria-label="Quitar gema">✕</button></div>'; }).join("") : '<p class="hint">Sin gemas.</p>') +
+      '<div class="cav"><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Unusual Effect Gem">+ Efecto Unusual</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Prismatic Gem">+ Prismatic</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="">+ Otra gema</button></div></div>' +
+      '<label class="chk"><input type="checkbox" id="sk-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
+      (stk.ed.msg ? '<p class="hint" style="color:var(--danger)">' + esc(stk.ed.msg) + '</p>' : '') +
+      '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="stkEdGuardar">' + (stk.ed.guardando ? 'Guardando…' : '💾 Guardar cambios') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkEdCerrar">Cancelar</button></div></div>';
+  }
+  function stkEdAbrir(id) {
+    if (stk.ed && stk.ed.id === id) { stk.ed = null; pintarStock(); return; }
+    var it = itemPorId(id); if (!it) return;
+    stk.ed = { id: id, F: Object.assign({}, it, { precio: String(it.precio || ""), stock: String(it.stock), estilos: String(it.estilos || 0) }), msg: "", guardando: false, subiendo: false };
+    pintarStock();
+    var e = document.querySelector(".stk-ed"); if (e && e.scrollIntoView) e.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+  function stkFoto(el) {
+    var ed = stk.ed; if (!ed) return; var fi = el.files[0]; el.value = "";
+    editorFoto(fi).then(function (listo) {
+      if (!listo) return;
+      ed.subiendo = true; ed.msg = ""; pintarStock();
+      return subirImagen(listo, 640).then(function (ref) { ed.F.img = ref; ed.subiendo = false; pintarStock(); });
+    }).catch(function (e) { ed.subiendo = false; ed.msg = (e && e.message) || "No se pudo subir la foto."; pintarStock(); });
+  }
+  function stkEdCampo(el) {
+    var ed = stk.ed, F = ed.F, m = { "sk-nombre": "nombre", "sk-precio": "precio", "sk-stock": "stock", "sk-tipo": "tipo", "sk-heroe": "heroe", "sk-ranura": "ranura", "sk-rareza": "rareza", "sk-calidad": "calidad" };
+    if (el.id === "sk-activo") { F.activo = el.checked; return; }
+    if (el.id === "sk-estilos") {
+      F.estilos = el.value; var nn = Number(el.value) || 0, oks = estilosOkLista(F).filter(function (x) { return x <= nn; });
+      if (nn > 0 && !oks.length) oks = [1]; F.estOk = oks.join(","); pintarStock(); return;
+    }
+    if (/^sk-est-\d+$/.test(el.id)) {
+      var num = parseInt(el.id.slice(7), 10), cur = estilosOkLista(F), pos = cur.indexOf(num);
+      if (el.checked && pos < 0) cur.push(num); else if (!el.checked && pos >= 0) cur.splice(pos, 1);
+      cur.sort(function (a, b) { return a - b; }); F.estOk = cur.join(","); return;
+    }
+    var mg = /^sk-g([tv])-(\d+)$/.exec(el.id);
+    if (mg) { var gl = gemasDe(F), gi = parseInt(mg[2], 10); if (gl[gi]) { gl[gi][mg[1]] = el.value; F.descripcion = gemasAString(gl); } return; }
+    if (m[el.id]) F[m[el.id]] = el.value;
+  }
+  function stkEdGuardar() {
+    var ed = stk.ed; if (!ed || ed.guardando) return; var F = ed.F;
+    var precio = parseFloat(String(F.precio).replace(",", ".")), stock = parseInt(F.stock, 10);
+    var fallo = function (t) { ed.msg = t; pintarStock(); };
+    if (!String(F.nombre).trim()) return fallo("Escribe el nombre del item.");
+    if (!isFinite(precio) || precio <= 0) return fallo("Pon un precio mayor a 0.");
+    if (!isFinite(stock) || stock < 0) stock = 0;
+    var it = Object.assign({}, F, { id: ed.id, nombre: String(F.nombre).trim(), precio: Math.round(precio * 100) / 100, stock: stock, heroe: String(F.heroe || "").trim(), ranura: String(F.ranura || "").trim(), calidad: String(F.calidad || "").trim(),
+      estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: gemasAString(gemasDe(F).filter(function (g) { return g.v; })).slice(0, 600), activo: F.activo !== false });
+    ed.guardando = true; ed.msg = ""; pintarStock();
+    fsPedir("rayas_items/" + encodeURIComponent(it.id), { method: "PATCH", body: JSON.stringify(itemAFields(it)) }).then(function (r) {
+      if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
+      var k = items.lista.findIndex(function (x) { return x.id === it.id; }); if (k >= 0) items.lista[k] = it;
+      stk.ed = null; stk.msg = "✔ Item guardado"; pintarStock(); var m = document.getElementById("stkMsg"); if (m) m.textContent = stk.msg;
+    }).catch(function (e) { ed.guardando = false; ed.msg = (e && e.message) || "No se pudo guardar."; pintarStock(); });
   }
   function stkPanelHtml() {
     var sel = function (id, lista, val, vacio) { return '<select id="' + id + '">' + opciones(lista, val, vacio) + '</select>'; };
@@ -1100,6 +1174,7 @@
   function stockEvento(el, tipo) {
     var SK = { "stk-q": "q", "stk-tipo": "tipo", "stk-heroe": "heroe", "stk-ranura": "ranura", "stk-rareza": "rareza", "stk-calidad": "calidad", "stk-estado": "estado", "stk-orden": "orden" };
     if (SK[el.id]) { if (stk[SK[el.id]] === el.value) return true; stk[SK[el.id]] = el.value; stk.pag = 0; pintarStock(); return true; }
+    if (el.id && el.id.indexOf("sk-") === 0 && stk.ed) { if (el.type === "file") { if (tipo === "change" && el.files && el.files[0]) stkFoto(el); } else if (tipo === "change" || el.id !== "sk-estilos") stkEdCampo(el); return true; }
     if (el.getAttribute && el.getAttribute("data-stk-in")) { if (tipo === "change") { var it = itemPorId(el.getAttribute("data-stk-in")); if (it) { stkCambiar(it, el.value); el.value = it.stock; } } return true; }
     return false;
   }
@@ -2445,7 +2520,13 @@
       case "stRefrescar": steamRefrescar(); break;
       case "irSteam": break; // el enlace se abre solo; no abre la ficha del item
       case "itVer": location.hash = "item/" + encodeURIComponent(t.getAttribute("data-id")); break;
-      case "stkAbrir": modal = { tipo: "stock" }; stk.msg = ""; render(); break;
+      case "stkEd": var rEd = t.closest(".stk-row"); if (rEd) stkEdAbrir(rEd.getAttribute("data-id")); break;
+      case "stkEdCerrar": stk.ed = null; pintarStock(); break;
+      case "stkEdGuardar": stkEdGuardar(); break;
+      case "stkQuitarFoto": if (stk.ed) { stk.ed.F.img = ""; pintarStock(); } break;
+      case "stkGemaMas": if (stk.ed) { var g1 = gemasDe(stk.ed.F); g1.push({ t: t.getAttribute("data-t") || "", v: "" }); stk.ed.F.descripcion = gemasAString(g1); pintarStock(); } break;
+      case "stkGemaDel": if (stk.ed) { var g2 = gemasDe(stk.ed.F); g2.splice(parseInt(t.getAttribute("data-i"), 10), 1); stk.ed.F.descripcion = gemasAString(g2); pintarStock(); } break;
+      case "stkAbrir": modal = { tipo: "stock" }; stk.msg = ""; stk.ed = null; render(); break;
       case "stkReset": stk = { q: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", estado: "all", orden: "nombre", pag: 0, msg: "" }; render(); break;
       case "stkPag": stk.pag = Math.max(0, Number(t.getAttribute("data-p")) || 0); pintarStock(); var dsk = document.querySelector(".elegir.stkp"); if (dsk) dsk.scrollTop = 0; break;
       case "stkMas": case "stkMenos": var rsk = t.closest(".stk-row"), isk = rsk && itemPorId(rsk.getAttribute("data-id")); if (isk) stkCambiar(isk, isk.stock + (a === "stkMas" ? 1 : -1)); break;
@@ -2669,6 +2750,7 @@
   // Al salir de un campo de texto de la página, refresca la vista previa.
   document.addEventListener("change", function (ev) {
     if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
+    if (ev.target.id === "sk-file" && ev.target.files && ev.target.files[0]) { stkFoto(ev.target); return; }
     if (ev.target.classList && ev.target.classList.contains("itfile") && ev.target.files && ev.target.files[0]) {
       var fi = ev.target.files[0]; ev.target.value = "";
       editorFoto(fi).then(function (listo) {
