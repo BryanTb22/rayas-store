@@ -112,3 +112,9 @@ El inventario ahora devuelve tipo, héroe, ranura, rareza y calidad de cada item
 ## Límite de consultas en `inventario`
 
 La función `inventario` ahora cuenta las consultas en la colección `rayas_limites` (solo la usa el servidor; las reglas la bloquean para clientes): 12 cada 10 min por conexión y 6 cada 10 min por inventario. Al pasarse responde 429. Despliegue: `firebase deploy --only functions:rayas:inventario`. No hace falta tocar las reglas ni las páginas.
+
+## Precio de Steam bajo cada item + reponer stock al importar
+
+- Cada item muestra bajo su precio `Steam: S/ …` (precio del Mercado de Steam en US$ × tipo de cambio `COM.tc` de `app.js`, hoy 3.85) y una flecha que abre `steamcommunity.com/market/listings/570/<nombre>`. Se guarda en `rayas_items` como `steamUsd` y `steamAct`.
+- Nueva función **`preciosSteam`** (solo admin): `firebase deploy --only functions:rayas:preciosSteam`. El botón **↻ Precios de Steam** del modo admin actualiza los items visibles (los que llevan más de 6 h sin actualizar). Steam limita ~20 consultas/min; si pide esperar, se avisa y se sigue después.
+- Importar desde el trade link ya **no borra ni reemplaza**: los items que ya están (mismo nombre y mismas gemas) solo reciben el stock nuevo (campo `stock`, sin tocar precio ni descripción); las subidas de stock vienen marcadas y las bajas sin marcar. Distintas gemas = tarjeta aparte.

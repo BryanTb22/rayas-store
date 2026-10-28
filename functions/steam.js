@@ -160,4 +160,16 @@ async function leerItem(nombre, heroes) {
   return datos;
 }
 
-module.exports = { parseEstilos, etiquetasDeTexto, nombreDesdeLink, interpretar, assetDeHtml, leerItem };
+// Precio más bajo en el Mercado (US$). limite=true si Steam pide esperar (429).
+async function precioUsd(nombre) {
+  try {
+    const r = await pedir("https://steamcommunity.com/market/priceoverview/?appid=570&currency=1&market_hash_name=" + encodeURIComponent(nombre), 9000);
+    if (r.status === 429) return { usd: null, limite: true };
+    if (!r.ok) return { usd: null, limite: false };
+    const p = await r.json();
+    const v = parseFloat(String(p.lowest_price || p.median_price || "").replace(/[^0-9.]/g, ""));
+    return { usd: isFinite(v) && v > 0 ? v : null, limite: false };
+  } catch (e) { return { usd: null, limite: false }; }
+}
+
+module.exports = { precioUsd, parseEstilos, etiquetasDeTexto, nombreDesdeLink, interpretar, assetDeHtml, leerItem };

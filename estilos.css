@@ -915,3 +915,20 @@ select option:checked, select option:hover { background-color: #1b2a63; color: #
 .impcard .impg { font-size: .72rem; color: #9ee8ff; line-height: 1.35; }
 .impcard .impr { font-size: .7rem; color: var(--yellow); }
 .impbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* Precio de Steam bajo el precio del item */
+.isteam { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 12.5px; color: var(--muted); }
+.isteam b { color: var(--text, #f2efe6); font-weight: 700; }
+.isteam-go { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); transition: color .15s, border-color .15s; }
+.isteam-go:hover, .isteam-go:focus-visible { color: var(--yellow); border-color: var(--yellow); outline: none; }
+.isteam.grande { font-size: 14px; margin: 6px 0 10px; border-top: 0; padding-top: 0; justify-content: flex-start; }
+/* Importar: reponer stock */
+.imprepo { display: grid; gap: 6px; margin: 6px 0 10px; }
+.improw { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.improw.off { opacity: .55; }
+.improw-t { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.improw-t img { border-radius: 6px; object-fit: cover; }
+.improw-t b { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+.improw-t small { display: block; color: var(--muted); font-size: 11px; }
+.improw-s { white-space: nowrap; font-size: 13px; }
+.improw-s small { color: var(--danger); }
