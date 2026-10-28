@@ -10,7 +10,7 @@
 
   /* ================= Pagos (Culqi) =================
      culqiPk = llave PÚBLICA de Culqi (pk_test_… para probar, pk_live_… para cobrar de verdad).
-     Mientras esté vacía, la página NO muestra el pago y sigue pidiendo créditos por WhatsApp.
+     Mientras esté vacía, la página NO muestra el pago y sigue pidiendo saldo por WhatsApp.
      Los precios de aquí son solo para mostrarlos: el cobro real usa functions/packs.js. */
   var PAGOS = {
     culqiPk: "pk_test_iK8JCBNB6dJmRlUZ",
@@ -181,32 +181,32 @@
   /* ================= Estado ================= */
   var TEXTOS_BASE = {
     titulo: "Gana items de Dota 2",
-    subtitulo: "Recarga tus créditos, elige el premio que quieres y entra a la rifa. El ganador sale al azar.",
+    subtitulo: "Recarga tu saldo, elige el premio que quieres y entra a la rifa. El ganador sale al azar.",
     logo1: "RAYAS", logo2: "STORE",
     kicker: "Rifas de Dota 2",
     btnRecargarNav: "Recargar",
     inicioKicker: "Tu tienda de Dota 2", inicioTitulo: "Todo para tus items de Dota 2",
-    inicioSub: "Participa en rifas de items de Dota 2 usando tus créditos. El ganador sale al azar y la entrega es por Steam.",
-    cardRifasT: "Rifas", cardRifasD: "Gana items de Dota 2 con tus créditos. El ganador sale al azar.", cardRifasBtn: "Ver rifas",
+    inicioSub: "Participa en rifas de items de Dota 2 usando tu saldo. El ganador sale al azar y la entrega es por Steam.",
+    cardRifasT: "Rifas", cardRifasD: "Gana items de Dota 2 con tu saldo. El ganador sale al azar.", cardRifasBtn: "Ver rifas",
     cardItemsT: "Venta de items", cardItemsD: "Compra y vende items de Dota 2 de forma segura.", cardItemsBtn: "Ver items",
-    btnVer: "Ver rifas", btnCreditos: "Recargar créditos",
+    btnVer: "Ver rifas", btnCreditos: "Recargar saldo",
     badge1: "Promo primera recarga", badge2: "Ganador al azar", badge3: "Entrega por Steam",
-    rifasKicker: "Premios en juego", rifasT1: "Rifas", rifasT2: "activas", rifasSub: "Cada premio indica cuántos créditos cuesta entrar.",
-    vacioT: "Pronto nuevas rifas", vacioS: "Recarga tus créditos y te avisamos cuando abra la próxima.",
-    msgCredPerfil: "¡Hola! 👋🔥 Soy *{nombre}* (📧 {correo}).\n\n💎 Quiero recargar créditos para participar en las rifas de *RAYAS STORE* 🎁🏆\n\n¿Me ayudas con mi recarga? 🙏✨",
-    msgCredVisita: "¡Hola! 👋🔥 Quiero mis créditos para las rifas de *RAYAS STORE* 💎🎁\n\n¿Me ayudas? 🙏✨",
-    btnParticipar: "Participar", btnPronto: "Muy pronto", lblCreditos: "créditos",
+    rifasKicker: "Premios en juego", rifasT1: "Rifas", rifasT2: "activas", rifasSub: "Cada premio indica cuántos soles cuesta entrar.",
+    vacioT: "Pronto nuevas rifas", vacioS: "Recarga tu saldo y te avisamos cuando abra la próxima.",
+    msgCredPerfil: "¡Hola! 👋🔥 Soy *{nombre}* (📧 {correo}).\n\n💎 Quiero recargar saldo para participar en las rifas de *RAYAS STORE* 🎁🏆\n\n¿Me ayudas con mi recarga? 🙏✨",
+    msgCredVisita: "¡Hola! 👋🔥 Quiero recargar saldo para las rifas de *RAYAS STORE* 💎🎁\n\n¿Me ayudas? 🙏✨",
+    btnParticipar: "Participar", btnPronto: "Muy pronto", lblCreditos: "por cupo",
     comoKicker: "Paso a paso", comoT1: "Cómo", comoT2: "participar",
     paso1T: "Crea tu cuenta", paso1: "Regístrate con tu correo o con Google y deja tu link de intercambio de Steam.",
-    paso2T: "Recarga créditos", paso2: "Recarga desde tu cuenta (S/ 1 = 1 crédito). Tu primera recarga puede traer créditos de regalo.",
-    paso3T: "Entra a la rifa", paso3: "Elige el premio y usa tus créditos. Al cierre, el ganador sale al azar.",
-    btnCreditos2: "Recargar mis créditos",
+    paso2T: "Recarga saldo", paso2: "Recarga desde tu cuenta. Tu primera recarga puede traer saldo de regalo.",
+    paso3T: "Entra a la rifa", paso3: "Elige el premio y usa tu saldo. Al cierre, el ganador sale al azar.",
+    btnCreditos2: "Recargar mi saldo",
     ganKicker: "Salón de la fama", ganT: "Ganadores", ganVacioT: "Aún no hay ganadores", ganVacioS: "Cuando cierre la primera rifa, el ganador aparecerá aquí.",
     reglasKicker: "Juego limpio", reglasT: "Reglas",
     pie: "No afiliado a Valve. Dota 2 es una marca de Valve Corporation.",
     reglas: [
-      "Los créditos se compran en esta página (S/ 1 = 1 crédito) y solo sirven para participar en las rifas.",
-      "Los créditos usados en una rifa no se devuelven. Si hay un error en tu recarga, escríbenos por WhatsApp.",
+      "El saldo se recarga en esta página (en soles) y sirve para participar en las rifas y pagar items.",
+      "El saldo usado en una rifa no se devuelve. Si hay un error en tu recarga, escríbenos por WhatsApp.",
       "Los pagos se procesan con Culqi (tarjeta; Yape / QR desde S/ 6). Esta página no guarda los datos de tu tarjeta.",
       "El ganador se elige al azar cuando cierra la rifa y se anuncia en esta página.",
       "El item se entrega por Steam. El ganador debe tener su cuenta lista para recibir regalos.",
@@ -230,6 +230,10 @@
     st.secciones = { items: !!(st.secciones && st.secciones.items) };
     var yp = st.yape && typeof st.yape === "object" ? st.yape : {};
     st.yape = { qr: /^fs:img-[\w\-]+$/.test(String(yp.qr || "")) ? yp.qr : "", numero: String(yp.numero || "").replace(/\D+/g, "").slice(0, 12), nombre: typeof yp.nombre === "string" ? yp.nombre.slice(0, 40) : "" };
+    (function () { // Todo en soles: limpia textos guardados que aún digan "créditos"
+      var lim = function (x) { return typeof x !== "string" ? x : x.replace(/\(S\/ ?1 ?= ?1 cr[eé]ditos?\)/gi, "").replace(/(\d+) cr[eé]ditos?/gi, "$1 soles").replace(/\bTus cr[eé]ditos/g, "Tu saldo").replace(/\btus cr[eé]ditos/g, "tu saldo").replace(/\bLos cr[eé]ditos/g, "El saldo").replace(/\blos cr[eé]ditos/g, "el saldo").replace(/\bcr[eé]ditos?\b/gi, "saldo").replace(/ {2,}/g, " "); };
+      if (st.textos && typeof st.textos === "object") Object.keys(st.textos).forEach(function (k) { var v = st.textos[k]; if (typeof v === "string") st.textos[k] = lim(v); else if (Array.isArray(v)) st.textos[k] = v.map(lim); });
+    })();
     if (!Array.isArray(st.premios)) st.premios = [];
     var fo = st.fotos && typeof st.fotos === "object" ? st.fotos : {};
     st.fotos = {}; ["logo", "hero", "lava", "sombra"].forEach(function (k) { st.fotos[k] = /^fs:img-[\w\-]+$/.test(String(fo[k] || "")) ? fo[k] : ""; });
@@ -285,7 +289,7 @@
   function msgCred(p) {
     var T = estado.textos;
     var base = p ? String(T.msgCredPerfil).replace(/\{nombre\}/g, p.nombre).replace(/\{correo\}/g, p.email) : String(T.msgCredVisita);
-    if (montoWsp > 0 && p) base += "\n\n💰 Quiero recargar *S/ " + montoWsp + "* (" + creditosPara(montoWsp) + " créditos).";
+    if (montoWsp > 0 && p) base += "\n\n💰 Quiero recargar *S/ " + montoWsp + "* (" + creditosPara(montoWsp) + " soles de saldo).";
     return base;
   }
   function creditoHref() {
@@ -294,7 +298,7 @@
   }
   var elegirAbierto = false, modal = null, partes = {}, misParts = {};
   var montoWsp = 0;   // monto elegido para pedir por WhatsApp (0 = ninguno)
-  // Créditos que recibe por un monto (solo para mostrar; el servidor calcula el real).
+  // Saldo que recibe por un monto (solo para mostrar; el servidor calcula el real).
   function creditosPara(soles) {
     var pk = PACKS_UI.filter(function (x) { return x.soles === soles; })[0];
     return (pk && pk.promo && cuenta.perfil && !cuenta.perfil.promoUsada) ? pk.promo : soles;
@@ -360,7 +364,7 @@
       modal = { tipo: "ok", p: p, qty: qty, mio: misParts[p.id] }; render();
     }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo participar." }; render(); });
   }
-  /* ---- Recarga de créditos con Culqi ---- */
+  /* ---- Recarga de saldo con Culqi ---- */
   var culqiCarga = null;
   function cargarCulqi() {
     if (window.Culqi) return Promise.resolve();
@@ -391,7 +395,7 @@
         else { modal = { tipo: "error", msg: (C.error && (C.error.user_message || C.error.merchant_message)) || "No se pudo procesar el pago." }; render(); }
       };
       C.publicKey = PAGOS.culqiPk;
-      C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de créditos", amount: Math.round(totalTarjeta(soles) * 100) });
+      C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de saldo", amount: Math.round(totalTarjeta(soles) * 100) });
       C.options({ lang: "es", installments: false, paymentMethods: { tarjeta: true, yape: true, billetera: false, bancaMovil: false, agente: false, cuotealo: false } });
       modal = null; render(); C.open();
     }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo abrir el pago." }; render(); });
@@ -423,7 +427,7 @@
           var C = window.Culqi;
           window.culqi = function () { /* en órdenes no hay token: el pago llega por aviso de Culqi */ };
           C.publicKey = PAGOS.culqiPk;
-          C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de créditos", amount: Math.round(totalTarjeta(soles) * 100), order: x.j.ordenId });
+          C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de saldo", amount: Math.round(totalTarjeta(soles) * 100), order: x.j.ordenId });
           C.options({ lang: "es", installments: false, paymentMethods: { tarjeta: false, yape: false, billetera: true, bancaMovil: true, agente: true, cuotealo: false } });
           modal = { tipo: "efectivoPend", soles: soles }; render(); C.open();
         });
@@ -440,25 +444,25 @@
     var cerrar = '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>';
     if (m.tipo === "sinSaldo") {
       var rl = creditoHref();
-      h = '<h3>Créditos insuficientes 😕</h3><p class="hint">La rifa de <b>' + esc(m.p.nombre) + '</b> cuesta <b>' + m.p.cred + '</b> créditos y tú tienes <b>' + (c ? c.creditos : 0) + '</b>. Recarga créditos para poder participar.</p>';
-      btns = (recargaOn() ? '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar créditos</button>' : '') +
-        (rl ? '<a class="btn btn-yellow" href="' + esc(rl) + '"' + (rl === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>💎 ' + (pagosOn() ? 'Pedir por WhatsApp' : 'Recargar créditos') + '</a>' : '') + cerrar;
+      h = '<h3>Saldo insuficiente 😕</h3><p class="hint">La rifa de <b>' + esc(m.p.nombre) + '</b> cuesta <b>' + m.p.cred + '</b> soles y tú tienes <b>' + (c ? c.creditos : 0) + '</b>. Recarga saldo para poder participar.</p>';
+      btns = (recargaOn() ? '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar saldo</button>' : '') +
+        (rl ? '<a class="btn btn-yellow" href="' + esc(rl) + '"' + (rl === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>💎 ' + (pagosOn() ? 'Pedir por WhatsApp' : 'Recargar saldo') + '</a>' : '') + cerrar;
     } else if (m.tipo === "recarga") {
       var primera = !!(c && !c.promoUsada), sel = m.sel || 0, cred = sel ? creditosPara(sel) : 0;
-      h = '<h3>Recargar créditos 💎</h3>' +
-        (primera ? '<div class="promo-banner"><b>🎁 PROMO PRIMERA RECARGA</b><span>S/ 50 → <b>55</b> créditos · S/ 100 → <b>110</b> créditos</span></div>' : '') +
-        '<p class="hint"><b>1.</b> Elige cuánto quieres recargar (S/ 1 = 1 crédito)</p>' +
+      h = '<h3>Recargar saldo 💎</h3>' +
+        (primera ? '<div class="promo-banner"><b>🎁 PROMO PRIMERA RECARGA</b><span>S/ 50 → <b>55</b> soles · S/ 100 → <b>110</b> soles</span></div>' : '') +
+        '<p class="hint"><b>1.</b> Elige cuánto quieres recargar</p>' +
         '<div class="packs">' + PACKS_UI.map(function (pk) {
           var extra = primera && pk.promo ? pk.promo : 0;
           return '<button class="btn ' + (extra ? 'btn-fuchsia' : 'btn-yellow') + ' pack' + (sel === pk.soles ? ' sel' : '') + '" type="button" data-a="monto" data-s="' + pk.soles + '" aria-pressed="' + (sel === pk.soles) + '">' +
             (extra ? '<i class="tag">🎁 +' + (extra - pk.base) + ' GRATIS</i>' : '') +
-            '<b>S/ ' + pk.soles + '</b><span>' + (extra || pk.base) + ' créditos</span></button>';
+            '<b>S/ ' + pk.soles + '</b><span>' + (extra || pk.base) + ' soles</span></button>';
         }).join("") + '</div>' +
         '<div class="otro"><label for="monto-otro">Otro monto (S/ ' + PAGOS.min + ' a S/ ' + PAGOS.max + ')</label>' +
         '<div class="otrorow"><input id="monto-otro" type="number" inputmode="numeric" min="' + PAGOS.min + '" max="' + PAGOS.max + '" step="1" placeholder="Ej. 30" value="' + esc(m.otro || "") + '">' +
         '<button class="btn btn-ghost btn-sm" type="button" data-a="montoOtro">Usar</button></div></div>' +
         (m.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(m.err) + '</p>' : '') +
-        (sel ? '<p class="resumen">Recibes <b>' + cred + ' créditos</b>' + (cred > sel ? ' 🎁' : '') + '</p>' +
+        (sel ? '<p class="resumen">Recibes <b>' + cred + ' soles</b>' + (cred > sel ? ' 🎁' : '') + '</p>' +
           '<div class="cuentas">' + (pagosOn() ? '<p class="hint">💳 Tarjeta / efectivo / QR: pagas <b>S/ ' + fmtSol(totalTarjeta(sel)) + '</b> (S/ ' + fmtSol(sel) + ' + S/ ' + fmtSol(totalTarjeta(sel) - sel) + ' de comisión de Culqi)</p>' : '') +
           '<p class="hint">💜 Yape / WhatsApp: pagas <b>S/ ' + fmtSol(sel) + '</b>, <b>sin comisión</b></p></div>' +
           '<p class="hint"><b>2.</b> Elige cómo quieres pagar</p>' : '');
@@ -466,39 +470,39 @@
         (sel >= PAGOS.minYape ? '<button class="btn btn-yellow" type="button" data-a="pagarEfectivo">💵 Efectivo / QR / billeteras · S/ ' + fmtSol(totalTarjeta(sel)) + '</button>' : '') : '') +
         (yapeOn() ? '<button class="btn btn-fuchsia" type="button" data-a="yape">💜 Pagar con Yape · sin comisión</button>' : '') +
         '<button class="btn btn-yellow" type="button" data-a="recargaWsp">💬 Pagar por WhatsApp · sin comisión</button>' : '') +
-        (pagosOn() ? '<p class="hint" style="font-size:.78rem;opacity:.85">Tarjeta: pago seguro con Culqi desde S/ ' + PAGOS.min + ', tus créditos se suman solos. <b>Efectivo (PagoEfectivo), QR y billeteras: desde S/ ' + PAGOS.minYape + '</b>: te damos un código, pagas cuando quieras (hasta 24 h) y tus créditos se suman solos al confirmarse.</p>' : '') +
-        '<p class="hint" style="font-size:.78rem;opacity:.85">¿Montos menores a S/ ' + PAGOS.minYape + ' con Yape, o prefieres pagar con una persona? Elige <b>Pagar por WhatsApp</b> y te atiende el encargado, que carga tus créditos él mismo. Los créditos usados en una rifa no se devuelven.</p>' + cerrar;
+        (pagosOn() ? '<p class="hint" style="font-size:.78rem;opacity:.85">Tarjeta: pago seguro con Culqi desde S/ ' + PAGOS.min + ', tu saldo se suman solos. <b>Efectivo (PagoEfectivo), QR y billeteras: desde S/ ' + PAGOS.minYape + '</b>: te damos un código, pagas cuando quieras (hasta 24 h) y tu saldo se suman solos al confirmarse.</p>' : '') +
+        '<p class="hint" style="font-size:.78rem;opacity:.85">¿Montos menores a S/ ' + PAGOS.minYape + ' con Yape, o prefieres pagar con una persona? Elige <b>Pagar por WhatsApp</b> y te atiende el encargado, que carga tu saldo él mismo. El saldo usado en una rifa no se devuelve.</p>' + cerrar;
     } else if (m.tipo === "item") {
       var mi = modalItemHtml(m); h = mi.h; btns = mi.btns + cerrar;
     } else if (m.tipo === "carrito") {
       var mc = carroHtml(); h = mc.h; btns = mc.btns;
     } else if (m.tipo === "itemOk") {
-      h = '<h3>¡Compra lista! 🎉</h3><p class="hint">Compraste <b>' + esc(m.nombre) + '</b>. Pedido <b>' + esc(m.code) + '</b>. Te quedan <b>' + m.saldo + '</b> créditos. Te escribiremos para entregártelo por Steam; asegúrate de tener tu link de intercambio en tu cuenta.</p>';
+      h = '<h3>¡Compra lista! 🎉</h3><p class="hint">Compraste <b>' + esc(m.nombre) + '</b>. Pedido <b>' + esc(m.code) + '</b>. Te quedan <b>' + m.saldo + '</b> soles. Te escribiremos para entregártelo por Steam; asegúrate de tener tu link de intercambio en tu cuenta.</p>';
       btns = cerrar;
     } else if (m.tipo === "yape") {
       var yp = estado.yape || {};
-      h = '<h3>Pagar con Yape 💜</h3><p class="hint">Yapea <b>S/ ' + fmtSol(m.sel) + '</b> (sin comisión) y avísanos por WhatsApp con tu captura. Te cargamos <b>' + creditosPara(m.sel) + ' créditos</b> a tu cuenta.</p>' +
+      h = '<h3>Pagar con Yape 💜</h3><p class="hint">Yapea <b>S/ ' + fmtSol(m.sel) + '</b> (sin comisión) y avísanos por WhatsApp con tu captura. Te cargamos <b>' + creditosPara(m.sel) + ' soles</b> a tu cuenta.</p>' +
         (yp.qr ? '<div class="yapeqr"><img data-fs="' + esc(yp.qr.slice(3)) + '" alt="QR de Yape" width="240" height="240"></div>' : '') +
         (yp.numero || yp.nombre ? '<p class="hint" style="text-align:center">' + (yp.numero ? 'Yape al <b>' + esc(yp.numero) + '</b>' : '') + (yp.nombre ? ' · a nombre de <b>' + esc(yp.nombre) + '</b>' : '') + '</p>' : '') +
-        '<p class="hint"><b>1.</b> Escanea el QR o yapea al número. <b>2.</b> Toca el botón de abajo y envía la captura del Yape por WhatsApp. <b>3.</b> Cargamos tus créditos (usa el mismo nombre/correo de tu cuenta).</p>';
+        '<p class="hint"><b>1.</b> Escanea el QR o yapea al número. <b>2.</b> Toca el botón de abajo y envía la captura del Yape por WhatsApp. <b>3.</b> Cargamos tu saldo (usa el mismo nombre/correo de tu cuenta).</p>';
       btns = '<button class="btn btn-ghost btn-sm" type="button" data-a="yapeBajar">⬇ Descargar QR</button><button class="btn btn-yellow" type="button" data-a="yapeAvisar">✅ Ya pagué · enviar captura por WhatsApp</button><button class="btn btn-ghost btn-sm" type="button" data-a="volverRecarga">← Cambiar monto</button>' + cerrar;
     } else if (m.tipo === "efectivoPend") {
-      h = '<h3>Código de pago listo 💵</h3><p class="hint">Se abrió tu código de pago por <b>S/ ' + m.soles + '</b>. Págalo en un agente, banco, app bancaria o con QR (vale por 24 horas). Cuando Culqi lo confirme, tus créditos se suman solos; puede tardar unos minutos.</p>' +
-        '<p class="hint">Tienes <b>' + (c ? c.creditos : 0) + '</b> créditos ahora.</p>';
+      h = '<h3>Código de pago listo 💵</h3><p class="hint">Se abrió tu código de pago por <b>S/ ' + m.soles + '</b>. Págalo en un agente, banco, app bancaria o con QR (vale por 24 horas). Cuando Culqi lo confirme, tu saldo se suman solos; puede tardar unos minutos.</p>' +
+        '<p class="hint">Tienes <b>' + (c ? c.creditos : 0) + '</b> soles ahora.</p>';
       btns = '<button class="btn btn-fuchsia" type="button" data-a="refrescarSaldo">🔄 Ya pagué · actualizar mi saldo</button>' + cerrar;
     } else if (m.tipo === "recargaOk") {
-      h = '<h3>¡Recarga lista! 🎉</h3><p class="hint">Se sumaron <b>' + m.creditos + '</b> créditos' + (m.promo ? ' (incluye tu regalo de primera recarga 🎁)' : '') + '. Ahora tienes <b>' + (c ? c.creditos : 0) + '</b>.</p>';
+      h = '<h3>¡Recarga lista! 🎉</h3><p class="hint">Se sumaron <b>' + m.creditos + '</b> soles' + (m.promo ? ' (incluye tu regalo de primera recarga 🎁)' : '') + '. Ahora tienes <b>' + (c ? c.creditos : 0) + '</b>.</p>';
       btns = '<button class="btn btn-yellow" type="button" data-a="cerrarModal">Ver rifas</button>';
     } else if (m.tipo === "confirmar") {
       var tot = m.qty * m.p.cred;
-      h = '<h3>¿Entrar a la rifa? 🎟️</h3><p class="hint">Rifa: <b>' + esc(m.p.nombre) + '</b> · ' + m.p.cred + ' créditos por cupo.' + (m.mio ? ' Ya tienes <b>' + m.mio + '</b> ' + (m.mio === 1 ? 'cupo' : 'cupos') + '.' : '') + '</p>' +
+      h = '<h3>¿Entrar a la rifa? 🎟️</h3><p class="hint">Rifa: <b>' + esc(m.p.nombre) + '</b> · ' + m.p.cred + ' soles por cupo.' + (m.mio ? ' Ya tienes <b>' + m.mio + '</b> ' + (m.mio === 1 ? 'cupo' : 'cupos') + '.' : '') + '</p>' +
         '<div class="qty" role="group" aria-label="Cantidad de cupos"><button type="button" data-a="qtyMenos"' + (m.qty <= 1 ? ' disabled' : '') + ' aria-label="Menos">−</button><span><b>' + m.qty + '</b><small>' + (m.qty === 1 ? 'cupo' : 'cupos') + '</small></span><button type="button" data-a="qtyMas"' + (m.qty >= m.max ? ' disabled' : '') + ' aria-label="Más">+</button></div>' +
-        '<p class="hint">Total: <b>' + tot + '</b> créditos. Te quedarán <b>' + (c.creditos - tot) + '</b>.' + (m.max < 100 ? ' Máximo ahora: ' + m.max + '.' : '') + ' Más cupos = más chances de ganar 🍀</p>';
+        '<p class="hint">Total: <b>' + tot + '</b> soles. Te quedarán <b>' + (c.creditos - tot) + '</b>.' + (m.max < 100 ? ' Máximo ahora: ' + m.max + '.' : '') + ' Más cupos = más chances de ganar 🍀</p>';
       btns = '<button class="btn btn-yellow" type="button" data-a="confirmarPart">✔ Confirmar ' + m.qty + (m.qty === 1 ? ' cupo' : ' cupos') + '</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cancelar</button>';
     } else if (m.tipo === "cargando") {
       h = '<h3>Procesando…</h3><p class="hint">Un momento por favor.</p>';
     } else if (m.tipo === "ok") {
-      h = '<h3>¡Ya estás participando! 🎉</h3><p class="hint">Tomaste <b>' + m.qty + '</b> ' + (m.qty === 1 ? 'cupo' : 'cupos') + ' en la rifa de <b>' + esc(m.p.nombre) + '</b> (en total tienes <b>' + m.mio + '</b>). Te quedan <b>' + (c ? c.creditos : 0) + '</b> créditos. ¡Mucha suerte! 🍀🏆</p>';
+      h = '<h3>¡Ya estás participando! 🎉</h3><p class="hint">Tomaste <b>' + m.qty + '</b> ' + (m.qty === 1 ? 'cupo' : 'cupos') + ' en la rifa de <b>' + esc(m.p.nombre) + '</b> (en total tienes <b>' + m.mio + '</b>). Te quedan <b>' + (c ? c.creditos : 0) + '</b> soles. ¡Mucha suerte! 🍀🏆</p>';
       btns = cerrar;
     } else {
       h = '<h3>Ups 😕</h3><p class="hint">' + esc(m.msg || "No se pudo completar.") + '</p>';
@@ -637,7 +641,7 @@
   function modalElegir() {
     return '<div class="scrim scrim-top" data-a="cerrarElegir"></div>' +
       '<div class="elegir" role="dialog" aria-label="Elegir contacto"><h3>¿Con quién quieres hablar?</h3>' +
-      '<p class="hint">Elige a quién escribirle por WhatsApp para pedir tus créditos.</p>' +
+      '<p class="hint">Elige a quién escribirle por WhatsApp para pedir tu saldo.</p>' +
       contactos().map(function (c) {
         return '<a class="contacto" href="' + esc(waLinkA(c.numero, elegirMsg || msgCred(cuenta.perfil))) + '" target="_blank" rel="noopener">' + avatar(c) +
           '<span class="cinfo"><b>' + esc(c.nombre) + '</b><small>' + esc(waBonito(c.numero)) + '</small></span><span class="go">Escribir ›</span></a>';
@@ -1051,9 +1055,9 @@
       '<div class="ipg-grid"><div class="ipg-foto" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') +
       '<span class="ipg-tag' + (agot ? ' off' : '') + '">' + (agot ? 'Agotado' : (it.stock > 1 ? it.stock + ' disponibles' : 'Disponible')) + '</span></div>' +
       '<div class="ipg-info"><dl class="ipg-attrs">' + attrs + '</dl>' + estilosHtml(it) + descripcionHtml(it) +
-      '<div class="ipg-precio"><div class="pp-top"><b>' + fmtPrecio(it.precio) + '</b>' + (dto ? '<span class="pp-dto" title="Descuento frente al precio del Mercado de Steam">-' + dto + ' %</span>' : '') + '<span class="pp-cred">o ' + cred + ' créditos</span></div>' +
+      '<div class="ipg-precio"><div class="pp-top"><b>' + fmtPrecio(it.precio) + '</b>' + (dto ? '<span class="pp-dto" title="Descuento frente al precio del Mercado de Steam">-' + dto + ' %</span>' : '') + '<span class="pp-cred">o ' + cred + ' soles</span></div>' +
       steamHtml(it, true) +
-      (agot ? '' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> créditos.</p>' : '<p class="hint">Para pagar con créditos entra a tu cuenta.</p>')) +
+      (agot ? '' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> soles.</p>' : '<p class="hint">Para pagar con tu saldo entra a tu cuenta.</p>')) +
       '<div class="pp-btns">' + btns + '</div></div></div></div>' + ofertasHtml(it) + parecidosHtml(it));
   }
 
@@ -1232,9 +1236,9 @@
     var h = '<h3>' + esc(it.nombre) + '</h3>' +
       '<div class="ithumb big" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') + '</div>' +
       '<p class="hint">' + [it.rareza, it.calidad, it.tipo, it.heroe, it.ranura].filter(Boolean).map(esc).join(' · ') + '</p>' + estilosHtml(it) + descripcionHtml(it) +
-      '<p class="resumen">Precio: <b>' + fmtPrecio(it.precio) + '</b> · o <b>' + cred + ' créditos</b></p>' + steamHtml(it, true) +
-      (agot ? '<p class="hint" style="color:var(--danger)">Este item está agotado.</p>' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> créditos.</p>' : '<p class="hint">Para pagar con créditos entra a tu cuenta.</p>'));
-    var btns = agot ? '' : ('<button class="btn btn-fuchsia" type="button" data-a="itCred" data-id="' + esc(it.id) + '">💎 Pagar con ' + cred + ' créditos</button>' +
+      '<p class="resumen">Precio: <b>' + fmtPrecio(it.precio) + '</b> · o <b>' + cred + ' soles</b></p>' + steamHtml(it, true) +
+      (agot ? '<p class="hint" style="color:var(--danger)">Este item está agotado.</p>' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> soles.</p>' : '<p class="hint">Para pagar con tu saldo entra a tu cuenta.</p>'));
+    var btns = agot ? '' : ('<button class="btn btn-fuchsia" type="button" data-a="itCred" data-id="' + esc(it.id) + '">💎 Pagar con tu saldo (S/ ' + cred + ')</button>' +
       (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="itWsp" data-id="' + esc(it.id) + '">💬 Comprar por WhatsApp</button>' : ''));
     return { h: h, btns: btns };
   }
@@ -1342,9 +1346,9 @@
         '<button type="button" class="btn btn-ghost btn-sm" data-a="carMas" data-id="' + esc(x.it.id) + '" aria-label="Más"' + (x.qty >= x.it.stock ? ' disabled' : '') + '>+</button>' +
         '<button type="button" class="btn btn-ghost btn-sm" data-a="carQuitar" data-id="' + esc(x.it.id) + '" aria-label="Quitar">🗑</button></div></div>';
     }).join("") + '</div>' +
-      '<p class="resumen">Total: <b>' + fmtPrecio(T.sol) + '</b> · o <b>' + T.cred + ' créditos</b></p>' +
-      (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> créditos.</p>' : '<p class="hint">Para pagar con créditos entra a tu cuenta.</p>');
-    var btns = '<button class="btn btn-fuchsia" type="button" data-a="carCred">💎 Pagar con ' + T.cred + ' créditos</button>' +
+      '<p class="resumen">Total: <b>' + fmtPrecio(T.sol) + '</b> · o <b>' + T.cred + ' soles</b></p>' +
+      (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> soles.</p>' : '<p class="hint">Para pagar con tu saldo entra a tu cuenta.</p>');
+    var btns = '<button class="btn btn-fuchsia" type="button" data-a="carCred">💎 Pagar con tu saldo (S/ ' + T.cred + ')</button>' +
       (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="carWsp">💬 Pedir por WhatsApp</button>' : '') +
       '<button class="btn btn-ghost btn-sm" type="button" data-a="carVaciar">Vaciar</button>' + cerrar;
     return { h: h, btns: btns };
@@ -1356,7 +1360,7 @@
   }
   function pagarCarro() {
     var l = carroLineas(); if (!l.length) return;
-    if (!cuenta.perfil) { modal = null; cuenta.modo = "login"; cuenta.msg = "Entra a tu cuenta para pagar con créditos."; cuenta.msgTipo = ""; render(); return; }
+    if (!cuenta.perfil) { modal = null; cuenta.modo = "login"; cuenta.msg = "Entra a tu cuenta para pagar con tu saldo."; cuenta.msgTipo = ""; render(); return; }
     var payload = l.map(function (x) { return { id: x.it.id, qty: x.qty }; }), n = l.reduce(function (a, x) { return a + x.qty; }, 0);
     modal = { tipo: "cargando" }; render();
     token().then(function (tk) {
@@ -1367,11 +1371,11 @@
         carro = {}; carroGuardar();
         modal = { tipo: "itemOk", code: x.j.code, nombre: n + (n === 1 ? " item" : " items"), saldo: x.j.saldo }; render();
         cargarPerfil(); cargarItems(true);
-      }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : "No se pudo completar la compra. No se descontaron créditos." }; render(); });
+      }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : "No se pudo completar la compra. No se descontó saldo." }; render(); });
   }
   function comprarItemCreditos(id) {
     var it = itemPorId(id); if (!it) return;
-    if (!cuenta.perfil) { modal = null; cuenta.modo = "login"; cuenta.msg = "Entra a tu cuenta para pagar con créditos."; cuenta.msgTipo = ""; render(); return; }
+    if (!cuenta.perfil) { modal = null; cuenta.modo = "login"; cuenta.msg = "Entra a tu cuenta para pagar con tu saldo."; cuenta.msgTipo = ""; render(); return; }
     modal = { tipo: "cargando" }; render();
     token().then(function (tk) {
       return fetch(ITEMS_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ id: id }) });
@@ -1380,7 +1384,7 @@
         if (!x.ok) { modal = { tipo: "error", msg: (x.j && x.j.error) || "No se pudo completar la compra." }; render(); cargarItems(true); return; }
         modal = { tipo: "itemOk", code: x.j.code, nombre: it.nombre, saldo: x.j.saldo }; render();
         cargarPerfil(); cargarItems(true);
-      }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : "No se pudo completar la compra. No se descontaron créditos." }; render(); });
+      }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : "No se pudo completar la compra. No se descontó saldo." }; render(); });
   }
   /* ===== Vender items: el cliente pega su trade link y ve sus items; tú pones los precios de compra ===== */
   var INV_URL = "https://inventario-seqcayr4iq-uc.a.run.app";
@@ -1946,7 +1950,7 @@
          : (p.rareza ? '<div class="rarity">' + esc(p.rareza) + '</div>' : '')) +
       '<h3' + ed("p:" + p.id + ":nombre", "Nombre del premio") + '>' + esc(V ? p.nombre : (p.nombre || "Premio")) + '</h3>' +
       (p.descripcion || V ? '<p class="desc"' + ed("p:" + p.id + ":descripcion", "Descripción (opcional)") + '>' + esc(p.descripcion) + '</p>' : '') +
-      '<div class="meta"><span class="cost"><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small' + ed("t:lblCreditos", "créditos") + '>' + esc(estado.textos.lblCreditos) + '</small></span><span class="pill">' + partTxt + '</span></div>' +
+      '<div class="meta"><span class="cost"><small>S/</small><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small>por cupo</small></span><span class="pill">' + partTxt + '</span></div>' +
       (cupos > 0 ? '<div class="cbar' + (part / cupos >= 0.8 ? ' hot' : '') + '" role="img" aria-label="' + esc(partTxt) + '"><i style="width:' + Math.min(100, Math.round(part / cupos * 100)) + '%"></i></div>' : '') +
       (est === "activa" && p.cierre ? '<div class="timer" data-cierre="' + esc(p.cierre) + '">' + esc(restante(p.cierre)) + '</div>' : '') +
       (est === "activa" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + (+p.cupos > 0 ? ' o al agotar cupos' : '') + '</div>' : '') +
@@ -1996,7 +2000,7 @@
       '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
       '<nav class="nav"><a class="navlink' + (vista === "inicio" ? ' on' : '') + '" href="#inicio">Inicio</a><a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' +
       (admin.puede ? '<button class="lock" type="button" data-a="admin">Panel admin</button>'
-        : (cuenta.perfil ? '<button class="lock hot misrifas" type="button" data-a="misRifas">🎟️ Mis rifas</button><button class="lock me" type="button" data-a="miCuenta"><b>◆ ' + cuenta.perfil.creditos + '</b> créditos<span class="nm"> · ' + esc(cuenta.perfil.nombre || "Mi cuenta") + '</span></button>'
+        : (cuenta.perfil ? '<button class="lock hot misrifas" type="button" data-a="misRifas">🎟️ Mis rifas</button><button class="lock me" type="button" data-a="miCuenta"><b>◆ ' + cuenta.perfil.creditos + '</b> soles<span class="nm"> · ' + esc(cuenta.perfil.nombre || "Mi cuenta") + '</span></button>'
           : (leerSesion() ? '<button class="lock" type="button" data-a="miCuenta">Mi cuenta</button>'
             : '<button class="lock" type="button" data-a="entrar">Entrar</button><button class="lock hot" type="button" data-a="registro">Crear cuenta</button>'))) +
       '</nav></div></header>' +
@@ -2148,7 +2152,7 @@
     function item(grupo, it) {
       var p = it.p, x = it.x, f = p.resultado || p.cierre, fr = f ? fechaHora(f) : "";
       var tag = grupo === "gano" ? "🏆 ¡Ganaste!" : (grupo === "perdio" ? "No ganaste" : (p.estado === "cerrada" ? "⏳ Resultado pendiente" : "⏳ En curso"));
-      var lineas = '<small>Entraste: ' + esc(x.creado ? fechaHora(x.creado) : "—") + ' · ' + x.cantidad + (x.cantidad === 1 ? ' cupo' : ' cupos') + ' · ' + x.costo + ' créditos</small>';
+      var lineas = '<small>Entraste: ' + esc(x.creado ? fechaHora(x.creado) : "—") + ' · ' + x.cantidad + (x.cantidad === 1 ? ' cupo' : ' cupos') + ' · ' + x.costo + ' soles</small>';
       if (grupo === "curso") lineas += '<small>' + (p.cierre ? 'Cierra: ' + esc(fechaHora(p.cierre)) : 'Aún sin fecha de cierre') + '</small>';
       else lineas += '<small>Resultado: ' + (fr ? esc(fr) : 'sin fecha registrada') + '</small>' +
         '<small>Ganador: <b>' + esc(p.ganador) + '</b></small>' +
@@ -2167,7 +2171,7 @@
     if (m === "registro") {
       titulo = "Crear cuenta";
       cuerpo = '<form class="drawer-body form" id="formRegistro">' +
-        '<p class="hint">Crea tu cuenta para recibir créditos y participar en las rifas.</p>' + btnGoogle() +
+        '<p class="hint">Crea tu cuenta para recibir saldo y participar en las rifas.</p>' + btnGoogle() +
         '<div class="field"><label for="r-nombre">Nombre o apodo</label><input id="r-nombre" maxlength="40" required autocomplete="nickname"></div>' +
         campoSteam("r-steam") + '<div class="field"><label for="r-trade">Link de intercambio de Steam (trade link)</label><input id="r-trade" inputmode="url" required placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…">' +
         '<p class="hint">Ahí te enviamos el item si ganas. ' + TRADE_AYUDA + '</p></div>' +
@@ -2195,7 +2199,7 @@
       titulo = "Mi cuenta";
       var link = creditoHref();
       cuerpo = '<div class="drawer-body">' + (p
-        ? '<div class="saldo frame gold"><div class="in"><small>Tus créditos</small><b>' + p.creditos + '</b></div></div>' +
+        ? '<div class="saldo frame gold"><div class="in"><small>Tu saldo</small><b>' + p.creditos + '</b></div></div>' +
           '<form class="grp" id="formTrade"><h3>Mis datos</h3>' +
           '<div class="field"><label for="p-nombre">Nombre o apodo</label><input id="p-nombre" maxlength="40" required value="' + esc(p.nombre) + '"></div>' +
           '<div class="field"><label for="p-wa">WhatsApp</label><input id="p-wa" inputmode="tel" maxlength="30" required value="' + esc(p.whatsapp) + '"></div>' +
@@ -2206,11 +2210,11 @@
           '<div><button class="btn btn-yellow btn-sm" type="submit">Guardar cambios</button></div>' +
           '<p class="hint" role="status" id="tradeMsg"></p></form>' +
           '<div class="grp">' + (pagosOn()
-            ? '<p class="hint">Recarga con tarjeta (o Yape / QR desde S/ ' + PAGOS.minYape + ') y los créditos se suman al instante.' + (p.promoUsada ? '' : ' ¡Tu primera recarga trae créditos extra! 🎁') + '</p>' +
-              '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar créditos</button>' +
+            ? '<p class="hint">Recarga con tarjeta (o Yape / QR desde S/ ' + PAGOS.minYape + ') y el saldo se suma al instante.' + (p.promoUsada ? '' : ' ¡Tu primera recarga trae saldo extra! 🎁') + '</p>' +
+              '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar saldo</button>' +
               (link ? '<p class="hint">¿Algún problema con tu recarga? Escríbenos.</p><a class="btn btn-ghost btn-sm" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Escribir por WhatsApp</a>' : '')
-            : '<p class="hint">Para recibir créditos, escribe al encargado. Él los carga en tu cuenta.</p>' +
-              (link ? '<a class="btn btn-yellow" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Pedir créditos por WhatsApp</a>' : '')) + '</div>'
+            : '<p class="hint">Para recibir saldo, escribe al encargado. Él los carga en tu cuenta.</p>' +
+              (link ? '<a class="btn btn-yellow" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Pedir saldo por WhatsApp</a>' : '')) + '</div>'
         : '<p class="hint">' + (cuenta.msg ? esc(cuenta.msg) : "Cargando tu cuenta…") + '</p>') +
         '<div class="grp"><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div></div>';
     } else {
@@ -2261,7 +2265,7 @@
       '<div class="field"><label for="nc-pass">Contraseña (mínimo 6)</label><input id="nc-pass" type="text" autocomplete="off" value="' + esc(nc.pass) + '"></div>' +
       '<div class="field"><label for="nc-wsp">WhatsApp</label><input id="nc-wsp" inputmode="tel" placeholder="+51..." value="' + esc(nc.wsp) + '"></div>' +
       '<div class="field"><label for="nc-trade">Trade link de Steam (opcional)</label><input id="nc-trade" value="' + esc(nc.trade) + '"></div>' +
-      '<div class="field"><label for="nc-cred">Créditos iniciales</label><input id="nc-cred" type="number" min="0" step="1" value="' + esc(nc.cred || "0") + '"></div>' +
+      '<div class="field"><label for="nc-cred">Saldo inicial (S/)</label><input id="nc-cred" type="number" min="0" step="1" value="' + esc(nc.cred || "0") + '"></div>' +
       '<button class="btn btn-yellow btn-sm" type="button" data-a="crearCuenta">+ Crear cuenta</button> <button class="btn btn-ghost btn-sm" type="button" data-a="crearPrueba">🧪 Crear cuenta de prueba</button>' +
       (admin.ncMsg ? '<p class="hint" style="color:var(--' + (admin.ncOk ? 'ok' : 'danger') + ')">' + esc(admin.ncMsg) + '</p>' : '') +
       '<small class="hint">Pásale al usuario su correo y contraseña. Luego puede cambiarla con "¿Olvidaste tu contraseña?".</small></div>';
@@ -2278,9 +2282,9 @@
         return '<div class="urow"><div class="t"><b>' + esc(u.nombre || "(sin nombre)") + '</b><span>WhatsApp: ' + esc(u.whatsapp) + '</span><span>' + esc(u.email) + '</span>' +
           (tradeValido(u.tradelink) ? '<span><a href="' + esc(u.tradelink) + '" target="_blank" rel="noopener">Abrir trade link ↗</a></span>' : '<span style="color:var(--fuchsia)">Sin trade link</span>') + '</div>' +
           '<div class="ucred">' +
-          '<button class="iconbtn" type="button" data-a="cred" data-uid="' + id + '" data-d="-1" aria-label="Quitar 1 crédito">−</button>' +
-          '<input class="credset" data-uid="' + id + '" type="number" min="0" step="1" inputmode="numeric" value="' + u.creditos + '" aria-label="Créditos de ' + esc(u.nombre) + '">' +
-          '<button class="iconbtn" type="button" data-a="cred" data-uid="' + id + '" data-d="1" aria-label="Sumar 1 crédito">+</button>' +
+          '<button class="iconbtn" type="button" data-a="cred" data-uid="' + id + '" data-d="-1" aria-label="Quitar S/ 1">−</button>' +
+          '<input class="credset" data-uid="' + id + '" type="number" min="0" step="1" inputmode="numeric" value="' + u.creditos + '" aria-label="Saldo de ' + esc(u.nombre) + '">' +
+          '<button class="iconbtn" type="button" data-a="cred" data-uid="' + id + '" data-d="1" aria-label="Sumar S/ 1">+</button>' +
           '<button class="iconbtn wide" type="button" data-a="cred" data-uid="' + id + '" data-d="5">+5</button>' +
           '<button class="iconbtn wide" type="button" data-a="cred" data-uid="' + id + '" data-d="10">+10</button>' +
           '<span class="usave">' + (u.guardando ? "Guardando…" : (u.ok && Date.now() - u.ok < 4000 ? "✔ Guardado" : "")) + '</span>' +
@@ -2292,7 +2296,7 @@
           '<button type="button" class="pbtn" data-a="verFicha" data-key="u_' + id + '"><span>' + (admin.fichaU === "u_" + u.uid ? "Ocultar ficha" : "Ver ficha completa") + '</span><i>' + (admin.fichaU === "u_" + u.uid ? "▴" : "▾") + '</i></button>' +
           (admin.fichaU === "u_" + u.uid ? detalleUsuario(u.uid) : '') + '</div>';
       }).join("") : '<p class="hint">' + (f ? "Nadie coincide con la búsqueda." : "Todavía nadie se ha registrado.") + '</p>') + '</div>' +
-      '<p class="hint">Los créditos se guardan al instante (no hace falta "Guardar y publicar").</p>' +
+      '<p class="hint">El saldo se guarda al instante (no hace falta "Guardar y publicar").</p>' +
       '<button class="btn btn-ghost btn-sm" type="button" data-a="recargarU">Actualizar lista</button></div>';
   }
 
@@ -2302,7 +2306,7 @@
     if (admin.editando) cuerpo = formPremio();
     else cuerpo = '<div class="tabs" role="tablist">' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="premios" aria-selected="' + (admin.tab === "premios") + '">Premios</button>' +
-      '<button class="tab" role="tab" type="button" data-a="tab" data-t="usuarios" aria-selected="' + (admin.tab === "usuarios") + '">Usuarios y créditos</button>' +
+      '<button class="tab" role="tab" type="button" data-a="tab" data-t="usuarios" aria-selected="' + (admin.tab === "usuarios") + '">Usuarios y saldo</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="items" aria-selected="' + (admin.tab === "items") + '">Items</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="compras" aria-selected="' + (admin.tab === "compras") + '">Compras</button>' +
       '<button class="tab" role="tab" type="button" data-a="tab" data-t="pagina" aria-selected="' + (admin.tab === "pagina") + '">Textos y contactos</button>' +
@@ -2368,7 +2372,7 @@
           (pr && pr.ganadorUid === uid ? ' · <b>🏆 ganador</b>' : '') + '</li>');
       });
     });
-    var h = '<div class="ficha"><div class="fhead"><b>' + esc(u.nombre || "(sin nombre)") + '</b><span class="fcred">◆ ' + u.creditos + ' créditos</span></div>' +
+    var h = '<div class="ficha"><div class="fhead"><b>' + esc(u.nombre || "(sin nombre)") + '</b><span class="fcred">◆ ' + u.creditos + ' soles</span></div>' +
       '<div class="frow"><span>WhatsApp</span><div>' + (soloDigitos(u.whatsapp) ? '<a href="https://wa.me/' + esc(waNum(u.whatsapp)) + '" target="_blank" rel="noopener">' + esc(u.whatsapp) + ' ↗</a>' : '—') + '</div></div>' +
       '<div class="frow"><span>Correo</span><div><a href="mailto:' + esc(u.email) + '">' + esc(u.email) + '</a></div></div>' +
       '<div class="frow"><span>Trade link</span><div>' + (tradeValido(u.tradelink)
@@ -2383,11 +2387,11 @@
         var aviso = "¡Felicidades " + u.nombre + "! 🏆 Ganaste la rifa de " + p.nombre + " en RAYAS STORE. Te enviaremos el item por Steam a tu trade link. ¡Gracias por participar! 🎉";
         h += '<div class="fbtns"><a class="btn btn-fuchsia btn-sm" target="_blank" rel="noopener" href="' + esc(waLinkA(waNum(u.whatsapp), aviso)) + '">Avisar al ganador por WhatsApp</a></div>';
       }
-      h += '<div class="frow"><span>Cupos</span><div class="adjq"><button class="iconbtn" type="button" data-a="cantPart" data-d="-1" data-uid="' + id + '" data-id="' + esc(p.id) + '"' + ((ctx.cantidad || 1) <= 1 ? ' disabled' : '') + ' aria-label="Quitar un cupo">−</button><b>' + (ctx.cantidad || 1) + '</b><button class="iconbtn" type="button" data-a="cantPart" data-d="1" data-uid="' + id + '" data-id="' + esc(p.id) + '" aria-label="Sumar un cupo">+</button><small>Ajuste manual: no cobra ni devuelve créditos.</small></div></div>';
+      h += '<div class="frow"><span>Cupos</span><div class="adjq"><button class="iconbtn" type="button" data-a="cantPart" data-d="-1" data-uid="' + id + '" data-id="' + esc(p.id) + '"' + ((ctx.cantidad || 1) <= 1 ? ' disabled' : '') + ' aria-label="Quitar un cupo">−</button><b>' + (ctx.cantidad || 1) + '</b><button class="iconbtn" type="button" data-a="cantPart" data-d="1" data-uid="' + id + '" data-id="' + esc(p.id) + '" aria-label="Sumar un cupo">+</button><small>Ajuste manual: no cobra ni devuelve saldo.</small></div></div>';
       var kq = p.id + "_" + uid, dq = ' data-uid="' + id + '" data-id="' + esc(p.id) + '"';
       h += '<div class="fbtns">' + (admin.quitarP === kq
-        ? '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartSi"' + dq + ' data-dev="' + (admin.quitarDev ? 1 : 0) + '">Sí, ' + (admin.quitarDev ? 'quitar y devolver ' + (ctx.costo || 0) + ' créditos' : 'solo quitar (sin devolver)') + '</button><button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartNo">No</button>'
-        : '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarPart"' + dq + ' data-dev="1">Quitar y devolver créditos</button><button class="btn btn-ghost btn-sm" type="button" data-a="quitarPart"' + dq + ' data-dev="0">Solo quitar</button>') + '</div>';
+        ? '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartSi"' + dq + ' data-dev="' + (admin.quitarDev ? 1 : 0) + '">Sí, ' + (admin.quitarDev ? 'quitar y devolver ' + (ctx.costo || 0) + ' soles' : 'solo quitar (sin devolver)') + '</button><button class="btn btn-ghost btn-sm" type="button" data-a="quitarPartNo">No</button>'
+        : '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarPart"' + dq + ' data-dev="1">Quitar y devolver saldo</button><button class="btn btn-ghost btn-sm" type="button" data-a="quitarPart"' + dq + ' data-dev="0">Solo quitar</button>') + '</div>';
     }
     return h + '<div class="fbtns"><button class="btn btn-yellow btn-sm" type="button" data-a="editU" data-uid="' + id + '">✎ Editar datos</button></div></div>';
   }
@@ -2408,7 +2412,7 @@
         }).join("") +
         (admin.usuarios && libres.length ? '<div class="addp"><label for="add-u-' + pid + '">Agregar participante</label><div class="addrow"><select id="add-u-' + pid + '">' +
           libres.map(function (u) { return '<option value="' + esc(u.uid) + '">' + esc(u.nombre || u.email) + '</option>'; }).join("") +
-          '</select><input id="add-q-' + pid + '" type="number" min="1" max="100" value="1" aria-label="Cupos"><button class="btn btn-ghost btn-sm" type="button" data-a="addPart" data-id="' + pid + '">Agregar</button></div><small class="hint">Se agrega sin descontar créditos.</small>' + (admin.addPid === p.id && admin.addMsg ? '<p class="hint" style="color:' + (admin.addMsgOk ? 'var(--ok)' : 'var(--danger)') + '" role="status">' + esc(admin.addMsg) + '</p>' : '') + '</div>' : '') +
+          '</select><input id="add-q-' + pid + '" type="number" min="1" max="100" value="1" aria-label="Cupos"><button class="btn btn-ghost btn-sm" type="button" data-a="addPart" data-id="' + pid + '">Agregar</button></div><small class="hint">Se agrega sin descontar saldo.</small>' + (admin.addPid === p.id && admin.addMsg ? '<p class="hint" style="color:' + (admin.addMsgOk ? 'var(--ok)' : 'var(--danger)') + '" role="status">' + esc(admin.addMsg) + '</p>' : '') + '</div>' : '') +
         (l.length ? '<button class="btn btn-ghost btn-sm" type="button" data-a="sortear" data-id="' + pid + '">🎰 Sortear con ruleta</button>' + (p.replay ? ' <button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + pid + '">🎬 Ver repetición</button>' : '') : '') + '</div>';
     }).join("");
   }
@@ -2465,7 +2469,7 @@
         return fsPedir("rayas_users/" + encodeURIComponent(j.localId) + "?updateMask.fieldPaths=creditos&currentDocument.exists=true", { method: "PATCH", body: JSON.stringify({ fields: { creditos: { integerValue: String(cred) } } }) });
       });
     }).then(function () {
-      admin.nc = null; admin.ncMsg = pre ? "✔ Cuenta de prueba creada. Correo: " + d.email + " · Contraseña: " + d.pass + " · 100 créditos" : "✔ Cuenta creada: " + d.email; admin.ncOk = true; admin.usuarios = null; render();
+      admin.nc = null; admin.ncMsg = pre ? "✔ Cuenta de prueba creada. Correo: " + d.email + " · Contraseña: " + d.pass + " · 100 soles" : "✔ Cuenta creada: " + d.email; admin.ncOk = true; admin.usuarios = null; render();
     }).catch(function (e) {
       var m = String(e && e.message);
       admin.ncOk = false;
@@ -2493,7 +2497,7 @@
     var items = estado.premios.map(function (p, i) {
       var est = p.estado === "proxima" ? "Próximamente" : (p.estado === "cerrada" ? "Cerrada" : (p.estado === "oculta" ? "Deshabilitada (oculta)" : "Abierta"));
       return '<div class="aitem"><div class="th">' + imgTag(p.img, "") + '</div>' +
-        '<div class="t"><b>' + esc(p.nombre || "Premio") + '</b><span>' + est + ' · ' + num(p.creditos, 0) + ' créditos</span></div>' +
+        '<div class="t"><b>' + esc(p.nombre || "Premio") + '</b><span>' + est + ' · ' + num(p.creditos, 0) + ' soles</span></div>' +
         '<div class="acts">' +
         '<button class="iconbtn" type="button" aria-label="Subir" title="Subir" data-a="subir" data-i="' + i + '"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
         '<button class="iconbtn" type="button" aria-label="Bajar" title="Bajar" data-a="bajar" data-i="' + i + '"' + (i === estado.premios.length - 1 ? ' disabled' : '') + '>↓</button>' +
@@ -2530,7 +2534,7 @@
       '<p class="hint">' + (estado.secciones && estado.secciones.items ? 'VISIBLE: los clientes ven Comprar y Vender items.' : 'OCULTAS: solo tú ves Comprar y Vender items. Recuerda pulsar Publicar.') + '</p></div>' +
       yapeAdminHtml() + '<div class="grp"><h3>Cobro con Culqi (tarjeta / Yape)</h3>' +
       '<label class="chk"><input type="checkbox" class="c-pagos"' + (estado.pagos && estado.pagos.culqi ? ' checked' : '') + '> Cobrar con Culqi (los clientes ven el botón de pago)</label>' +
-      '<p class="hint">' + (estado.pagos && estado.pagos.culqi ? 'ACTIVO: los clientes pueden recargar con tarjeta o Yape.' : 'APAGADO: los clientes solo piden créditos por WhatsApp.') + ' Recuerda pulsar <b>Publicar</b> para que el cambio lo vean todos. Este interruptor vale para las dos páginas.</p></div>' +
+      '<p class="hint">' + (estado.pagos && estado.pagos.culqi ? 'ACTIVO: los clientes pueden recargar con tarjeta o Yape.' : 'APAGADO: los clientes solo piden saldo por WhatsApp.') + ' Recuerda pulsar <b>Publicar</b> para que el cambio lo vean todos. Este interruptor vale para las dos páginas.</p></div>' +
       (estado.contactos || []).map(function (c, k) {
       return '<div class="grp contacto-ed"><h3>Contacto ' + (k + 1) + ' · ' + esc(c.nombre || "sin nombre") + '</h3>' +
         '<div class="cav">' + avatar(c) +
@@ -2542,11 +2546,11 @@
         '<label class="chk"><input type="checkbox" class="c-activo" data-i="' + k + '"' + (c.activo ? ' checked' : '') + '> Activo (recibe mensajes de clientes)</label></div>';
     }).join("") +
       (admin.imgErr ? '<p class="hint" style="color:var(--danger)">' + esc(admin.imgErr) + '</p>' : '') +
-      '<p class="hint">Si los dos están activos, el cliente elige con quién hablar. Si solo hay uno activo, el botón abre directo su WhatsApp. Si ninguno, se ocultan los botones de créditos. Perú: 51 + 9 dígitos.</p>' +
+      '<p class="hint">Si los dos están activos, el cliente elige con quién hablar. Si solo hay uno activo, el botón abre directo su WhatsApp. Si ninguno, se ocultan los botones de recarga. Perú: 51 + 9 dígitos.</p>' +
       '<div class="grp"><h3>Mensajes de WhatsApp</h3>' +
-      '<div class="field"><label for="f-msg1">Cuando pide créditos con cuenta</label><textarea id="f-msg1" rows="6" maxlength="600">' + esc(T.msgCredPerfil) + '</textarea></div>' +
+      '<div class="field"><label for="f-msg1">Cuando pide saldo con cuenta</label><textarea id="f-msg1" rows="6" maxlength="600">' + esc(T.msgCredPerfil) + '</textarea></div>' +
       '<p class="hint">Usa {nombre} y {correo} para poner los datos del usuario.</p>' +
-      '<div class="field"><label for="f-msg2">Cuando pide créditos sin cuenta</label><textarea id="f-msg2" rows="4" maxlength="600">' + esc(T.msgCredVisita) + '</textarea></div>' +
+      '<div class="field"><label for="f-msg2">Cuando pide saldo sin cuenta</label><textarea id="f-msg2" rows="4" maxlength="600">' + esc(T.msgCredVisita) + '</textarea></div>' +
       '<p class="hint">Puedes usar emojis. En celular se envían tal cual; en PC se quitan solos al enviar, porque WhatsApp para Windows los daña.</p></div>' +
       '<div class="grp"><h3>Portada</h3>' +
       '<div class="field"><label for="f-titulo">Título</label><input id="f-titulo" maxlength="70" value="' + esc(T.titulo) + '"></div>' +
@@ -2570,7 +2574,7 @@
       ['', 'ARCANO', 'INMORTAL', 'LEGENDARIO', 'MÍTICO', 'RARO', 'POCO COMÚN', 'COMÚN'].map(function (r) {
         return '<option value="' + esc(r) + '"' + (String(p.rareza || "").toUpperCase() === r ? ' selected' : '') + '>' + (r || "Sin rareza") + '</option>';
       }).join("") + '</select></div>' +
-      '<div class="field"><label for="f-creditos">Costo en créditos</label><input id="f-creditos" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.creditos, 0) + '"></div>' +
+      '<div class="field"><label for="f-creditos">Costo (S/)</label><input id="f-creditos" type="number" min="0" step="1" inputmode="numeric" value="' + num(p.creditos, 0) + '"></div>' +
       '</div>' +
       '<div class="field"><label for="f-desc">Descripción (opcional)</label><textarea id="f-desc" maxlength="240">' + esc(p.descripcion) + '</textarea></div>' +
       '<div class="row2">' +
@@ -3200,9 +3204,9 @@
       var d = document.createElement("div");
       d.id = "promoPop"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Promoción de primera recarga");
       d.innerHTML = '<div class="promo-box"><button type="button" class="promo-x" aria-label="Cerrar">✕</button>' +
-        '<img src="img/promo-rifas.jpg" alt="Primera recarga: S/ 50 = 55 créditos, S/ 100 = 110 créditos" width="1080" height="1350">' +
+        '<img src="img/promo-rifas.jpg" alt="Primera recarga con regalo" width="1080" height="1350">' +
         '<div class="promo-acts">' + (recargaOn() ? '<button type="button" class="btn btn-yellow" id="promoPagar">Recargar ahora</button>'
-          : (href ? '<a class="btn btn-yellow" id="promoCta" href="' + esc(href) + '"' + (href === "#elegir" ? '' : ' target="_blank" rel="noopener"') + '>Pedir créditos</a>' : '')) +
+          : (href ? '<a class="btn btn-yellow" id="promoCta" href="' + esc(href) + '"' + (href === "#elegir" ? '' : ' target="_blank" rel="noopener"') + '>Pedir saldo</a>' : '')) +
         '<button type="button" class="btn btn-ghost" id="promoNo">Ahora no</button></div></div>';
       document.body.appendChild(d);
       requestAnimationFrame(function () { d.classList.add("on"); });
