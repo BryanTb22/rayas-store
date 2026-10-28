@@ -473,6 +473,35 @@ exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "Am
   console.log("recordatorio enviado", lista.length, r.status);
 });
 
+/* ---- Admin: manda 4 correos de EJEMPLO (confirmación y pendiente, de cada tienda) al correo del administrador. No cobra ni toca saldos. ---- */
+exports.probarCorreos = onRequest(
+  { region: REGION, cors: ORIGENES, secrets: [RESEND_KEY], maxInstances: 1, timeoutSeconds: 60 },
+  async (req, res) => {
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
+    const uid = await uidDeLaPeticion(req);
+    if (uid !== ADMIN_UID) return res.status(403).json({ error: "Solo el administrador puede usar esto." });
+    let a;
+    try { a = String((await admin.auth().getUser(uid)).email || ""); } catch (e) { a = ""; }
+    if (!a) return res.status(400).json({ error: "La cuenta de administrador no tiene correo." });
+    const ahora = new Date(), venc = new Date(ahora.getTime() + 22 * 3600 * 1000), tanda = String(Date.now());
+    let enviados = 0, fallaron = 0, error = "";
+    for (const tienda of ["rayas", "litlejacob"]) {
+      const lista = [
+        ["confirmacion", emails.confirmacion(tienda, { id: "prueba" + tienda, nombre: "Bryan", soles: 10, creditos: 12, tipo: "tarjeta", pagadoEn: ahora, saldo: 15 })],
+        ["pendiente", emails.recordatorio(tienda, { id: "prueba" + tienda, nombre: "Bryan", soles: 10, creditos: 12, expiraEn: venc })]
+      ];
+      for (const [nombre, c] of lista) {
+        try {
+          await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: a, subject: "[PRUEBA] " + c.subject, html: c.html, text: c.text, clave: "prueba-" + tanda + "-" + tienda + "-" + nombre });
+          enviados++;
+        } catch (e) { fallaron++; error = String((e && e.message) || e).slice(0, 200); console.error("probarCorreos", tienda, nombre, e); }
+      }
+    }
+    if (!enviados) return res.status(502).json({ error: "No se pudo enviar ningún correo. " + error });
+    res.json({ ok: true, a: a, enviados: enviados, fallaron: fallaron, error: error });
+  }
+);
+
 /* ---- Admin: rellenar un item de "Comprar items" desde su link del Mercado de Steam ---- */
 const steam = require("./steam");
 exports.itemSteam = onRequest(
