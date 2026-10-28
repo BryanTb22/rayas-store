@@ -761,6 +761,49 @@
       IMG_PEND[id].then(function (u) { if (u) { var all = document.querySelectorAll('img[data-fs="' + id + '"]'); for (var j = 0; j < all.length; j++) all[j].src = u; } });
     })(els[k]);
   }
+  // Editor de foto del item: encuadra a 3:2 (640x427) antes de subir. Devuelve un File listo, o null si cancela.
+  function editorFoto(file) {
+    return new Promise(function (ok, fail) {
+      if (!file || !/^image\//.test(file.type)) return fail(new Error("Elige un archivo de imagen (JPG, PNG o WEBP)."));
+      var W = 640, H = 427, url = URL.createObjectURL(file), im = new Image();
+      im.onerror = function () { URL.revokeObjectURL(url); fail(new Error("No se pudo leer la imagen.")); };
+      im.onload = function () {
+        URL.revokeObjectURL(url);
+        var st = { modo: "llenar", zoom: 1, ox: 0, oy: 0 };
+        var ov = document.createElement("div"); ov.className = "fed-ov";
+        ov.innerHTML = '<div class="fed" role="dialog" aria-label="Preparar foto"><h3>Preparar foto</h3>' +
+          '<canvas width="' + W + '" height="' + H + '"></canvas>' +
+          '<p class="hint">Arrastra la foto para centrar el item. Salen 3:2 · 640×427.</p>' +
+          '<div class="fed-row"><button type="button" class="btn btn-ghost btn-sm sel" data-m="llenar">Llenar</button><button type="button" class="btn btn-ghost btn-sm" data-m="completo">Completo</button><label>Zoom <input type="range" min="1" max="3" step="0.01" value="1"></label></div>' +
+          '<div class="fed-row"><button type="button" class="btn btn-yellow btn-sm" data-x="ok">Usar esta foto</button><button type="button" class="btn btn-ghost btn-sm" data-x="no">Cancelar</button></div>' +
+          (im.naturalWidth < 400 ? '<p class="hint">⚠ La foto es pequeña y puede verse borrosa.</p>' : '') + '</div>';
+        document.body.appendChild(ov);
+        var cv = ov.querySelector("canvas"), g = cv.getContext("2d"), rg = ov.querySelector("input");
+        function dib() {
+          g.fillStyle = "#6e6e6e"; g.fillRect(0, 0, W, H);
+          var b = st.modo === "llenar" ? Math.max(W / im.naturalWidth, H / im.naturalHeight) : Math.min(W / im.naturalWidth, H / im.naturalHeight);
+          var sc = b * st.zoom, w = im.naturalWidth * sc, h = im.naturalHeight * sc;
+          g.imageSmoothingQuality = "high"; g.drawImage(im, (W - w) / 2 + st.ox, (H - h) / 2 + st.oy, w, h);
+        }
+        dib();
+        var arr = null;
+        cv.addEventListener("pointerdown", function (e) { arr = { x: e.clientX, y: e.clientY, ox: st.ox, oy: st.oy }; cv.setPointerCapture(e.pointerId); });
+        cv.addEventListener("pointermove", function (e) { if (!arr) return; var k = W / cv.getBoundingClientRect().width; st.ox = arr.ox + (e.clientX - arr.x) * k; st.oy = arr.oy + (e.clientY - arr.y) * k; dib(); });
+        cv.addEventListener("pointerup", function () { arr = null; });
+        rg.addEventListener("input", function () { st.zoom = parseFloat(rg.value); dib(); });
+        function cerrar() { ov.remove(); }
+        ov.addEventListener("click", function (e) {
+          var m = e.target.getAttribute && e.target.getAttribute("data-m"), x = e.target.getAttribute && e.target.getAttribute("data-x");
+          if (m) { st.modo = m; st.ox = 0; st.oy = 0; st.zoom = 1; rg.value = "1"; var bs = ov.querySelectorAll("[data-m]"); for (var i = 0; i < bs.length; i++) bs[i].classList.toggle("sel", bs[i] === e.target); dib(); }
+          else if (x === "no" || e.target === ov) { cerrar(); ok(null); }
+          else if (x === "ok") {
+            cv.toBlob(function (b) { cerrar(); if (!b) return fail(new Error("No se pudo preparar la foto.")); ok(new File([b], "item.webp", { type: b.type })); }, "image/webp", 0.85);
+          }
+        });
+      };
+      im.src = url;
+    });
+  }
   // Achica la foto en el navegador y la guarda como documento en Firestore.
   function subirImagen(file, maxPx) {
     return new Promise(function (ok, fail) {
@@ -2585,9 +2628,12 @@
   document.addEventListener("change", function (ev) {
     if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.classList && ev.target.classList.contains("itfile") && ev.target.files && ev.target.files[0]) {
-      admin.subiendo = "item"; admin.itemMsg = ""; render();
-      subirImagen(ev.target.files[0], 640).then(function (ref) { if (admin.itemForm) admin.itemForm.img = ref; admin.subiendo = null; render(); hidratarImgs(); })
-        .catch(function (e) { admin.subiendo = null; admin.itemMsg = (e && e.message) || "No se pudo subir la foto."; render(); });
+      var fi = ev.target.files[0]; ev.target.value = "";
+      editorFoto(fi).then(function (listo) {
+        if (!listo) return;
+        admin.subiendo = "item"; admin.itemMsg = ""; render();
+        return subirImagen(listo, 640).then(function (ref) { if (admin.itemForm) admin.itemForm.img = ref; admin.subiendo = null; render(); hidratarImgs(); });
+      }).catch(function (e) { admin.subiendo = null; admin.itemMsg = (e && e.message) || "No se pudo subir la foto."; render(); });
       return;
     }
     if (ev.target.id === "f-hasta") { var fc = document.getElementById("f-cierre"); if (fc) { fc.disabled = ev.target.checked; if (ev.target.checked) fc.value = ""; } return; }
