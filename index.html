@@ -27,6 +27,20 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800&family=Cinzel:wght@700;900&family=Teko:wght@500;600&display=swap">
 <link rel="stylesheet" href="estilos.css?v=86">
+<script>
+/* Interruptor del TEMA NUEVO (opcional). Apagado por defecto: la página se ve como siempre.
+   Para verlo: abre  rayas.trade/?tema=nuevo  (se recuerda en este navegador).  Para volver:  ?tema=clasico  */
+(function () {
+  try {
+    var q = (location.search.match(/[?&]tema=([a-z]+)/) || [])[1];
+    if (q === "nuevo" || q === "clasico") { if (q === "nuevo") localStorage.setItem("rayas_tema", "nuevo"); else localStorage.removeItem("rayas_tema"); }
+    if (localStorage.getItem("rayas_tema") !== "nuevo") return;
+  } catch (e) { return; }
+  document.documentElement.className += " tn";
+  var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "tema-nuevo.css?v=1"; document.head.appendChild(l);
+  document.addEventListener("DOMContentLoaded", function () { var s = document.createElement("script"); s.src = "tema-nuevo.js?v=1"; document.body.appendChild(s); });
+})();
+</script>
 </head>
 <body>
 <script id="estado" type="application/json">{"whatsapp":"","premios":[]}</script>
