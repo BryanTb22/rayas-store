@@ -389,3 +389,47 @@ html.tn .ult-mas .btn { padding-inline: 24px; }
   html.tn .cards2 .svc > .in { padding: 26px 20px 22px; }
   html.tn #ultimos .winner .thumb { width: 76px; height: 76px; }
 }
+
+/* =====================================================================
+   RONDA 5: Rifas — cierre pronto, zoom, selector de tickets, ruleta
+   ===================================================================== */
+html.tn .card .soon { top: 12px; right: 12px; border-radius: 999px; padding: 6px 12px 6px 10px; font-family: var(--tn-ui); background: linear-gradient(90deg, var(--fuchsia), #ff6aa9); box-shadow: 0 4px 18px rgba(255, 45, 143, .55); display: inline-flex; align-items: center; gap: 6px; animation: tnLate 1.6s ease-in-out infinite; }
+html.tn .card .soon.full { background: rgba(58, 63, 92, .9); box-shadow: none; animation: none; backdrop-filter: blur(8px); }
+html.tn .card .soon .tn-i { width: 1.05em; height: 1.05em; }
+@keyframes tnLate { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+html.tn .card .pic.zoomable::before { content: ""; position: absolute; right: 12px; bottom: 12px; z-index: 2; width: 34px; height: 34px; border-radius: 50%; background: rgba(5, 9, 21, .6) center / 18px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffe08a' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5M11 8v6M8 11h6'/%3E%3C/svg%3E"); backdrop-filter: blur(6px); opacity: 0; transition: opacity .2s; }
+html.tn .card .pic.zoomable:hover::before, html.tn .card .pic.zoomable:focus-within::before { opacity: 1; }
+@media (hover: none) { html.tn .card .pic.zoomable::before { opacity: .85; } }
+html.tn .card .pic { aspect-ratio: 16 / 12; }
+/* cuenta regresiva en chip */
+html.tn .timer, html.tn #rifas .timer { animation: none; text-shadow: none; font-size: 18px; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 7px 14px; border-radius: 999px; font-family: var(--tn-ui); font-weight: 700; letter-spacing: .02em; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); color: var(--yellow-2); -webkit-background-clip: border-box; background-clip: border-box; -webkit-text-fill-color: currentColor; }
+html.tn .timer .tn-i { width: 1.15em; height: 1.15em; }
+html.tn .timer.urg { color: #fff; background: linear-gradient(90deg, rgba(255, 45, 143, .35), rgba(255, 45, 143, .12)); border-color: rgba(255, 45, 143, .75); box-shadow: 0 0 22px rgba(255, 45, 143, .35); }
+html.tn .timer.urg .tn-i { color: var(--fuchsia); animation: tnLate 1.2s ease-in-out infinite; }
+/* barra según ocupación */
+html.tn .cbar.full i { background: linear-gradient(90deg, #5d6593, #98a0d0); box-shadow: none; }
+html.tn .cbar.hot i { animation: tnBarra 1.8s ease-in-out infinite; }
+@keyframes tnBarra { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
+/* foto ampliada */
+html.tn #rzoom { background: radial-gradient(60% 60% at 50% 40%, rgba(40, 30, 120, .45), rgba(3, 6, 18, .95)); backdrop-filter: blur(10px); }
+html.tn #rzoom img { border: 0; border-radius: 22px; box-shadow: 0 30px 90px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 224, 138, .35), 0 0 80px rgba(255, 201, 60, .15); }
+html.tn #rzoom .rz-x { border-radius: 50%; backdrop-filter: blur(8px); }
+html.tn #rzoom .rz-x:hover { background: var(--fuchsia); border-color: var(--fuchsia); }
+/* selector de tickets */
+html.tn .qty { gap: 22px; margin: 10px 0 6px; }
+html.tn .qty button { width: 64px; height: 64px; border-radius: 50%; font-size: 32px; background: rgba(255, 201, 60, .1); border: 1.5px solid rgba(255, 201, 60, .7); color: var(--yellow); transition: transform .15s, background .15s, box-shadow .15s; }
+html.tn .qty button:hover:not(:disabled) { transform: scale(1.08); background: rgba(255, 201, 60, .22); box-shadow: 0 0 24px rgba(255, 201, 60, .4); }
+html.tn .qty button:active:not(:disabled) { transform: scale(.94); }
+html.tn .qty b { font-size: 3.4rem; background: linear-gradient(180deg, #fff3c4, var(--yellow)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.tn .qty span { min-width: 92px; }
+html.tn .qtot { gap: 12px; margin: 12px 0 4px; }
+html.tn .qtot > div { border-radius: 18px; padding: 12px; background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .1); }
+html.tn .qtot > div:first-child { border-color: rgba(255, 201, 60, .5); background: rgba(255, 201, 60, .08); }
+html.tn .qtot b { font-size: 1.9rem; }
+/* ruleta */
+html.tn .ruleta .rwrap { filter: drop-shadow(0 0 28px rgba(255, 201, 60, .28)); }
+html.tn .ruleta canvas { border-radius: 50%; }
+html.tn .rpin { filter: drop-shadow(0 4px 10px rgba(255, 45, 143, .7)); }
+html.tn .rwin { display: inline-block; padding: 10px 22px; border-radius: 999px; background: linear-gradient(90deg, rgba(255, 201, 60, .2), rgba(255, 45, 143, .2)); border: 1px solid rgba(255, 224, 138, .6); font-size: 1.5rem; box-shadow: 0 0 40px rgba(255, 201, 60, .35); }
+@media (max-width: 480px) { html.tn .qty button { width: 58px; height: 58px; } html.tn .qty b { font-size: 3rem; } }
+@media (prefers-reduced-motion: reduce) { html.tn .card .soon, html.tn .timer.urg .tn-i, html.tn .cbar.hot i { animation: none; } }

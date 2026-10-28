@@ -497,7 +497,8 @@
       var tot = m.qty * m.p.cred;
       h = '<h3>¿Entrar a la rifa? 🎟️</h3><p class="hint">Rifa: <b>' + esc(m.p.nombre) + '</b> · ' + m.p.cred + ' soles por ticket.' + (m.mio ? ' Ya tienes <b>' + m.mio + '</b> ' + (m.mio === 1 ? 'ticket' : 'tickets') + '.' : '') + '</p>' +
         '<div class="qty" role="group" aria-label="Cantidad de tickets"><button type="button" data-a="qtyMenos"' + (m.qty <= 1 ? ' disabled' : '') + ' aria-label="Menos">−</button><span><b>' + m.qty + '</b><small>' + (m.qty === 1 ? 'ticket' : 'tickets') + '</small></span><button type="button" data-a="qtyMas"' + (m.qty >= m.max ? ' disabled' : '') + ' aria-label="Más">+</button></div>' +
-        '<p class="hint">Total: <b>' + tot + '</b> soles. Te quedarán <b>' + (c.creditos - tot) + '</b>.' + (m.max < 100 ? ' Máximo ahora: ' + m.max + '.' : '') + ' Más tickets = más chances de ganar 🍀</p>';
+        '<div class="qtot"><div><small>Total</small><b>S/ ' + tot + '</b></div><div><small>Te quedarán</small><b>S/ ' + (c.creditos - tot) + '</b></div></div>' +
+        '<p class="hint">' + (m.max < 100 ? 'Máximo ahora: ' + m.max + '. ' : '') + 'Más tickets = más chances de ganar 🍀</p>';
       btns = '<button class="btn btn-yellow" type="button" data-a="confirmarPart">✔ Confirmar ' + m.qty + (m.qty === 1 ? ' ticket' : ' tickets') + '</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cancelar</button>';
     } else if (m.tipo === "cargando") {
       h = '<h3>Procesando…</h3><p class="hint">Un momento por favor.</p>';
@@ -610,7 +611,7 @@
       if (rt.ult !== undefined && rt.ult !== idx) { var pin = document.querySelector(".rpin"); if (pin) { pin.classList.remove("tick"); void pin.offsetWidth; pin.classList.add("tick"); } }
       rt.ult = idx;
       if (x < 1) { requestAnimationFrame(paso); return; }
-      rt.run = false; rt.fin = true; ruletaFin();
+      rt.run = false; rt.fin = true; ruletaFin(); confeti();
     }
     requestAnimationFrame(paso);
   }
@@ -626,6 +627,32 @@
       }
     }
     render();
+  }
+  /* Foto del premio ampliada (se cierra con clic o Escape) */
+  function abrirZoom(src, alt) {
+    var viejo = document.getElementById("rzoom"); if (viejo) viejo.parentNode.removeChild(viejo);
+    var d = document.createElement("div"); d.id = "rzoom"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Foto ampliada");
+    d.innerHTML = '<button type="button" class="rz-x" aria-label="Cerrar">✕</button><img alt="">';
+    var im = d.querySelector("img"); im.src = src; im.alt = alt;
+    function cerrar() { document.removeEventListener("keydown", tecla); if (d.parentNode) d.parentNode.removeChild(d); }
+    function tecla(ev) { if (ev.key === "Escape") cerrar(); }
+    d.addEventListener("click", cerrar); document.addEventListener("keydown", tecla);
+    document.body.appendChild(d);
+    requestAnimationFrame(function () { d.classList.add("on"); });
+  }
+  /* Confeti de celebración al salir el ganador */
+  function confeti() {
+    try { if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; } catch (e) { /* nada */ }
+    var old = document.getElementById("rconfeti"); if (old) old.parentNode.removeChild(old);
+    var cv = document.createElement("canvas"); cv.id = "rconfeti"; cv.width = window.innerWidth; cv.height = window.innerHeight; document.body.appendChild(cv);
+    var ctx = cv.getContext("2d"), cols = ["#ffc93c", "#ffe08a", "#ff2d8f", "#ff8cc4", "#ffffff", "#4b69ff"], N = window.innerWidth < 600 ? 90 : 160, t0 = Date.now(), ps = [];
+    for (var i = 0; i < N; i++) ps.push({ x: cv.width / 2 + (Math.random() - .5) * 80, y: cv.height * .42, vx: (Math.random() - .5) * 14, vy: -Math.random() * 13 - 4, w: 5 + Math.random() * 7, h: 3 + Math.random() * 5, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: cols[i % cols.length] });
+    (function f() {
+      var dt = Date.now() - t0; if (dt > 3600 || !cv.parentNode) { if (cv.parentNode) cv.parentNode.removeChild(cv); return; }
+      ctx.clearRect(0, 0, cv.width, cv.height); ctx.globalAlpha = dt > 2800 ? Math.max(0, 1 - (dt - 2800) / 800) : 1;
+      ps.forEach(function (q) { q.vy += .32; q.vx *= .992; q.x += q.vx; q.y += q.vy; q.r += q.vr; ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.r); ctx.fillStyle = q.c; ctx.fillRect(-q.w / 2, -q.h / 2, q.w, q.h); ctx.restore(); });
+      requestAnimationFrame(f);
+    })();
   }
   function modalRuleta() {
     var rt = ruleta, g = rt.segs[rt.w], p = estado.premios[buscarPremio(rt.pid)] || {};
@@ -1904,6 +1931,9 @@
     var fz = vivo() ? est : fase(p);
     if (fz === "porIniciar") { est = "proxima"; estTxt = "Próximamente"; }
     if (fz === "vencida") estTxt = "Cierre cumplido";
+    var prog = cupos > 0 ? part / cupos : 0, restMs = p.cierre ? tiempoDe(p.cierre) - Date.now() : 0;
+    var urg = est === "activa" && fz !== "vencida" && restMs > 0 && restMs < 86400000;
+    var soon = est === "activa" && fz !== "vencida" && !lleno && (urg || (cupos > 0 && prog >= 0.8));
     var boton;
     if (fz === "vencida") {
       boton = '<button class="btn btn-ghost" type="button" disabled>⏳ Esperando resultado</button>';
@@ -1942,17 +1972,17 @@
       : (V ? '<button type="button" class="imgbtn" data-a="imgEdit" data-id="' + id + '">Cambiar imagen</button>' : '');
     return '<article class="card frame' + (V ? ' editing' : '') + '" style="--r:' + colorRareza(p.rareza) + '"><div class="in">' +
       '<div class="rbar"></div>' + tools +
-      (img ? '<div class="pic">' + img : '<div class="pic noimg"><span class="q">?</span>') +
+      (img ? '<div class="pic' + (V ? '' : ' zoomable" data-a="zoomImg" title="Toca para ampliar') + '">' + img : '<div class="pic noimg"><span class="q">?</span>') +
       (V ? '<button type="button" class="status ' + est + '" data-a="ciclarEstado" data-id="' + id + '" title="Clic para cambiar el estado">' + estTxt + ' ⟳</button>'
-         : '<span class="status ' + est + '">' + estTxt + '</span>') + picInner + '</div>' +
+         : '<span class="status ' + est + '">' + estTxt + '</span>') + (soon ? '<span class="soon">⏳ Cierra pronto</span>' : (est === "activa" && lleno ? '<span class="soon full">Tickets agotados</span>' : '')) + picInner + '</div>' +
       '<div class="body">' +
       (V ? '<button type="button" class="rarity rbtn" data-a="ciclarRareza" data-id="' + id + '" title="Clic para cambiar la rareza">' + esc(p.rareza || "Sin rareza") + ' ⟳</button>'
          : (p.rareza ? '<div class="rarity">' + esc(p.rareza) + '</div>' : '')) +
       '<h3' + ed("p:" + p.id + ":nombre", "Nombre del premio") + '>' + esc(V ? p.nombre : (p.nombre || "Premio")) + '</h3>' +
       (p.descripcion || V ? '<p class="desc"' + ed("p:" + p.id + ":descripcion", "Descripción (opcional)") + '>' + esc(p.descripcion) + '</p>' : '') +
       '<div class="meta"><span class="cost"><small>S/</small><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small>por ticket</small></span><span class="pill">' + partTxt + '</span></div>' +
-      (cupos > 0 ? '<div class="cbar' + (part / cupos >= 0.8 ? ' hot' : '') + '" role="img" aria-label="' + esc(partTxt) + '"><i style="width:' + Math.min(100, Math.round(part / cupos * 100)) + '%"></i></div>' : '') +
-      (est === "activa" && p.cierre ? '<div class="timer" data-cierre="' + esc(p.cierre) + '">' + esc(restante(p.cierre)) + '</div>' : '') +
+      (cupos > 0 ? '<div class="cbar' + (part >= cupos ? ' full' : (part / cupos >= 0.8 ? ' hot' : '')) + '" role="img" aria-label="' + esc(partTxt) + '"><i style="width:' + Math.min(100, Math.round(part / cupos * 100)) + '%"></i></div>' : '') +
+      (est === "activa" && p.cierre ? '<div class="timer' + (urg ? ' urg' : '') + '" data-cierre="' + esc(p.cierre) + '"><span class="tic">⏳</span> <span class="tx">' + esc(restante(p.cierre)) + '</span></div>' : '') +
       (est === "activa" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + (+p.cupos > 0 ? ' o al agotar tickets' : '') + '</div>' : '') +
       (est === "activa" && !p.cierre && +p.cupos > 0 ? '<div class="pill fechas">Cierra al agotar tickets</div>' : '') +
       (est === "proxima" && p.inicio && tiempoDe(p.inicio) ? '<div class="pill fechas">Abre: ' + esc(fechaHora(p.inicio)) + '</div>' : '') +
@@ -2822,6 +2852,7 @@
           else { montoWsp = 0; if (hw) window.open(hw, "_blank", "noopener"); }
         } break;
       case "confirmarPart": confirmarPart(); break;
+      case "zoomImg": var zim = t.querySelector("img"); if (zim && zim.getAttribute("src")) abrirZoom(zim.getAttribute("src"), zim.getAttribute("alt") || ""); break;
       case "qtyMas": if (modal && modal.tipo === "confirmar" && modal.qty < modal.max) { modal.qty++; render(); } break;
       case "qtyMenos": if (modal && modal.tipo === "confirmar" && modal.qty > 1) { modal.qty--; render(); } break;
       case "cerrarModal": modal = null; montoWsp = 0; render(); break;
@@ -3188,7 +3219,10 @@
     if (sigFases && sf !== sigFases && !modal && !vivo()) { sigFases = sf; render(); return; }
     sigFases = sf;
     var els = document.querySelectorAll(".timer[data-cierre]");
-    for (var k = 0; k < els.length; k++) els[k].textContent = restante(els[k].getAttribute("data-cierre"));
+    for (var k = 0; k < els.length; k++) {
+      var tx = els[k].querySelector(".tx") || els[k], ms = tiempoDe(els[k].getAttribute("data-cierre")) - Date.now();
+      tx.textContent = restante(els[k].getAttribute("data-cierre")); els[k].classList.toggle("urg", ms > 0 && ms < 86400000);
+    }
   }, 30000);
 
   /* ================= Inicio ================= */
