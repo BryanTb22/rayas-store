@@ -2281,8 +2281,10 @@
       '<div class="field"><label for="u-buscar">Buscar</label><input id="u-buscar" placeholder="Nombre, Steam, correo o WhatsApp" value="' + esc(admin.uFiltro) + '"></div>' +
       (admin.uMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.uMsg) + '</p>' : '') +
       '<div class="ulist">' + (lista.length ? lista.map(function (u) {
-        var id = esc(u.uid);
-        return '<div class="urow"><div class="t"><b>' + esc(u.nombre || "(sin nombre)") + '</b><span>WhatsApp: ' + esc(u.whatsapp) + '</span><span>' + esc(u.email) + '</span>' +
+        var id = esc(u.uid), ab = admin.uAbierto === u.uid;
+        var cab = '<button type="button" class="urow-h" data-a="uAbrir" data-uid="' + id + '" aria-expanded="' + ab + '"><b>' + esc(u.nombre || "(sin nombre)") + '</b><span class="usal">S/ ' + esc(u.creditos) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
+        if (!ab) return '<div class="urow compact">' + cab + '</div>';
+        return '<div class="urow open">' + cab + '<div class="t"><span>WhatsApp: ' + esc(u.whatsapp) + '</span><span>' + esc(u.email) + '</span>' +
           (tradeValido(u.tradelink) ? '<span><a href="' + esc(u.tradelink) + '" target="_blank" rel="noopener">Abrir trade link ↗</a></span>' : '<span style="color:var(--fuchsia)">Sin trade link</span>') + '</div>' +
           '<div class="ucred">' +
           '<button class="iconbtn" type="button" data-a="cred" data-uid="' + id + '" data-d="-1" aria-label="Quitar S/ 1">−</button>' +
@@ -2826,6 +2828,7 @@
       case "recargarU": admin.usuarios = null; render(); break;
       case "cerrar": leerForm(); quitarHash(); admin.abierto = false; admin.editando = null; render(); break;
       case "tab": admin.tab = t.getAttribute("data-t"); render(); break;
+      case "uAbrir": var uu = t.getAttribute("data-uid"); admin.uAbierto = admin.uAbierto === uu ? null : uu; render(); break;
       case "nuevo":
         admin.editando = { nuevo: true, p: { id: "p" + Date.now().toString(36), nombre: "", rareza: "", img: "", descripcion: "", creditos: 10, estado: "activa", cierre: "", participantes: 0, cupos: 0, ganador: "" } };
         render(); var fi = document.getElementById("f-img"); if (fi) fi.focus(); break;

@@ -1186,3 +1186,17 @@ body.itm-open{overflow:hidden}
 .cfg-row.on .cfg-sw { background: linear-gradient(90deg, var(--yellow), var(--yellow-2, #ffd84d)); }
 .cfg-row.on .cfg-sw::after { transform: translateX(22px); }
 .cfg-row input:focus-visible + .cfg-sw { outline: 2px solid var(--yellow); outline-offset: 2px; }
+
+/* ---------- Panel admin: usuarios en lista desplegable ---------- */
+.ulist { display: flex; flex-direction: column; gap: 6px; }
+.urow.compact { padding: 0; }
+.urow-h { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.urow-h b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.urow-h .usal { flex: none; padding: 3px 10px; border-radius: 999px; background: rgba(255, 201, 60, .14); border: 1px solid rgba(255, 201, 60, .4); color: var(--yellow); font-weight: 800; font-size: 12.5px; }
+.urow-h i { flex: none; font-style: normal; color: var(--muted); }
+.urow-h:hover { background: rgba(255, 255, 255, .05); }
+.urow.open { padding: 0 0 12px; }
+.urow.open > :not(.urow-h) { margin-inline: 14px; }
+.urow.open .urow-h { border-bottom: 1px solid rgba(255, 255, 255, .08); margin-bottom: 8px; }
+.urow.open > .pbtn { width: calc(100% - 28px); box-sizing: border-box; }
+.urow.open > .btn { width: calc(100% - 28px); }
