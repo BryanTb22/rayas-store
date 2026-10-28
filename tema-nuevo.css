@@ -637,3 +637,23 @@ html.tn .drawer-foot .msg.err { color: #ff9db8; background: rgba(255, 45, 90, .1
 @keyframes tnMsg { 0%, 80% { opacity: 1; transform: none; } 100% { opacity: .55; } }
 html.tn .editbar .estado.pend { color: #ffd966; }
 @media (max-width: 560px) { html.tn .drawer-head h2 { font-size: 21px; } html.tn .drawer .grp h3 { font-size: 22px; } }
+
+/* ===== Ajustes finales: botón de carrito en la tarjeta, aviso de item nuevo, héroe escribible ===== */
+.iacts { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.icart { display: inline-flex; align-items: center; justify-content: center; height: 34px; width: 34px; padding: 0; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--text, #fff); font: 700 12px/1 var(--body); cursor: pointer; white-space: nowrap; flex: none; }
+.icart span { display: none; }
+.icart:hover { border-color: var(--yellow); background: rgba(255,201,60,.14); }
+.icart:active { transform: scale(.94); }
+html.tn .icard .iprice { gap: 4px; }
+html.tn .icard .iprice b { font-size: 19px; }
+html.tn .icard .iacts { gap: 4px; }
+html.tn .icard .iacts .ibuy { padding: 8px 9px; font-size: 10.5px; letter-spacing: .04em; }
+.icart { width: 30px; height: 30px; }
+@media (max-width: 560px) {
+  .icard .iacts .ibuy { display: none; }
+  .icart { width: 36px; height: 36px; padding: 0; font-size: 15px; background: linear-gradient(180deg, var(--yellow-2), var(--yellow)); color: #1a1205; border: 0; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+  .icard.agot .iacts { display: none; }
+  html.tn .icard .iprice b { font-size: 20px; }
+}
+.itaviso { margin: 8px 0; padding: 9px 12px; border-radius: 10px; border: 1px solid rgba(255,201,60,.4); background: rgba(255,201,60,.1); font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#fi-heroe { width: 100%; }

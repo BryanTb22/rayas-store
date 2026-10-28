@@ -746,7 +746,7 @@ html, body { overflow-x: clip; max-width: 100%; }
 #promoPop.on { opacity: 1; }
 #promoPop .promo-box { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; max-height: 100%; transform: translateY(14px) scale(.97); transition: transform .3s; }
 #promoPop.on .promo-box { transform: none; }
-#promoPop img { display: block; width: auto; height: auto; max-width: min(92vw, 520px); max-height: calc(100vh - 120px); border-radius: 18px; border: 2px solid var(--line-hi, var(--line)); box-shadow: 0 0 60px rgba(0,0,0,.7), 0 0 40px color-mix(in srgb, var(--fuchsia) 35%, transparent); }
+#promoPop .promo-box > img { display: block; width: auto; height: auto; max-width: min(92vw, 520px); max-height: calc(100vh - 120px); border-radius: 18px; border: 2px solid var(--line-hi, var(--line)); box-shadow: 0 0 60px rgba(0,0,0,.7), 0 0 40px color-mix(in srgb, var(--fuchsia) 35%, transparent); }
 #promoPop .promo-x { position: absolute; top: -12px; right: -12px; z-index: 2; width: 40px; height: 40px; border-radius: 50%; border: 2px solid #fff; background: #d11a2a; color: #fff; font-size: 18px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.6); }
 #promoPop .promo-acts { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 #rifas .pill.maxp, .pill.maxp { display: inline-block; align-self: flex-start; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--yellow, #fff) 55%, transparent); color: var(--yellow, #fff); font-weight: 800; letter-spacing: .02em; background: color-mix(in srgb, var(--yellow, #fff) 10%, transparent); opacity: 1; }
@@ -1290,3 +1290,20 @@ body.itm-open{overflow:hidden}
 .fnav a { color: var(--fg); text-decoration: none; font-weight: 600; font-size: 14px; opacity: .85; }
 .fnav a:hover { opacity: 1; color: var(--yellow); }
 html { scroll-padding-top: 84px; }
+
+/* ---------- Promo de primera recarga (HTML, sin créditos) ---------- */
+#promoPop .promo-card { position: relative; width: min(92vw, 440px); padding: 22px 20px 20px; border-radius: 20px; border: 2px solid color-mix(in srgb, var(--yellow) 55%, transparent); text-align: center; color: #fff; overflow: hidden; box-shadow: 0 0 60px rgba(0,0,0,.7), 0 0 40px color-mix(in srgb, var(--fuchsia) 35%, transparent); background: linear-gradient(180deg, rgba(10,17,41,.82), rgba(6,10,28,.94)), var(--promo-bg, none) center / cover, #0a1129; }
+#promoPop .promo-brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--title); font-weight: 800; font-size: 24px; letter-spacing: .06em; }
+#promoPop .promo-brand img { width: 46px; height: 46px; border-radius: 10px; border: 1px solid var(--line-hi, var(--line)); object-fit: cover; box-shadow: none; max-width: none; max-height: none; }
+#promoPop .promo-brand i { font-style: normal; color: var(--yellow); }
+#promoPop .promo-kick { margin-top: 12px; font-size: 13px; font-weight: 800; letter-spacing: .32em; text-transform: uppercase; color: var(--yellow); }
+#promoPop .promo-tit { margin: 6px 0 16px; font-family: var(--title); font-weight: 800; font-size: clamp(40px, 11vw, 56px); line-height: .98; text-transform: uppercase; background: linear-gradient(180deg, #fff3c4, var(--yellow) 70%, #e8a30e); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 14px rgba(255,201,60,.35)); }
+#promoPop .promo-pk { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+#promoPop .promo-p { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 8px 12px; border-radius: 14px; background: rgba(8,14,40,.88); border: 1.5px solid color-mix(in srgb, var(--yellow) 60%, transparent); }
+#promoPop .promo-p small { font-size: 12px; letter-spacing: .24em; text-transform: uppercase; color: var(--muted, #aab); }
+#promoPop .promo-p b { font-family: var(--title); font-size: 34px; font-weight: 800; line-height: 1.1; }
+#promoPop .promo-p u { text-decoration: none; color: var(--yellow); font-size: 14px; }
+#promoPop .promo-p strong { font-family: var(--title); font-size: 46px; font-weight: 800; line-height: 1.05; background: linear-gradient(180deg, #fff3c4, var(--yellow) 65%, #e8a30e); -webkit-background-clip: text; background-clip: text; color: transparent; }
+#promoPop .promo-p em { font-style: normal; font-size: 12px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: #dfe6ff; }
+#promoPop .promo-pill { display: inline-block; margin-top: 16px; padding: 10px 22px; border-radius: 999px; background: linear-gradient(90deg, var(--fuchsia), #ff6bb1); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 15px; box-shadow: 0 6px 20px color-mix(in srgb, var(--fuchsia) 45%, transparent); }
+#promoPop .promo-url { margin-top: 8px; font-size: 13px; font-weight: 700; letter-spacing: .2em; }
