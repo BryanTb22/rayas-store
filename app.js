@@ -913,6 +913,7 @@
     var c = document.getElementById("itemsCuenta"); if (c) c.textContent = items.cargado ? itemsFiltrados().length + " items" : "";
   }
   function comprarHtml() {
+    if (idItemHash()) return paginaItemHtml(idItemHash());
     var tabs = ['<button type="button" class="itab' + (!filtros.tipo ? ' on' : '') + '" data-a="itTipo" data-v="">Todos</button>'].concat(ITEM_TIPOS.map(function (t) {
       return '<button type="button" class="itab' + (filtros.tipo === t ? ' on' : '') + '" data-a="itTipo" data-v="' + esc(t) + '">' + esc(t) + '</button>';
     })).join("");
@@ -926,7 +927,7 @@
     return '<section class="section gutter" id="comprar"><div class="wrap">' +
       '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><div class="orn">◆</div></div>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Textos y contactos.</p>') +
-      (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + itemFormHtml() + importarHtml() : '') +
+      (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkAbrir">📦 Stock de items</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + itemFormHtml() + importarHtml() : '') +
       '<div class="itabs">' + tabs + '</div>' +
       '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar items…" value="' + esc(filtros.q) + '" autocomplete="off">' +
       '<select id="fi-orden" aria-label="Ordenar">' + [["nuevo", "Más nuevos"], ["menor", "Precio: menor a mayor"], ["mayor", "Precio: mayor a menor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (filtros.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
@@ -936,9 +937,130 @@
     var id = el.id;
     var mapa = { "fi-q": "q", "fi-min": "min", "fi-max": "max", "fi-heroe": "heroe", "fi-ranura": "ranura", "fi-rareza": "rareza", "fi-calidad": "calidad", "fi-orden": "orden" };
     if (!mapa[id]) return false;
+    if (filtros[mapa[id]] === el.value) return true;   // al salir del campo no se vuelve a pintar (si no, el primer clic en una tarjeta se pierde)
     filtros[mapa[id]] = el.value; filtros.pag = 0; pintarItems(); return true;
   }
   function itemPorId(id) { for (var k = 0; k < items.lista.length; k++) if (items.lista[k].id === id) return items.lista[k]; return null; }
+  /* ===== Página de un item (#item/<id>) ===== */
+  function idItemHash() { var m = String(location.hash || "").match(/^#\/?item\/(.+)$/); if (!m) return null; try { return decodeURIComponent(m[1]); } catch (e) { return null; } }
+  function paginaItemHtml(id) {
+    var miga = function (tipo, n) { return '<div class="ipg-crumb"><a href="#inicio">Inicio</a> <span>›</span> <a href="#comprar">Comprar items</a>' + (tipo ? ' <span>›</span> <span>' + esc(tipo) + '</span>' : '') + (n ? ' <span>›</span> <span>' + esc(n) + '</span>' : '') + '</div>'; };
+    var envol = function (h) { return '<section class="section gutter" id="comprar"><div class="wrap">' + h + '</div></section>'; };
+    if (!items.cargado && !items.err) return envol(miga("") + '<div class="empty frame"><div class="in"><strong>Cargando item…</strong></div></div>');
+    var it = itemPorId(id);
+    if (!it || (!it.activo && !admin.puede)) return envol(miga("") + '<div class="empty frame"><div class="in"><strong>Este item no está disponible</strong><span>Puede que ya se haya vendido o que aún no esté publicado.</span><a class="btn btn-yellow btn-sm" href="#comprar" style="margin-top:12px">Ver todos los items</a></div></div>');
+    var col = colorRareza(it.rareza), agot = it.stock <= 0, cred = Math.ceil(it.precio - 1e-9), sol = steamSoles(it);
+    var dto = sol && it.precio > 0 && it.precio < sol ? Math.round((1 - it.precio / sol) * 100) : 0;
+    var fila = function (k, v) { return v ? '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>' : ''; };
+    var attrs = fila("Héroe", esc(it.heroe)) + fila("Ranura", esc(it.ranura)) + fila("Tipo", esc(it.tipo)) +
+      fila("Rareza", it.rareza ? '<i class="ipg-dot" style="background:' + col + '"></i>' + esc(it.rareza) : "") + fila("Calidad", esc(it.calidad)) + fila("Disponibles", agot ? "Agotado" : String(it.stock));
+    var btns = agot ? '<button class="btn btn-ghost" type="button" disabled>Agotado</button>'
+      : '<button class="btn btn-fuchsia" type="button" data-a="itCred" data-id="' + esc(it.id) + '">💎 Pagar con ' + cred + ' créditos</button>' +
+        (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="itWsp" data-id="' + esc(it.id) + '">💬 Comprar por WhatsApp</button>' : '');
+    return envol(miga(it.tipo, it.nombre) + '<h1 class="ipg-t">' + esc(it.nombre) + (it.activo ? '' : ' <small>(oculto)</small>') + '</h1>' +
+      '<div class="ipg-grid"><div class="ipg-foto" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') +
+      '<span class="ipg-tag' + (agot ? ' off' : '') + '">' + (agot ? 'Agotado' : (it.stock > 1 ? it.stock + ' disponibles' : 'Disponible')) + '</span></div>' +
+      '<div class="ipg-info"><dl class="ipg-attrs">' + attrs + '</dl>' + estilosHtml(it) + descripcionHtml(it) +
+      '<div class="ipg-precio"><div class="pp-top"><b>' + fmtPrecio(it.precio) + '</b>' + (dto ? '<span class="pp-dto" title="Descuento frente al precio del Mercado de Steam">-' + dto + ' %</span>' : '') + '<span class="pp-cred">o ' + cred + ' créditos</span></div>' +
+      steamHtml(it, true) +
+      (agot ? '' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> créditos.</p>' : '<p class="hint">Para pagar con créditos entra a tu cuenta.</p>')) +
+      '<div class="pp-btns">' + btns + '</div></div></div></div>');
+  }
+
+  /* ===== Admin: panel de stock de items ===== */
+  var stk = { q: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", estado: "all", orden: "nombre", pag: 0, msg: "" }, STK_POR_PAG = 40, STK_TIMERS = {};
+  function stkEstado(it) {
+    if (it.stock <= 0) return { cls: "st-zero", txt: "Agotado", key: "zero" };
+    if (it.stock <= 2) return { cls: "st-low", txt: "Pocas", key: "low" };
+    return { cls: "st-ok", txt: "En stock", key: "ok" };
+  }
+  function stkFiltrados() {
+    var q = sinTildes(stk.q);
+    var l = items.lista.filter(function (it) {
+      if (stk.tipo && it.tipo !== stk.tipo) return false;
+      if (stk.heroe && it.heroe !== stk.heroe) return false;
+      if (stk.ranura && it.ranura !== stk.ranura) return false;
+      if (stk.rareza && it.rareza !== stk.rareza) return false;
+      if (stk.calidad && it.calidad !== stk.calidad) return false;
+      if (stk.estado === "oculto") { if (it.activo) return false; }
+      else if (stk.estado !== "all" && stkEstado(it).key !== stk.estado) return false;
+      if (q && sinTildes(it.nombre + " " + it.heroe + " " + it.tipo + " " + it.descripcion).indexOf(q) < 0) return false;
+      return true;
+    });
+    l.sort(function (a, b) {
+      if (stk.orden === "stockMenor") return a.stock - b.stock || a.nombre.localeCompare(b.nombre);
+      if (stk.orden === "stockMayor") return b.stock - a.stock || a.nombre.localeCompare(b.nombre);
+      if (stk.orden === "valor") return b.precio * b.stock - a.precio * a.stock;
+      if (stk.orden === "nuevo") return String(b.creado).localeCompare(String(a.creado));
+      return a.nombre.localeCompare(b.nombre);
+    });
+    return l;
+  }
+  function stkStatsHtml(l) {
+    var uni = 0, val = 0, vs = 0, con = 0, zero = 0, low = 0;
+    l.forEach(function (it) { var s = Math.max(0, it.stock); uni += s; val += s * (it.precio > 0 ? it.precio : 0); vs += s * steamSoles(it); if (it.stock > 0) con++; else zero++; if (it.stock > 0 && it.stock <= 2) low++; });
+    var st = function (b, t, w, sub) { return '<div class="stk-stat' + (w ? ' warn' : '') + '"><b>' + b + '</b><span>' + t + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; };
+    return st(con + "/" + l.length, "Items con stock") + st(uni, "Unidades") + st(fmtPrecio(val), "Valor del stock", false, vs ? "Steam ≈ " + fmtPrecio(vs) : "") + st(low, "Pocas (1-2)", low) + st(zero, "Agotados", zero);
+  }
+  function stkFilaHtml(it) {
+    var e = stkEstado(it), col = colorRareza(it.rareza);
+    return '<div class="stk-row" data-id="' + esc(it.id) + '"><div class="stk-thumb" style="--rar:' + col + '">' + (imgTag(it.img, "", ' loading="lazy"') || "") + '</div>' +
+      '<div class="stk-info"><div class="stk-name">' + esc(it.nombre) + (it.activo ? '' : ' <em>(oculto)</em>') + '</div><div class="stk-meta"><span style="color:' + col + '">' + esc(it.rareza || "—") + '</span>' + (it.heroe ? ' • ' + esc(it.heroe) : '') + ' • ' + (it.precio > 0 ? fmtPrecio(it.precio) : 'sin precio') + (it.descripcion ? ' • 💎 ' + lineasDesc(it).length : '') + '</div></div>' +
+      '<span class="stk-status ' + e.cls + '">' + e.txt + '</span>' +
+      '<div class="stk-qty"><button type="button" data-a="stkMenos" aria-label="Menos">−</button><input type="number" min="0" step="1" value="' + it.stock + '" id="stk-in-' + esc(it.id) + '" data-stk-in="' + esc(it.id) + '" aria-label="Stock de ' + esc(it.nombre) + '"><button type="button" data-a="stkMas" aria-label="Más">+</button></div></div>';
+  }
+  function stkPanelHtml() {
+    var sel = function (id, lista, val, vacio) { return '<select id="' + id + '">' + opciones(lista, val, vacio) + '</select>'; };
+    var op = function (arr, val) { return arr.map(function (o) { return '<option value="' + o[0] + '"' + (val === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join(""); };
+    return '<div class="scrim scrim-top" data-a="cerrarModal"></div><div class="elegir stkp" role="dialog" aria-label="Stock de items"><button type="button" class="stk-x" data-a="cerrarModal" aria-label="Cerrar">×</button><h3>📦 Stock de items</h3>' +
+      '<div id="stkStats" class="stk-stats"></div>' +
+      '<div class="stk-ctl"><input id="stk-q" type="search" placeholder="Buscar item…" value="' + esc(stk.q) + '" autocomplete="off">' +
+      sel("stk-tipo", ITEM_TIPOS, stk.tipo, "Todos los tipos") + sel("stk-heroe", distintos("heroe", HEROES_DOTA), stk.heroe, "Todos los héroes") + sel("stk-ranura", distintos("ranura", SLOTS_DOTA), stk.ranura, "Todas las ranuras") +
+      sel("stk-rareza", LISTA_RAREZAS.filter(Boolean), stk.rareza, "Todas las rarezas") + sel("stk-calidad", distintos("calidad", ITEM_CALIDADES), stk.calidad, "Todas las calidades") +
+      '<select id="stk-estado">' + op([["all", "Todos"], ["ok", "Con stock"], ["low", "Pocas unidades (1-2)"], ["zero", "Agotados (0)"], ["oculto", "Ocultos"]], stk.estado) + '</select>' +
+      '<select id="stk-orden">' + op([["nombre", "Nombre A-Z"], ["stockMenor", "Stock: menor a mayor"], ["stockMayor", "Stock: mayor a menor"], ["valor", "Mayor valor"], ["nuevo", "Más nuevos"]], stk.orden) + '</select>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-a="stkReset">Restablecer</button></div>' +
+      '<div id="stkList" class="stk-list"></div>' +
+      '<div class="stk-pie"><span id="stkMsg" class="hint">' + esc(stk.msg) + '</span><span class="hint">Los cambios se guardan solos. Con 0 el item aparece como AGOTADO. Las estadísticas siguen los filtros.</span><button type="button" class="btn btn-yellow btn-sm" data-a="cerrarModal">Listo</button></div></div>';
+  }
+  function pintarStock() {
+    var lst = document.getElementById("stkList"); if (!lst) return;
+    var l = stkFiltrados(), total = Math.ceil(l.length / STK_POR_PAG);
+    if (stk.pag >= total) stk.pag = Math.max(0, total - 1);
+    document.getElementById("stkStats").innerHTML = stkStatsHtml(l);
+    lst.innerHTML = !items.cargado ? '<div class="empty"><strong>Cargando items…</strong></div>' : (l.length
+      ? l.slice(stk.pag * STK_POR_PAG, stk.pag * STK_POR_PAG + STK_POR_PAG).map(stkFilaHtml).join("") + paginadorHtml(total, stk.pag, "stkPag")
+      : '<div class="empty"><strong>Ningún item con ese filtro</strong></div>');
+    hidratarImgs();
+  }
+  function stkRefrescarFila(it) {
+    var row = document.querySelector('.stk-row[data-id="' + (window.CSS && CSS.escape ? CSS.escape(it.id) : it.id) + '"]'); if (!row) return;
+    var e = stkEstado(it), b = row.querySelector(".stk-status"); b.className = "stk-status " + e.cls; b.textContent = e.txt;
+    var inp = row.querySelector("input"); if (document.activeElement !== inp) inp.value = it.stock;
+    document.getElementById("stkStats").innerHTML = stkStatsHtml(stkFiltrados());
+  }
+  function stkGuardar(it) {
+    clearTimeout(STK_TIMERS[it.id]);
+    STK_TIMERS[it.id] = setTimeout(function () {
+      var m = document.getElementById("stkMsg"); if (m) m.textContent = "Guardando…";
+      fsPedir("rayas_items/" + encodeURIComponent(it.id) + "?updateMask.fieldPaths=stock", { method: "PATCH", body: JSON.stringify({ fields: { stock: { integerValue: String(it.stock) } } }) }).then(function (r) {
+        if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
+        stk.msg = "✔ Guardado"; var m2 = document.getElementById("stkMsg"); if (m2) m2.textContent = stk.msg;
+      }).catch(function (e) { stk.msg = (e && e.message === "NO_SESSION" ? "Vuelve a iniciar sesión." : e.message) || "No se pudo guardar."; var m2 = document.getElementById("stkMsg"); if (m2) m2.textContent = stk.msg; });
+    }, 450);
+  }
+  function stkCambiar(it, n) {
+    n = Math.max(0, Math.min(99999, Math.floor(Number(n) || 0)));
+    if (n === it.stock) return;
+    it.stock = n; stkRefrescarFila(it); stkGuardar(it);
+  }
+  function stockEvento(el, tipo) {
+    var SK = { "stk-q": "q", "stk-tipo": "tipo", "stk-heroe": "heroe", "stk-ranura": "ranura", "stk-rareza": "rareza", "stk-calidad": "calidad", "stk-estado": "estado", "stk-orden": "orden" };
+    if (SK[el.id]) { if (stk[SK[el.id]] === el.value) return true; stk[SK[el.id]] = el.value; stk.pag = 0; pintarStock(); return true; }
+    if (el.getAttribute && el.getAttribute("data-stk-in")) { if (tipo === "change") { var it = itemPorId(el.getAttribute("data-stk-in")); if (it) { stkCambiar(it, el.value); el.value = it.stock; } } return true; }
+    return false;
+  }
+
   function modalItemHtml(m) {
     var it = itemPorId(m.id); if (!it) return { h: '<h3>Item no encontrado</h3>', btns: '' };
     var cred = Math.ceil(it.precio - 1e-9), agot = it.stock <= 0, col = colorRareza(it.rareza);
@@ -1535,6 +1657,7 @@
   function vistaDeHash() {
     var h = String(location.hash || "").replace("#", "");
     if (VISTA_HASH[h]) vistaActual = VISTA_HASH[h];
+    if (/^item\//.test(h)) vistaActual = "comprar";
     if ((vistaActual === "comprar" || vistaActual === "vender") && !itemsVisible()) vistaActual = "inicio";
     return vistaActual;
   }
@@ -1652,6 +1775,7 @@
       html = a[0] + (vista === "rifas" ? b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : inicioHtml) + b[1];
     })();
     if (ruleta) html += modalRuleta();
+    else if (modal && modal.tipo === "stock") html += stkPanelHtml();
     else if (modal) html += modalAviso();
     else if (elegirAbierto && contactos().length > 1) html += modalElegir();
     if (admin.puede && !admin.abierto) html += barraEdicion();
@@ -1664,6 +1788,7 @@
     montarGoogle();
     if (ruleta) { ruletaDibujar(ruleta.fin ? ruleta.rot : 0, 0); if (ruleta.fin) ruletaBrillo(); }
     document.body.classList.toggle("vivo", vivo());
+    if (modal && modal.tipo === "stock") pintarStock();
     hidratarImgs();
     aplicarFotos();
     var nd = document.querySelector(".drawer-body");
@@ -2239,7 +2364,11 @@
       case "itPag": filtros.pag = Math.max(0, Number(t.getAttribute("data-p")) || 0); pintarItems(); var gp = document.getElementById("itemsGrid"); if (gp && gp.scrollIntoView) gp.scrollIntoView({ block: "start", behavior: "smooth" }); break;
       case "stRefrescar": steamRefrescar(); break;
       case "irSteam": break; // el enlace se abre solo; no abre la ficha del item
-      case "itVer": modal = { tipo: "item", id: t.getAttribute("data-id") }; render(); hidratarImgs(); break;
+      case "itVer": location.hash = "item/" + encodeURIComponent(t.getAttribute("data-id")); break;
+      case "stkAbrir": modal = { tipo: "stock" }; stk.msg = ""; render(); break;
+      case "stkReset": stk = { q: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", estado: "all", orden: "nombre", pag: 0, msg: "" }; render(); break;
+      case "stkPag": stk.pag = Math.max(0, Number(t.getAttribute("data-p")) || 0); pintarStock(); var dsk = document.querySelector(".elegir.stkp"); if (dsk) dsk.scrollTop = 0; break;
+      case "stkMas": case "stkMenos": var rsk = t.closest(".stk-row"), isk = rsk && itemPorId(rsk.getAttribute("data-id")); if (isk) stkCambiar(isk, isk.stock + (a === "stkMas" ? 1 : -1)); break;
       case "itWsp":
         var iw = itemPorId(t.getAttribute("data-id")), cw = contactos();
         if (iw && cw.length > 1) { modal = null; elegirMsg = mensajeItem(iw); elegirAbierto = true; render(); }
@@ -2429,7 +2558,7 @@
     return false;
   }
   document.addEventListener("input", function (ev) {
-    if (filtroEvento(ev.target) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
+    if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.closest && ev.target.closest("[data-edit]")) { aplicarEdicion(ev.target.closest("[data-edit]")); return; }
     if (ev.target.id === "u-buscar") {
       admin.uFiltro = ev.target.value;
@@ -2454,7 +2583,7 @@
   });
   // Al salir de un campo de texto de la página, refresca la vista previa.
   document.addEventListener("change", function (ev) {
-    if (filtroEvento(ev.target) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
+    if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.classList && ev.target.classList.contains("itfile") && ev.target.files && ev.target.files[0]) {
       admin.subiendo = "item"; admin.itemMsg = ""; render();
       subirImagen(ev.target.files[0], 640).then(function (ref) { if (admin.itemForm) admin.itemForm.img = ref; admin.subiendo = null; render(); hidratarImgs(); })
@@ -2692,6 +2821,7 @@
   }
   function irASeccion() {
     var h = String(location.hash || "").replace("#", "");
+    if (/^item\//.test(h)) { vistaActual = "comprar"; cargarItems(); render(); hidratarImgs(); window.scrollTo(0, 0); var iq = itemPorId(idItemHash()); document.title = iq ? iq.nombre + " • Rayas Store" : "Rayas Store"; return; }
     if (!VISTA_HASH[h]) return;
     var antes = vistaActual;
     render();
