@@ -893,6 +893,15 @@
       if (q && sinTildes(it.nombre + " " + it.heroe + " " + it.tipo).indexOf(q) < 0) return false;
       return true;
     });
+    // Mismo item con distintas versiones (gemas, precio): una sola tarjeta con el precio más bajo, como lis-skins.
+    var gr = {}, orden = [];
+    l.forEach(function (it) {
+      var k = sinTildes(it.nombre), g = gr[k];
+      if (!g) { g = gr[k] = { rep: it, tot: 0, precios: {} }; orden.push(k); }
+      g.tot += Math.max(0, it.stock); g.precios[it.precio] = 1;
+      if (g.rep !== it && ((g.rep.stock <= 0 && it.stock > 0) || ((g.rep.stock > 0) === (it.stock > 0) && it.precio < g.rep.precio))) g.rep = it;
+    });
+    l = orden.map(function (k) { var g = gr[k]; return Object.assign({}, g.rep, { _tot: g.tot, _desde: Object.keys(g.precios).length > 1 }); });
     l.sort(function (a, b) {
       if (filtros.orden === "menor") return a.precio - b.precio;
       if (filtros.orden === "mayor") return b.precio - a.precio;
@@ -925,11 +934,11 @@
     var agot = it.stock <= 0, col = colorRareza(it.rareza);
     return '<article class="icard' + (agot ? ' agot' : '') + (it.activo ? '' : ' oculto') + '" data-a="itVer" data-id="' + esc(it.id) + '" tabindex="0" role="button" aria-label="Ver ' + esc(it.nombre) + '">' +
       '<div class="ithumb" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') +
-      (agot ? '<span class="itag agotado">Agotado</span>' : (it.stock > 1 ? '<span class="itag">x' + it.stock + '</span>' : '')) + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
+      (agot ? '<span class="itag agotado">Agotado</span>' : ((it._tot || it.stock) > 1 ? '<span class="itag">x' + (it._tot || it.stock) + '</span>' : '')) + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
       (admin.puede ? '<div class="itadmb"><button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(it.id) + '" aria-label="Editar">✎</button>' + (admin.itemDel === it.id ? '<button type="button" class="btn btn-sm itdel" data-a="itBorrarSi" data-id="' + esc(it.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itBorrar" data-id="' + esc(it.id) + '" aria-label="Quitar">🗑</button>') + '</div>' : '') +
       '<div class="ibody"><h4>' + esc(it.nombre) + '</h4>' +
       '<div class="imeta">' + (it.rareza ? '<span style="color:' + col + '">' + esc(it.rareza) + '</span>' : '') + (it.calidad ? '<span>' + esc(it.calidad) + '</span>' : '') + (it.heroe ? '<span>' + esc(it.heroe) + '</span>' : '') + (it.descripcion ? '<span class="gem">💎 ' + (efectoUnusual(it) ? esc(efectoUnusual(it)) : lineasDesc(it).length) + '</span>' : '') + '</div>' +
-      '<div class="iprice"><b>' + fmtPrecio(it.precio) + '</b><span class="ibuy">' + (agot ? 'Agotado' : 'Comprar') + '</span></div>' + steamHtml(it) + '</div></article>';
+      '<div class="iprice"><b>' + (it._desde ? '<small class="desde">desde</small> ' : '') + fmtPrecio(it.precio) + '</b><span class="ibuy">' + (agot ? 'Agotado' : 'Comprar') + '</span></div>' + steamHtml(it) + '</div></article>';
   }
   function gridItemsHtml() {
     if (items.err) return '<div class="empty frame"><div class="in"><strong>No se pudo cargar</strong><span>' + esc(items.err) + '</span></div></div>';
