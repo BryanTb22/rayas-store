@@ -470,6 +470,8 @@
         '<p class="hint" style="font-size:.78rem;opacity:.85">¿Montos menores a S/ ' + PAGOS.minYape + ' con Yape, o prefieres pagar con una persona? Elige <b>Pagar por WhatsApp</b> y te atiende el encargado, que carga tus créditos él mismo. Los créditos usados en una rifa no se devuelven.</p>' + cerrar;
     } else if (m.tipo === "item") {
       var mi = modalItemHtml(m); h = mi.h; btns = mi.btns + cerrar;
+    } else if (m.tipo === "carrito") {
+      var mc = carroHtml(); h = mc.h; btns = mc.btns;
     } else if (m.tipo === "itemOk") {
       h = '<h3>¡Compra lista! 🎉</h3><p class="hint">Compraste <b>' + esc(m.nombre) + '</b>. Pedido <b>' + esc(m.code) + '</b>. Te quedan <b>' + m.saldo + '</b> créditos. Te escribiremos para entregártelo por Steam; asegúrate de tener tu link de intercambio en tu cuenta.</p>';
       btns = cerrar;
@@ -998,8 +1000,8 @@
     var attrs = fila("Héroe", esc(it.heroe)) + fila("Ranura", esc(it.ranura)) + fila("Tipo", esc(it.tipo)) +
       fila("Rareza", it.rareza ? '<i class="ipg-dot" style="background:' + col + '"></i>' + esc(it.rareza) : "") + fila("Calidad", esc(it.calidad)) + fila("Efecto Unusual", esc(efectoUnusual(it))) + fila("Disponibles", agot ? "Agotado" : String(it.stock));
     var btns = agot ? '<button class="btn btn-ghost" type="button" disabled>Agotado</button>'
-      : '<button class="btn btn-fuchsia" type="button" data-a="itCred" data-id="' + esc(it.id) + '">💎 Pagar con ' + cred + ' créditos</button>' +
-        (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="itWsp" data-id="' + esc(it.id) + '">💬 Comprar por WhatsApp</button>' : '');
+      : '<button class="btn btn-fuchsia" type="button" data-a="carAdd" data-id="' + esc(it.id) + '">🛒 ' + (carro[it.id] ? '✔ En el carrito (' + carro[it.id] + ') · agregar otro' : 'Al carrito') + '</button>' +
+        '<button class="btn btn-yellow" type="button" data-a="carAhora" data-id="' + esc(it.id) + '">⚡ Comprar ahora</button>';
     return envol(miga(it.tipo, it.nombre) + '<h1 class="ipg-t">' + esc(it.nombre) + (it.activo ? '' : ' <small>(oculto)</small>') + '</h1>' +
       '<div class="ipg-grid"><div class="ipg-foto" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') +
       '<span class="ipg-tag' + (agot ? ' off' : '') + '">' + (agot ? 'Agotado' : (it.stock > 1 ? it.stock + ' disponibles' : 'Disponible')) + '</span></div>' +
@@ -1225,6 +1227,68 @@
     var p = cuenta.perfil;
     return "¡Hola! 👋🔥 Quiero comprar este item de *RAYAS STORE* 🛒\n\n🎮 *" + it.nombre + "*" + (it.calidad ? " (" + it.calidad + ")" : "") + "\n💰 Precio: " + fmtPrecio(it.precio) +
       (p ? "\n\n👤 " + p.nombre + " (📧 " + p.email + ")" : "") + "\n\n¿Sigue disponible? 🙏✨";
+  }
+  /* ===== Carrito de items ===== */
+  var CARRO_KEY = "rayas_carro_v1";
+  var carro = (function () { try { var j = JSON.parse(localStorage.getItem(CARRO_KEY) || "{}"); return j && typeof j === "object" && !Array.isArray(j) ? j : {}; } catch (e) { return {}; } })();
+  function carroGuardar() { try { localStorage.setItem(CARRO_KEY, JSON.stringify(carro)); } catch (e) { /* sin almacenamiento */ } }
+  function carroLineas() {
+    var out = [];
+    Object.keys(carro).forEach(function (id) {
+      var it = itemPorId(id); if (!it || (!it.activo && !admin.puede)) return;
+      var q = Math.min(Math.floor(Number(carro[id]) || 0), Math.max(0, it.stock)); if (q > 0) out.push({ it: it, qty: q });
+    });
+    return out;
+  }
+  function carroN() {
+    if (!items.cargado) return Object.keys(carro).reduce(function (a, k) { return a + (Number(carro[k]) || 0); }, 0);
+    return carroLineas().reduce(function (a, l) { return a + l.qty; }, 0);
+  }
+  function carroTotales() {
+    var sol = 0, cred = 0;
+    carroLineas().forEach(function (l) { sol += l.it.precio * l.qty; cred += Math.ceil(l.it.precio - 1e-9) * l.qty; });
+    return { sol: Math.round(sol * 100) / 100, cred: cred };
+  }
+  function carroAgregar(id) {
+    var it = itemPorId(id); if (!it || it.stock <= 0) return false;
+    carro[id] = Math.min(it.stock, (Number(carro[id]) || 0) + 1); carroGuardar(); return true;
+  }
+  function carroHtml() {
+    if (!items.cargado) { cargarItems(); return { h: '<h3>Tu carrito 🛒</h3><p class="hint">Cargando…</p>', btns: '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>' }; }
+    var l = carroLineas(), T = carroTotales(), cerrar = '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>';
+    if (!l.length) return { h: '<h3>Tu carrito 🛒</h3><p class="hint">Está vacío. Elige items del catálogo y pulsa <b>Al carrito</b>.</p>', btns: cerrar };
+    var h = '<h3>Tu carrito 🛒</h3><div class="carl">' + l.map(function (x) {
+      return '<div class="carr"><div class="carr-t">' + (x.it.img ? imgTag(x.it.img, "", ' width="48" height="48"') : '<span class="sinfoto">—</span>') + '<span><b>' + esc(x.it.nombre) + '</b><small>' + fmtPrecio(x.it.precio) + ' c/u</small></span></div>' +
+        '<div class="carr-q"><button type="button" class="btn btn-ghost btn-sm" data-a="carMenos" data-id="' + esc(x.it.id) + '" aria-label="Menos">−</button><span>' + x.qty + '</span>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-a="carMas" data-id="' + esc(x.it.id) + '" aria-label="Más"' + (x.qty >= x.it.stock ? ' disabled' : '') + '>+</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-a="carQuitar" data-id="' + esc(x.it.id) + '" aria-label="Quitar">🗑</button></div></div>';
+    }).join("") + '</div>' +
+      '<p class="resumen">Total: <b>' + fmtPrecio(T.sol) + '</b> · o <b>' + T.cred + ' créditos</b></p>' +
+      (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> créditos.</p>' : '<p class="hint">Para pagar con créditos entra a tu cuenta.</p>');
+    var btns = '<button class="btn btn-fuchsia" type="button" data-a="carCred">💎 Pagar con ' + T.cred + ' créditos</button>' +
+      (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="carWsp">💬 Pedir por WhatsApp</button>' : '') +
+      '<button class="btn btn-ghost btn-sm" type="button" data-a="carVaciar">Vaciar</button>' + cerrar;
+    return { h: h, btns: btns };
+  }
+  function mensajeCarro() {
+    var p = cuenta.perfil, T = carroTotales();
+    return "¡Hola! 👋🔥 Quiero comprar estos items de *RAYAS STORE* 🛒\n\n" + carroLineas().map(function (x) { return "🎮 " + x.qty + "x *" + x.it.nombre + "* — " + fmtPrecio(x.it.precio * x.qty); }).join("\n") +
+      "\n\n💰 Total: " + fmtPrecio(T.sol) + (p ? "\n\n👤 " + p.nombre + " (📧 " + p.email + ")" : "") + "\n\n¿Siguen disponibles? 🙏✨";
+  }
+  function pagarCarro() {
+    var l = carroLineas(); if (!l.length) return;
+    if (!cuenta.perfil) { modal = null; cuenta.modo = "login"; cuenta.msg = "Entra a tu cuenta para pagar con créditos."; cuenta.msgTipo = ""; render(); return; }
+    var payload = l.map(function (x) { return { id: x.it.id, qty: x.qty }; }), n = l.reduce(function (a, x) { return a + x.qty; }, 0);
+    modal = { tipo: "cargando" }; render();
+    token().then(function (tk) {
+      return fetch(ITEMS_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ items: payload }) });
+    }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok) { modal = { tipo: "error", msg: (x.j && x.j.error) || "No se pudo completar la compra." }; render(); cargarItems(true); return; }
+        carro = {}; carroGuardar();
+        modal = { tipo: "itemOk", code: x.j.code, nombre: n + (n === 1 ? " item" : " items"), saldo: x.j.saldo }; render();
+        cargarPerfil(); cargarItems(true);
+      }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : "No se pudo completar la compra. No se descontaron créditos." }; render(); });
   }
   function comprarItemCreditos(id) {
     var it = itemPorId(id); if (!it) return;
@@ -1842,6 +1906,7 @@
       '</nav></div></header>' +
       '<div class="svcbar gutter"><div class="wrap">' +
       (itemsVisible() ? '<a class="svc-tab comprar' + (vista === "comprar" ? ' on' : '') + '" href="#comprar"><span>🛒</span>Comprar items' + (estado.secciones.items ? '' : ' 🔒') + '</a><a class="svc-tab vender' + (vista === "vender" ? ' on' : '') + '" href="#vender"><span>💰</span>Vender items' + (estado.secciones.items ? '' : ' 🔒') + '</a>' : '') +
+      (itemsVisible() ? '<button type="button" class="svc-tab carrito" data-a="carAbrir"><span>🛒</span>Carrito' + (carroN() ? ' (' + carroN() + ')' : '') + '</button>' : '') +
       '<a class="svc-tab' + (vista === "rifas" ? ' on' : '') + '" href="#rifas"><span>🎟️</span>Rifas</a>' +
       (linkCreditos || V || recargaOn() ? btnRecargar("svc-tab recargar", "btnRecargarNav", linkCreditos) : '') +
       '</div></div>' +
@@ -2547,6 +2612,19 @@
         else if (cv.length === 1) window.open(waLinkA(cv[0].numero, mensajeVenta()), "_blank", "noopener");
         break;
       case "cpGuardar": case "cpBulk": case "cpEditar": case "cpCancelar": case "cpBorrar": case "cpBorrarSi": accionCompras(a, t); break;
+      case "carAdd": if (carroAgregar(t.getAttribute("data-id"))) render(); break;
+      case "carAhora": if (carroAgregar(t.getAttribute("data-id"))) { modal = { tipo: "carrito" }; render(); } break;
+      case "carAbrir": cargarItems(); modal = { tipo: "carrito" }; render(); break;
+      case "carMas": carroAgregar(t.getAttribute("data-id")); render(); break;
+      case "carMenos": var cid = t.getAttribute("data-id"); if ((carro[cid] || 0) > 1) carro[cid]--; else delete carro[cid]; carroGuardar(); render(); break;
+      case "carQuitar": delete carro[t.getAttribute("data-id")]; carroGuardar(); render(); break;
+      case "carVaciar": carro = {}; carroGuardar(); render(); break;
+      case "carCred": pagarCarro(); break;
+      case "carWsp":
+        var ccw = contactos();
+        if (ccw.length > 1) { modal = null; elegirMsg = mensajeCarro(); elegirAbierto = true; render(); }
+        else if (ccw.length === 1) window.open(waLinkA(ccw[0].numero, mensajeCarro()), "_blank", "noopener");
+        break;
       case "itCred": comprarItemCreditos(t.getAttribute("data-id")); break;
       case "impAbrir": impEstado().abierto = true; render(); break;
       case "impCerrar": impEstado().abierto = false; render(); break;

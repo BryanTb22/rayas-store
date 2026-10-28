@@ -1085,3 +1085,15 @@ input[type=search], input[type=text], input[type=number], input[type=url], input
 .chk input[type=checkbox] { border-radius: 6px; }
 .yapeqr, .yapeqr img, .fed, .fed canvas { border-radius: var(--r-md); }
 .card .pic, .card .pic img { border-radius: var(--r-md) var(--r-md) 0 0; }
+
+/* Carrito */
+.svc-tab.carrito{border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--fg);font:inherit;cursor:pointer}
+.carl{display:grid;gap:10px;margin:10px 0}
+.carr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:12px}
+.carr-t{display:flex;align-items:center;gap:10px;min-width:0}
+.carr-t img{width:48px;height:48px;object-fit:cover;border-radius:8px;flex:0 0 auto}
+.carr-t span{display:flex;flex-direction:column;min-width:0}
+.carr-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.carr-t small{color:var(--muted)}
+.carr-q{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.carr-q > span{min-width:20px;text-align:center;font-weight:800}
