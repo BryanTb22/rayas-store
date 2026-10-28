@@ -21,6 +21,7 @@
     urlOrden: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/crearOrden",
     urlParticipar: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/participarRifa",
     urlItemSteam: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/itemSteam",
+    urlPreciosSteam: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/preciosSteam",
     js: "https://checkout.culqi.com/js/v4"
   };
   var PACKS_UI = [
@@ -808,13 +809,13 @@
     function nv(k) { return f[k] ? Number(f[k].doubleValue !== undefined ? f[k].doubleValue : (f[k].integerValue || 0)) : 0; }
     return { id: d.name.split("/").pop(), nombre: sv("nombre"), img: sv("img"), precio: nv("precio"), stock: f.stock ? nv("stock") : 1,
       tipo: sv("tipo"), heroe: sv("heroe"), ranura: sv("ranura"), rareza: sv("rareza"), calidad: sv("calidad"),
-      estilos: nv("estilos"), estOk: sv("estOk"), descripcion: sv("descripcion"),
+      estilos: nv("estilos"), estOk: sv("estOk"), descripcion: sv("descripcion"), steamUsd: nv("steamUsd"), steamAct: f.steamAct && f.steamAct.timestampValue || "",
       activo: f.activo ? f.activo.booleanValue !== false : true, creado: f.creado && f.creado.timestampValue || "" };
   }
   function itemAFields(it) {
     var s = function (v) { return { stringValue: String(v || "") }; };
     return { fields: { nombre: s(it.nombre), img: s(it.img), precio: { doubleValue: Number(it.precio) }, stock: { integerValue: String(Math.max(0, Math.floor(Number(it.stock) || 0))) },
-      tipo: s(it.tipo), heroe: s(it.heroe), ranura: s(it.ranura), rareza: s(it.rareza), calidad: s(it.calidad), estilos: { integerValue: String(Math.max(0, Math.min(8, Math.floor(Number(it.estilos) || 0)))) }, estOk: s(it.estOk), descripcion: s(it.descripcion), activo: { booleanValue: it.activo !== false },
+      tipo: s(it.tipo), heroe: s(it.heroe), ranura: s(it.ranura), rareza: s(it.rareza), calidad: s(it.calidad), estilos: { integerValue: String(Math.max(0, Math.min(8, Math.floor(Number(it.estilos) || 0)))) }, estOk: s(it.estOk), descripcion: s(it.descripcion), activo: { booleanValue: it.activo !== false }, steamUsd: { doubleValue: Number(it.steamUsd) > 0 ? Number(it.steamUsd) : 0 }, steamAct: { timestampValue: it.steamAct || new Date(0).toISOString() },
       creado: { timestampValue: it.creado || new Date().toISOString() } } };
   }
   function cargarItems(forzar) {
@@ -866,6 +867,15 @@
   function opciones(lista, sel, vacio) {
     return '<option value="">' + esc(vacio) + '</option>' + lista.map(function (v) { return '<option value="' + esc(v) + '"' + (v === sel ? ' selected' : '') + (COLOR_OPCION[v] ? ' style="color:' + COLOR_OPCION[v] + ';font-weight:700"' : '') + '>' + esc(v) + '</option>'; }).join("");
   }
+  /* Precio de referencia en el Mercado de Steam (US$) pasado a soles con el tipo de cambio de la página (COM.tc). */
+  function urlSteam(it) { return "https://steamcommunity.com/market/listings/570/" + encodeURIComponent(it.nombre); }
+  function steamSoles(it) { var u = Number(it.steamUsd); return u > 0 ? u * COM.tc : 0; }
+  function steamHtml(it, chico) {
+    var sol = steamSoles(it);
+    return '<div class="isteam' + (chico ? ' grande' : '') + '"><span>' + (sol ? 'Steam: <b>' + fmtPrecio(sol) + '</b>' : 'Mercado de Steam') + '</span>' +
+      '<a class="isteam-go" data-a="irSteam" href="' + esc(urlSteam(it)) + '" target="_blank" rel="noopener noreferrer" title="Ver en el Mercado de Steam" aria-label="Ver ' + esc(it.nombre) + ' en el Mercado de Steam">' +
+      '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>';
+  }
   function itemCardHtml(it) {
     var agot = it.stock <= 0, col = colorRareza(it.rareza);
     return '<article class="icard' + (agot ? ' agot' : '') + (it.activo ? '' : ' oculto') + '" data-a="itVer" data-id="' + esc(it.id) + '" tabindex="0" role="button" aria-label="Ver ' + esc(it.nombre) + '">' +
@@ -874,7 +884,7 @@
       (admin.puede ? '<div class="itadmb"><button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(it.id) + '" aria-label="Editar">✎</button>' + (admin.itemDel === it.id ? '<button type="button" class="btn btn-sm itdel" data-a="itBorrarSi" data-id="' + esc(it.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itBorrar" data-id="' + esc(it.id) + '" aria-label="Quitar">🗑</button>') + '</div>' : '') +
       '<div class="ibody"><h4>' + esc(it.nombre) + '</h4>' +
       '<div class="imeta">' + (it.rareza ? '<span style="color:' + col + '">' + esc(it.rareza) + '</span>' : '') + (it.calidad ? '<span>' + esc(it.calidad) + '</span>' : '') + (it.heroe ? '<span>' + esc(it.heroe) + '</span>' : '') + (it.descripcion ? '<span class="gem">💎 ' + lineasDesc(it).length + '</span>' : '') + '</div>' +
-      '<div class="iprice"><b>' + fmtPrecio(it.precio) + '</b><span class="ibuy">' + (agot ? 'Agotado' : 'Comprar') + '</span></div></div></article>';
+      '<div class="iprice"><b>' + fmtPrecio(it.precio) + '</b><span class="ibuy">' + (agot ? 'Agotado' : 'Comprar') + '</span></div>' + steamHtml(it) + '</div></article>';
   }
   function gridItemsHtml() {
     if (items.err) return '<div class="empty frame"><div class="in"><strong>No se pudo cargar</strong><span>' + esc(items.err) + '</span></div></div>';
@@ -916,7 +926,7 @@
     return '<section class="section gutter" id="comprar"><div class="wrap">' +
       '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><div class="orn">◆</div></div>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Textos y contactos.</p>') +
-      (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + itemFormHtml() + importarHtml() : '') +
+      (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + itemFormHtml() + importarHtml() : '') +
       '<div class="itabs">' + tabs + '</div>' +
       '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar items…" value="' + esc(filtros.q) + '" autocomplete="off">' +
       '<select id="fi-orden" aria-label="Ordenar">' + [["nuevo", "Más nuevos"], ["menor", "Precio: menor a mayor"], ["mayor", "Precio: mayor a menor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (filtros.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
@@ -935,7 +945,7 @@
     var h = '<h3>' + esc(it.nombre) + '</h3>' +
       '<div class="ithumb big" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') + '</div>' +
       '<p class="hint">' + [it.rareza, it.calidad, it.tipo, it.heroe, it.ranura].filter(Boolean).map(esc).join(' · ') + '</p>' + estilosHtml(it) + descripcionHtml(it) +
-      '<p class="resumen">Precio: <b>' + fmtPrecio(it.precio) + '</b> · o <b>' + cred + ' créditos</b></p>' +
+      '<p class="resumen">Precio: <b>' + fmtPrecio(it.precio) + '</b> · o <b>' + cred + ' créditos</b></p>' + steamHtml(it, true) +
       (agot ? '<p class="hint" style="color:var(--danger)">Este item está agotado.</p>' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> créditos.</p>' : '<p class="hint">Para pagar con créditos entra a tu cuenta.</p>'));
     var btns = agot ? '' : ('<button class="btn btn-fuchsia" type="button" data-a="itCred" data-id="' + esc(it.id) + '">💎 Pagar con ' + cred + ' créditos</button>' +
       (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="itWsp" data-id="' + esc(it.id) + '">💬 Comprar por WhatsApp</button>' : ''));
@@ -1103,6 +1113,12 @@
   function ventaEvento(el) {
     if (el.id === "ven-link") { ven.link = el.value; return true; }
     if (el.id === "imp-link") { impEstado().link = el.value; return true; }
+    if (el.id.indexOf("imp-rep-") === 0) {
+      var Ir = impEstado(); Ir.selR = Ir.selR || {}; Ir.selR[el.id.slice(8)] = el.checked;
+      var lr = el.closest && el.closest(".improw"); if (lr) lr.classList.toggle("off", !el.checked);
+      var br = document.getElementById("imp-subir"); if (br) { br.textContent = impTextoSubir(Ir); br.disabled = !!Ir.subiendo || !impCuenta(Ir); }
+      return true;
+    }
     if (el.id.indexOf("imp-sel-") === 0) {
       var Is = impEstado(); Is.sel = Is.sel || {}; Is.sel[el.id.slice(8)] = el.checked;
       var lab = el.closest && el.closest(".impcard"); if (lab) lab.classList.toggle("off", !el.checked);
@@ -1183,7 +1199,7 @@
     }
   }
   /* --- Admin: pestaña Items --- */
-  function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", estilos: "0", estOk: "1", descripcion: "", activo: true, creado: "", link: "" }; }
+  function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", estilos: "0", estOk: "1", descripcion: "", steamUsd: 0, steamAct: "", activo: true, creado: "", link: "" }; }
   /* Rellena el formulario a partir del link del Mercado de Steam (lo lee la función itemSteam, solo admin). */
   function rellenarDesdeSteam() {
     var F = admin.itemForm; if (!F || admin.steamCargando) return;
@@ -1200,7 +1216,8 @@
         if (d.rareza && LISTA_RAREZAS.indexOf(d.rareza) >= 0) F.rareza = d.rareza;
         if (d.calidad) F.calidad = d.calidad;
         if (d.estilos > 1) { F.estilos = String(d.estilos); F.estOk = (d.estOk || "1"); } else { F.estilos = "0"; F.estOk = ""; }
-        admin.steamInfo = d.precioUsd ? "Precio en Steam: US$ " + d.precioUsd.toFixed(2) + " (referencia). Pon tú el precio en soles." : "Pon tú el precio en soles.";
+        if (d.precioUsd) { F.steamUsd = d.precioUsd; F.steamAct = new Date().toISOString(); }
+        admin.steamInfo = d.precioUsd ? "Precio en Steam: US$ " + d.precioUsd.toFixed(2) + " (≈ " + fmtPrecio(d.precioUsd * COM.tc) + "; se mostrará a los clientes). Pon tú el precio en soles." : "Pon tú el precio en soles.";
         if (d.diag) admin.steamInfo += " [Steam no dio héroe/ranura. Datos: " + d.diag + "]";
         if (!d.imgData) return null;
         return fetch(d.imgData).then(function (x) { return x.blob(); }).then(function (b) { return subirImagen(new File([b], "item.png", { type: b.type || "image/png" }), 640); })
@@ -1265,7 +1282,7 @@
     if (!isFinite(precio) || precio <= 0) { admin.itemMsg = "Pon un precio mayor a 0."; render(); return; }
     if (!isFinite(stock) || stock < 0) stock = 1;
     var it = { id: F.id || ("it-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), nombre: F.nombre.trim(), img: F.img, precio: Math.round(precio * 100) / 100, stock: stock,
-      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: String(F.descripcion || "").trim().slice(0, 600), activo: F.activo, creado: F.creado || new Date().toISOString() };
+      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: String(F.descripcion || "").trim().slice(0, 600), steamUsd: Number(F.steamUsd) || 0, steamAct: F.steamAct || "", activo: F.activo, creado: F.creado || new Date().toISOString() };
     admin.itemGuardando = true; admin.itemMsg = ""; render();
     fsPedir("rayas_items/" + encodeURIComponent(it.id), { method: "PATCH", body: JSON.stringify(itemAFields(it)) }).then(function (r) {
       if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
@@ -1275,6 +1292,40 @@
     }).catch(function (e) { admin.itemGuardando = false; admin.itemMsg = e.message || "No se pudo guardar."; render(); });
   }
 
+  /* Admin: trae de Steam el precio (US$) de los items visibles y lo guarda para mostrarlo en soles bajo el precio. */
+  function steamRefrescar() {
+    var S = admin.st || (admin.st = {}); if (S.corriendo) return;
+    var hace = Date.now() - 6 * 3600 * 1000;
+    var cola = items.lista.filter(function (it) { return it.activo && (!it.steamAct || Date.parse(it.steamAct) < hace || !(it.steamUsd > 0)); });
+    if (!cola.length) { S.msg = "Los precios de Steam están al día."; render(); return; }
+    S.corriendo = true; S.msg = "0 de " + cola.length + "…"; render();
+    var base = "projects/" + FB.projectId + "/databases/(default)/documents/", url = BASE.replace(/documents\/$/, "documents:commit"), hechos = 0, ok = 0;
+    function fin(m) { S.corriendo = false; S.msg = m; render(); }
+    function lote(i) {
+      if (i >= cola.length) return fin("✔ Listo: " + ok + " precios actualizados.");
+      var parte = cola.slice(i, i + 6), ahora = new Date().toISOString();
+      return token().then(function (tk) {
+        return fetch(PAGOS.urlPreciosSteam, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ nombres: parte.map(function (x) { return x.nombre; }) }) })
+          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || "Error " + r.status); return j; }); })
+          .then(function (j) {
+            var w = [];
+            parte.forEach(function (it) {
+              var u = j.precios && j.precios[it.nombre];
+              if (u > 0) { it.steamUsd = u; it.steamAct = ahora; ok++; w.push({ update: { name: base + "rayas_items/" + it.id, fields: { steamUsd: { doubleValue: u }, steamAct: { timestampValue: ahora } } }, updateMask: { fieldPaths: ["steamUsd", "steamAct"] }, currentDocument: { exists: true } }); }
+            });
+            hechos = i + parte.length;
+            var g = w.length ? fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ writes: w }) }) : Promise.resolve({ ok: true });
+            return g.then(function (rr) {
+              if (!rr.ok) throw new Error("No se pudo guardar (" + rr.status + ").");
+              S.msg = hechos + " de " + cola.length + "…"; render();
+              if (j.limite) return fin("Steam pidió esperar. Se actualizaron " + ok + " de " + cola.length + "; vuelve a pulsar en unos minutos para seguir.");
+              return lote(i + 6);
+            });
+          });
+      }).catch(function (e) { fin((e && e.message === "NO_SESSION" ? "Vuelve a iniciar sesión." : (e && e.message) || "No se pudo actualizar.") + (ok ? " (" + ok + " ya guardados)" : "")); });
+    }
+    lote(0);
+  }
   /* ---- Admin: importar a Comprar los items de un inventario de Steam (por trade link) ---- */
   var IMP_RAREZAS = ["ARCANO", "INMORTAL", "MÍTICO", "LEGENDARIO"];
   function impEstado() { return admin.imp || (admin.imp = { abierto: false, link: "", cargando: false, subiendo: false, err: "", msg: "", lista: null, yaEstaban: 0, total: 0 }); }
@@ -1285,9 +1336,8 @@
     (I.lista || []).forEach(function (g) { cuenta2[g.rareza] = (cuenta2[g.rareza] || 0) + 1; if (g.sig) conGemas++; });
     var resumen = I.lista ? IMP_RAREZAS.map(function (r) { return (cuenta2[r] || 0) + " " + r.toLowerCase(); }).join(" · ") : "";
     var notas = [];
-    if (I.lista && I.yaEstaban) notas.push(I.yaEstaban + ' ya estaban en el catálogo y <b>no se tocan</b>');
-    if (I.lista && I.conPrecio) notas.push(I.conPrecio + ' ya subidos antes con precio o activos se respetan (no se cambian)');
-    if (I.lista && I.borrar && I.borrar.length) notas.push(I.borrar.length + ' subidos antes sin precio ni gemas se reemplazan por sus versiones con gemas');
+    if (I.lista && I.yaEstaban) notas.push(I.yaEstaban + ' ya están en el catálogo con el mismo stock y <b>no se tocan</b>');
+    if (I.lista && (I.repo || []).length) notas.push((I.repo || []).length + ' ya están y solo cambia su <b>stock</b> (el precio y la descripción no se modifican)');
     return '<div class="itadm frame"><div class="in" style="display:block"><b>Importar desde Steam</b>' +
       '<div class="vrow" style="margin:10px 0"><input id="imp-link" type="url" inputmode="url" placeholder="Trade link: https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(I.link) + '" autocomplete="off">' +
       '<button type="button" class="btn btn-yellow btn-sm" data-a="impTraer"' + (I.cargando || I.subiendo ? ' disabled' : '') + '>' + (I.cargando ? 'Leyendo…' : 'Traer items') + '</button>' +
@@ -1295,12 +1345,26 @@
       (I.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(I.err) + '</p>' : '') +
       (I.lista ? '<p class="hint"><b>' + I.lista.length + '</b> items nuevos para subir (' + esc(resumen) + ')' + (conGemas ? ', <b>' + conGemas + '</b> con gemas' : '') + '.' + (notas.length ? '<br>' + notas.join('.<br>') + '.' : '') + '<br>Se suben <b>ocultos y sin precio</b>: pon el precio con ✎ y actívalos para que los vean los clientes.</p>' +
         ((I.diag || []).length ? '<p class="hint" style="color:var(--danger)">No pude leer las gemas de: ' + I.diag.map(function (d) { return esc(d.name) + ' (' + esc(d.lineas.join(' / ')) + ')'; }).join('; ') + '. Mándale esta pantalla a Claude para ajustarlo.</p>' : '') +
-        (I.lista.length ? impPrevisualHtml(I) + '<div class="impbar"><button type="button" class="btn btn-ghost btn-sm" data-a="impTodos">Marcar todos</button><button type="button" class="btn btn-ghost btn-sm" data-a="impNinguno">Quitar todos</button>' +
+        ((I.lista.length || (I.repo || []).length) ? (I.lista.length ? '<p class="hint"><b>Items nuevos</b></p>' + impPrevisualHtml(I) : '') + impRepoHtml(I) + '<div class="impbar"><button type="button" class="btn btn-ghost btn-sm" data-a="impTodos">Marcar todos</button><button type="button" class="btn btn-ghost btn-sm" data-a="impNinguno">Quitar todos</button>' +
           '<button type="button" class="btn btn-yellow btn-sm" id="imp-subir" data-a="impSubir"' + (I.subiendo || !impCuenta(I) ? ' disabled' : '') + '>' + impTextoSubir(I) + '</button></div>' : '') : '') +
       (I.msg ? '<p class="hint" role="status">' + esc(I.msg) + '</p>' : '') + '</div></div>';
   }
-  function impCuenta(I) { var n = 0; (I.lista || []).forEach(function (g, k) { if (I.sel && I.sel[k]) n++; }); return n; }
-  function impTextoSubir(I) { return I.subiendo ? 'Subiendo…' : 'Subir ' + impCuenta(I) + ' de ' + I.lista.length + ' items'; }
+  function impCuenta(I) { var n = 0; (I.lista || []).forEach(function (g, k) { if (I.sel && I.sel[k]) n++; }); (I.repo || []).forEach(function (r, k) { if (I.selR && I.selR[k]) n++; }); return n; }
+  function impTextoSubir(I) {
+    if (I.subiendo) return 'Subiendo…';
+    var n = 0, r = 0; (I.lista || []).forEach(function (g, k) { if (I.sel && I.sel[k]) n++; }); (I.repo || []).forEach(function (x, k) { if (I.selR && I.selR[k]) r++; });
+    return 'Subir ' + n + ' de ' + (I.lista || []).length + ' nuevos' + ((I.repo || []).length ? ' · reponer ' + r + ' de ' + I.repo.length : '');
+  }
+  /* Items que ya están en el catálogo: se les actualiza solo el stock. */
+  function impRepoHtml(I) {
+    var R = I.repo || []; if (!R.length) return '';
+    return '<p class="hint"><b>Reponer stock</b> (items que ya tienes en el catálogo)</p><div class="imprepo">' + R.map(function (r, k) {
+      var on = !!(I.selR && I.selR[k]), col = colorRareza(r.it.rareza);
+      return '<label class="improw' + (on ? '' : ' off') + '"><input type="checkbox" id="imp-rep-' + k + '"' + (on ? ' checked' : '') + '>' +
+        '<span class="improw-t">' + (r.it.img ? imgTag(r.it.img, "", ' width="40" height="40" loading="lazy"') : '') + '<span><b style="color:' + col + '">' + esc(r.it.nombre) + '</b>' + (r.it.descripcion ? '<small>💎 ' + lineasDesc(r.it).length + ' gemas/detalles</small>' : '') + '</span></span>' +
+        '<span class="improw-s">stock ' + r.de + ' → <b>' + r.a + '</b>' + (r.a < r.de ? ' <small>(baja)</small>' : '') + '</span></label>';
+    }).join('') + '</div>';
+  }
   /* Vista previa: cada item con su foto, rareza, gemas y una casilla para elegir si se sube. */
   function impPrevisualHtml(I) {
     return '<div class="impgrid">' + I.lista.map(function (g, k) {
@@ -1309,34 +1373,33 @@
         '<div class="ithumb" style="--rar:' + col + '">' + (imgTag(String(g.icon || "").replace(/\/\d+fx\d+f$/, "/256fx256f"), g.name, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') + (g.n > 1 ? '<span class="itag">x' + g.n + '</span>' : '') + '</div>' +
         '<b class="impn">' + esc(g.name) + '</b><span class="impm" style="color:' + col + '">' + esc(g.rareza) + (g.heroe ? ' · ' + esc(g.heroe) : '') + '</span>' +
         (gem.length ? '<span class="impg">💎 ' + gem.slice(0, 3).map(esc).join('<br>') + (gem.length > 3 ? '<br>+' + (gem.length - 3) + ' más' : '') + '</span>' : '') +
-        (g._repl ? '<span class="impr">Reemplaza uno subido antes</span>' : '') + '</label>';
+        '</label>';
     }).join("") + '</div>';
   }
   function impId(g) { return "inv-" + slugCompra(g.name) + (g.sig ? "-" + g.sig : ""); }
   function impTraer() {
     var I = impEstado(), link = String(I.link || "").trim();
     if (!/[?&]partner=\d+/.test(link)) { I.err = "Pega el trade link completo (debe incluir partner= y token=)."; render(); return; }
-    I.cargando = true; I.err = ""; I.msg = ""; I.lista = null; I.borrar = []; render();
+    I.cargando = true; I.err = ""; I.msg = ""; I.lista = null; I.repo = []; render();
     fetch(INV_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ link: link, detalle: true }) })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (x) {
         I.cargando = false;
         if (!x.ok) { I.err = (x.j && x.j.error) || "No se pudo leer el inventario."; render(); return; }
         var porId = {}, porNombre = {};
-        items.lista.forEach(function (it) { porId[it.id] = it; porNombre[claveCompra(it.nombre)] = it; });
+        items.lista.forEach(function (it) { porId[it.id] = it; if (!porNombre[claveCompra(it.nombre)]) porNombre[claveCompra(it.nombre)] = it; });
         var todos = (x.j.items || []).filter(function (g) { return IMP_RAREZAS.indexOf(g.rareza) >= 0; });
-        var sinGemas = {}; todos.forEach(function (g) { if (!g.sig) sinGemas[claveCompra(g.name)] = 1; });
-        var nuevos = [], reemplazar = {}, ya = 0, conPrecio = 0;
+        var nuevos = [], repo = [], ya = 0;
         todos.forEach(function (g) {
-          if (porId[impId(g)]) { ya++; return; }                                   // mismo item (nombre + gemas): no se toca
-          if (!g.sig) { if (porNombre[claveCompra(g.name)]) { ya++; return; } nuevos.push(g); return; }
-          var base = "inv-" + slugCompra(g.name), viejo = porId[base];             // subido antes, sin gemas
-          if (viejo && !viejo.descripcion && !sinGemas[claveCompra(g.name)]) {
-            if (!viejo.activo && !(viejo.precio > 0)) { reemplazar[base] = 1; g._repl = base; } else { conPrecio++; return; }
-          }
-          nuevos.push(g);
+          // Mismo item = mismo nombre y mismas gemas. Si ya está, solo se repone su stock; precio, descripción y estado no se tocan.
+          var ex = porId[impId(g)] || (!g.sig ? porNombre[claveCompra(g.name)] : null);
+          if (!ex) { nuevos.push(g); return; }
+          if (Number(ex.stock) === g.n) { ya++; return; }
+          repo.push({ it: ex, g: g, de: Number(ex.stock) || 0, a: g.n });
         });
-        I.lista = nuevos; I.sel = {}; nuevos.forEach(function (g, k) { I.sel[k] = true; }); I.borrar = Object.keys(reemplazar); I.yaEstaban = ya; I.conPrecio = conPrecio; I.total = todos.length; I.diag = x.j.diag || [];
+        I.lista = nuevos; I.sel = {}; nuevos.forEach(function (g, k) { I.sel[k] = true; });
+        I.repo = repo; I.selR = {}; repo.forEach(function (r, k) { I.selR[k] = r.a > r.de; });   // las bajas de stock vienen sin marcar
+        I.yaEstaban = ya; I.total = todos.length; I.diag = x.j.diag || [];
         if (!todos.length) I.msg = "No hay items intercambiables de esas rarezas en este inventario.";
         render();
       }).catch(function () { I.cargando = false; I.err = "No se pudo conectar. Intenta de nuevo."; render(); });
@@ -1344,16 +1407,18 @@
   function impSubir() {
     var I = impEstado(); if (!I.lista || !I.lista.length || I.subiendo) return;
     var elegidos = I.lista.filter(function (g, k) { return I.sel && I.sel[k]; });
-    if (!elegidos.length) { I.err = "Marca al menos un item para subir."; render(); return; }
-    var base = "projects/" + FB.projectId + "/databases/(default)/documents/", ahora = Date.now(), lote = [], nuevos = [], aBorrar = {};
-    elegidos.forEach(function (g) { if (g._repl) aBorrar[g._repl] = 1; });
-    Object.keys(aBorrar).forEach(function (id) { lote.push({ delete: base + "rayas_items/" + id }); });
+    var repos = (I.repo || []).filter(function (r, k) { return I.selR && I.selR[k]; });
+    if (!elegidos.length && !repos.length) { I.err = "Marca al menos un item."; render(); return; }
+    var base = "projects/" + FB.projectId + "/databases/(default)/documents/", ahora = Date.now(), lote = [], nuevos = [];
     elegidos.forEach(function (g, k) {
       var it = { id: impId(g), nombre: g.name, img: String(g.icon || "").replace(/\/\d+fx\d+f$/, "/256fx256f"), precio: 0, stock: g.n,
         tipo: g.tipo || "Otro", heroe: g.heroe || "", ranura: g.ranura || "", rareza: g.rareza, calidad: g.calidad || "", estilos: 0, estOk: "", descripcion: (g.gemas || []).join("\n"), activo: false,
         creado: new Date(ahora - k).toISOString() };
       nuevos.push(it);
       lote.push({ update: Object.assign({ name: base + "rayas_items/" + it.id }, itemAFields(it)), currentDocument: { exists: false } });
+    });
+    repos.forEach(function (r) {   // solo el stock: nada más se toca
+      lote.push({ update: { name: base + "rayas_items/" + r.it.id, fields: { stock: { integerValue: String(r.a) } } }, updateMask: { fieldPaths: ["stock"] }, currentDocument: { exists: true } });
     });
     I.subiendo = true; I.err = ""; I.msg = ""; render();
     var url = BASE.replace(/documents\/$/, "documents:commit"), hechos = 0;
@@ -1362,15 +1427,15 @@
       return token().then(function (tk) {
         return fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ writes: lote.slice(i, i + 50) }) });
       }).then(function (r) {
-        if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : r.status === 409 ? "Alguno de esos items ya existe. Recarga la página e intenta de nuevo." : "No se pudo subir (" + r.status + ").");
+        if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : r.status === 409 ? "Alguno de esos items cambió. Recarga la página e intenta de nuevo." : "No se pudo subir (" + r.status + ").");
         hechos = Math.min(lote.length, i + 50);
         return lotes(i + 50);
       });
     }
     lotes(0).then(function () {
-      var quitados = aBorrar;
-      items.lista = nuevos.concat(items.lista.filter(function (x) { return !quitados[x.id]; }));
-      I.subiendo = false; I.lista = []; I.sel = {}; I.borrar = []; I.msg = "✔ Se subieron " + nuevos.length + " items. Están ocultos y sin precio: edítalos con ✎ para ponerles precio y activarlos. Los que ya tenías no se modificaron.";
+      repos.forEach(function (r) { r.it.stock = r.a; });
+      items.lista = nuevos.concat(items.lista);
+      I.subiendo = false; I.lista = []; I.sel = {}; I.repo = []; I.selR = {}; I.msg = "✔ " + (nuevos.length ? "Se subieron " + nuevos.length + " items nuevos (ocultos y sin precio: edítalos con ✎ para ponerles precio y activarlos). " : "") + (repos.length ? "Se repuso el stock de " + repos.length + " items. " : "") + "Nada más de lo que ya tenías se modificó.";
       render(); hidratarImgs();
     }).catch(function (e) {
       I.subiendo = false; I.err = (e && e.message || "No se pudo subir.") + (hechos ? " (ya se subieron " + hechos + ")" : ""); render();
@@ -2172,6 +2237,8 @@
       case "itTipo": filtros.tipo = t.getAttribute("data-v") || ""; filtros.pag = 0; render(); break;
       case "itReset": filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", pag: 0 }; render(); break;
       case "itPag": filtros.pag = Math.max(0, Number(t.getAttribute("data-p")) || 0); pintarItems(); var gp = document.getElementById("itemsGrid"); if (gp && gp.scrollIntoView) gp.scrollIntoView({ block: "start", behavior: "smooth" }); break;
+      case "stRefrescar": steamRefrescar(); break;
+      case "irSteam": break; // el enlace se abre solo; no abre la ficha del item
       case "itVer": modal = { tipo: "item", id: t.getAttribute("data-id") }; render(); hidratarImgs(); break;
       case "itWsp":
         var iw = itemPorId(t.getAttribute("data-id")), cw = contactos();
@@ -2194,7 +2261,7 @@
       case "impAbrir": impEstado().abierto = true; render(); break;
       case "impCerrar": impEstado().abierto = false; render(); break;
       case "impTraer": impTraer(); break;
-      case "impTodos": case "impNinguno": var Ie = impEstado(); Ie.sel = {}; (Ie.lista || []).forEach(function (g, k) { Ie.sel[k] = t.getAttribute("data-a") === "impTodos"; }); render(); hidratarImgs(); break;
+      case "impTodos": case "impNinguno": var Ie = impEstado(); var onT = t.getAttribute("data-a") === "impTodos"; Ie.sel = {}; Ie.selR = {}; (Ie.lista || []).forEach(function (g, k) { Ie.sel[k] = onT; }); (Ie.repo || []).forEach(function (r, k) { Ie.selR[k] = onT; }); render(); hidratarImgs(); break;
       case "impSubir": impSubir(); break;
       case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; admin.steamInfo = ""; render(); irAlForm(); break;
       case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock), estilos: String(ie.estilos || 0), estOk: ie.estOk || (ie.estilos ? "1" : "") }); admin.itemMsg = ""; render(); hidratarImgs(); irAlForm(); } break;

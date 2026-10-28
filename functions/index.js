@@ -432,6 +432,24 @@ exports.itemSteam = onRequest(
   }
 );
 
+/* ---- Admin: precios de referencia del Mercado de Steam (US$) para varios items; el navegador los guarda y los convierte a soles ---- */
+exports.preciosSteam = onRequest(
+  { region: REGION, cors: ORIGENES, maxInstances: 1, timeoutSeconds: 60 },
+  async (req, res) => {
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
+    const uid = await uidDeLaPeticion(req);
+    if (uid !== ADMIN_UID) return res.status(403).json({ error: "Solo el administrador puede usar esto." });
+    const nombres = ((req.body || {}).nombres || []).filter((n) => typeof n === "string" && n.trim() && n.length <= 150).slice(0, 6);
+    const precios = {}; let limite = false;
+    for (let i = 0; i < nombres.length && !limite; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, 2600));
+      const x = await steam.precioUsd(nombres[i]);
+      if (x.limite) limite = true; else precios[nombres[i]] = x.usd;
+    }
+    res.json({ ok: true, precios, limite });
+  }
+);
+
 /* ---------- Rifas: participar descontando créditos (todo se calcula aquí, nunca en el navegador) ---------- */
 function tiempoRifa(iso) { const t = iso ? new Date(iso).getTime() : 0; return isFinite(t) ? t : 0; }
 function faseRifa(p) {
