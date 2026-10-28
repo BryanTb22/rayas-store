@@ -972,7 +972,7 @@
     return '<section class="section gutter" id="comprar"><div class="wrap">' +
       '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><div class="orn">◆</div></div>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Textos y contactos.</p>') +
-      (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkAbrir">📦 Stock de items</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + itemFormHtml() + importarHtml() : '') +
+      (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkAbrir">📦 Stock de items</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + importarHtml() : '') +
       '<div class="itabs">' + tabs + '</div>' +
       '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar items…" value="' + esc(filtros.q) + '" autocomplete="off">' +
       '<select id="fi-orden" aria-label="Ordenar">' + [["nuevo", "Más nuevos"], ["menor", "Precio: menor a mayor"], ["mayor", "Precio: mayor a menor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (filtros.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
@@ -1002,7 +1002,7 @@
     var btns = agot ? '<button class="btn btn-ghost" type="button" disabled>Agotado</button>'
       : '<button class="btn btn-fuchsia" type="button" data-a="carAdd" data-id="' + esc(it.id) + '">🛒 ' + (carro[it.id] ? '✔ En el carrito (' + carro[it.id] + ') · agregar otro' : 'Al carrito') + '</button>' +
         '<button class="btn btn-yellow" type="button" data-a="carAhora" data-id="' + esc(it.id) + '">⚡ Comprar ahora</button>';
-    return envol(miga(it.tipo, it.nombre) + (admin.puede && admin.itemForm ? '<div class="ipg-edit">' + itemFormHtml() + '</div>' : '') + '<h1 class="ipg-t">' + esc(it.nombre) + (it.activo ? '' : ' <small>(oculto)</small>') + '</h1>' +
+    return envol(miga(it.tipo, it.nombre) + '<h1 class="ipg-t">' + esc(it.nombre) + (it.activo ? '' : ' <small>(oculto)</small>') + '</h1>' +
       '<div class="ipg-grid"><div class="ipg-foto" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') +
       '<span class="ipg-tag' + (agot ? ' off' : '') + '">' + (agot ? 'Agotado' : (it.stock > 1 ? it.stock + ' disponibles' : 'Disponible')) + '</span></div>' +
       '<div class="ipg-info"><dl class="ipg-attrs">' + attrs + '</dl>' + estilosHtml(it) + descripcionHtml(it) +
@@ -1604,7 +1604,7 @@
     for (var k = 1; k <= n; k++) h += ok.indexOf(k) >= 0 ? '<span class="est">Estilo ' + k + '</span>' : '<span class="est lock">Estilo ' + k + ' (Bloqueado)</span>';
     return h + '</div>';
   }
-  function irAlForm() { var e = document.getElementById("itForm"); if (e && e.scrollIntoView) e.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  function irAlForm() { var b = document.querySelector(".itm-box"); if (b) b.scrollTop = 0; }
   function gemasFormHtml(F) {
     var l = gemasDe(F);
     return '<div class="field gform"><label>💎 Gemas del item (cada versión con distinta gema lleva su propio precio)</label>' +
@@ -1645,7 +1645,7 @@
   }
   function tabItems() {
     if (!items.cargado && !items.cargando) cargarItems();
-    var form = itemFormHtml();
+    var form = '';
     var lista = items.lista.slice().sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); });
     return '<div class="grp"><h3>Items en venta (' + items.lista.length + ')</h3>' +
       '<button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button>' +
@@ -2038,13 +2038,17 @@
     else if (modal && modal.tipo === "stock") html += stkPanelHtml();
     else if (modal) html += modalAviso();
     else if (elegirAbierto && contactos().length > 1) html += modalElegir();
+    if (admin.puede && admin.itemForm) html += '<div class="itm-scrim" data-a="itCerrarForm"></div><div class="itm-box" role="dialog" aria-modal="true" aria-label="' + (admin.itemForm.id ? 'Editar item' : 'Nuevo item') + '"><button type="button" class="itm-x" data-a="itCerrarForm" aria-label="Cerrar">✕</button>' + itemFormHtml() + '</div>';
     if (admin.puede && !admin.abierto) html += barraEdicion();
     if (admin.puede && admin.abierto) html += '<div class="scrim" data-a="cerrar"></div>' + panelAdmin();
     if (!admin.puede && cuenta.modo) html += '<div class="scrim" data-a="cerrarCuenta"></div>' + panelCuenta();
 
     var scrollDrawer = document.querySelector(".drawer-body");
     var top = scrollDrawer ? scrollDrawer.scrollTop : 0;
+    var boxPrev = document.querySelector(".itm-box"), boxTop = boxPrev ? boxPrev.scrollTop : 0;
     app.innerHTML = html;
+    var boxNew = document.querySelector(".itm-box"); if (boxNew && boxTop) boxNew.scrollTop = boxTop;
+    document.body.classList.toggle("itm-open", !!(admin.puede && admin.itemForm));
     montarGoogle();
     if (ruleta) { ruletaDibujar(ruleta.fin ? ruleta.rot : 0, 0); if (ruleta.fin) ruletaBrillo(); }
     document.body.classList.toggle("vivo", vivo());
@@ -3046,6 +3050,7 @@
     if (e && ev.key === "Enter") { ev.preventDefault(); e.blur(); return; }
     if (ev.key !== "Escape") return;
     if (e) { e.blur(); return; }
+    if (admin.itemForm && !admin.itemGuardando) { admin.itemForm = null; admin.itemMsg = ""; render(); return; }
     if (modal && modal.tipo !== "cargando") { modal = null; render(); }
     else if (elegirAbierto) { elegirAbierto = false; render(); }
     else if (cuenta.modo) { cuenta.modo = null; quitarHash(); render(); }
