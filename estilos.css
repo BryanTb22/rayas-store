@@ -1143,3 +1143,19 @@ input[type=search], input[type=text], input[type=number], input[type=url], input
 .ofr-in{color:#7ee787;border-color:#7ee787}
 .ofr-ed{white-space:nowrap}
 .ipg-edit{margin:12px 0 18px}
+
+/* Editor de item en ventana emergente */
+body.itm-open{overflow:hidden}
+.itm-scrim{position:fixed;inset:0;z-index:9000;background:rgba(2,4,14,.72);backdrop-filter:blur(3px)}
+.itm-box{position:fixed;z-index:9001;left:50%;top:50%;transform:translate(-50%,-50%);width:min(820px,calc(100vw - 24px));max-height:calc(100vh - 28px);overflow:auto;background:var(--panel,#0e1330);border:1px solid color-mix(in srgb,var(--yellow) 45%,transparent);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.6);padding:0}
+.itm-x{position:sticky;top:10px;float:right;margin:10px 12px 0 0;z-index:3;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(0,0,0,.45);color:var(--fg);font-size:16px;cursor:pointer}
+.itm-box .grp{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;padding:22px 24px 0;border:0;background:none}
+.itm-box .grp > h3{grid-column:1/-1;margin:0;font-size:22px}
+.itm-box .grp > .hint,.itm-box .grp > .yapeqr,.itm-box .grp > .gform,.itm-box .grp > .chk,.itm-box .grp > .cav,.itm-box .grp > .field:first-of-type,.itm-box .grp > .field:has(.estchk){grid-column:1/-1}
+.itm-box .grp > .cav:last-child{position:sticky;bottom:0;margin:6px -24px 0;padding:14px 24px;background:var(--panel,#0e1330);border-top:1px solid var(--line);justify-content:flex-end}
+.itm-box .gform .grow-f{display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px}
+@media (max-width:640px){
+  .itm-box{width:calc(100vw - 12px);max-height:calc(100vh - 12px);border-radius:16px}
+  .itm-box .grp{grid-template-columns:1fr;padding:18px 14px 0}
+  .itm-box .grp > .cav:last-child{margin:6px -14px 0;padding:12px 14px}
+}
