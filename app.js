@@ -926,7 +926,7 @@
       (agot ? '<span class="itag agotado">Agotado</span>' : (it.stock > 1 ? '<span class="itag">x' + it.stock + '</span>' : '')) + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
       (admin.puede ? '<div class="itadmb"><button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(it.id) + '" aria-label="Editar">✎</button>' + (admin.itemDel === it.id ? '<button type="button" class="btn btn-sm itdel" data-a="itBorrarSi" data-id="' + esc(it.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itBorrar" data-id="' + esc(it.id) + '" aria-label="Quitar">🗑</button>') + '</div>' : '') +
       '<div class="ibody"><h4>' + esc(it.nombre) + '</h4>' +
-      '<div class="imeta">' + (it.rareza ? '<span style="color:' + col + '">' + esc(it.rareza) + '</span>' : '') + (it.calidad ? '<span>' + esc(it.calidad) + '</span>' : '') + (it.heroe ? '<span>' + esc(it.heroe) + '</span>' : '') + (it.descripcion ? '<span class="gem">💎 ' + lineasDesc(it).length + '</span>' : '') + '</div>' +
+      '<div class="imeta">' + (it.rareza ? '<span style="color:' + col + '">' + esc(it.rareza) + '</span>' : '') + (it.calidad ? '<span>' + esc(it.calidad) + '</span>' : '') + (it.heroe ? '<span>' + esc(it.heroe) + '</span>' : '') + (it.descripcion ? '<span class="gem">💎 ' + (efectoUnusual(it) ? esc(efectoUnusual(it)) : lineasDesc(it).length) + '</span>' : '') + '</div>' +
       '<div class="iprice"><b>' + fmtPrecio(it.precio) + '</b><span class="ibuy">' + (agot ? 'Agotado' : 'Comprar') + '</span></div>' + steamHtml(it) + '</div></article>';
   }
   function gridItemsHtml() {
@@ -996,7 +996,7 @@
     var dto = sol && it.precio > 0 && it.precio < sol ? Math.round((1 - it.precio / sol) * 100) : 0;
     var fila = function (k, v) { return v ? '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>' : ''; };
     var attrs = fila("Héroe", esc(it.heroe)) + fila("Ranura", esc(it.ranura)) + fila("Tipo", esc(it.tipo)) +
-      fila("Rareza", it.rareza ? '<i class="ipg-dot" style="background:' + col + '"></i>' + esc(it.rareza) : "") + fila("Calidad", esc(it.calidad)) + fila("Disponibles", agot ? "Agotado" : String(it.stock));
+      fila("Rareza", it.rareza ? '<i class="ipg-dot" style="background:' + col + '"></i>' + esc(it.rareza) : "") + fila("Calidad", esc(it.calidad)) + fila("Efecto Unusual", esc(efectoUnusual(it))) + fila("Disponibles", agot ? "Agotado" : String(it.stock));
     var btns = agot ? '<button class="btn btn-ghost" type="button" disabled>Agotado</button>'
       : '<button class="btn btn-fuchsia" type="button" data-a="itCred" data-id="' + esc(it.id) + '">💎 Pagar con ' + cred + ' créditos</button>' +
         (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="itWsp" data-id="' + esc(it.id) + '">💬 Comprar por WhatsApp</button>' : '');
@@ -1007,7 +1007,7 @@
       '<div class="ipg-precio"><div class="pp-top"><b>' + fmtPrecio(it.precio) + '</b>' + (dto ? '<span class="pp-dto" title="Descuento frente al precio del Mercado de Steam">-' + dto + ' %</span>' : '') + '<span class="pp-cred">o ' + cred + ' créditos</span></div>' +
       steamHtml(it, true) +
       (agot ? '' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> créditos.</p>' : '<p class="hint">Para pagar con créditos entra a tu cuenta.</p>')) +
-      '<div class="pp-btns">' + btns + '</div></div></div></div>');
+      '<div class="pp-btns">' + btns + '</div></div></div>' + ofertasHtml(it) + '</div>');
   }
 
   /* ===== Admin: panel de stock de items ===== */
@@ -1117,9 +1117,34 @@
     return { h: h, btns: btns };
   }
   function lineasDesc(it) { return String(it.descripcion || "").split("\n").map(function (x) { return x.trim(); }).filter(Boolean); }
+  var GEMA_TIPOS = ["Unusual Effect Gem", "Prismatic Gem", "Inscribed Gem", "Ethereal Gem", "Kill Eater", "Rune"];
+  function gemasDe(it) {
+    return lineasDesc(it).map(function (x) { var k = x.indexOf(":"); return k > 0 && k < 28 ? { t: x.slice(0, k).trim(), v: x.slice(k + 1).trim() } : { t: "", v: x }; });
+  }
+  function efectoUnusual(it) { var g = gemasDe(it).filter(function (x) { return /unusual/i.test(x.t) && x.v; })[0]; return g ? g.v : ""; }
+  function gemaClase(t) { return /unusual/i.test(t) ? "g-un" : /prismatic/i.test(t) ? "g-pr" : /ethereal/i.test(t) ? "g-et" : /inscribed/i.test(t) ? "g-in" : ""; }
+  // Pastillas de gemas (como lis-skins): el nombre de la gema y, al pasar el mouse, su tipo.
+  function gemChipsHtml(it) {
+    return gemasDe(it).map(function (g) { return '<span class="gchip ' + gemaClase(g.t) + '" title="' + esc((g.v || "") + (g.t ? " · " + g.t : "")) + '">' + esc(g.v || g.t) + '</span>'; }).join("");
+  }
   function descripcionHtml(it) {
-    var l = lineasDesc(it); if (!l.length) return "";
-    return '<div class="idesc"><b>💎 Gemas y detalles</b>' + l.map(function (x) { var k = x.indexOf(": "); return '<div>' + (k > 0 && k < 24 ? '<span class="gk">' + esc(x.slice(0, k)) + '</span> ' + esc(x.slice(k + 2)) : esc(x)) + '</div>'; }).join("") + '</div>';
+    var l = gemasDe(it); if (!l.length) return "";
+    return '<div class="idesc"><b>💎 Gemas</b>' + l.map(function (g) { return '<div class="grow ' + gemaClase(g.t) + '"><span class="gdot"></span><span class="gv">' + esc(g.v || g.t) + '</span>' + (g.t && g.v ? '<span class="gk">' + esc(g.t) + '</span>' : '') + '</div>'; }).join("") + '</div>';
+  }
+  // Mismo item con distintas gemas: cada uno es su propia oferta con su precio.
+  function ofertasDe(it) {
+    var k = sinTildes(it.nombre);
+    return items.lista.filter(function (x) { return sinTildes(x.nombre) === k && (x.activo || admin.puede); }).sort(function (a, b) { return (a.precio || 0) - (b.precio || 0); });
+  }
+  function ofertasHtml(it) {
+    var l = ofertasDe(it); if (l.length < 2) return "";
+    return '<div class="ofr"><h3>' + l.length + ' ofertas de este item</h3><div class="ofr-t"><div class="ofr-h"><span>Gemas</span><span>Estilos</span><span>Precio</span><span></span></div>' +
+      l.map(function (x) {
+        var cur = x.id === it.id, agot = x.stock <= 0, ne = Number(x.estilos) || 0;
+        return '<a class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + '" href="#item/' + esc(x.id) + '"><span class="ofr-g">' + (gemChipsHtml(x) || '<em>Sin gemas</em>') + '</span>' +
+          '<span class="ofr-e">' + (ne ? (estilosOkLista(x).length || 1) + '/' + ne : '—') + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b>' + (x.stock > 1 ? '<small>x' + x.stock + '</small>' : '') + '</span>' +
+          '<span class="ofr-b">' + (cur ? 'Viendo' : (agot ? 'Agotado' : 'Ver')) + '</span></a>';
+      }).join("") + '</div></div>';
   }
   function mensajeItem(it) {
     var p = cuenta.perfil;
@@ -1401,6 +1426,18 @@
     return h + '</div>';
   }
   function irAlForm() { var e = document.getElementById("itForm"); if (e && e.scrollIntoView) e.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  function gemasFormHtml(F) {
+    var l = gemasDe(F);
+    return '<div class="field gform"><label>💎 Gemas del item (cada versión con distinta gema lleva su propio precio)</label>' +
+      '<datalist id="dl-gtipo">' + GEMA_TIPOS.map(function (t) { return '<option value="' + esc(t) + '">'; }).join("") + '</datalist>' +
+      (l.length ? l.map(function (g, i) {
+        return '<div class="grow-f"><input id="it-gt-' + i + '" list="dl-gtipo" maxlength="30" placeholder="Tipo (Unusual Effect Gem)" value="' + esc(g.t) + '"><input id="it-gv-' + i + '" maxlength="60" placeholder="Nombre (Candy Caster)" value="' + esc(g.v) + '">' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-a="itGemaDel" data-i="' + i + '" aria-label="Quitar gema">✕</button></div>';
+      }).join("") : '<p class="hint">Sin gemas.</p>') +
+      '<div class="cav"><button type="button" class="btn btn-ghost btn-sm" data-a="itGemaMas" data-t="Unusual Effect Gem">+ Efecto Unusual</button><button type="button" class="btn btn-ghost btn-sm" data-a="itGemaMas" data-t="Prismatic Gem">+ Prismatic</button><button type="button" class="btn btn-ghost btn-sm" data-a="itGemaMas" data-t="">+ Otra gema</button>' +
+      (F.id ? '<button type="button" class="btn btn-ghost btn-sm" data-a="itVariante">⧉ Crear otra versión (otra gema)</button>' : '') + '</div></div>';
+  }
+  function gemasAString(l) { return l.map(function (g) { var t = String(g.t || "").trim(), v = String(g.v || "").trim(); return t ? (t + ":" + (v ? " " + v : "")) : v; }).filter(Boolean).join("\n"); }
   function itemFormHtml() {
     var F = admin.itemForm;
     var form = '';
@@ -1419,7 +1456,7 @@
       '<div class="field"><label for="it-ranura">Ranura (Weapon, Head, Back…)</label><input id="it-ranura" list="dl-ranura" maxlength="40" value="' + esc(F.ranura) + '"><datalist id="dl-ranura">' + distintos("ranura", SLOTS_DOTA).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
       '<div class="field"><label for="it-rareza">Rareza</label><select id="it-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), F.rareza, "—") + '</select></div>' +
       '<div class="field"><label for="it-calidad">Calidad</label><input id="it-calidad" list="dl-calidad" maxlength="30" value="' + esc(F.calidad) + '"><datalist id="dl-calidad">' + distintos("calidad", ITEM_CALIDADES).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
-      '<div class="field"><label for="it-desc">Gemas / descripción (una por línea)</label><textarea id="it-desc" rows="3" maxlength="600" placeholder="Prismatic Gem: Champion\'s Green">' + esc(F.descripcion || "") + '</textarea></div>' +
+      gemasFormHtml(F) +
       '<div class="field"><label for="it-estilos">Estilos (solo si el item los tiene)</label><select id="it-estilos">' + ["0", "2", "3", "4", "5", "6"].map(function (v) { return '<option value="' + v + '"' + (String(F.estilos || 0) === v ? ' selected' : '') + '>' + (v === "0" ? 'Sin estilos' : v + ' estilos') + '</option>'; }).join("") + '</select></div>' +
       ((Number(F.estilos) || 0) > 0 ? '<div class="field"><label>Estilos que SÍ tiene (los demás saldrán "Bloqueado")</label><div class="estchk">' + (function () { var o = "", ok = estilosOkLista(F); for (var k = 1; k <= Number(F.estilos); k++) o += '<label class="chk"><input type="checkbox" id="it-est-' + k + '"' + (ok.indexOf(k) >= 0 ? ' checked' : '') + '> Estilo ' + k + '</label>'; return o; })() + '</div></div>' : '') +
       '<label class="chk"><input type="checkbox" id="it-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
@@ -1447,7 +1484,7 @@
     if (!isFinite(precio) || precio <= 0) { admin.itemMsg = "Pon un precio mayor a 0."; render(); return; }
     if (!isFinite(stock) || stock < 0) stock = 1;
     var it = { id: F.id || ("it-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), nombre: F.nombre.trim(), img: F.img, precio: Math.round(precio * 100) / 100, stock: stock,
-      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: String(F.descripcion || "").trim().slice(0, 600), steamUsd: Number(F.steamUsd) || 0, steamAct: F.steamAct || "", activo: F.activo, creado: F.creado || new Date().toISOString() };
+      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: gemasAString(gemasDe(F).filter(function (g) { return g.v; })).slice(0, 600), steamUsd: Number(F.steamUsd) || 0, steamAct: F.steamAct || "", activo: F.activo, creado: F.creado || new Date().toISOString() };
     admin.itemGuardando = true; admin.itemMsg = ""; render();
     fsPedir("rayas_items/" + encodeURIComponent(it.id), { method: "PATCH", body: JSON.stringify(itemAFields(it)) }).then(function (r) {
       if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
@@ -2438,6 +2475,9 @@
       case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; admin.steamInfo = ""; render(); irAlForm(); break;
       case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock), estilos: String(ie.estilos || 0), estOk: ie.estOk || (ie.estilos ? "1" : "") }); admin.itemMsg = ""; render(); hidratarImgs(); irAlForm(); } break;
       case "itCerrarForm": admin.itemForm = null; admin.itemMsg = ""; render(); break;
+      case "itGemaMas": if (admin.itemForm) { var gl2 = gemasDe(admin.itemForm); gl2.push({ t: t.getAttribute("data-t") || "", v: "" }); admin.itemForm.descripcion = gemasAString(gl2); render(); hidratarImgs(); } break;
+      case "itGemaDel": if (admin.itemForm) { var gl3 = gemasDe(admin.itemForm); gl3.splice(parseInt(t.getAttribute("data-i"), 10), 1); admin.itemForm.descripcion = gemasAString(gl3); render(); hidratarImgs(); } break;
+      case "itVariante": if (admin.itemForm) { var fv = Object.assign({}, admin.itemForm, { id: "", precio: "", stock: "1", descripcion: "", creado: "", steamAct: admin.itemForm.steamAct }); admin.itemForm = fv; admin.itemMsg = "Versión nueva: pon su gema y su precio."; render(); hidratarImgs(); irAlForm(); } break;
       case "itQuitarFoto": if (admin.itemForm) { admin.itemForm.img = ""; render(); } break;
       case "itGuardar": guardarItem(); break;
       case "itSteam": rellenarDesdeSteam(); break;
@@ -2597,6 +2637,8 @@
       if (el.checked && pos < 0) cur.push(num); else if (!el.checked && pos >= 0) cur.splice(pos, 1);
       cur.sort(function (a, b) { return a - b; }); F.estOk = cur.join(","); return true;
     }
+    var mg = /^it-g([tv])-(\d+)$/.exec(el.id);
+    if (mg) { var gl = gemasDe(F), gi = parseInt(mg[2], 10); if (gl[gi]) { gl[gi][mg[1]] = el.value; F.descripcion = gemasAString(gl); } return true; }
     if (m[el.id]) { F[m[el.id]] = el.value; return true; }
     return false;
   }
