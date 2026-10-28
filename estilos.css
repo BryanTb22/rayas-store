@@ -1167,3 +1167,5 @@ body.itm-open{overflow:hidden}
 .rel-f{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--yellow);font-size:18px;cursor:pointer}
 .rel-f:hover{background:rgba(255,255,255,.12)}
 @media (max-width:640px){.rel-fila > .icard{flex-basis:170px}.rel-flechas{display:none}}
+
+.iprice b .desde, .itx-price b .desde { display: block; font: 700 10px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
