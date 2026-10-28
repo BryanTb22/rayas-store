@@ -199,47 +199,62 @@ exports.comprarItem = onRequest(
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
     if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con créditos." });
-    const id = String((req.body || {}).id || "").slice(0, 80);
-    if (!id || id.indexOf("/") >= 0) return res.status(400).json({ error: "Item no válido." });
+    // Acepta { id } (1 unidad) o { items: [{ id, qty }] } (carrito, hasta 20 líneas).
+    const body = req.body || {};
+    let pedidoLineas = Array.isArray(body.items) ? body.items : [{ id: body.id, qty: 1 }];
+    pedidoLineas = pedidoLineas.slice(0, 20).map((l) => ({ id: String((l && l.id) || "").slice(0, 80), qty: Math.floor(Number(l && l.qty) || 0) }));
+    const unicos = {};
+    for (const l of pedidoLineas) {
+      if (!l.id || l.id.indexOf("/") >= 0 || l.qty < 1 || l.qty > 50) return res.status(400).json({ error: "Item no válido." });
+      unicos[l.id] = (unicos[l.id] || 0) + l.qty;
+    }
+    const ids = Object.keys(unicos);
+    if (!ids.length) return res.status(400).json({ error: "Tu carrito está vacío." });
 
-    const iRef = db.doc("rayas_items/" + id);
-    const uRef = db.doc("rayas_users/" + uid);
     const code = sets.nuevoCodigo();
     const oRef = db.doc("orders/" + code);
     try {
       const r = await db.runTransaction(async (tx) => {
-        const [i, u] = await Promise.all([tx.get(iRef), tx.get(uRef)]);
-        if (!i.exists || i.data().activo === false) throw new Error("NO_EXISTE");
-        const it = i.data();
-        const stock = it.stock === undefined ? 1 : Number(it.stock);
-        if (!(stock > 0)) throw new Error("AGOTADO");
-        const precio = Number(it.precio);
-        if (!(precio > 0)) throw new Error("SIN_PRECIO");
-        const creditos = Math.ceil(precio);
+        const uRef2 = db.doc("rayas_users/" + uid);
+        const refs = ids.map((i) => db.doc("rayas_items/" + i));
+        const snaps = await Promise.all(refs.map((rf) => tx.get(rf)));
+        const u = await tx.get(uRef2);
+        const lineas = []; let total = 0, creditos = 0, count = 0;
+        snaps.forEach((sn, k) => {
+          if (!sn.exists || sn.data().activo === false) throw new Error("NO_EXISTE");
+          const it = sn.data(), qty = unicos[ids[k]];
+          const stock = it.stock === undefined ? 1 : Number(it.stock);
+          if (stock < qty) throw new Error("AGOTADO");
+          const precio = Number(it.precio);
+          if (!(precio > 0)) throw new Error("SIN_PRECIO");
+          lineas.push({ ref: refs[k], stock: stock, qty: qty, line: { id: ids[k], name: String(it.nombre || "Item").slice(0, 90), qty: qty, price: precio } });
+          total += precio * qty; creditos += Math.ceil(precio) * qty; count += qty;
+        });
+        total = Math.round(total * 100) / 100;
         if (!u.exists) throw new Error("SIN_PERFIL");
         const d = u.data();
         const saldo = Number(d.creditos || 0);
         if (saldo < creditos) { const er = new Error("SIN_CREDITOS"); er.falta = creditos - saldo; throw er; }
         const pedido = {
           code: code, customerName: String(d.nombre || "Cliente").slice(0, 60), steamId: String(d.steam || "").slice(0, 20),
-          items: [{ id: id, name: String(it.nombre || "Item").slice(0, 90), qty: 1, price: precio }],
-          count: 1, subtotal: precio, discount: 0, total: precio,
+          items: lineas.map((l) => l.line),
+          count: count, subtotal: total, discount: 0, total: total,
           status: "pagado", createdAt: FV.serverTimestamp(),
           paidWith: "creditos", creditos: creditos, uid: uid, origen: "items",
           email: String(d.email || ""), tradelink: String(d.tradelink || "")
         };
         if (d.whatsapp) pedido.phone = String(d.whatsapp).slice(0, 40);
-        tx.update(uRef, { creditos: FV.increment(-creditos) });
-        tx.update(iRef, { stock: stock - 1 });
+        tx.update(uRef2, { creditos: FV.increment(-creditos) });
+        lineas.forEach((l) => tx.update(l.ref, { stock: l.stock - l.qty }));
         tx.create(oRef, pedido);
-        return { saldo: saldo - creditos, creditos: creditos };
+        return { saldo: saldo - creditos, creditos: creditos, count: count };
       });
-      return res.json({ ok: true, code: code, creditos: r.creditos, saldo: r.saldo });
+      return res.json({ ok: true, code: code, creditos: r.creditos, saldo: r.saldo, count: r.count });
     } catch (e) {
       const m = e && e.message;
       if (m === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanzan los créditos. Te faltan " + e.falta + ".", falta: e.falta });
       if (m === "SIN_PERFIL") return res.status(400).json({ error: "Completa tu perfil antes de comprar." });
-      if (m === "AGOTADO" || m === "NO_EXISTE") return res.status(400).json({ error: "Este item ya no está disponible." });
+      if (m === "AGOTADO" || m === "NO_EXISTE") return res.status(400).json({ error: "Uno de los items ya no está disponible (o no alcanza el stock). Revisa tu carrito." });
       if (m === "SIN_PRECIO") return res.status(400).json({ error: "Este item no tiene precio. Pídelo por WhatsApp." });
       console.error("comprarItem", e);
       return res.status(500).json({ error: "No se pudo completar la compra. No se descontaron créditos; intenta de nuevo." });
