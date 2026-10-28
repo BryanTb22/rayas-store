@@ -902,7 +902,7 @@
     return '<section class="section gutter" id="comprar"><div class="wrap">' +
       '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><div class="orn">◆</div></div>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Textos y contactos.</p>') +
-      (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + itemFormHtml() : '') +
+      (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + itemFormHtml() + importarHtml() : '') +
       '<div class="itabs">' + tabs + '</div>' +
       '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar items…" value="' + esc(filtros.q) + '" autocomplete="off">' +
       '<select id="fi-orden" aria-label="Ordenar">' + [["nuevo", "Más nuevos"], ["menor", "Precio: menor a mayor"], ["mayor", "Precio: mayor a menor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (filtros.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
@@ -1083,6 +1083,7 @@
   }
   function ventaEvento(el) {
     if (el.id === "ven-link") { ven.link = el.value; return true; }
+    if (el.id === "imp-link") { impEstado().link = el.value; return true; }
     if (el.id === "ven-q") {
       ven.q = el.value; var pos = el.selectionStart; render();
       var nq = document.getElementById("ven-q"); if (nq) { nq.focus(); try { nq.setSelectionRange(pos, pos); } catch (e) { /* nada */ } }
@@ -1246,6 +1247,73 @@
       if (k >= 0) items.lista[k] = it; else items.lista.unshift(it);
       admin.itemForm = null; admin.itemGuardando = false; render();
     }).catch(function (e) { admin.itemGuardando = false; admin.itemMsg = e.message || "No se pudo guardar."; render(); });
+  }
+
+  /* ---- Admin: importar a Comprar los items de un inventario de Steam (por trade link) ---- */
+  var IMP_RAREZAS = ["ARCANO", "INMORTAL", "MÍTICO", "LEGENDARIO"];
+  function impEstado() { return admin.imp || (admin.imp = { abierto: false, link: "", cargando: false, subiendo: false, err: "", msg: "", lista: null, yaEstaban: 0, total: 0 }); }
+  function importarHtml() {
+    var I = impEstado();
+    if (!I.abierto) return '<div class="itadm frame"><div class="in"><b>Importar desde Steam</b><button type="button" class="btn btn-ghost btn-sm" data-a="impAbrir">⬇ Importar items de mi inventario</button><span class="hint">Sube de una vez tus items intercambiables Arcano, Inmortal, Mítico y Legendario.</span></div></div>';
+    var cuenta2 = {};
+    (I.lista || []).forEach(function (g) { cuenta2[g.rareza] = (cuenta2[g.rareza] || 0) + 1; });
+    var resumen = I.lista ? IMP_RAREZAS.map(function (r) { return (cuenta2[r] || 0) + " " + r.toLowerCase(); }).join(" · ") : "";
+    return '<div class="itadm frame"><div class="in" style="display:block"><b>Importar desde Steam</b>' +
+      '<div class="vrow" style="margin:10px 0"><input id="imp-link" type="url" inputmode="url" placeholder="Trade link: https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(I.link) + '" autocomplete="off">' +
+      '<button type="button" class="btn btn-yellow btn-sm" data-a="impTraer"' + (I.cargando || I.subiendo ? ' disabled' : '') + '>' + (I.cargando ? 'Leyendo…' : 'Traer items') + '</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-a="impCerrar">Cerrar</button></div>' +
+      (I.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(I.err) + '</p>' : '') +
+      (I.lista ? '<p class="hint"><b>' + I.lista.length + '</b> items nuevos para subir (' + esc(resumen) + ')' + (I.yaEstaban ? ' · ' + I.yaEstaban + ' ya estaban en el catálogo y se omiten' : '') + '.<br>Se suben <b>ocultos y sin precio</b>: pon el precio con ✎ y actívalos para que los vean los clientes.</p>' +
+        (I.lista.length ? '<button type="button" class="btn btn-yellow btn-sm" data-a="impSubir"' + (I.subiendo ? ' disabled' : '') + '>' + (I.subiendo ? 'Subiendo…' : 'Subir ' + I.lista.length + ' items') + '</button>' : '') : '') +
+      (I.msg ? '<p class="hint" role="status">' + esc(I.msg) + '</p>' : '') + '</div></div>';
+  }
+  function impTraer() {
+    var I = impEstado(), link = String(I.link || "").trim();
+    if (!/[?&]partner=\d+/.test(link)) { I.err = "Pega el trade link completo (debe incluir partner= y token=)."; render(); return; }
+    I.cargando = true; I.err = ""; I.msg = ""; I.lista = null; render();
+    fetch(INV_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ link: link }) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        I.cargando = false;
+        if (!x.ok) { I.err = (x.j && x.j.error) || "No se pudo leer el inventario."; render(); return; }
+        var existentes = {};
+        items.lista.forEach(function (it) { existentes[claveCompra(it.nombre)] = 1; });
+        var todos = (x.j.items || []).filter(function (g) { return IMP_RAREZAS.indexOf(g.rareza) >= 0; });
+        I.lista = todos.filter(function (g) { return !existentes[claveCompra(g.name)]; });
+        I.yaEstaban = todos.length - I.lista.length; I.total = todos.length;
+        if (!todos.length) I.msg = "No hay items intercambiables de esas rarezas en este inventario.";
+        render();
+      }).catch(function () { I.cargando = false; I.err = "No se pudo conectar. Intenta de nuevo."; render(); });
+  }
+  function impSubir() {
+    var I = impEstado(); if (!I.lista || !I.lista.length || I.subiendo) return;
+    var base = "projects/" + FB.projectId + "/databases/(default)/documents/", ahora = Date.now(), lote = [], nuevos = [];
+    I.lista.forEach(function (g, k) {
+      var it = { id: "inv-" + slugCompra(g.name), nombre: g.name, img: String(g.icon || "").replace(/\/\d+fx\d+f$/, "/360fx360f"), precio: 0, stock: g.n,
+        tipo: g.tipo || "Otro", heroe: g.heroe || "", ranura: g.ranura || "", rareza: g.rareza, calidad: g.calidad || "", estilos: 0, estOk: "", activo: false,
+        creado: new Date(ahora - k).toISOString() };
+      nuevos.push(it);
+      lote.push({ update: Object.assign({ name: base + "rayas_items/" + it.id }, itemAFields(it)), currentDocument: { exists: false } });
+    });
+    I.subiendo = true; I.err = ""; I.msg = ""; render();
+    var url = BASE.replace(/documents\/$/, "documents:commit"), hechos = 0;
+    function lotes(i) {
+      if (i >= lote.length) return Promise.resolve();
+      return token().then(function (tk) {
+        return fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ writes: lote.slice(i, i + 50) }) });
+      }).then(function (r) {
+        if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : r.status === 409 ? "Alguno de esos items ya existe. Recarga la página e intenta de nuevo." : "No se pudo subir (" + r.status + ").");
+        hechos = Math.min(lote.length, i + 50);
+        return lotes(i + 50);
+      });
+    }
+    lotes(0).then(function () {
+      nuevos.forEach(function (it) { items.lista.unshift(it); });
+      I.subiendo = false; I.lista = []; I.msg = "✔ Se subieron " + nuevos.length + " items. Están ocultos y sin precio: edítalos con ✎ para ponerles precio y activarlos.";
+      render(); hidratarImgs();
+    }).catch(function (e) {
+      I.subiendo = false; I.err = (e && e.message || "No se pudo subir.") + (hechos ? " (ya se subieron " + hechos + ")" : ""); render();
+    });
   }
   function borrarItem(id) {
     fsPedir("rayas_items/" + encodeURIComponent(id), { method: "DELETE" }).then(function (r) {
@@ -2062,6 +2130,10 @@
         break;
       case "cpGuardar": case "cpBulk": case "cpEditar": case "cpCancelar": case "cpBorrar": case "cpBorrarSi": accionCompras(a, t); break;
       case "itCred": comprarItemCreditos(t.getAttribute("data-id")); break;
+      case "impAbrir": impEstado().abierto = true; render(); break;
+      case "impCerrar": impEstado().abierto = false; render(); break;
+      case "impTraer": impTraer(); break;
+      case "impSubir": impSubir(); break;
       case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; admin.steamInfo = ""; render(); irAlForm(); break;
       case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock), estilos: String(ie.estilos || 0), estOk: ie.estOk || (ie.estilos ? "1" : "") }); admin.itemMsg = ""; render(); hidratarImgs(); irAlForm(); } break;
       case "itCerrarForm": admin.itemForm = null; admin.itemMsg = ""; render(); break;
