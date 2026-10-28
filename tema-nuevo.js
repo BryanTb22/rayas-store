@@ -107,3 +107,32 @@
   if (window.MutationObserver) new MutationObserver(agendar).observe(document.body, { childList: true, subtree: true });
   agendar();
 })();
+
+/* ---- Barra compacta al bajar + entrada suave al hacer scroll ---- */
+(function () {
+  var root = document.documentElement, ticking = false;
+  function sc() { ticking = false; root.classList.toggle("tn-scrolled", (window.pageYOffset || 0) > 40); }
+  window.addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(sc); } }, { passive: true });
+  sc();
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce || !("IntersectionObserver" in window)) return;
+  var SEL = ".sec-title, .card, .svc, .step, .frame.gold, .winner, .trust, .cards2 > *";
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("tn-in"); io.unobserve(e.target); } });
+  }, { rootMargin: "0px 0px -6% 0px", threshold: 0.05 });
+  function marcar(raiz) {
+    var lista = raiz.querySelectorAll ? raiz.querySelectorAll(SEL) : [];
+    for (var i = 0; i < lista.length; i++) {
+      var el = lista[i];
+      if (el.__tnv) continue; el.__tnv = 1;
+      if (el.closest(".drawer, .modal, .scrim, #tnFondo")) continue;
+      var r = el.getBoundingClientRect();
+      if (r.top < window.innerHeight * 0.95) continue;   // ya visible: sin animación (evita parpadeos al re-renderizar)
+      el.classList.add("tn-rv"); io.observe(el);
+    }
+  }
+  var app = document.getElementById("app"), pend = false;
+  function agendar() { if (pend) return; pend = true; requestAnimationFrame(function () { pend = false; marcar(document.body); }); }
+  if (window.MutationObserver && app) new MutationObserver(agendar).observe(app, { childList: true, subtree: true });
+  agendar();
+})();

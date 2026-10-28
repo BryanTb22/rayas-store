@@ -2165,6 +2165,9 @@
 
       '@@FIN@@' + '<footer class="footer gutter"><div class="wrap">' +
       '<span class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
+      '<nav class="fnav" aria-label="Enlaces rápidos"><a href="#inicio">Inicio</a>' +
+        (rifasVisible() ? '<a href="#rifas">Rifas</a><a href="#como">Cómo participar</a><a href="#ganadores">Ganadores</a><a href="#reglas">Reglas</a>' : '') +
+        (itemsVisible() ? '<a href="#comprar">Comprar items</a><a href="#vender">Vender items</a>' : '') + '</nav>' +
       (V ? '<button type="button" class="btn btn-ghost btn-sm" data-a="editContactos">✎ Editar contactos de WhatsApp</button>'
          : (contactos().length ? '<span>WhatsApp: ' + contactos().map(function (c) { return esc(c.nombre) + ' <span class="wa">' + esc(waBonito(c.numero)) + '</span>'; }).join(' · ') + '</span>' : '')) +
       tx("span", "pie") +

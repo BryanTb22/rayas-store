@@ -1284,3 +1284,9 @@ body.itm-open{overflow:hidden}
 .mv-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .mv-t small { color: var(--muted); font-size: 12px; }
 .mv-m.neg { color: var(--fuchsia); font-weight: 800; white-space: nowrap; }
+
+/* ---------- Pie: enlaces rápidos ---------- */
+.fnav { display: flex; flex-wrap: wrap; gap: 6px 18px; flex-basis: 100%; order: 3; padding-top: 4px; }
+.fnav a { color: var(--fg); text-decoration: none; font-weight: 600; font-size: 14px; opacity: .85; }
+.fnav a:hover { opacity: 1; color: var(--yellow); }
+html { scroll-padding-top: 84px; }
