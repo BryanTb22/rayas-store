@@ -118,3 +118,19 @@ La función `inventario` ahora cuenta las consultas en la colección `rayas_limi
 - Cada item muestra bajo su precio `Steam: S/ …` (precio del Mercado de Steam en US$ × tipo de cambio `COM.tc` de `app.js`, hoy 3.85) y una flecha que abre `steamcommunity.com/market/listings/570/<nombre>`. Se guarda en `rayas_items` como `steamUsd` y `steamAct`.
 - Nueva función **`preciosSteam`** (solo admin): `firebase deploy --only functions:rayas:preciosSteam`. El botón **↻ Precios de Steam** del modo admin actualiza los items visibles (los que llevan más de 6 h sin actualizar). Steam limita ~20 consultas/min; si pide esperar, se avisa y se sigue después.
 - Importar desde el trade link ya **no borra ni reemplaza**: los items que ya están (mismo nombre y mismas gemas) solo reciben el stock nuevo (campo `stock`, sin tocar precio ni descripción); las subidas de stock vienen marcadas y las bajas sin marcar. Distintas gemas = tarjeta aparte.
+
+## Correos al cliente (Resend) — `functions/emails.js`, `correo.js` y `barridoPagos`
+Qué se envía (cada tienda con su propio diseño: la tienda se detecta por la web desde la que se pagó):
+- **Pago confirmado:** apenas se acreditan los créditos (tarjeta/Yape, o cuando Culqi confirma un código de efectivo/QR). Trae monto, créditos, medio de pago, fecha y saldo.
+- **Pago pendiente:** UN recordatorio a quien generó un código de PagoEfectivo/QR/billetera y no pagó. Se envía entre 2 h y 20 h después de generarlo (el código dura 24 h). Pasadas 25 h la orden se marca `expirado`.
+- Los pagos con tarjeta/Yape se aprueban o rechazan al instante, así que no tienen "pendiente". Quien abandona la ventana de tarjeta sin pagar no genera registro y no recibe recordatorio.
+- Si el correo falla, el pago NO se pierde: los créditos ya se sumaron y `barridoPagos` (cada 30 min) reintenta. Los pagos acreditados antes de activar esto no reciben correo.
+
+Para activarlo:
+1. Crea una cuenta en resend.com y verifica los dominios `rayas.trade` y `litlejacob.trade` (te pide registros DNS: SPF y DKIM). Sin dominio verificado, Resend rechaza el envío.
+2. Crea una API key en Resend y guárdala: `firebase functions:secrets:set RESEND_API_KEY`.
+3. Despliega: `firebase deploy --only functions` (ahora crea también la función programada `barridoPagos`).
+4. Prueba con un pago de prueba (admin con `sk_test_`): deben llegar el correo de confirmación y, si generas un código de efectivo y no lo pagas, el recordatorio a las 2 h.
+
+Ajustes: tiempos en las constantes `RECORDATORIO_MIN_HORAS`, `RECORDATORIO_MAX_HORAS` y `EXPIRA_HORAS` de `functions/index.js`; remitentes, colores y WhatsApp en `functions/emails.js`.
+La lógica se probó con una base de datos y un Resend simulados, no contra Firebase, Culqi ni Resend reales.
