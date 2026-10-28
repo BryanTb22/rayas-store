@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preparar foto de item</title>
+<style>
+  :root { --bg: #0b1020; --panel: #151c36; --line: #3a3f66; --gold: #ffc93c; --txt: #f2efe6; --mut: #9ba7d8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--txt); font: 16px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1000px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { margin: 0 0 6px; font-size: 26px; color: var(--gold); }
+  p.sub { margin: 0 0 18px; color: var(--mut); }
+  #drop { border: 2px dashed var(--line); border-radius: 14px; padding: 34px 16px; text-align: center; background: var(--panel); cursor: pointer; transition: border-color .15s, background .15s; }
+  #drop.on, #drop:hover { border-color: var(--gold); background: #1a2347; }
+  #drop b { display: block; font-size: 18px; margin-bottom: 4px; }
+  #drop span { color: var(--mut); font-size: 14px; }
+  #lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .card canvas { width: 100%; aspect-ratio: 3 / 2; border-radius: 8px; background: #000; cursor: grab; touch-action: none; display: block; }
+  .card canvas:active { cursor: grabbing; }
+  .fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .fila label { font-size: 13px; color: var(--mut); }
+  input[type=text] { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: #0b1020; color: var(--txt); font-size: 14px; }
+  input[type=range] { flex: 1; accent-color: var(--gold); }
+  button { font: inherit; font-weight: 700; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--txt); cursor: pointer; }
+  button.oro { background: var(--gold); color: #1a1205; border-color: var(--gold); }
+  button.sel { border-color: var(--gold); color: var(--gold); }
+  button:disabled { opacity: .5; cursor: default; }
+  .info { font-size: 13px; color: var(--mut); }
+  .aviso { color: #ffb4b4; }
+  #barra { display: none; margin-top: 18px; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .pasos { margin-top: 26px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--mut); font-size: 14px; }
+  .pasos b { color: var(--txt); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Preparar foto de item</h1>
+  <p class="sub">Arrastra tus fotos (o pégalas con Ctrl+V). Salen listas para subir a la tienda: horizontal 3:2, 640×427, formato WEBP liviano. Todo ocurre en tu computadora; nada se sube a internet.</p>
+
+  <div id="drop" tabindex="0" role="button" aria-label="Elegir fotos">
+    <b>📷 Arrastra aquí tus fotos</b>
+    <span>o haz clic para elegirlas · también puedes pegar con Ctrl+V</span>
+    <input id="archivo" type="file" accept="image/*" multiple hidden>
+  </div>
+
+  <div id="barra"><button class="oro" id="todas">⬇ Descargar todas</button><span class="info" id="resumen"></span></div>
+  <div id="lista"></div>
+
+  <div class="pasos">
+    <b>Cómo usarla:</b> 1) Pon tu foto. 2) Si hace falta, arrastra la imagen para centrar el item o usa el control de zoom. “Completo” muestra toda la foto con fondo gris; “Llenar” recorta para llenar el cuadro.
+    3) Descarga. 4) En la tienda: modo administrador → ✎ Editar el item → <b>Subir foto</b>.
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var W = 640, H = 427, QUALITY = 0.85, FONDO = "#6e6e6e";
+  var lista = document.getElementById("lista"), drop = document.getElementById("drop"), input = document.getElementById("archivo");
+  var barra = document.getElementById("barra"), resumen = document.getElementById("resumen");
+  var fotos = [];
+
+  function limpiarNombre(n) {
+    n = String(n || "item").replace(/\.[^.]+$/, "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    n = n.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return n || "item";
+  }
+
+  function dibujar(f) {
+    var c = f.canvas, g = c.getContext("2d"), im = f.img;
+    g.fillStyle = FONDO; g.fillRect(0, 0, W, H);
+    var base = f.modo === "llenar" ? Math.max(W / im.width, H / im.height) : Math.min(W / im.width, H / im.height);
+    var s = base * f.zoom, w = im.width * s, h = im.height * s;
+    var x = (W - w) / 2 + f.ox, y = (H - h) / 2 + f.oy;
+    g.imageSmoothingQuality = "high";
+    g.drawImage(im, x, y, w, h);
+    actualizarPeso(f);
+  }
+
+  function actualizarPeso(f) {
+    clearTimeout(f.t);
+    f.t = setTimeout(function () {
+      codificar(f, function (blob) {
+        f.blob = blob;
+        var kb = Math.round(blob.size / 1024);
+        f.info.textContent = W + "×" + H + " · " + (blob.type === "image/webp" ? "WEBP" : "JPG") + " · " + kb + " KB" + (f.img.width < 400 ? " · ⚠ foto pequeña, puede verse borrosa" : "");
+        f.info.className = "info" + (f.img.width < 400 ? " aviso" : "");
+      });
+    }, 120);
+  }
+
+  function codificar(f, cb) {
+    f.canvas.toBlob(function (b) {
+      if (b && b.type === "image/webp") return cb(b);
+      f.canvas.toBlob(function (j) { cb(j); }, "image/jpeg", QUALITY);   // navegadores sin WEBP
+    }, "image/webp", QUALITY);
+  }
+
+  function extension(f) { return f.blob && f.blob.type === "image/webp" ? ".webp" : ".jpg"; }
+
+  function descargar(f) {
+    if (!f.blob) return;
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(f.blob);
+    a.download = limpiarNombre(f.nombre.value) + extension(f);
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  }
+
+  function agregar(file) {
+    if (!file || !/^image\//.test(file.type)) return;
+    var url = URL.createObjectURL(file), im = new Image();
+    im.onload = function () {
+      URL.revokeObjectURL(url);
+      var f = { img: im, modo: "llenar", zoom: 1, ox: 0, oy: 0, t: null, blob: null };
+      var card = document.createElement("div"); card.className = "card";
+      var cv = document.createElement("canvas"); cv.width = W; cv.height = H; f.canvas = cv;
+      var nom = document.createElement("input"); nom.type = "text"; nom.value = limpiarNombre(file.name); nom.setAttribute("aria-label", "Nombre del archivo"); f.nombre = nom;
+      var info = document.createElement("div"); info.className = "info"; f.info = info;
+      var bLlenar = document.createElement("button"); bLlenar.textContent = "Llenar"; bLlenar.className = "sel";
+      var bCompleto = document.createElement("button"); bCompleto.textContent = "Completo";
+      var zoom = document.createElement("input"); zoom.type = "range"; zoom.min = "1"; zoom.max = "3"; zoom.step = "0.01"; zoom.value = "1"; zoom.setAttribute("aria-label", "Zoom");
+      var bReset = document.createElement("button"); bReset.textContent = "↺"; bReset.title = "Centrar";
+      var bDesc = document.createElement("button"); bDesc.textContent = "⬇ Descargar"; bDesc.className = "oro";
+      var bQuitar = document.createElement("button"); bQuitar.textContent = "✕"; bQuitar.title = "Quitar";
+      var f1 = document.createElement("div"); f1.className = "fila"; f1.appendChild(bLlenar); f1.appendChild(bCompleto); f1.appendChild(bReset);
+      var f2 = document.createElement("div"); f2.className = "fila"; var l = document.createElement("label"); l.textContent = "Zoom"; f2.appendChild(l); f2.appendChild(zoom);
+      var f3 = document.createElement("div"); f3.className = "fila"; f3.appendChild(nom); f3.appendChild(bDesc); f3.appendChild(bQuitar);
+      [cv, f1, f2, info, f3].forEach(function (n) { card.appendChild(n); });
+      lista.appendChild(card); fotos.push(f); f.card = card;
+
+      function modo(m) { f.modo = m; f.ox = 0; f.oy = 0; f.zoom = 1; zoom.value = "1"; bLlenar.className = m === "llenar" ? "sel" : ""; bCompleto.className = m === "completo" ? "sel" : ""; dibujar(f); }
+      bLlenar.onclick = function () { modo("llenar"); };
+      bCompleto.onclick = function () { modo("completo"); };
+      bReset.onclick = function () { modo(f.modo); };
+      zoom.oninput = function () { f.zoom = parseFloat(zoom.value); dibujar(f); };
+      bDesc.onclick = function () { descargar(f); };
+      bQuitar.onclick = function () { card.remove(); fotos.splice(fotos.indexOf(f), 1); refrescarBarra(); };
+      // arrastrar para centrar
+      var arr = null;
+      cv.addEventListener("pointerdown", function (e) { arr = { x: e.clientX, y: e.clientY, ox: f.ox, oy: f.oy }; cv.setPointerCapture(e.pointerId); });
+      cv.addEventListener("pointermove", function (e) {
+        if (!arr) return; var k = W / cv.getBoundingClientRect().width;
+        f.ox = arr.ox + (e.clientX - arr.x) * k; f.oy = arr.oy + (e.clientY - arr.y) * k; dibujar(f);
+      });
+      cv.addEventListener("pointerup", function () { arr = null; });
+      dibujar(f); refrescarBarra();
+    };
+    im.onerror = function () { URL.revokeObjectURL(url); alert("No pude leer \"" + file.name + "\". Prueba con JPG, PNG o WEBP."); };
+    im.src = url;
+  }
+
+  function refrescarBarra() {
+    barra.style.display = fotos.length ? "flex" : "none";
+    resumen.textContent = fotos.length + (fotos.length === 1 ? " foto lista" : " fotos listas");
+  }
+
+  document.getElementById("todas").onclick = function () {
+    fotos.forEach(function (f, i) { setTimeout(function () { descargar(f); }, i * 400); });   // pausa para que el navegador no bloquee varias descargas
+  };
+
+  function recibir(files) { Array.prototype.forEach.call(files || [], agregar); }
+  drop.addEventListener("click", function () { input.click(); });
+  drop.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+  input.addEventListener("change", function () { recibir(input.files); input.value = ""; });
+  ["dragenter", "dragover"].forEach(function (t) { document.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add("on"); }); });
+  ["dragleave", "drop"].forEach(function (t) { document.addEventListener(t, function (e) { e.preventDefault(); if (t === "drop" || e.target === document.documentElement) drop.classList.remove("on"); }); });
+  document.addEventListener("drop", function (e) { recibir(e.dataTransfer && e.dataTransfer.files); });
+  document.addEventListener("paste", function (e) {
+    var fs = []; var it = (e.clipboardData && e.clipboardData.items) || [];
+    for (var i = 0; i < it.length; i++) if (it[i].kind === "file" && /^image\//.test(it[i].type)) fs.push(it[i].getAsFile());
+    if (fs.length) recibir(fs);
+  });
+})();
+</script>
+</body>
+</html>
