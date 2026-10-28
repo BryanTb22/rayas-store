@@ -1211,3 +1211,21 @@ body.itm-open{overflow:hidden}
 .cards2 .svc, .cards2 .svc > .in { height: 100%; }
 .cards2 .svc > .in { display: flex; flex-direction: column; align-items: center; }
 .cards2 .svc > .in > .btn { margin-top: auto; }
+
+/* ---------- Rifas (ronda 2): cierre pronto, zoom, total, confeti ---------- */
+.card .pic.zoomable { cursor: zoom-in; }
+.card .soon { position: absolute; top: 10px; right: 10px; z-index: 2; padding: 5px 10px; background: var(--fuchsia); color: #fff; font: 800 11px var(--body); letter-spacing: .08em; text-transform: uppercase; }
+.card .soon.full { background: #3a3f5c; color: #cfd6ff; }
+.cbar.full i { background: #8e96c8; }
+.timer.urg { color: var(--fuchsia); }
+#rzoom { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; padding: 20px; background: rgba(3, 6, 18, .92); cursor: zoom-out; opacity: 0; transition: opacity .2s; }
+#rzoom.on { opacity: 1; }
+#rzoom img { max-width: min(96vw, 1100px); max-height: 88vh; object-fit: contain; border: 2px solid var(--yellow); box-shadow: 0 20px 80px rgba(0, 0, 0, .7); transform: scale(.94); transition: transform .25s; }
+#rzoom.on img { transform: none; }
+#rzoom .rz-x { position: absolute; top: 14px; right: 14px; width: 44px; height: 44px; border: 1px solid rgba(255, 255, 255, .3); background: rgba(0, 0, 0, .5); color: #fff; font-size: 20px; cursor: pointer; }
+.qtot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0; }
+.qtot > div { display: grid; gap: 2px; justify-items: center; padding: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .04); }
+.qtot small { color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; }
+.qtot b { font: 600 1.7rem/1.1 var(--num); color: var(--yellow); }
+.qtot > div:last-child b { color: #fff; }
+#rconfeti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 99999; }
