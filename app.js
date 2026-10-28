@@ -1233,7 +1233,7 @@
   function ofertaFilaHtml(x, curId) {
     var cur = x.id === curId, ne = Number(x.estilos) || 0, ok = estilosOkLista(x), n = Math.max(1, Math.min(30, x.stock)), agot = x.stock <= 0;
     var est = ne ? [1, 2, 3, 4, 5, 6, 7, 8].slice(0, ne).map(function (k) { return '<span class="est' + (ok.indexOf(k) >= 0 ? '' : ' lock') + '">' + k + '</span>'; }).join("") : '';
-    var gem = gemChipsHtml(x), out = "", edit = admin.puede ? '<button type="button" class="btn btn-ghost btn-sm ofr-ed" data-a="itEditar" data-id="' + esc(x.id) + '" title="Editar gemas, estilos y precio">✎ Editar</button>' : '';
+    var gem = gemChipsHtml(x), out = "", edit = admin.puede ? '<button type="button" class="btn btn-ghost btn-sm ofr-ed" data-a="itEditar" data-id="' + esc(x.id) + '"' + (x.stock > 1 ? ' data-u="1"' : '') + ' title="Editar esta unidad (gemas, estilos y precio)">✎ Editar</button>' : '';
     for (var u = 0; u < n; u++) {
       var enCarro = !agot && u < (Number(carro[x.id]) || 0);
       out += '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + (enCarro ? ' enc' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + gem + '</span>' +
@@ -1620,7 +1620,7 @@
   function itemFormHtml() {
     var F = admin.itemForm;
     var form = '';
-    if (F) form = '<div class="grp" id="itForm"><h3>' + (F.id ? 'Editar item' : 'Nuevo item') + '</h3>' +
+    if (F) form = '<div class="grp" id="itForm"><h3>' + (F.desdeId ? 'Editar esta unidad' : F.id ? 'Editar item' : 'Nuevo item') + '</h3>' +
       '<div class="field"><label for="it-link">Link del Mercado de Steam</label><input id="it-link" inputmode="url" placeholder="https://steamcommunity.com/market/listings/570/…" value="' + esc(F.link || "") + '"></div>' +
       '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="itSteam">' + (admin.steamCargando ? 'Leyendo Steam…' : '⚡ Rellenar desde Steam') + '</button></div>' +
       (admin.steamInfo ? '<p class="hint">' + esc(admin.steamInfo) + '</p>' : '') +
@@ -1669,7 +1669,14 @@
       if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
       var k = items.lista.map(function (x) { return x.id; }).indexOf(it.id);
       if (k >= 0) items.lista[k] = it; else { items.lista.unshift(it); filtros.q = ""; filtros.min = ""; filtros.max = ""; filtros.tipo = ""; filtros.heroe = ""; filtros.ranura = ""; filtros.rareza = ""; filtros.calidad = ""; filtros.pag = 0; }
-      admin.itemForm = null; admin.itemGuardando = false; render();
+      var o = F.desdeId ? itemPorId(F.desdeId) : null;
+      if (!o) { admin.itemForm = null; admin.itemGuardando = false; render(); return; }
+      // La unidad editada pasó a ser su propio item: se le resta 1 al grupo de donde salió.
+      var ns = Math.max(0, (Number(o.stock) || 0) - 1);
+      return fsPedir("rayas_items/" + encodeURIComponent(o.id) + "?updateMask.fieldPaths=stock", { method: "PATCH", body: JSON.stringify({ fields: { stock: { integerValue: String(ns) } } }) }).then(function (r2) {
+        if (!r2.ok) throw new Error("La unidad se guardó, pero no pude bajar el stock del grupo (" + r2.status + "). Corrígelo a mano.");
+        o.stock = ns; admin.itemForm = null; admin.itemGuardando = false; render();
+      });
     }).catch(function (e) { admin.itemGuardando = false; admin.itemMsg = e.message || "No se pudo guardar."; render(); });
   }
 
@@ -2676,7 +2683,7 @@
       case "impTodos": case "impNinguno": var Ie = impEstado(); var onT = t.getAttribute("data-a") === "impTodos"; Ie.sel = {}; Ie.selR = {}; (Ie.lista || []).forEach(function (g, k) { Ie.sel[k] = onT; }); (Ie.repo || []).forEach(function (r, k) { Ie.selR[k] = onT; }); render(); hidratarImgs(); break;
       case "impSubir": impSubir(); break;
       case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; admin.steamInfo = ""; render(); irAlForm(); break;
-      case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: String(ie.stock), estilos: String(ie.estilos || 0), estOk: ie.estOk || (ie.estilos ? "1" : "") }); admin.itemMsg = ""; render(); hidratarImgs(); irAlForm(); } break;
+      case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { var sep = t.getAttribute("data-u") === "1" && ie.stock > 1; admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: sep ? "1" : String(ie.stock), estilos: String(ie.estilos || 0), estOk: ie.estOk || (ie.estilos ? "1" : "") }, sep ? { id: "", creado: "", desdeId: ie.id } : {}); admin.itemMsg = sep ? "Estás editando solo esta unidad: se guarda aparte con su propio precio y gemas, y las demás unidades no cambian." : ""; render(); hidratarImgs(); irAlForm(); } break;
       case "itCerrarForm": admin.itemForm = null; admin.itemMsg = ""; render(); break;
       case "itGemaMas": if (admin.itemForm) { var gl2 = gemasDe(admin.itemForm); gl2.push({ t: t.getAttribute("data-t") || "", v: "" }); admin.itemForm.descripcion = gemasAString(gl2); render(); hidratarImgs(); } break;
       case "itGemaDel": if (admin.itemForm) { var gl3 = gemasDe(admin.itemForm); gl3.splice(parseInt(t.getAttribute("data-i"), 10), 1); admin.itemForm.descripcion = gemasAString(gl3); render(); hidratarImgs(); } break;
