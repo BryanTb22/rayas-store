@@ -2537,9 +2537,9 @@
   }
   function tabConfig() {
     var it = !!(estado.secciones && estado.secciones.items), cq = !!(estado.pagos && estado.pagos.culqi);
-    return '<div class="grp cfg"><h3>Configuraciones principales</h3><p class="hint">Activa o desactiva las secciones de la página. Lo desactivado solo lo ves tú (administrador). Pulsa <b>Guardar y publicar</b> para que lo vean todos.</p>' +
+    return '<div class="grp cfg"><h3>Configuraciones principales</h3><p class="hint">Activa o desactiva las secciones de la página. Lo desactivado solo lo ves tú (administrador). Pulsa <b>Guardar y publicar</b> para que lo vean todos. Estas opciones son las mismas en Rayas Store y LitleJacob Store.</p>' +
       swCfg("c-rifas", rifasOn(), "🎟️ Rifas", "Sección de rifas, cómo participar, ganadores y reglas.", "VISIBLE para los clientes", "OCULTA: solo tú la ves") +
-      swCfg("c-items", it, "🛒 Compra y venta de items", "Comprar items, Vender items y Carrito (también en LitleJacob Store).", "VISIBLE para los clientes", "OCULTA: solo tú la ves") +
+      swCfg("c-items", it, "🛒 Compra y venta de items", "Comprar items, Vender items y Carrito.", "VISIBLE para los clientes", "OCULTA: solo tú la ves") +
       swCfg("c-pagos", cq, "💳 Culqi (tarjeta / Yape)", "Botón de pago en línea para recargar saldo.", "ACTIVO: pueden recargar con tarjeta o Yape", "APAGADO: solo piden saldo por WhatsApp") +
       '</div>';
   }
