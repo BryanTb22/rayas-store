@@ -157,12 +157,8 @@
       nombre: { stringValue: d.nombre }, whatsapp: { stringValue: d.whatsapp },
       email: { stringValue: d.email }, tradelink: { stringValue: d.tradelink }, steam: { stringValue: d.steam || "" }, creditos: { integerValue: "0" }, creado: { timestampValue: new Date().toISOString() }
     };
-    if (steamPre && steamPre.sid) { // cuenta nueva con Steam: se guardan los datos públicos para la ficha del admin
-      campos.steamId = { stringValue: steamPre.sid }; campos.steamPerfilUrl = { stringValue: "https://steamcommunity.com/profiles/" + steamPre.sid };
-      if (steamPre.av) campos.steamAvatar = { stringValue: steamPre.av };
-      if (steamPre.pa) campos.steamPais = { stringValue: steamPre.pa };
-      if (typeof steamPre.pu === "boolean") campos.steamPublico = { booleanValue: steamPre.pu };
-    }
+    // Las reglas de Firestore solo aceptan estos campos al crear la cuenta. La foto, el país y el enlace de Steam
+    // los guarda el servidor (steamCallback) la próxima vez que la persona entre con Steam.
     return fsPedir("rayas_users/" + encodeURIComponent(ses.uid) + "?currentDocument.exists=false", {
       method: "PATCH",
       body: JSON.stringify({ fields: campos })
