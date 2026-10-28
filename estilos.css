@@ -1129,3 +1129,13 @@ input[type=search], input[type=text], input[type=number], input[type=url], input
   .ofr-r{grid-template-columns:1fr auto;grid-template-areas:"g p" "e b";row-gap:8px}
   .ofr-g{grid-area:g}.ofr-p{grid-area:p;text-align:right}.ofr-e{grid-area:e}.ofr-b{grid-area:b;display:flex}
 }
+
+/* Previsualización de gemas */
+.gchip.gp{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 4px}
+.gchip.g-ki{background:rgba(255,160,70,.12);border-color:#ffa646;color:#ffb866}
+.gem-ic{flex:none;filter:drop-shadow(0 0 6px rgba(255,255,255,.25))}
+.gem-ic.g-un{filter:drop-shadow(0 0 7px rgba(190,90,255,.55))}
+.gem-ic.g-et{filter:drop-shadow(0 0 7px rgba(90,200,255,.55))}
+.gem-ic.g-ki{filter:drop-shadow(0 0 7px rgba(255,140,50,.55))}
+.gem-ic.g-pr{filter:drop-shadow(0 0 7px rgba(255,255,255,.35))}
+.idesc .g-ki .gdot{background:#ffa646}

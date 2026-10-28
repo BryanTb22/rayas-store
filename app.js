@@ -1076,7 +1076,7 @@
       (nEst > 0 ? '<div class="field"><label>Estilos que SÍ tiene</label><div class="estchk">' + (function () { var o = "", ok = estilosOkLista(F); for (var k = 1; k <= nEst; k++) o += '<label class="chk"><input type="checkbox" id="sk-est-' + k + '"' + (ok.indexOf(k) >= 0 ? ' checked' : '') + '> ' + k + '</label>'; return o; })() + '</div></div>' : '') +
       '<div class="field gform"><label>💎 Gemas (cada versión con distinta gema lleva su propio precio)</label><datalist id="dl-gtipo2">' + GEMA_TIPOS.map(function (t) { return '<option value="' + esc(t) + '">'; }).join("") + '</datalist>' +
       (g.length ? g.map(function (x, i) { return '<div class="grow-f"><input id="sk-gt-' + i + '" list="dl-gtipo2" maxlength="30" placeholder="Tipo (Unusual Effect Gem)" value="' + esc(x.t) + '"><input id="sk-gv-' + i + '" maxlength="60" placeholder="Nombre (Candy Caster)" value="' + esc(x.v) + '"><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaDel" data-i="' + i + '" aria-label="Quitar gema">✕</button></div>'; }).join("") : '<p class="hint">Sin gemas.</p>') +
-      '<div class="cav"><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Unusual Effect Gem">+ Efecto Unusual</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Prismatic Gem">+ Prismatic</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="">+ Otra gema</button></div></div>' +
+      '<div class="cav"><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Unusual Effect Gem">+ Efecto Unusual</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Prismatic Gem">+ Prismatic</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Ethereal Gem">+ Etérea</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Kinetic Gem">+ Cinética</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="">+ Otra gema</button></div></div>' +
       '<label class="chk"><input type="checkbox" id="sk-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
       (stk.ed.msg ? '<p class="hint" style="color:var(--danger)">' + esc(stk.ed.msg) + '</p>' : '') +
       '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="stkEdGuardar">' + (stk.ed.guardando ? 'Guardando…' : '💾 Guardar cambios') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkEdCerrar">Cancelar</button></div></div>';
@@ -1194,19 +1194,34 @@
     return { h: h, btns: btns };
   }
   function lineasDesc(it) { return String(it.descripcion || "").split("\n").map(function (x) { return x.trim(); }).filter(Boolean); }
-  var GEMA_TIPOS = ["Unusual Effect Gem", "Prismatic Gem", "Inscribed Gem", "Ethereal Gem", "Kill Eater", "Rune"];
+  var GEMA_TIPOS = ["Unusual Effect Gem", "Prismatic Gem", "Ethereal Gem", "Kinetic Gem", "Inscribed Gem", "Kill Eater", "Rune"];
   function gemasDe(it) {
     return lineasDesc(it).map(function (x) { var k = x.indexOf(":"); return k > 0 && k < 28 ? { t: x.slice(0, k).trim(), v: x.slice(k + 1).trim() } : { t: "", v: x }; });
   }
   function efectoUnusual(it) { var g = gemasDe(it).filter(function (x) { return /unusual/i.test(x.t) && x.v; })[0]; return g ? g.v : ""; }
-  function gemaClase(t) { return /unusual/i.test(t) ? "g-un" : /prismatic/i.test(t) ? "g-pr" : /ethereal/i.test(t) ? "g-et" : /inscribed/i.test(t) ? "g-in" : ""; }
+  function gemaClase(t) { return /unusual/i.test(t) ? "g-un" : /prismatic/i.test(t) ? "g-pr" : /ethereal/i.test(t) ? "g-et" : /kinetic|cin[eé]tic/i.test(t) ? "g-ki" : /inscribed/i.test(t) ? "g-in" : ""; }
+  // Previsualización de la gema (solo Etérea, Cinética, Prismática e Inusual): una gema dibujada con el color de su tipo.
+  var GEMA_COL = {
+    "g-un": ["#f0a0ff", "#9b30ff"], "g-pr": ["#ff6b6b", "#6b8cff"], "g-et": ["#c9f6ff", "#3aa9e6"], "g-ki": ["#ffd27a", "#e8601c"]
+  };
+  function gemaIconoHtml(t, tam) {
+    var c = gemaClase(t); if (!GEMA_COL[c]) return "";
+    var id = "gm-" + c, col = GEMA_COL[c], px = tam || 26;
+    var stops = c === "g-pr"
+      ? '<stop offset="0" stop-color="#ff5f6d"/><stop offset=".3" stop-color="#ffd35f"/><stop offset=".55" stop-color="#5fe39a"/><stop offset=".8" stop-color="#5f9bff"/><stop offset="1" stop-color="#b65fff"/>'
+      : '<stop offset="0" stop-color="' + col[0] + '"/><stop offset="1" stop-color="' + col[1] + '"/>';
+    return '<svg class="gem-ic ' + c + '" viewBox="0 0 32 32" width="' + px + '" height="' + px + '" aria-hidden="true"><defs><linearGradient id="' + id + '" x1="0" y1="0" x2="1" y2="1">' + stops + '</linearGradient></defs>' +
+      '<polygon points="9,4 23,4 29,12 16,29 3,12" fill="url(#' + id + ')" stroke="rgba(255,255,255,.7)" stroke-width="1"/>' +
+      '<polyline points="3,12 29,12 M9,4 12,12 16,29 M23,4 20,12 16,29" fill="none" stroke="rgba(255,255,255,.5)" stroke-width=".9"/>' +
+      '<polygon points="9,4 12,12 3,12" fill="rgba(255,255,255,.28)"/></svg>';
+  }
   // Pastillas de gemas (como lis-skins): el nombre de la gema y, al pasar el mouse, su tipo.
   function gemChipsHtml(it) {
-    return gemasDe(it).map(function (g) { return '<span class="gchip ' + gemaClase(g.t) + '" title="' + esc((g.v || "") + (g.t ? " · " + g.t : "")) + '">' + esc(g.v || g.t) + '</span>'; }).join("");
+    return gemasDe(it).map(function (g) { var ic = gemaIconoHtml(g.t, 26); return '<span class="gchip ' + gemaClase(g.t) + (ic ? ' gp' : '') + '" title="' + esc((g.v || "") + (g.t ? " · " + g.t : "")) + '">' + ic + esc(g.v || g.t) + '</span>'; }).join("");
   }
   function descripcionHtml(it) {
     var l = gemasDe(it); if (!l.length) return "";
-    return '<div class="idesc"><b>💎 Gemas</b>' + l.map(function (g) { return '<div class="grow ' + gemaClase(g.t) + '"><span class="gdot"></span><span class="gv">' + esc(g.v || g.t) + '</span>' + (g.t && g.v ? '<span class="gk">' + esc(g.t) + '</span>' : '') + '</div>'; }).join("") + '</div>';
+    return '<div class="idesc"><b>💎 Gemas</b>' + l.map(function (g) { return '<div class="grow ' + gemaClase(g.t) + '">' + (gemaIconoHtml(g.t, 30) || '<span class="gdot"></span>') + '<span class="gv">' + esc(g.v || g.t) + '</span>' + (g.t && g.v ? '<span class="gk">' + esc(g.t) + '</span>' : '') + '</div>'; }).join("") + '</div>';
   }
   // Mismo item con distintas gemas: cada uno es su propia oferta con su precio.
   function ofertasDe(it) {
@@ -1590,7 +1605,7 @@
         return '<div class="grow-f"><input id="it-gt-' + i + '" list="dl-gtipo" maxlength="30" placeholder="Tipo (Unusual Effect Gem)" value="' + esc(g.t) + '"><input id="it-gv-' + i + '" maxlength="60" placeholder="Nombre (Candy Caster)" value="' + esc(g.v) + '">' +
           '<button type="button" class="btn btn-ghost btn-sm" data-a="itGemaDel" data-i="' + i + '" aria-label="Quitar gema">✕</button></div>';
       }).join("") : '<p class="hint">Sin gemas.</p>') +
-      '<div class="cav"><button type="button" class="btn btn-ghost btn-sm" data-a="itGemaMas" data-t="Unusual Effect Gem">+ Efecto Unusual</button><button type="button" class="btn btn-ghost btn-sm" data-a="itGemaMas" data-t="Prismatic Gem">+ Prismatic</button><button type="button" class="btn btn-ghost btn-sm" data-a="itGemaMas" data-t="">+ Otra gema</button>' +
+      '<div class="cav"><button type="button" class="btn btn-ghost btn-sm" data-a="itGemaMas" data-t="Unusual Effect Gem">+ Efecto Unusual</button><button type="button" class="btn btn-ghost btn-sm" data-a="itGemaMas" data-t="Prismatic Gem">+ Prismatic</button><button type="button" class="btn btn-ghost btn-sm" data-a="itGemaMas" data-t="Ethereal Gem">+ Etérea</button><button type="button" class="btn btn-ghost btn-sm" data-a="itGemaMas" data-t="Kinetic Gem">+ Cinética</button><button type="button" class="btn btn-ghost btn-sm" data-a="itGemaMas" data-t="">+ Otra gema</button>' +
       (F.id ? '<button type="button" class="btn btn-ghost btn-sm" data-a="itVariante">⧉ Crear otra versión (otra gema)</button>' : '') + '</div></div>';
   }
   function gemasAString(l) { return l.map(function (g) { var t = String(g.t || "").trim(), v = String(g.v || "").trim(); return t ? (t + ":" + (v ? " " + v : "")) : v; }).filter(Boolean).join("\n"); }
