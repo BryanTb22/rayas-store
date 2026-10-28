@@ -798,7 +798,7 @@
   var ITEM_TIPOS = ["Wearable", "Courier", "Ward", "HUD Skin", "Announcer", "Bundle", "Loading Screen", "Pennant", "Sticker", "Otro"];
   var ITEM_CALIDADES = ["Standard", "Genuine", "Unusual", "Inscribed", "Autographed", "Heroic", "Corrupted", "Frozen", "Cursed", "Infused", "Exalted"];
   var items = { lista: [], cargado: false, cargando: false, err: "" };
-  var filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", limite: 24 };
+  var filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", pag: 0 };
   var elegirMsg = null;
   function sinTildes(t) { return String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
   function fmtPrecio(n) { return "S/ " + (Math.round(Number(n) * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
@@ -881,8 +881,21 @@
     if (!items.cargado) return '<div class="empty frame"><div class="in"><strong>Cargando items…</strong></div></div>';
     var l = itemsFiltrados();
     if (!l.length) return '<div class="empty frame"><div class="in"><strong>' + (items.lista.length ? 'Ningún item coincide' : 'Pronto nuevos items') + '</strong><span>' + (items.lista.length ? 'Prueba con otros filtros.' : 'Estamos subiendo el catálogo.') + '</span></div></div>';
-    return '<div class="igrid">' + l.slice(0, filtros.limite).map(itemCardHtml).join("") + '</div>' +
-      (l.length > filtros.limite ? '<div style="text-align:center;margin-top:18px"><button class="btn btn-ghost" type="button" data-a="itMas">Ver más (' + (l.length - filtros.limite) + ')</button></div>' : '');
+    var porPag = 24, total = Math.ceil(l.length / porPag);
+    if (filtros.pag >= total) filtros.pag = Math.max(0, total - 1);
+    return '<div class="igrid">' + l.slice(filtros.pag * porPag, filtros.pag * porPag + porPag).map(itemCardHtml).join("") + '</div>' + paginadorHtml(total, filtros.pag, "itPag");
+  }
+  /* Botones de página: « 1 … 4 5 6 … 18 » (la actual resaltada). */
+  function paginadorHtml(total, act, accion) {
+    if (total <= 1) return "";
+    var nums = [], i;
+    for (i = 0; i < total; i++) if (i === 0 || i === total - 1 || Math.abs(i - act) <= 1) nums.push(i);
+    var h = '<nav class="pager" aria-label="Páginas"><button type="button" class="btn btn-ghost btn-sm" data-a="' + accion + '" data-p="' + (act - 1) + '"' + (act <= 0 ? ' disabled' : '') + ' aria-label="Página anterior">‹</button>';
+    nums.forEach(function (n, k) {
+      if (k && n - nums[k - 1] > 1) h += '<span class="pdots">…</span>';
+      h += '<button type="button" class="btn btn-sm ' + (n === act ? 'btn-yellow' : 'btn-ghost') + '" data-a="' + accion + '" data-p="' + n + '"' + (n === act ? ' aria-current="page"' : '') + '>' + (n + 1) + '</button>';
+    });
+    return h + '<button type="button" class="btn btn-ghost btn-sm" data-a="' + accion + '" data-p="' + (act + 1) + '"' + (act >= total - 1 ? ' disabled' : '') + ' aria-label="Página siguiente">›</button></nav>';
   }
   function pintarItems() {
     var g = document.getElementById("itemsGrid"); if (!g) return;
@@ -913,7 +926,7 @@
     var id = el.id;
     var mapa = { "fi-q": "q", "fi-min": "min", "fi-max": "max", "fi-heroe": "heroe", "fi-ranura": "ranura", "fi-rareza": "rareza", "fi-calidad": "calidad", "fi-orden": "orden" };
     if (!mapa[id]) return false;
-    filtros[mapa[id]] = el.value; filtros.limite = 24; pintarItems(); return true;
+    filtros[mapa[id]] = el.value; filtros.pag = 0; pintarItems(); return true;
   }
   function itemPorId(id) { for (var k = 0; k < items.lista.length; k++) if (items.lista[k].id === id) return items.lista[k]; return null; }
   function modalItemHtml(m) {
@@ -2109,9 +2122,9 @@
       case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; render(); break;
       case "editRapido": admin.fichaU = "u_" + t.getAttribute("data-uid"); admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cantPart": var xq = (partes[t.getAttribute("data-id")] || []).filter(function (y) { return y.uid === t.getAttribute("data-uid"); })[0]; if (xq) guardarCantidad(t.getAttribute("data-id"), xq.uid, xq.cantidad + Number(t.getAttribute("data-d"))); break;
-      case "itTipo": filtros.tipo = t.getAttribute("data-v") || ""; filtros.limite = 24; render(); break;
-      case "itReset": filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", limite: 24 }; render(); break;
-      case "itMas": filtros.limite += 24; pintarItems(); break;
+      case "itTipo": filtros.tipo = t.getAttribute("data-v") || ""; filtros.pag = 0; render(); break;
+      case "itReset": filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "nuevo", pag: 0 }; render(); break;
+      case "itPag": filtros.pag = Math.max(0, Number(t.getAttribute("data-p")) || 0); pintarItems(); var gp = document.getElementById("itemsGrid"); if (gp && gp.scrollIntoView) gp.scrollIntoView({ block: "start", behavior: "smooth" }); break;
       case "itVer": modal = { tipo: "item", id: t.getAttribute("data-id") }; render(); hidratarImgs(); break;
       case "itWsp":
         var iw = itemPorId(t.getAttribute("data-id")), cw = contactos();

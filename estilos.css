@@ -891,3 +891,9 @@ html, body { overflow-x: clip; max-width: 100%; }
 /* Lista desplegable de los selectores: fondo oscuro y texto claro (antes salía gris con letras blancas) */
 select option { background-color: #0b1430; color: #f2efe6; }
 select option:checked, select option:hover { background-color: #1b2a63; color: #fff; }
+
+/* Paginador del catálogo */
+.pager { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 20px; }
+.pager .btn { min-width: 40px; }
+.pager .pdots { color: var(--muted, #9aa5cf); padding: 0 4px; }
+#itemsGrid { scroll-margin-top: 90px; }
