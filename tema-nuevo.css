@@ -489,3 +489,68 @@ html.tn .icard .ibuy { padding: 7px 12px; }
   html.tn .icard .iprice b { font-size: 19px; }
   html.tn .icard .ibuy { padding: 6px 9px; font-size: 10.5px; letter-spacing: .04em; }
 }
+
+/* =====================================================================
+   RONDA 5: carrito, pasos del pago, recarga y Mi cuenta
+   ===================================================================== */
+/* ---------- Pasos 1 · 2 · 3 ---------- */
+html.tn .pasos { gap: 0; margin: 0 0 18px; padding: 10px 14px; border-radius: 999px; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .08); justify-content: space-between; }
+html.tn .pasos li { flex: 1; justify-content: center; font-family: var(--tn-ui); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #8d97c4; }
+html.tn .pasos li + li::before { width: auto; flex: 1; height: 2px; background: rgba(255, 255, 255, .1); margin: 0 8px 0 0; border-radius: 2px; }
+html.tn .pasos li b { width: 26px; height: 26px; border: 0; background: rgba(255, 255, 255, .1); color: #c9d1f2; }
+html.tn .pasos li.on { color: #fff; }
+html.tn .pasos li.on b { background: linear-gradient(180deg, #ffe08a, var(--yellow)); color: #1d1600; box-shadow: 0 0 14px rgba(255, 201, 60, .5); }
+html.tn .pasos li.hecho { color: var(--yellow); }
+html.tn .pasos li.hecho b { background: rgba(255, 201, 60, .2); color: var(--yellow); }
+@media (max-width: 430px) { html.tn .pasos li span { font-size: 11px; } html.tn .pasos li + li::before { margin-right: 4px; } }
+
+/* ---------- Carrito ---------- */
+html.tn .carl { display: flex; flex-direction: column; gap: 10px; max-height: 46vh; overflow-y: auto; padding-right: 2px; }
+html.tn .carr { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "t s" "q s"; align-items: center; gap: 8px 12px; padding: 12px; border-radius: 18px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .09); }
+html.tn .carr-t { grid-area: t; display: flex; align-items: center; gap: 12px; min-width: 0; }
+html.tn .carr-img { flex: none; display: grid; place-items: center; width: 60px; height: 60px; border-radius: 14px; overflow: hidden; background: radial-gradient(70% 70% at 50% 50%, rgba(136, 71, 255, .3), #070c22); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+html.tn .carr-img img { width: 100%; height: 100%; object-fit: cover; }
+html.tn .carr-n { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html.tn .carr-n b { font-size: 15px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html.tn .carr-n small { color: var(--muted); font-size: 12.5px; }
+html.tn .carr-q { grid-area: q; display: inline-flex; align-items: center; gap: 4px; justify-self: start; padding: 3px; border-radius: 999px; background: rgba(0, 0, 0, .25); }
+html.tn .carr-q .btn { width: 34px; height: 34px; padding: 0; border-radius: 50%; display: inline-grid; place-items: center; font-size: 18px; }
+html.tn .carr-q span { min-width: 28px; text-align: center; font-weight: 800; font-size: 16px; }
+html.tn .carr-s { grid-area: s; flex-direction: column; align-items: flex-end; gap: 6px; margin: 0; }
+html.tn .carr-s b { font-family: var(--tn-price, 'Teko', sans-serif); font-size: 24px; font-weight: 600; color: var(--yellow); line-height: 1; white-space: nowrap; }
+html.tn .carr-x { width: 32px; height: 32px; border-radius: 50%; background: rgba(255, 255, 255, .06); display: grid; place-items: center; transition: background .2s, color .2s; }
+html.tn .carr-x:hover { background: rgba(255, 45, 143, .2); color: var(--fuchsia); }
+html.tn .cartot { margin-top: 14px; padding: 16px; border-radius: 18px; background: linear-gradient(160deg, rgba(255, 201, 60, .1), rgba(255, 45, 143, .06)); border: 1px solid rgba(255, 201, 60, .3); gap: 8px; }
+html.tn .cartot-r { color: #c9d1f2; }
+html.tn .cartot-r.tot { color: #fff; padding: 8px 0; margin: 2px 0; border-block: 1px solid rgba(255, 255, 255, .1); }
+html.tn .cartot-r.tot b { font-family: var(--tn-price, 'Teko', sans-serif); font-size: 32px; font-weight: 600; line-height: 1; color: var(--yellow); }
+html.tn .cartot-aviso { padding: 8px 12px; border-radius: 12px; background: rgba(255, 45, 143, .12); border: 1px solid rgba(255, 45, 143, .35); color: #ff9ccd; }
+
+/* ---------- Recarga ---------- */
+html.tn .packs { gap: 12px; }
+html.tn .pack { position: relative; border-radius: 22px; padding: 18px 12px 14px; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: transform .2s, box-shadow .2s; }
+html.tn .pack:hover { transform: translateY(-3px); }
+html.tn .pack b { font-family: var(--tn-price, 'Teko', sans-serif); font-size: 36px; font-weight: 600; line-height: 1; }
+html.tn .pack span { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+html.tn .pack.sel { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(255, 201, 60, .25), 0 12px 30px rgba(0, 0, 0, .4); }
+html.tn .pack .tag { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: .04em; padding: 5px 11px; border-radius: 999px; background: #fff; color: #c20e6a; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+html.tn .resumen.recibes { text-align: center; padding: 14px; border-radius: 18px; background: rgba(255, 201, 60, .1); border: 1px solid rgba(255, 201, 60, .3); font-size: 15px; }
+html.tn .resumen.recibes b { font-family: var(--tn-price, 'Teko', sans-serif); font-size: 34px; font-weight: 600; color: var(--yellow); vertical-align: -3px; }
+html.tn .resumen.recibes .regalo { display: block; margin-top: 4px; font-style: normal; font-size: 13px; font-weight: 800; color: #ff9ccd; }
+
+/* ---------- Mi cuenta ---------- */
+html.tn .saldo.frame { border-radius: 24px; }
+html.tn .saldo .in { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 18px; border-radius: 23px; background: radial-gradient(90% 80% at 50% 0%, rgba(255, 201, 60, .2), transparent 70%), linear-gradient(180deg, rgba(22, 35, 77, .9), rgba(8, 14, 38, .95)); }
+html.tn .saldo small { letter-spacing: .16em; text-transform: uppercase; }
+html.tn .saldo b { font-family: var(--tn-price, 'Teko', sans-serif); font-size: 68px; font-weight: 600; line-height: 1; background: linear-gradient(180deg, #fff3c4, var(--yellow) 60%, #e8a30e); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 18px rgba(255, 201, 60, .35)); }
+html.tn .saldo .btn-recarga { margin-top: 10px; width: 100%; max-width: 320px; padding-block: 15px; font-size: 14px; }
+html.tn .movs { margin-top: 14px; }
+html.tn .movl li { border-radius: 16px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08); }
+html.tn .mv-i { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(255, 255, 255, .07); flex: none; }
+html.tn .mv-t b { font-size: 14px; line-height: 1.3; }
+html.tn .mv-m.neg { font-family: var(--tn-price, 'Teko', sans-serif); font-size: 20px; font-weight: 600; color: #ff9ccd; }
+html.tn .cartot-r.tot b { white-space: nowrap; flex: none; }
+html.tn .packs { row-gap: 22px; }
+html.tn .pack { overflow: visible; }
+html.tn .pack b { white-space: nowrap; font-size: 32px; }
+@media (max-width: 430px) { html.tn .pack b { font-size: 28px; } }

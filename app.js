@@ -94,7 +94,7 @@
       window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: function (resp) {
         cuenta.msg = "Entrando con Google…"; cuenta.msgTipo = ""; render();
         loginGoogle(resp.credential).then(trasEntrar).catch(function (e) {
-          cuenta.msg = "No se pudo entrar con Google (" + ((e && e.message) || "error") + ")."; cuenta.msgTipo = "err"; render();
+          cuenta.msg = "No se pudo entrar con Google. " + errSimple(e && e.message); cuenta.msgTipo = "err"; render();
         });
       } });
       window.google.accounts.id.renderButton(el2, { theme: "filled_black", size: "large", shape: "pill", text: "continue_with", locale: "es", width: 320 });
@@ -353,7 +353,7 @@
       return fetch(PAGOS.urlParticipar, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ premio: p.id, cantidad: qty }) });
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
-        if (!r.ok || !j.ok) throw new Error(j.error || ("No se pudo registrar tu participación (" + r.status + "). Si sigue pasando, avisa al encargado."));
+        if (!r.ok || !j.ok) throw new Error(j.error || "No se pudo registrar tu participación. Si sigue pasando, avisa al encargado.");
         return j;
       });
     }).then(function (j) {
@@ -362,7 +362,7 @@
       if (ex) { ex.cantidad += qty; ex.costo = (ex.costo || 0) + total; }
       else (partes[p.id] = partes[p.id] || []).push({ uid: uid, nombre: cuenta.perfil.nombre, costo: total, cantidad: qty, creado: new Date().toISOString(), premioNombre: p.nombre });
       modal = { tipo: "ok", p: p, qty: qty, mio: misParts[p.id] }; render();
-    }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo participar." }; render(); });
+    }).catch(function (e) { modal = { tipo: "error", msg: errSimple((e && e.message) || "No se pudo participar.") }; render(); });
   }
   /* ---- Recarga de saldo con Culqi ---- */
   var culqiCarga = null;
@@ -439,6 +439,35 @@
     return '<button class="' + cls + '" type="button" data-a="recargar">' + esc(estado.textos[key]) + '</button>';
   }
 
+  // Mensajes de error en lenguaje simple (sin códigos ni jerga técnica)
+  function errSimple(m) {
+    m = String(m == null ? "" : m).trim();
+    if (!m) return "Algo salió mal. Intenta de nuevo en un momento.";
+    if (/NO_SESSION|sesi[oó]n venci/i.test(m)) return "Tu sesión venció. Vuelve a entrar a tu cuenta.";
+    if (/Failed to fetch|NetworkError|network|timeout|conexi[oó]n/i.test(m) && !/[a-záéíóú]{4,} [a-záéíóú]{3,} [a-záéíóú]{3,}/i.test(m.replace(/Failed to fetch|NetworkError/gi, ""))) return "No hay conexión con el servidor. Revisa tu internet e intenta de nuevo.";
+    if (/\b(40[13]|permission|PERM|PERMISSION_DENIED)\b/i.test(m)) return "No tienes permiso para hacer esto. Entra de nuevo a tu cuenta e intenta otra vez.";
+    if (/\b(404|not found)\b/i.test(m)) return "No encontramos lo que buscabas. Recarga la página e intenta de nuevo.";
+    if (/\b(5\d\d)\b|INTERNAL|UNAVAILABLE|HTTP|Error \d+/i.test(m)) return "El servidor tuvo un problema. Intenta de nuevo en unos minutos; si sigue, escríbenos por WhatsApp.";
+    if (/INVALID_PASSWORD|EMAIL_NOT_FOUND|INVALID_LOGIN|INVALID_EMAIL/i.test(m)) return "El correo o la contraseña no son correctos.";
+    if (/EMAIL_EXISTS/i.test(m)) return "Ese correo ya tiene una cuenta. Entra con él.";
+    if (/WEAK_PASSWORD/i.test(m)) return "La contraseña es muy corta (mínimo 6 caracteres).";
+    if (/TOO_MANY_ATTEMPTS/i.test(m)) return "Demasiados intentos. Espera unos minutos e intenta de nuevo.";
+    if (/^[A-Z_]{5,}$/.test(m)) return "No se pudo completar. Intenta de nuevo en un momento.";
+    return m;
+  }
+  function pasosHtml(n) {
+    return '<ol class="pasos" aria-label="Pasos">' + ["Elegir", "Pagar", "Listo"].map(function (t, i) {
+      return '<li class="' + (i + 1 < n ? 'hecho' : (i + 1 === n ? 'on' : '')) + '"' + (i + 1 === n ? ' aria-current="step"' : '') + '><b>' + (i + 1 < n ? '✓' : (i + 1)) + '</b><span>' + t + '</span></li>';
+    }).join("") + '</ol>';
+  }
+  function pasoDe(m) {
+    var t = m.tipo;
+    if (t === "carrito" || t === "item" || t === "confirmar" || t === "sinSaldo") return 1;
+    if (t === "recarga") return m.sel ? 2 : 1;
+    if (t === "yape" || t === "efectivoPend" || t === "cargando") return 2;
+    if (t === "itemOk" || t === "recargaOk" || t === "ok") return 3;
+    return 0;
+  }
   function modalAviso() {
     var m = modal, c = cuenta.perfil, h = "", btns = "";
     var cerrar = '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>';
@@ -455,14 +484,14 @@
         '<div class="packs">' + PACKS_UI.map(function (pk) {
           var extra = primera && pk.promo ? pk.promo : 0;
           return '<button class="btn ' + (extra ? 'btn-fuchsia' : 'btn-yellow') + ' pack' + (sel === pk.soles ? ' sel' : '') + '" type="button" data-a="monto" data-s="' + pk.soles + '" aria-pressed="' + (sel === pk.soles) + '">' +
-            (extra ? '<i class="tag">🎁 +' + (extra - pk.base) + ' GRATIS</i>' : '') +
+            (extra ? '<i class="tag">🎁 +S/ ' + (extra - pk.base) + ' de regalo</i>' : '') +
             '<b>S/ ' + pk.soles + '</b><span>' + (extra || pk.base) + ' soles</span></button>';
         }).join("") + '</div>' +
         '<div class="otro"><label for="monto-otro">Otro monto (S/ ' + PAGOS.min + ' a S/ ' + PAGOS.max + ')</label>' +
         '<div class="otrorow"><input id="monto-otro" type="number" inputmode="numeric" min="' + PAGOS.min + '" max="' + PAGOS.max + '" step="1" placeholder="Ej. 30" value="' + esc(m.otro || "") + '">' +
         '<button class="btn btn-ghost btn-sm" type="button" data-a="montoOtro">Usar</button></div></div>' +
         (m.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(m.err) + '</p>' : '') +
-        (sel ? '<p class="resumen">Recibes <b>' + cred + ' soles</b>' + (cred > sel ? ' 🎁' : '') + '</p>' +
+        (sel ? '<p class="resumen recibes">Recibes <b>S/ ' + cred + '</b> de saldo' + (cred > sel ? ' <em class="regalo">🎁 incluye S/ ' + (cred - sel) + ' de regalo</em>' : '') + '</p>' +
           '<div class="cuentas">' + (pagosOn() ? '<p class="hint">💳 Tarjeta / efectivo / QR: pagas <b>S/ ' + fmtSol(totalTarjeta(sel)) + '</b> (S/ ' + fmtSol(sel) + ' + S/ ' + fmtSol(totalTarjeta(sel) - sel) + ' de comisión de Culqi)</p>' : '') +
           '<p class="hint">💜 Yape / WhatsApp: pagas <b>S/ ' + fmtSol(sel) + '</b>, <b>sin comisión</b></p></div>' +
           '<p class="hint"><b>2.</b> Elige cómo quieres pagar</p>' : '');
@@ -506,10 +535,11 @@
       h = '<h3>¡Ya estás participando! 🎉</h3><p class="hint">Tomaste <b>' + m.qty + '</b> ' + (m.qty === 1 ? 'ticket' : 'tickets') + ' en la rifa de <b>' + esc(m.p.nombre) + '</b> (en total tienes <b>' + m.mio + '</b>). Te quedan <b>' + (c ? c.creditos : 0) + '</b> soles. ¡Mucha suerte! 🍀🏆</p>';
       btns = cerrar;
     } else {
-      h = '<h3>Ups 😕</h3><p class="hint">' + esc(m.msg || "No se pudo completar.") + '</p>';
+      h = '<h3>Ups 😕</h3><p class="hint">' + esc(errSimple(m.msg || "No se pudo completar.")) + '</p>';
       btns = cerrar;
     }
-    return '<div class="scrim scrim-top" data-a="' + (m.tipo === "cargando" ? "" : "cerrarModal") + '"></div><div class="elegir" role="dialog" aria-label="Participar">' + h + '<div class="mbtns">' + btns + '</div></div>';
+    var pasoN = pasoDe(m);
+    return '<div class="scrim scrim-top" data-a="' + (m.tipo === "cargando" ? "" : "cerrarModal") + '"></div><div class="elegir" role="dialog" aria-label="Participar">' + (pasoN ? pasosHtml(pasoN) : '') + h + '<div class="mbtns">' + btns + '</div></div>';
   }
   function avatar(c) {
     var im = imgTag(c.foto, c.nombre, "");
@@ -1391,14 +1421,18 @@
     if (!items.cargado) { cargarItems(); return { h: '<h3>Tu carrito 🛒</h3><p class="hint">Cargando…</p>', btns: '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>' }; }
     var l = carroLineas(), T = carroTotales(), cerrar = '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>';
     if (!l.length) return { h: '<h3>Tu carrito 🛒</h3><p class="hint">Está vacío. Elige items del catálogo y pulsa <b>Al carrito</b>.</p>', btns: cerrar };
+    var saldo = cuenta.perfil ? Number(cuenta.perfil.creditos) || 0 : null, falta = saldo === null ? 0 : T.cred - saldo;
     var h = '<h3>Tu carrito 🛒</h3><div class="carl">' + l.map(function (x) {
-      return '<div class="carr"><div class="carr-t">' + (x.it.img ? imgTag(x.it.img, "", ' width="48" height="48"') : '<span class="sinfoto">—</span>') + '<span><b>' + esc(x.it.nombre) + '</b><small>' + fmtPrecio(x.it.precio) + ' c/u</small></span></div>' +
-        '<div class="carr-q"><button type="button" class="btn btn-ghost btn-sm" data-a="carMenos" data-id="' + esc(x.it.id) + '" aria-label="Menos">−</button><span>' + x.qty + '</span>' +
-        '<button type="button" class="btn btn-ghost btn-sm" data-a="carMas" data-id="' + esc(x.it.id) + '" aria-label="Más"' + (x.qty >= x.it.stock ? ' disabled' : '') + '>+</button>' +
-        '<button type="button" class="btn btn-ghost btn-sm" data-a="carQuitar" data-id="' + esc(x.it.id) + '" aria-label="Quitar">🗑</button></div></div>';
+      var id = esc(x.it.id);
+      return '<div class="carr"><div class="carr-t"><span class="carr-img">' + (x.it.img ? imgTag(x.it.img, "", ' width="56" height="56"') : '<span class="sinfoto">—</span>') + '</span><span class="carr-n"><b>' + esc(x.it.nombre) + '</b><small>' + fmtPrecio(x.it.precio) + ' c/u</small></span></div>' +
+        '<div class="carr-q"><button type="button" class="btn btn-ghost btn-sm" data-a="carMenos" data-id="' + id + '" aria-label="Menos">−</button><span>' + x.qty + '</span>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-a="carMas" data-id="' + id + '" aria-label="Más"' + (x.qty >= x.it.stock ? ' disabled' : '') + '>+</button></div>' +
+        '<div class="carr-s"><b>' + fmtPrecio(x.it.precio * x.qty) + '</b><button type="button" class="carr-x" data-a="carQuitar" data-id="' + id + '" aria-label="Quitar">🗑</button></div></div>';
     }).join("") + '</div>' +
-      '<p class="resumen">Total: <b>' + fmtPrecio(T.sol) + '</b> · o <b>' + T.cred + ' soles</b></p>' +
-      (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> soles.</p>' : '<p class="hint">Para pagar con tu saldo entra a tu cuenta.</p>');
+      '<div class="cartot"><div class="cartot-r"><span>Subtotal</span><span>' + fmtPrecio(T.sol) + '</span></div>' +
+      '<div class="cartot-r tot"><span>Total a pagar con saldo</span><b>S/ ' + T.cred + '</b></div>' +
+      (saldo !== null ? '<div class="cartot-r"><span>Tu saldo</span><span>S/ ' + saldo + '</span></div>' +
+        (falta > 0 ? '<p class="cartot-aviso">Te faltan <b>S/ ' + falta + '</b>. Recarga saldo o pídelo por WhatsApp.</p>' : '<div class="cartot-r"><span>Te quedarían</span><span>S/ ' + (saldo - T.cred) + '</span></div>') : '<p class="cartot-aviso">Para pagar con tu saldo entra a tu cuenta.</p>') + '</div>';
     var btns = '<button class="btn btn-fuchsia" type="button" data-a="carCred">💎 Pagar con tu saldo (S/ ' + T.cred + ')</button>' +
       (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="carWsp">💬 Pedir por WhatsApp</button>' : '') +
       '<button class="btn btn-ghost btn-sm" type="button" data-a="carVaciar">Vaciar</button>' + cerrar;
@@ -2202,6 +2236,34 @@
       '</div></div>';
   }
 
+  // Historial de movimientos: rifas (participaciones) y compras de items. Las recargas aún no se guardan en un registro que el navegador pueda leer.
+  function cargarMovs() {
+    var uid = uidSesion(); if (!uid || esAdmin()) return;
+    fetch(BASE.replace("/documents/", "/documents:runQuery"), { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "orders" }], where: { fieldFilter: { field: { fieldPath: "uid" }, op: "EQUAL", value: { stringValue: uid } } }, limit: 30 } })
+    }).then(function (r) { return r.ok ? r.json() : []; }).then(function (j) {
+      cuenta.compras = (j || []).filter(function (x) { return x.document; }).map(function (x) {
+        var f = x.document.fields || {};
+        return { code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0), monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "" };
+      }).filter(function (c) { return c.monto > 0; });
+      if (cuenta.modo === "perfil") render();
+    }).catch(function () { /* sin historial de compras */ });
+  }
+  function movsHtml() {
+    var uid = uidSesion(), movs = [];
+    Object.keys(partes).forEach(function (pid) {
+      (partes[pid] || []).forEach(function (x) {
+        if (x.uid !== uid) return;
+        var k = buscarPremio(pid), nom = k >= 0 ? estado.premios[k].nombre : "Rifa";
+        movs.push({ t: x.creado || "", ico: "🎟️", txt: "Rifa: " + nom + " · " + x.cantidad + (x.cantidad === 1 ? " ticket" : " tickets"), monto: -x.costo });
+      });
+    });
+    (cuenta.compras || []).forEach(function (c) { movs.push({ t: c.t, ico: "🛒", txt: "Compra " + (c.code ? c.code + " · " : "") + (c.n || 1) + (c.n === 1 ? " item" : " items"), monto: -c.monto }); });
+    movs.sort(function (a, b) { return String(b.t).localeCompare(String(a.t)); });
+    return '<div class="grp movs"><h3>Mis movimientos</h3>' + (movs.length ? '<ul class="movl">' + movs.slice(0, 15).map(function (m) {
+      return '<li><span class="mv-i">' + m.ico + '</span><span class="mv-t"><b>' + esc(m.txt) + '</b><small>' + (m.t ? esc(fechaHora(m.t)) : "—") + '</small></span><span class="mv-m neg">−S/ ' + Math.abs(m.monto) + '</span></li>';
+    }).join("") + '</ul>' : '<p class="hint">Todavía no tienes movimientos. Tus compras y tickets aparecerán aquí.</p>') + '</div>';
+  }
   function listaMisRifas() {
     var uid = uidSesion(), yo = cuenta.perfil, g = { gano: [], curso: [], perdio: [] };
     Object.keys(partes).forEach(function (pid) {
@@ -2270,7 +2332,7 @@
       titulo = "Mi cuenta";
       var link = creditoHref();
       cuerpo = '<div class="drawer-body">' + (p
-        ? '<div class="saldo frame gold"><div class="in"><small>Tu saldo</small><b>' + p.creditos + '</b></div></div>' +
+        ? '<div class="saldo frame gold"><div class="in"><small>Tu saldo</small><b>S/ ' + p.creditos + '</b>' + (recargaOn() ? '<button class="btn btn-fuchsia btn-recarga" type="button" data-a="recargar">💳 Recargar saldo</button>' : '') + '</div></div>' + movsHtml() +
           '<form class="grp" id="formTrade"><h3>Mis datos</h3>' +
           '<div class="field"><label for="p-nombre">Nombre o apodo</label><input id="p-nombre" maxlength="40" required value="' + esc(p.nombre) + '"></div>' +
           '<div class="field"><label for="p-wa">WhatsApp</label><input id="p-wa" inputmode="tel" maxlength="30" required value="' + esc(p.whatsapp) + '"></div>' +
@@ -2282,7 +2344,6 @@
           '<p class="hint" role="status" id="tradeMsg"></p></form>' +
           '<div class="grp">' + (pagosOn()
             ? '<p class="hint">Recarga con tarjeta (o Yape / QR desde S/ ' + PAGOS.minYape + ') y el saldo se suma al instante.' + (p.promoUsada ? '' : ' ¡Tu primera recarga trae saldo extra! 🎁') + '</p>' +
-              '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar saldo</button>' +
               (link ? '<p class="hint">¿Algún problema con tu recarga? Escríbenos.</p><a class="btn btn-ghost btn-sm" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Escribir por WhatsApp</a>' : '')
             : '<p class="hint">Para recibir saldo, escribe al encargado. Él los carga en tu cuenta.</p>' +
               (link ? '<a class="btn btn-yellow" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Pedir saldo por WhatsApp</a>' : '')) + '</div>'
@@ -3185,12 +3246,12 @@
     if (!uid || esAdmin()) return Promise.resolve();
     return fsPedir("rayas_users/" + encodeURIComponent(uid)).then(function (r) {
       if (r.status === 404) { cuenta.modo = "completar"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); return null; }
-      if (!r.ok) throw new Error("No se pudo cargar tu cuenta (" + r.status + ").");
+      if (!r.ok) throw new Error("No se pudo cargar tu cuenta. Revisa tu internet e intenta de nuevo.");
       return r.json();
-    }).then(function (d) { if (!d) return; cuenta.perfil = leerPerfilDoc(d); cuenta.msg = ""; render(); cargarParts(); })
+    }).then(function (d) { if (!d) return; cuenta.perfil = leerPerfilDoc(d); cuenta.msg = ""; render(); cargarParts(); cargarMovs(); })
       .catch(function (e) {
         if (e && e.message === "NO_SESSION") { guardarSesion(null); cuenta.perfil = null; cuenta.modo = null; render(); return; }
-        cuenta.msg = e.message; render();
+        cuenta.msg = errSimple(e && e.message); render();
       });
   }
 
