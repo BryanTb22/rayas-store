@@ -965,7 +965,7 @@
     var agot = it.stock <= 0, col = colorRareza(it.rareza);
     return '<article class="icard' + (agot ? ' agot' : '') + (it.activo ? '' : ' oculto') + '" data-a="itVer" data-id="' + esc(it.id) + '" tabindex="0" role="button" aria-label="Ver ' + esc(it.nombre) + '">' +
       '<div class="ithumb" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') +
-      (agot ? '<span class="itag agotado">Agotado</span>' : ((it._tot || it.stock) > 1 ? '<span class="itag">x' + (it._tot || it.stock) + '</span>' : '')) + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
+      (agot ? '<span class="itag agotado">Agotado</span>' : ((it._tot || it.stock) > 1 ? '<span class="itag">x' + (it._tot || it.stock) + '</span>' : '')) + (!agot && (it._tot || it.stock) <= 2 ? '<span class="iult">' + ((it._tot || it.stock) === 1 ? '¡Última unidad!' : '¡Últimas unidades!') + '</span>' : '') + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
       (admin.puede ? '<div class="itadmb"><button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(it.id) + '" aria-label="Editar">✎</button>' + (admin.itemDel === it.id ? '<button type="button" class="btn btn-sm itdel" data-a="itBorrarSi" data-id="' + esc(it.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itBorrar" data-id="' + esc(it.id) + '" aria-label="Quitar">🗑</button>') + '</div>' : '') +
       '<div class="ibody"><h4>' + esc(it.nombre) + '</h4>' +
       '<div class="imeta">' + (it.rareza ? '<span style="color:' + col + '">' + esc(it.rareza) + '</span>' : '') + (it.calidad ? '<span>' + esc(it.calidad) + '</span>' : '') + (it.heroe ? '<span>' + esc(it.heroe) + '</span>' : '') + (it.descripcion ? '<span class="gem">💎 ' + (efectoUnusual(it) ? esc(efectoUnusual(it)) : lineasDesc(it).length) + '</span>' : '') + '</div>' +
@@ -973,7 +973,7 @@
   }
   function gridItemsHtml() {
     if (items.err) return '<div class="empty frame"><div class="in"><strong>No se pudo cargar</strong><span>' + esc(items.err) + '</span></div></div>';
-    if (!items.cargado) return '<div class="empty frame"><div class="in"><strong>Cargando items…</strong></div></div>';
+    if (!items.cargado) return '<div class="igrid sk-grid" aria-busy="true" aria-label="Cargando items">' + new Array(9).join('<article class="icard sk" aria-hidden="true"><div class="ithumb"></div><div class="ibody"><i class="sk-l w80"></i><i class="sk-l w50"></i><i class="sk-l w60 tall"></i></div></article>') + '</div>';
     var l = itemsFiltrados();
     if (!l.length) return '<div class="empty frame"><div class="in"><strong>' + (items.lista.length ? 'Ningún item coincide' : 'Pronto nuevos items') + '</strong><span>' + (items.lista.length ? 'Prueba con otros filtros.' : 'Estamos subiendo el catálogo.') + '</span></div></div>';
     var porPag = 24, total = Math.ceil(l.length / porPag);
@@ -992,8 +992,28 @@
     });
     return h + '<button type="button" class="btn btn-ghost btn-sm" data-a="' + accion + '" data-p="' + (act + 1) + '"' + (act >= total - 1 ? ' disabled' : '') + ' aria-label="Página siguiente">›</button></nav>';
   }
+  var filtAbierto = null;   // null = automático (abierto en pantallas anchas, cerrado en celular)
+  function chipsActivos() {
+    var l = [];
+    if (filtros.tipo) l.push(["tipo", "Tipo", filtros.tipo]);
+    if (filtros.heroe) l.push(["heroe", "Héroe", filtros.heroe]);
+    if (filtros.ranura) l.push(["ranura", "Ranura", filtros.ranura]);
+    if (filtros.rareza) l.push(["rareza", "Rareza", filtros.rareza]);
+    if (filtros.calidad) l.push(["calidad", "Calidad", filtros.calidad]);
+    if (filtros.min || filtros.max) l.push(["precio", "Precio", filtros.min && filtros.max ? "S/ " + filtros.min + " – S/ " + filtros.max : filtros.min ? "desde S/ " + filtros.min : "hasta S/ " + filtros.max]);
+    if (filtros.q) l.push(["q", "Búsqueda", filtros.q]);
+    return l;
+  }
+  function chipsHtml() {
+    var l = chipsActivos();
+    if (!l.length) return "";
+    return l.map(function (c) { return '<button type="button" class="fchip" data-a="itQuitar" data-k="' + c[0] + '" aria-label="Quitar filtro ' + esc(c[1]) + '"><span>' + esc(c[1]) + ': <b>' + esc(c[2]) + '</b></span><i aria-hidden="true">✕</i></button>'; }).join("") +
+      (l.length > 1 ? '<button type="button" class="fchip limpiar" data-a="itReset">Quitar todo</button>' : '');
+  }
   function pintarItems() {
     var g = document.getElementById("itemsGrid"); if (!g) return;
+    var ch = document.getElementById("itemsChips"); if (ch) ch.innerHTML = chipsHtml();
+    var fc = document.getElementById("filtCount"); if (fc) { var n = chipsActivos().filter(function (c) { return c[0] !== "q"; }).length; fc.textContent = n ? " (" + n + ")" : ""; }
     g.innerHTML = gridItemsHtml(); hidratarImgs();
     var c = document.getElementById("itemsCuenta"); if (c) c.textContent = items.cargado ? itemsFiltrados().length + " items" : "";
   }
@@ -1037,7 +1057,8 @@
     var tabs = ['<button type="button" class="itab' + (!filtros.tipo ? ' on' : '') + '" data-a="itTipo" data-v="">Todos</button>'].concat(ITEM_TIPOS.map(function (t) {
       return '<button type="button" class="itab' + (filtros.tipo === t ? ' on' : '') + '" data-a="itTipo" data-v="' + esc(t) + '">' + esc(t) + '</button>';
     })).join("");
-    var filt = '<aside class="ifilt"><details' + (window.innerWidth > 820 ? ' open' : '') + '><summary>Filtros</summary>' +
+    var nFilt = chipsActivos().filter(function (c) { return c[0] !== "q"; }).length;
+    var filt = '<aside class="ifilt"><details' + ((filtAbierto === null ? window.innerWidth > 820 : filtAbierto) ? ' open' : '') + '><summary>Filtros<span id="filtCount">' + (nFilt ? ' (' + nFilt + ')' : '') + '</span></summary>' +
       '<div class="ff"><label>Precio (S/)</label><div class="ff2"><input id="fi-min" inputmode="decimal" placeholder="Desde" value="' + esc(filtros.min) + '"><input id="fi-max" inputmode="decimal" placeholder="Hasta" value="' + esc(filtros.max) + '"></div></div>' +
       '<div class="ff"><label for="fi-heroe">Héroe</label><select id="fi-heroe">' + opciones(distintos("heroe", HEROES_DOTA), filtros.heroe, "Todos") + '</select></div>' +
       '<div class="ff"><label for="fi-ranura">Ranura</label><select id="fi-ranura">' + opciones(distintos("ranura", SLOTS_DOTA), filtros.ranura, "Todas") + '</select></div>' +
@@ -1052,8 +1073,9 @@
       '<div class="itabs">' + tabs + '</div>' +
       '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar items…" value="' + esc(filtros.q) + '" autocomplete="off">' +
       '<select id="fi-orden" aria-label="Ordenar">' + [["nuevo", "Más nuevos"], ["menor", "Precio: menor a mayor"], ["mayor", "Precio: mayor a menor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (filtros.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
-      '<span class="icount" id="itemsCuenta"></span></div><div id="itemsGrid">' + gridItemsHtml() + '</div></div></div></div></section>';
+      '<span class="icount" id="itemsCuenta"></span></div><div class="fchips" id="itemsChips">' + chipsHtml() + '</div><div id="itemsGrid">' + gridItemsHtml() + '</div></div></div></div></section>';
   }
+  document.addEventListener("toggle", function (ev) { var d = ev.target; if (d && d.tagName === "DETAILS" && d.closest && d.closest("#comprar .ifilt")) filtAbierto = d.open; }, true);
   function filtroEvento(el) {
     var id = el.id;
     var mapa = { "fi-q": "q", "fi-min": "min", "fi-max": "max", "fi-heroe": "heroe", "fi-ranura": "ranura", "fi-rareza": "rareza", "fi-calidad": "calidad", "fi-orden": "orden" };
@@ -1079,13 +1101,14 @@
       : '<button class="btn btn-fuchsia" type="button" data-a="carAdd" data-id="' + esc(it.id) + '">🛒 ' + (carro[it.id] ? '✔ En el carrito (' + carro[it.id] + ') · agregar otro' : 'Al carrito') + '</button>' +
         '<button class="btn btn-yellow" type="button" data-a="carAhora" data-id="' + esc(it.id) + '">⚡ Comprar ahora</button>';
     return envol(miga(it.tipo, it.nombre, it.heroe) + '<h1 class="ipg-t">' + esc(it.nombre) + (it.activo ? '' : ' <small>(oculto)</small>') + '</h1>' +
-      '<div class="ipg-grid"><div class="ipg-foto" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') +
+      '<div class="ipg-grid"><div class="ipg-foto' + (imgTag(it.img, it.nombre) ? ' zoomable' : '') + '" style="--rar:' + col + '"' + (imgTag(it.img, it.nombre) ? ' data-a="zoomImg" role="button" tabindex="0" aria-label="Ampliar foto"' : '') + '>' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') + (imgTag(it.img, it.nombre) ? '<span class="ipg-lupa" aria-hidden="true">⤢</span>' : '') +
       '<span class="ipg-tag' + (agot ? ' off' : '') + '">' + (agot ? 'Agotado' : (it.stock > 1 ? it.stock + ' disponibles' : 'Disponible')) + '</span></div>' +
       '<div class="ipg-info"><dl class="ipg-attrs">' + attrs + '</dl>' + estilosHtml(it) + descripcionHtml(it) +
       '<div class="ipg-precio"><div class="pp-top"><b>' + fmtPrecio(it.precio) + '</b>' + (dto ? '<span class="pp-dto" title="Descuento frente al precio del Mercado de Steam">-' + dto + ' %</span>' : '') + '<span class="pp-cred">o ' + cred + ' soles</span></div>' +
       steamHtml(it, true) +
       (agot ? '' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> soles.</p>' : '<p class="hint">Para pagar con tu saldo entra a tu cuenta.</p>')) +
-      '<div class="pp-btns">' + btns + '</div></div></div></div>' + ofertasHtml(it) + parecidosHtml(it));
+      '<div class="pp-btns">' + btns + '</div></div></div></div>' + ofertasHtml(it) + parecidosHtml(it) +
+      (agot ? '' : '<div class="ipg-sticky"><div class="ips-p"><small>Precio</small><b>' + fmtPrecio(it.precio) + '</b></div><button class="btn btn-fuchsia" type="button" data-a="carAdd" data-id="' + esc(it.id) + '">🛒 ' + (carro[it.id] ? '✔ En el carrito (' + carro[it.id] + ')' : 'Agregar al carrito') + '</button></div>'));
   }
 
   /* ===== Admin: panel de stock de items ===== */
@@ -1306,14 +1329,15 @@
   }
   var ofe = { min: "", max: "" };
   // Una fila por cada unidad en stock (como lis-skins): si hay 3, salen 3 filas separadas.
-  function ofertaFilaHtml(x, curId) {
+  function ofertaFilaHtml(x, curId, mejor) {
     var cur = x.id === curId, ne = Number(x.estilos) || 0, ok = estilosOkLista(x), n = Math.max(1, Math.min(30, x.stock)), agot = x.stock <= 0;
     var est = ne ? [1, 2, 3, 4, 5, 6, 7, 8].slice(0, ne).map(function (k) { return '<span class="est' + (ok.indexOf(k) >= 0 ? '' : ' lock') + '">' + k + '</span>'; }).join("") : '';
     var gem = gemChipsHtml(x), out = "", edit = admin.puede ? '<button type="button" class="btn btn-ghost btn-sm ofr-ed" data-a="itEditar" data-id="' + esc(x.id) + '"' + (x.stock > 1 ? ' data-u="1"' : '') + ' title="Editar esta unidad (gemas, estilos y precio)">✎ Editar</button>' : '';
     for (var u = 0; u < n; u++) {
       var enCarro = !agot && u < (Number(carro[x.id]) || 0);
-      out += '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + (enCarro ? ' enc' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + gem + '</span>' +
-        '<span class="ofr-e">' + est + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b></span>' +
+ var best = mejor && u === 0;
+      out += '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + (enCarro ? ' enc' : '') + (best ? ' best' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + gem + '</span>' +
+        '<span class="ofr-e">' + est + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b>' + (best ? '<em class="ofr-best">Mejor precio</em>' : '') + '</span>' +
         '<span class="ofr-b">' + edit + (agot ? '<span class="ofr-ag">Agotado</span>' : (enCarro
           ? '<button type="button" class="btn btn-ghost btn-sm ofr-in" data-a="carMenos" data-id="' + esc(x.id) + '" title="Quitar del carrito">✔ En el carrito</button>'
           : '<button type="button" class="btn btn-yellow btn-sm" data-a="carAhora" data-id="' + esc(x.id) + '">⚡ Comprar ahora</button>' +
@@ -1325,7 +1349,7 @@
     var mn = parseFloat(String(ofe.min).replace(",", ".")), mx = parseFloat(String(ofe.max).replace(",", "."));
     var l = ofertasDe(it).filter(function (x) { return (!isFinite(mn) || x.precio >= mn) && (!isFinite(mx) || x.precio <= mx); });
     return '<div class="ofr-h"><span>Gemas / Runas</span><span>Estilos desbloqueados</span><span>Precio</span><span>Acción</span></div>' +
-      (l.length ? l.map(function (x) { return ofertaFilaHtml(x, it.id); }).join("") : '<div class="ofr-vacio">Ninguna oferta en ese rango de precio.</div>');
+      (l.length ? (function () { var mj = null; l.forEach(function (x) { if (x.stock > 0 && (mj === null || x.precio < mj.precio)) mj = x; }); return l.map(function (x) { return ofertaFilaHtml(x, it.id, x === mj && l.length > 1); }).join(""); })() : '<div class="ofr-vacio">Ninguna oferta en ese rango de precio.</div>');
   }
   function ofertasHtml(it) {
     var n = ofertasDe(it).reduce(function (a, x) { return a + Math.max(1, Math.min(30, x.stock)); }, 0);
@@ -2744,6 +2768,7 @@
       case "cantPart": var xq = (partes[t.getAttribute("data-id")] || []).filter(function (y) { return y.uid === t.getAttribute("data-uid"); })[0]; if (xq) guardarCantidad(t.getAttribute("data-id"), xq.uid, xq.cantidad + Number(t.getAttribute("data-d"))); break;
       case "relMov": var rf = t.closest(".ofr").querySelector(".rel-fila"); if (rf) rf.scrollBy({ left: Number(t.getAttribute("data-d")) * Math.max(220, rf.clientWidth * 0.8), behavior: "smooth" }); break;
       case "itTipo": filtros.tipo = t.getAttribute("data-v") || ""; filtros.pag = 0; render(); sincHash(); break;
+      case "itQuitar": var kq = t.getAttribute("data-k"); if (kq === "precio") { filtros.min = ""; filtros.max = ""; } else if (kq && filtros.hasOwnProperty(kq)) filtros[kq] = ""; filtros.pag = 0; render(); sincHash(); break;
       case "itReset": filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "mayor", pag: 0 }; render(); sincHash(); break;
       case "itPag": filtros.pag = Math.max(0, Number(t.getAttribute("data-p")) || 0); pintarItems(); var gp = document.getElementById("itemsGrid"); if (gp && gp.scrollIntoView) gp.scrollIntoView({ block: "start", behavior: "smooth" }); break;
       case "stRefrescar": steamRefrescar(); break;

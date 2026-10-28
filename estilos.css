@@ -1229,3 +1229,38 @@ body.itm-open{overflow:hidden}
 .qtot b { font: 600 1.7rem/1.1 var(--num); color: var(--yellow); }
 .qtot > div:last-child b { color: #fff; }
 #rconfeti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 99999; }
+
+/* ---------- Catálogo: chips de filtros, esqueleto, últimas unidades, mejor precio, barra fija ---------- */
+.fchips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.fchips:empty { display: none; }
+.fchip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--yellow) 50%, transparent); background: color-mix(in srgb, var(--yellow) 10%, transparent); color: var(--text, #fff); font: inherit; font-size: 13px; cursor: pointer; }
+.fchip b { color: var(--yellow); font-weight: 800; }
+.fchip i { font-style: normal; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: rgba(255, 255, 255, .14); font-size: 11px; line-height: 1; }
+.fchip:hover i { background: var(--fuchsia); }
+.fchip.limpiar { padding: 6px 14px; border-style: dashed; background: none; color: var(--muted); }
+.sk-grid { pointer-events: none; }
+.icard.sk .ithumb { background: rgba(255, 255, 255, .05); }
+.sk-l { display: block; height: 14px; border-radius: 8px; background: rgba(255, 255, 255, .07); margin-bottom: 10px; }
+.sk-l.w80 { width: 80%; } .sk-l.w50 { width: 50%; } .sk-l.w60 { width: 60%; } .sk-l.tall { height: 34px; margin-top: 14px; border-radius: 999px; }
+.icard.sk .ithumb, .sk-l { position: relative; overflow: hidden; }
+.icard.sk .ithumb::before, .sk-l::before { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .09), transparent); animation: skSh 1.3s infinite; }
+@keyframes skSh { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .icard.sk .ithumb::before, .sk-l::before { animation: none; } }
+.iult { position: absolute; left: 10px; bottom: 12px; z-index: 2; padding: 4px 10px; border-radius: 999px; background: linear-gradient(90deg, var(--fuchsia), #ff7ab8); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .04em; box-shadow: 0 4px 14px rgba(255, 45, 143, .45); }
+.ofr-p { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.ofr-best { font-style: normal; display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--yellow); color: var(--on-yellow, #1d1600); font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.ofr-r.best { box-shadow: inset 4px 0 0 var(--yellow); background: color-mix(in srgb, var(--yellow) 8%, transparent); }
+.ipg-foto.zoomable { cursor: zoom-in; position: relative; }
+.ipg-lupa { position: absolute; right: 12px; bottom: 12px; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: rgba(5, 10, 28, .75); border: 1px solid rgba(255, 255, 255, .25); font-size: 18px; pointer-events: none; }
+.ipg-foto.zoomable:hover .ipg-lupa { background: var(--yellow); color: var(--on-yellow, #1d1600); }
+.ipg-sticky { display: none; }
+@media (max-width: 760px) {
+  .ibar select, #fi-orden { width: 100%; flex: 1 1 100%; min-width: 0; }
+  .ipg-sticky { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; align-items: center; gap: 12px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: rgba(6, 11, 32, .94); backdrop-filter: blur(14px); border-top: 1px solid rgba(255, 201, 60, .35); box-shadow: 0 -10px 30px rgba(0, 0, 0, .45); }
+  .ipg-sticky .ips-p { display: flex; flex-direction: column; line-height: 1.1; }
+  .ipg-sticky .ips-p small { font-size: 11px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+  .ipg-sticky .ips-p b { font-family: var(--num, var(--title)); font-size: 22px; color: var(--yellow); }
+  .ipg-sticky .btn { flex: 1; }
+  body:has(.editbar) .ipg-sticky { bottom: 64px; }
+  body:has(.ipg-sticky) .footer { padding-bottom: 96px; }
+}
