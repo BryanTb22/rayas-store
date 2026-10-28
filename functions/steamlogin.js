@@ -75,6 +75,21 @@ function nombreDeXml(xml) {
   return n;
 }
 
+// Datos públicos del perfil (XML de Steam). Es texto externo: se limpia y se limita. Si no hay nada útil, devuelve {}.
+function perfilDeXml(xml, steamId) {
+  xml = String(xml || "");
+  const tag = (t) => { const m = new RegExp("<" + t + ">(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</" + t + ">").exec(xml); return m ? m[1].trim() : ""; };
+  const out = {};
+  const av = tag("avatarFull") || tag("avatarMedium");
+  if (/^https:\/\/[^\s"'<>]{1,300}$/.test(av)) out.steamAvatar = av;
+  const loc = tag("location").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 60);
+  if (loc) out.steamPais = loc;
+  const priv = tag("privacyState").toLowerCase();
+  if (priv) out.steamPublico = priv === "public";
+  if (/^\d{17}$/.test(String(steamId || ""))) out.steamPerfilUrl = "https://steamcommunity.com/profiles/" + steamId;
+  return out;
+}
+
 /* ---------- las funciones de Firebase ---------- */
 function crear(ctx) {
   const { admin, db, onRequest, REGION, ORIGENES, uidDeLaPeticion, ADMIN_UID } = ctx;
@@ -82,6 +97,15 @@ function crear(ctx) {
   const REALM = "https://" + REGION + "-" + proyecto + ".cloudfunctions.net";
   const RETURN = REALM + "/steamCallback";
   const FV = admin.firestore.FieldValue;
+  // Perfil público de Steam (apodo y datos de la ficha). Si Steam no responde, devuelve {} y el login sigue igual.
+  async function perfilPublico(steamId) {
+    try {
+      const x = await fetch("https://steamcommunity.com/profiles/" + steamId + "?xml=1", { signal: AbortSignal.timeout(4000) });
+      if (!x.ok) return { nombre: "", datos: {} };
+      const t = await x.text();
+      return { nombre: nombreDeXml(t), datos: perfilDeXml(t, steamId) };
+    } catch (e) { return { nombre: "", datos: {} }; }
+  }
 
   const steamIniciar = onRequest({ region: REGION, cors: ORIGENES, maxInstances: 5, timeoutSeconds: 15 }, async (req, res) => {
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
@@ -127,7 +151,7 @@ function crear(ctx) {
         if (!ok) return fallo("Esa cuenta de Steam ya está vinculada a otra cuenta.");
         const uRef = db.doc("rayas_users/" + doc.uid), u = await uRef.get();
         if (u.exists) { // el perfil existe: guardamos el ID (y el código de amigo si lo tenía vacío)
-          const cambios = { steamId };
+          const cambios = Object.assign({ steamId }, (await perfilPublico(steamId)).datos);
           if (!u.data().steam) cambios.steam = codigoAmigo(steamId);
           await uRef.update(cambios);
         }
@@ -142,13 +166,17 @@ function crear(ctx) {
         tx.set(lRef, { uid, creado: FV.serverTimestamp() });
       });
       if (uid === ADMIN_UID) return fallo("El administrador entra con correo o Google.");
-      let nombre = "";
-      try { // solo para sugerir el apodo en el formulario; si falla, no pasa nada
-        const x = await fetch("https://steamcommunity.com/profiles/" + steamId + "?xml=1", { signal: AbortSignal.timeout(4000) });
-        if (x.ok) nombre = nombreDeXml(await x.text());
-      } catch (e) { /* sin nombre */ }
+      const pp = await perfilPublico(steamId), nombre = pp.nombre;
+      let extra = "";
+      if (nuevo) { // la cuenta aún no tiene perfil: los datos viajan al formulario, que los guarda al crearlo
+        if (pp.datos.steamAvatar) extra += "&av=" + encodeURIComponent(pp.datos.steamAvatar);
+        if (pp.datos.steamPais) extra += "&pa=" + encodeURIComponent(pp.datos.steamPais);
+        if (typeof pp.datos.steamPublico === "boolean") extra += "&pu=" + (pp.datos.steamPublico ? "1" : "0");
+      } else { // ya tiene perfil: se actualiza aquí (sin tocar nada más)
+        try { const uRef = db.doc("rayas_users/" + uid), u = await uRef.get(); if (u.exists && Object.keys(pp.datos).length) await uRef.update(Object.assign({ steamId }, pp.datos)); } catch (e) { /* no rompe el login */ }
+      }
       const token = await admin.auth().createCustomToken(uid, { steamId });
-      return volver("steamtoken=" + token + "&sid=" + steamId + (nuevo ? "&nuevo=1" : "") + (nombre ? "&nom=" + encodeURIComponent(nombre) : ""));
+      return volver("steamtoken=" + token + "&sid=" + steamId + (nuevo ? "&nuevo=1" : "") + (nombre ? "&nom=" + encodeURIComponent(nombre) : "") + extra);
     } catch (e) {
       console.error("steamCallback", e && e.message);
       return fallo("No se pudo entrar con Steam. Intenta de nuevo.");
@@ -158,4 +186,4 @@ function crear(ctx) {
   return { steamIniciar, steamCallback };
 }
 
-module.exports = { crear, puros: { origenPermitido, rutaSegura, nonceNuevo, nonceValido, nonceVencido, steamIdDeClaimed, codigoAmigo, urlDeSteam, revisarRespuesta, cuerpoVerificacion, esValidoSteam, nombreDeXml, STEAM_OPENID } };
+module.exports = { crear, puros: { origenPermitido, rutaSegura, nonceNuevo, nonceValido, nonceVencido, steamIdDeClaimed, codigoAmigo, urlDeSteam, revisarRespuesta, cuerpoVerificacion, esValidoSteam, nombreDeXml, perfilDeXml, STEAM_OPENID } };

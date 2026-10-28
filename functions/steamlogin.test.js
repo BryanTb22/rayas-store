@@ -26,4 +26,9 @@ assert.strictEqual(cv.get("openid.mode"), "check_authentication"); assert(!cv.ha
 assert(P.esValidoSteam("ns:http://specs.openid.net/auth/2.0\nis_valid:true\n")); assert(!P.esValidoSteam("is_valid:false\n")); assert(!P.esValidoSteam(""));
 assert.strictEqual(P.nombreDeXml("<profile><steamID><![CDATA[Juan <b>]]></steamID></profile>"), "Juan b"); assert.strictEqual(P.nombreDeXml("x"), "");
 const u = new URL(P.urlDeSteam(RET, "https://r")); assert.strictEqual(u.searchParams.get("openid.mode"), "checkid_setup"); assert.strictEqual(u.searchParams.get("openid.return_to"), RET);
+const X = '<profile><privacyState>public</privacyState><avatarFull><![CDATA[https://avatars.steamstatic.com/a_full.jpg]]></avatarFull><location><![CDATA[Lima, Peru]]></location></profile>';
+const pf = P.perfilDeXml(X, "76561198000000001");
+assert.strictEqual(pf.steamAvatar, "https://avatars.steamstatic.com/a_full.jpg"); assert.strictEqual(pf.steamPais, "Lima, Peru"); assert.strictEqual(pf.steamPublico, true); assert.strictEqual(pf.steamPerfilUrl, "https://steamcommunity.com/profiles/76561198000000001");
+const pf2 = P.perfilDeXml("<profile><privacyState>friendsonly</privacyState><avatarFull><![CDATA[javascript:alert(1)]]></avatarFull></profile>", "76561198000000001");
+assert(!pf2.steamAvatar); assert.strictEqual(pf2.steamPublico, false); assert.deepStrictEqual(P.perfilDeXml("", "x"), {});
 console.log("steamlogin: todo bien");

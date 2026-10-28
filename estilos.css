@@ -1314,3 +1314,20 @@ html { scroll-padding-top: 84px; }
 .sbtn:focus-visible { outline: 2px solid var(--yellow, #ffd23f); outline-offset: 2px; }
 .sbtn svg { flex: none; }
 .steamlink .sbtn { margin-left: 0; }
+
+/* ---------- Ficha de cliente: foto de Steam / inicial, datos extra ---------- */
+.uav { flex: none; width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: #1b2540; border: 1px solid rgba(255, 255, 255, .18); }
+.uav.ini { display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #fff; background: hsl(var(--h, 210) 55% 38%); }
+.uav.grande { width: 64px; height: 64px; font-size: 26px; border-width: 2px; }
+.fhead { justify-content: flex-start; flex-wrap: nowrap; }
+.fhead .fnom { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fhead .fnom b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fhead .fnom small { color: var(--muted); }
+.fhead .fnom a { font-size: 13px; }
+.fhead .fcred { flex: none; }
+.fpriv { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; font-size: 13px; background: rgba(255, 79, 154, .1); border: 1px solid rgba(255, 79, 154, .4); color: var(--fuchsia, #ff4f9a); }
+@media (max-width: 520px) { .fhead { flex-wrap: wrap; } .fhead .fcred { flex-basis: 100%; margin: 2px 0 0; } }
+.fhead .fnom a { white-space: nowrap; }
+.urow, .urow-h { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.urow-h .uav { margin-right: -2px; }
+.ficha > * { min-width: 0; max-width: 100%; }
