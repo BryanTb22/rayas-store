@@ -1229,13 +1229,21 @@
     return items.lista.filter(function (x) { return sinTildes(x.nombre) === k && (x.activo || admin.puede); }).sort(function (a, b) { return (a.precio || 0) - (b.precio || 0); });
   }
   var ofe = { min: "", max: "" };
+  // Una fila por cada unidad en stock (como lis-skins): si hay 3, salen 3 filas separadas.
   function ofertaFilaHtml(x, curId) {
-    var cur = x.id === curId, agot = x.stock <= 0, ne = Number(x.estilos) || 0, ok = estilosOkLista(x);
+    var cur = x.id === curId, ne = Number(x.estilos) || 0, ok = estilosOkLista(x), n = Math.max(1, Math.min(30, x.stock)), agot = x.stock <= 0;
     var est = ne ? [1, 2, 3, 4, 5, 6, 7, 8].slice(0, ne).map(function (k) { return '<span class="est' + (ok.indexOf(k) >= 0 ? '' : ' lock') + '">' + k + '</span>'; }).join("") : '<em>—</em>';
-    return '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + (gemChipsHtml(x) || '<em>Sin gemas</em>') + '</span>' +
-      '<span class="ofr-e">' + est + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b>' + (x.stock > 1 ? '<small>x' + x.stock + ' en stock</small>' : '') + '</span>' +
-      '<span class="ofr-b">' + (agot ? '<span class="ofr-ag">Agotado</span>' : '<button type="button" class="btn btn-yellow btn-sm" data-a="carAhora" data-id="' + esc(x.id) + '">⚡ Comprar ahora</button>' +
-        '<button type="button" class="btn btn-ghost btn-sm ofr-cart' + (carro[x.id] ? ' en' : '') + '" data-a="carAdd" data-id="' + esc(x.id) + '" aria-label="Agregar al carrito" title="Agregar al carrito">🛒' + (carro[x.id] ? '<i>' + carro[x.id] + '</i>' : '') + '</button>') + '</span></div>';
+    var gem = gemChipsHtml(x) || '<em>Sin gemas</em>', out = "";
+    for (var u = 0; u < n; u++) {
+      var enCarro = !agot && u < (Number(carro[x.id]) || 0);
+      out += '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + (enCarro ? ' enc' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + gem + '</span>' +
+        '<span class="ofr-e">' + est + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b></span>' +
+        '<span class="ofr-b">' + (agot ? '<span class="ofr-ag">Agotado</span>' : (enCarro
+          ? '<button type="button" class="btn btn-ghost btn-sm ofr-in" data-a="carMenos" data-id="' + esc(x.id) + '" title="Quitar del carrito">✔ En el carrito</button>'
+          : '<button type="button" class="btn btn-yellow btn-sm" data-a="carAhora" data-id="' + esc(x.id) + '">⚡ Comprar ahora</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm ofr-cart" data-a="carAdd" data-id="' + esc(x.id) + '" aria-label="Agregar al carrito" title="Agregar al carrito">🛒</button>')) + '</span></div>';
+    }
+    return out;
   }
   function ofertasTablaHtml(it) {
     var mn = parseFloat(String(ofe.min).replace(",", ".")), mx = parseFloat(String(ofe.max).replace(",", "."));
@@ -1244,7 +1252,7 @@
       (l.length ? l.map(function (x) { return ofertaFilaHtml(x, it.id); }).join("") : '<div class="ofr-vacio">Ninguna oferta en ese rango de precio.</div>');
   }
   function ofertasHtml(it) {
-    var n = ofertasDe(it).length;
+    var n = ofertasDe(it).reduce(function (a, x) { return a + Math.max(1, Math.min(30, x.stock)); }, 0);
     return '<div class="ofr"><div class="ofr-top"><h3>📚 ' + n + (n === 1 ? ' oferta' : ' ofertas') + ' de este item</h3>' +
       '<div class="ofr-f"><input id="ofe-min" inputmode="decimal" placeholder="Precio desde" value="' + esc(ofe.min) + '" aria-label="Precio desde"><input id="ofe-max" inputmode="decimal" placeholder="Precio hasta" value="' + esc(ofe.max) + '" aria-label="Precio hasta"></div></div>' +
       '<div class="ofr-t" id="ofrTabla">' + ofertasTablaHtml(it) + '</div></div>';
