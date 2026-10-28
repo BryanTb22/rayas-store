@@ -897,3 +897,9 @@ select option:checked, select option:hover { background-color: #1b2a63; color: #
 .pager .btn { min-width: 40px; }
 .pager .pdots { color: var(--muted, #9aa5cf); padding: 0 4px; }
 #itemsGrid { scroll-margin-top: 90px; }
+
+/* Gemas y detalles del item */
+.idesc { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--bg) 60%, #000); text-align: left; font-size: .9rem; line-height: 1.5; }
+.idesc b { display: block; margin-bottom: 4px; }
+.idesc .gk { color: var(--yellow); font-weight: 700; }
+.imeta .gem { color: #9ee8ff; }

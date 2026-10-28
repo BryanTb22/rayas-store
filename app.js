@@ -808,13 +808,13 @@
     function nv(k) { return f[k] ? Number(f[k].doubleValue !== undefined ? f[k].doubleValue : (f[k].integerValue || 0)) : 0; }
     return { id: d.name.split("/").pop(), nombre: sv("nombre"), img: sv("img"), precio: nv("precio"), stock: f.stock ? nv("stock") : 1,
       tipo: sv("tipo"), heroe: sv("heroe"), ranura: sv("ranura"), rareza: sv("rareza"), calidad: sv("calidad"),
-      estilos: nv("estilos"), estOk: sv("estOk"),
+      estilos: nv("estilos"), estOk: sv("estOk"), descripcion: sv("descripcion"),
       activo: f.activo ? f.activo.booleanValue !== false : true, creado: f.creado && f.creado.timestampValue || "" };
   }
   function itemAFields(it) {
     var s = function (v) { return { stringValue: String(v || "") }; };
     return { fields: { nombre: s(it.nombre), img: s(it.img), precio: { doubleValue: Number(it.precio) }, stock: { integerValue: String(Math.max(0, Math.floor(Number(it.stock) || 0))) },
-      tipo: s(it.tipo), heroe: s(it.heroe), ranura: s(it.ranura), rareza: s(it.rareza), calidad: s(it.calidad), estilos: { integerValue: String(Math.max(0, Math.min(8, Math.floor(Number(it.estilos) || 0)))) }, estOk: s(it.estOk), activo: { booleanValue: it.activo !== false },
+      tipo: s(it.tipo), heroe: s(it.heroe), ranura: s(it.ranura), rareza: s(it.rareza), calidad: s(it.calidad), estilos: { integerValue: String(Math.max(0, Math.min(8, Math.floor(Number(it.estilos) || 0)))) }, estOk: s(it.estOk), descripcion: s(it.descripcion), activo: { booleanValue: it.activo !== false },
       creado: { timestampValue: it.creado || new Date().toISOString() } } };
   }
   function cargarItems(forzar) {
@@ -873,7 +873,7 @@
       (agot ? '<span class="itag agotado">Agotado</span>' : (it.stock > 1 ? '<span class="itag">x' + it.stock + '</span>' : '')) + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
       (admin.puede ? '<div class="itadmb"><button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(it.id) + '" aria-label="Editar">✎</button>' + (admin.itemDel === it.id ? '<button type="button" class="btn btn-sm itdel" data-a="itBorrarSi" data-id="' + esc(it.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itBorrar" data-id="' + esc(it.id) + '" aria-label="Quitar">🗑</button>') + '</div>' : '') +
       '<div class="ibody"><h4>' + esc(it.nombre) + '</h4>' +
-      '<div class="imeta">' + (it.rareza ? '<span style="color:' + col + '">' + esc(it.rareza) + '</span>' : '') + (it.calidad ? '<span>' + esc(it.calidad) + '</span>' : '') + (it.heroe ? '<span>' + esc(it.heroe) + '</span>' : '') + '</div>' +
+      '<div class="imeta">' + (it.rareza ? '<span style="color:' + col + '">' + esc(it.rareza) + '</span>' : '') + (it.calidad ? '<span>' + esc(it.calidad) + '</span>' : '') + (it.heroe ? '<span>' + esc(it.heroe) + '</span>' : '') + (it.descripcion ? '<span class="gem">💎 ' + lineasDesc(it).length + '</span>' : '') + '</div>' +
       '<div class="iprice"><b>' + fmtPrecio(it.precio) + '</b><span class="ibuy">' + (agot ? 'Agotado' : 'Comprar') + '</span></div></div></article>';
   }
   function gridItemsHtml() {
@@ -934,12 +934,17 @@
     var cred = Math.ceil(it.precio - 1e-9), agot = it.stock <= 0, col = colorRareza(it.rareza);
     var h = '<h3>' + esc(it.nombre) + '</h3>' +
       '<div class="ithumb big" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') + '</div>' +
-      '<p class="hint">' + [it.rareza, it.calidad, it.tipo, it.heroe, it.ranura].filter(Boolean).map(esc).join(' · ') + '</p>' + estilosHtml(it) +
+      '<p class="hint">' + [it.rareza, it.calidad, it.tipo, it.heroe, it.ranura].filter(Boolean).map(esc).join(' · ') + '</p>' + estilosHtml(it) + descripcionHtml(it) +
       '<p class="resumen">Precio: <b>' + fmtPrecio(it.precio) + '</b> · o <b>' + cred + ' créditos</b></p>' +
       (agot ? '<p class="hint" style="color:var(--danger)">Este item está agotado.</p>' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> créditos.</p>' : '<p class="hint">Para pagar con créditos entra a tu cuenta.</p>'));
     var btns = agot ? '' : ('<button class="btn btn-fuchsia" type="button" data-a="itCred" data-id="' + esc(it.id) + '">💎 Pagar con ' + cred + ' créditos</button>' +
       (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="itWsp" data-id="' + esc(it.id) + '">💬 Comprar por WhatsApp</button>' : ''));
     return { h: h, btns: btns };
+  }
+  function lineasDesc(it) { return String(it.descripcion || "").split("\n").map(function (x) { return x.trim(); }).filter(Boolean); }
+  function descripcionHtml(it) {
+    var l = lineasDesc(it); if (!l.length) return "";
+    return '<div class="idesc"><b>💎 Gemas y detalles</b>' + l.map(function (x) { var k = x.indexOf(": "); return '<div>' + (k > 0 && k < 24 ? '<span class="gk">' + esc(x.slice(0, k)) + '</span> ' + esc(x.slice(k + 2)) : esc(x)) + '</div>'; }).join("") + '</div>';
   }
   function mensajeItem(it) {
     var p = cuenta.perfil;
@@ -1172,7 +1177,7 @@
     }
   }
   /* --- Admin: pestaña Items --- */
-  function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", estilos: "0", estOk: "1", activo: true, creado: "", link: "" }; }
+  function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", estilos: "0", estOk: "1", descripcion: "", activo: true, creado: "", link: "" }; }
   /* Rellena el formulario a partir del link del Mercado de Steam (lo lee la función itemSteam, solo admin). */
   function rellenarDesdeSteam() {
     var F = admin.itemForm; if (!F || admin.steamCargando) return;
@@ -1226,6 +1231,7 @@
       '<div class="field"><label for="it-ranura">Ranura (Weapon, Head, Back…)</label><input id="it-ranura" list="dl-ranura" maxlength="40" value="' + esc(F.ranura) + '"><datalist id="dl-ranura">' + distintos("ranura", SLOTS_DOTA).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
       '<div class="field"><label for="it-rareza">Rareza</label><select id="it-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), F.rareza, "—") + '</select></div>' +
       '<div class="field"><label for="it-calidad">Calidad</label><input id="it-calidad" list="dl-calidad" maxlength="30" value="' + esc(F.calidad) + '"><datalist id="dl-calidad">' + distintos("calidad", ITEM_CALIDADES).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
+      '<div class="field"><label for="it-desc">Gemas / descripción (una por línea)</label><textarea id="it-desc" rows="3" maxlength="600" placeholder="Prismatic Gem: Champion\'s Green">' + esc(F.descripcion || "") + '</textarea></div>' +
       '<div class="field"><label for="it-estilos">Estilos (solo si el item los tiene)</label><select id="it-estilos">' + ["0", "2", "3", "4", "5", "6"].map(function (v) { return '<option value="' + v + '"' + (String(F.estilos || 0) === v ? ' selected' : '') + '>' + (v === "0" ? 'Sin estilos' : v + ' estilos') + '</option>'; }).join("") + '</select></div>' +
       ((Number(F.estilos) || 0) > 0 ? '<div class="field"><label>Estilos que SÍ tiene (los demás saldrán "Bloqueado")</label><div class="estchk">' + (function () { var o = "", ok = estilosOkLista(F); for (var k = 1; k <= Number(F.estilos); k++) o += '<label class="chk"><input type="checkbox" id="it-est-' + k + '"' + (ok.indexOf(k) >= 0 ? ' checked' : '') + '> Estilo ' + k + '</label>'; return o; })() + '</div></div>' : '') +
       '<label class="chk"><input type="checkbox" id="it-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
@@ -1253,7 +1259,7 @@
     if (!isFinite(precio) || precio <= 0) { admin.itemMsg = "Pon un precio mayor a 0."; render(); return; }
     if (!isFinite(stock) || stock < 0) stock = 1;
     var it = { id: F.id || ("it-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), nombre: F.nombre.trim(), img: F.img, precio: Math.round(precio * 100) / 100, stock: stock,
-      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", activo: F.activo, creado: F.creado || new Date().toISOString() };
+      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: String(F.descripcion || "").trim().slice(0, 600), activo: F.activo, creado: F.creado || new Date().toISOString() };
     admin.itemGuardando = true; admin.itemMsg = ""; render();
     fsPedir("rayas_items/" + encodeURIComponent(it.id), { method: "PATCH", body: JSON.stringify(itemAFields(it)) }).then(function (r) {
       if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
@@ -1269,32 +1275,48 @@
   function importarHtml() {
     var I = impEstado();
     if (!I.abierto) return '<div class="itadm frame"><div class="in"><b>Importar desde Steam</b><button type="button" class="btn btn-ghost btn-sm" data-a="impAbrir">⬇ Importar items de mi inventario</button><span class="hint">Sube de una vez tus items intercambiables Arcano, Inmortal, Mítico y Legendario.</span></div></div>';
-    var cuenta2 = {};
-    (I.lista || []).forEach(function (g) { cuenta2[g.rareza] = (cuenta2[g.rareza] || 0) + 1; });
+    var cuenta2 = {}, conGemas = 0;
+    (I.lista || []).forEach(function (g) { cuenta2[g.rareza] = (cuenta2[g.rareza] || 0) + 1; if (g.sig) conGemas++; });
     var resumen = I.lista ? IMP_RAREZAS.map(function (r) { return (cuenta2[r] || 0) + " " + r.toLowerCase(); }).join(" · ") : "";
+    var notas = [];
+    if (I.lista && I.yaEstaban) notas.push(I.yaEstaban + ' ya estaban en el catálogo y <b>no se tocan</b>');
+    if (I.lista && I.conPrecio) notas.push(I.conPrecio + ' ya subidos antes con precio o activos se respetan (no se cambian)');
+    if (I.lista && I.borrar && I.borrar.length) notas.push(I.borrar.length + ' subidos antes sin precio ni gemas se reemplazan por sus versiones con gemas');
     return '<div class="itadm frame"><div class="in" style="display:block"><b>Importar desde Steam</b>' +
       '<div class="vrow" style="margin:10px 0"><input id="imp-link" type="url" inputmode="url" placeholder="Trade link: https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(I.link) + '" autocomplete="off">' +
       '<button type="button" class="btn btn-yellow btn-sm" data-a="impTraer"' + (I.cargando || I.subiendo ? ' disabled' : '') + '>' + (I.cargando ? 'Leyendo…' : 'Traer items') + '</button>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-a="impCerrar">Cerrar</button></div>' +
       (I.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(I.err) + '</p>' : '') +
-      (I.lista ? '<p class="hint"><b>' + I.lista.length + '</b> items nuevos para subir (' + esc(resumen) + ')' + (I.yaEstaban ? ' · ' + I.yaEstaban + ' ya estaban en el catálogo y se omiten' : '') + '.<br>Se suben <b>ocultos y sin precio</b>: pon el precio con ✎ y actívalos para que los vean los clientes.</p>' +
+      (I.lista ? '<p class="hint"><b>' + I.lista.length + '</b> items nuevos para subir (' + esc(resumen) + ')' + (conGemas ? ', <b>' + conGemas + '</b> con gemas' : '') + '.' + (notas.length ? '<br>' + notas.join('.<br>') + '.' : '') + '<br>Se suben <b>ocultos y sin precio</b>: pon el precio con ✎ y actívalos para que los vean los clientes.</p>' +
+        ((I.diag || []).length ? '<p class="hint" style="color:var(--danger)">No pude leer las gemas de: ' + I.diag.map(function (d) { return esc(d.name) + ' (' + esc(d.lineas.join(' / ')) + ')'; }).join('; ') + '. Mándale esta pantalla a Claude para ajustarlo.</p>' : '') +
         (I.lista.length ? '<button type="button" class="btn btn-yellow btn-sm" data-a="impSubir"' + (I.subiendo ? ' disabled' : '') + '>' + (I.subiendo ? 'Subiendo…' : 'Subir ' + I.lista.length + ' items') + '</button>' : '') : '') +
       (I.msg ? '<p class="hint" role="status">' + esc(I.msg) + '</p>' : '') + '</div></div>';
   }
+  function impId(g) { return "inv-" + slugCompra(g.name) + (g.sig ? "-" + g.sig : ""); }
   function impTraer() {
     var I = impEstado(), link = String(I.link || "").trim();
     if (!/[?&]partner=\d+/.test(link)) { I.err = "Pega el trade link completo (debe incluir partner= y token=)."; render(); return; }
-    I.cargando = true; I.err = ""; I.msg = ""; I.lista = null; render();
-    fetch(INV_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ link: link }) })
+    I.cargando = true; I.err = ""; I.msg = ""; I.lista = null; I.borrar = []; render();
+    fetch(INV_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ link: link, detalle: true }) })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (x) {
         I.cargando = false;
         if (!x.ok) { I.err = (x.j && x.j.error) || "No se pudo leer el inventario."; render(); return; }
-        var existentes = {};
-        items.lista.forEach(function (it) { existentes[claveCompra(it.nombre)] = 1; });
+        var porId = {}, porNombre = {};
+        items.lista.forEach(function (it) { porId[it.id] = it; porNombre[claveCompra(it.nombre)] = it; });
         var todos = (x.j.items || []).filter(function (g) { return IMP_RAREZAS.indexOf(g.rareza) >= 0; });
-        I.lista = todos.filter(function (g) { return !existentes[claveCompra(g.name)]; });
-        I.yaEstaban = todos.length - I.lista.length; I.total = todos.length;
+        var sinGemas = {}; todos.forEach(function (g) { if (!g.sig) sinGemas[claveCompra(g.name)] = 1; });
+        var nuevos = [], reemplazar = {}, ya = 0, conPrecio = 0;
+        todos.forEach(function (g) {
+          if (porId[impId(g)]) { ya++; return; }                                   // mismo item (nombre + gemas): no se toca
+          if (!g.sig) { if (porNombre[claveCompra(g.name)]) { ya++; return; } nuevos.push(g); return; }
+          var base = "inv-" + slugCompra(g.name), viejo = porId[base];             // subido antes, sin gemas
+          if (viejo && !viejo.descripcion && !sinGemas[claveCompra(g.name)]) {
+            if (!viejo.activo && !(viejo.precio > 0)) reemplazar[base] = 1; else { conPrecio++; return; }
+          }
+          nuevos.push(g);
+        });
+        I.lista = nuevos; I.borrar = Object.keys(reemplazar); I.yaEstaban = ya; I.conPrecio = conPrecio; I.total = todos.length; I.diag = x.j.diag || [];
         if (!todos.length) I.msg = "No hay items intercambiables de esas rarezas en este inventario.";
         render();
       }).catch(function () { I.cargando = false; I.err = "No se pudo conectar. Intenta de nuevo."; render(); });
@@ -1302,9 +1324,10 @@
   function impSubir() {
     var I = impEstado(); if (!I.lista || !I.lista.length || I.subiendo) return;
     var base = "projects/" + FB.projectId + "/databases/(default)/documents/", ahora = Date.now(), lote = [], nuevos = [];
+    (I.borrar || []).forEach(function (id) { lote.push({ delete: base + "rayas_items/" + id }); });
     I.lista.forEach(function (g, k) {
-      var it = { id: "inv-" + slugCompra(g.name), nombre: g.name, img: String(g.icon || "").replace(/\/\d+fx\d+f$/, "/256fx256f"), precio: 0, stock: g.n,
-        tipo: g.tipo || "Otro", heroe: g.heroe || "", ranura: g.ranura || "", rareza: g.rareza, calidad: g.calidad || "", estilos: 0, estOk: "", activo: false,
+      var it = { id: impId(g), nombre: g.name, img: String(g.icon || "").replace(/\/\d+fx\d+f$/, "/256fx256f"), precio: 0, stock: g.n,
+        tipo: g.tipo || "Otro", heroe: g.heroe || "", ranura: g.ranura || "", rareza: g.rareza, calidad: g.calidad || "", estilos: 0, estOk: "", descripcion: (g.gemas || []).join("\n"), activo: false,
         creado: new Date(ahora - k).toISOString() };
       nuevos.push(it);
       lote.push({ update: Object.assign({ name: base + "rayas_items/" + it.id }, itemAFields(it)), currentDocument: { exists: false } });
@@ -1322,8 +1345,9 @@
       });
     }
     lotes(0).then(function () {
-      nuevos.forEach(function (it) { items.lista.unshift(it); });
-      I.subiendo = false; I.lista = []; I.msg = "✔ Se subieron " + nuevos.length + " items. Están ocultos y sin precio: edítalos con ✎ para ponerles precio y activarlos.";
+      var quitados = {}; (I.borrar || []).forEach(function (id) { quitados[id] = 1; });
+      items.lista = nuevos.concat(items.lista.filter(function (x) { return !quitados[x.id]; }));
+      I.subiendo = false; I.lista = []; I.borrar = []; I.msg = "✔ Se subieron " + nuevos.length + " items. Están ocultos y sin precio: edítalos con ✎ para ponerles precio y activarlos. Los que ya tenías no se modificaron.";
       render(); hidratarImgs();
     }).catch(function (e) {
       I.subiendo = false; I.err = (e && e.message || "No se pudo subir.") + (hechos ? " (ya se subieron " + hechos + ")" : ""); render();
@@ -2296,7 +2320,7 @@
   }
   function formItemEvento(el) {
     var F = admin.itemForm; if (!F || !el.id || el.id.indexOf("it-") !== 0) return false;
-    var m = { "it-link": "link", "it-nombre": "nombre", "it-precio": "precio", "it-stock": "stock", "it-tipo": "tipo", "it-heroe": "heroe", "it-ranura": "ranura", "it-rareza": "rareza", "it-calidad": "calidad" };
+    var m = { "it-link": "link", "it-nombre": "nombre", "it-precio": "precio", "it-stock": "stock", "it-tipo": "tipo", "it-heroe": "heroe", "it-ranura": "ranura", "it-desc": "descripcion", "it-rareza": "rareza", "it-calidad": "calidad" };
     if (el.id === "it-activo") { F.activo = el.checked; return true; }
     if (el.id === "it-estilos") {
       F.estilos = el.value;
