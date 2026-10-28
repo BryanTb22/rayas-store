@@ -1,0 +1,96 @@
+/* =====================================================================
+   TEMA NUEVO de Rayas Store (opcional, separado del diseño original).
+   Todo va bajo  html.tn  : si esa clase no está, nada de esto se aplica.
+   Mismos colores de siempre (azul noche, amarillo y fucsia); cambia la forma:
+   fondo con luz y partículas, tarjetas de cristal, botones con brillo.
+   ===================================================================== */
+html.tn { --tn-glow-y: rgba(255, 201, 60, .35); --tn-glow-f: rgba(255, 45, 143, .32); --tn-cristal: rgba(15, 26, 60, .62); --tn-cristal-2: rgba(22, 35, 77, .55); --tn-borde: rgba(255, 224, 138, .16); }
+
+/* ---------- Fondo vivo ---------- */
+html.tn body { background: #050a1c; }
+#tnFondo, #tnParticulas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+#tnFondo { overflow: hidden; background: radial-gradient(1100px 700px at 50% -10%, #12206a55, transparent 70%), linear-gradient(180deg, #060c24, #050a1c 60%, #07102e); }
+#tnFondo i { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; will-change: transform; }
+#tnFondo i:nth-child(1) { width: 52vmax; height: 52vmax; left: -14vmax; top: -16vmax; background: radial-gradient(circle, rgba(255, 45, 143, .42), transparent 65%); animation: tnFlota1 26s ease-in-out infinite alternate; }
+#tnFondo i:nth-child(2) { width: 46vmax; height: 46vmax; right: -12vmax; top: 18vh; background: radial-gradient(circle, rgba(60, 90, 230, .5), transparent 65%); animation: tnFlota2 31s ease-in-out infinite alternate; }
+#tnFondo i:nth-child(3) { width: 40vmax; height: 40vmax; left: 25vw; bottom: -22vmax; background: radial-gradient(circle, rgba(255, 201, 60, .22), transparent 65%); animation: tnFlota1 36s ease-in-out infinite alternate-reverse; }
+@keyframes tnFlota1 { from { transform: translate(0, 0) scale(1); } to { transform: translate(6vw, 8vh) scale(1.15); } }
+@keyframes tnFlota2 { from { transform: translate(0, 0) scale(1.1); } to { transform: translate(-8vw, -6vh) scale(.95); } }
+html.tn #app { position: relative; z-index: 1; }
+
+/* ---------- Barra superior de cristal ---------- */
+html.tn .topbar { background: rgba(6, 12, 36, .55); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); border-bottom: 1px solid var(--tn-borde); }
+html.tn .logo { text-shadow: 0 0 22px var(--tn-glow-y); }
+html.tn .logo-img { border-radius: 12px; box-shadow: 0 0 0 1px var(--tn-borde), 0 0 20px var(--tn-glow-f); }
+html.tn .nav a.navlink { position: relative; padding: 6px 2px; transition: color .2s; }
+html.tn .nav a.navlink::after { content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--yellow), var(--fuchsia)); transform: scaleX(0); transform-origin: left; transition: transform .25s ease; }
+html.tn .nav a.navlink:hover::after, html.tn .nav a.navlink.on::after { transform: scaleX(1); }
+html.tn .nav .lock { border-radius: 999px; background: rgba(255, 255, 255, .04); border-color: var(--tn-borde); transition: all .2s; }
+html.tn .nav .lock:hover { box-shadow: 0 0 18px var(--tn-glow-y); }
+
+/* ---------- Portada ---------- */
+html.tn .hero { background: transparent; border-bottom: 0; }
+html.tn .hero::before { background: radial-gradient(60% 70% at 78% 40%, rgba(255, 45, 143, .16), transparent 70%), radial-gradient(50% 60% at 20% 30%, rgba(255, 201, 60, .08), transparent 70%); }
+html.tn .hero h1 { background: linear-gradient(100deg, #fff 10%, var(--yellow-2) 50%, var(--yellow) 90%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 28px rgba(255, 201, 60, .25)); }
+html.tn .hero h1 em { background: linear-gradient(100deg, var(--yellow), var(--fuchsia)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.tn .hero p { color: #d6dcf7; }
+html.tn .badge { border-radius: 999px; background: rgba(255, 255, 255, .05); border-color: var(--tn-borde); backdrop-filter: blur(8px); }
+html.tn .hero-logo { filter: drop-shadow(0 10px 40px rgba(255, 45, 143, .35)); }
+
+/* ---------- Títulos de sección ---------- */
+html.tn .sec-title h2 { letter-spacing: .06em; }
+html.tn .sec-title h2 span:not(.t1) { background: linear-gradient(100deg, var(--yellow-2), var(--yellow) 45%, var(--fuchsia)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.tn .orn { color: var(--yellow); filter: drop-shadow(0 0 10px var(--tn-glow-y)); }
+
+/* ---------- Marcos y tarjetas de cristal ---------- */
+html.tn .frame { clip-path: none; border-radius: 22px; background: linear-gradient(145deg, rgba(255, 224, 138, .35), rgba(255, 224, 138, .08) 40%, rgba(255, 45, 143, .22)); box-shadow: 0 10px 34px rgba(0, 0, 0, .35); }
+html.tn .frame > .in { clip-path: none; border-radius: 21px; background: linear-gradient(180deg, var(--tn-cristal-2), var(--tn-cristal)); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); }
+html.tn .frame.gold { background: linear-gradient(135deg, rgba(255, 201, 60, .7), rgba(255, 224, 138, .1) 40%, rgba(255, 45, 143, .5)); }
+html.tn .card.frame { background: linear-gradient(160deg, color-mix(in srgb, var(--r) 75%, transparent), rgba(255, 224, 138, .08) 45%, color-mix(in srgb, var(--r) 40%, transparent)); }
+html.tn .card { transition: transform .25s cubic-bezier(.2, .8, .2, 1), filter .25s; }
+html.tn .card:hover { transform: translateY(-6px) scale(1.01); filter: drop-shadow(0 16px 34px color-mix(in srgb, var(--r) 45%, transparent)); }
+html.tn .card .rbar { height: 3px; }
+html.tn .card .pic { border-radius: 0; }
+html.tn .step .in { background: linear-gradient(180deg, rgba(40, 60, 140, .35), var(--tn-cristal)); }
+html.tn .band { border-block: 1px solid var(--tn-borde); }
+html.tn .band.lava::before, html.tn .band.sombra::before { opacity: .55; }
+html.tn .footer { background: rgba(6, 12, 36, .6); backdrop-filter: blur(12px); border-top: 1px solid var(--tn-borde); }
+
+/* ---------- Botones ---------- */
+html.tn .btn { position: relative; overflow: hidden; clip-path: none; border-radius: 999px; transition: transform .2s, box-shadow .25s, filter .2s; }
+html.tn .btn::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .45), transparent); transform: skewX(-20deg); transition: left .55s ease; pointer-events: none; }
+html.tn .btn:hover::after { left: 130%; }
+html.tn .btn-yellow { box-shadow: 0 6px 22px rgba(255, 201, 60, .35); }
+html.tn .btn-yellow:hover { box-shadow: 0 8px 30px rgba(255, 201, 60, .55); }
+html.tn .btn-fuchsia { box-shadow: 0 6px 22px rgba(255, 45, 143, .35); }
+html.tn .btn-fuchsia:hover { box-shadow: 0 8px 30px rgba(255, 45, 143, .55); }
+html.tn .btn-ghost { background: rgba(255, 255, 255, .05); box-shadow: inset 0 0 0 1px var(--tn-borde); backdrop-filter: blur(6px); }
+html.tn .btn-ghost:hover { box-shadow: inset 0 0 0 1px var(--yellow), 0 0 18px var(--tn-glow-y); }
+
+/* ---------- Catálogo de items ---------- */
+html.tn .itabs, html.tn .ifilt, html.tn .itadm .in, html.tn .ofr-t, html.tn .idesc, html.tn .ipg-foto, html.tn .impcard, html.tn .imprepo { background: var(--tn-cristal); border-color: var(--tn-borde); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+html.tn .itab { transition: all .2s; }
+html.tn .itab.on { background: linear-gradient(180deg, var(--yellow-2), var(--yellow)); color: var(--on-yellow); box-shadow: 0 4px 18px rgba(255, 201, 60, .4); }
+html.tn .icard { background: linear-gradient(180deg, rgba(22, 35, 77, .7), rgba(11, 20, 48, .7)); border-color: var(--tn-borde); backdrop-filter: blur(10px); transition: transform .25s cubic-bezier(.2, .8, .2, 1), border-color .2s, box-shadow .25s; }
+html.tn .icard:hover, html.tn .icard:focus-visible { transform: translateY(-6px); border-color: rgba(255, 201, 60, .7); box-shadow: 0 18px 38px rgba(0, 0, 0, .45), 0 0 26px rgba(255, 201, 60, .22); }
+html.tn .ipg-precio { background: linear-gradient(90deg, rgba(255, 201, 60, .16), rgba(11, 20, 48, .55)); box-shadow: 0 0 34px rgba(255, 201, 60, .12); }
+html.tn .ofr-r { transition: background .2s, box-shadow .2s; }
+html.tn .ofr-r:hover { background: rgba(255, 201, 60, .07); }
+html.tn .ipg-crumb a { transition: color .2s; }
+
+/* ---------- Campos ---------- */
+html.tn input[type=search], html.tn input[type=text], html.tn input[type=number], html.tn input[type=url], html.tn input[type=email], html.tn input[type=password], html.tn input:not([type]), html.tn select, html.tn textarea { background: rgba(5, 10, 28, .55); border-color: var(--tn-borde); transition: border-color .2s, box-shadow .2s; }
+html.tn input:focus, html.tn select:focus, html.tn textarea:focus { border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(255, 201, 60, .18); outline: none; }
+
+/* ---------- Ventanas y paneles ---------- */
+html.tn .elegir, html.tn .itm-box, html.tn .drawer { background: linear-gradient(180deg, rgba(22, 35, 77, .92), rgba(11, 20, 48, .95)); backdrop-filter: blur(18px); border-color: var(--tn-borde); }
+html.tn .scrim, html.tn .itm-scrim { backdrop-filter: blur(4px); }
+
+/* ---------- Detalles ---------- */
+html.tn ::selection { background: rgba(255, 201, 60, .35); }
+html.tn ::-webkit-scrollbar { width: 10px; height: 10px; }
+html.tn ::-webkit-scrollbar-track { background: transparent; }
+html.tn ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--yellow), var(--fuchsia)); border-radius: 10px; border: 2px solid #050a1c; }
+
+@media (max-width: 760px) { #tnFondo i { filter: blur(60px); } html.tn .card:hover, html.tn .icard:hover { transform: none; } }
+@media (prefers-reduced-motion: reduce) { #tnFondo i { animation: none !important; } #tnParticulas { display: none; } html.tn .btn::after { display: none; } }
