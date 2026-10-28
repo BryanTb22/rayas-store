@@ -1107,3 +1107,25 @@ input[type=search], input[type=text], input[type=number], input[type=url], input
 .carr-q .btn{min-width:34px;padding-inline:10px}
 .carr-t b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;text-align:left;line-height:1.25}
 .carr-t small{text-align:left}
+
+/* Ofertas del item (como lis-skins): tabla Gemas / Estilos / Precio / Acción */
+.ofr{margin-top:34px}
+.ofr-top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.ofr-top h3{margin:0}
+.ofr-f{display:flex;gap:8px}
+.ofr-f input{width:130px;min-height:40px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:var(--fg);font:inherit}
+.ofr-h,.ofr-r{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,.9fr) minmax(0,1.4fr)}
+.ofr-r{cursor:pointer}
+.ofr-e{display:flex;gap:6px;flex-wrap:wrap}
+.ofr-e .est{min-width:26px;text-align:center;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.08);font-size:.8rem}
+.ofr-e .est.lock{opacity:.45;text-decoration:line-through}
+.ofr-b{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+.ofr-cart{position:relative}
+.ofr-cart i{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:99px;background:var(--fuchsia);color:#fff;font-size:11px;font-style:normal;display:grid;place-items:center}
+.ofr-ag{color:var(--danger,#e5484d);font-weight:700}
+.ofr-vacio{padding:18px;text-align:center;color:var(--muted);border-top:1px solid var(--line)}
+@media (max-width:640px){
+  .ofr-h{display:none}
+  .ofr-r{grid-template-columns:1fr auto;grid-template-areas:"g p" "e b";row-gap:8px}
+  .ofr-g{grid-area:g}.ofr-p{grid-area:p;text-align:right}.ofr-e{grid-area:e}.ofr-b{grid-area:b;display:flex}
+}

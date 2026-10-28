@@ -1009,7 +1009,7 @@
       '<div class="ipg-precio"><div class="pp-top"><b>' + fmtPrecio(it.precio) + '</b>' + (dto ? '<span class="pp-dto" title="Descuento frente al precio del Mercado de Steam">-' + dto + ' %</span>' : '') + '<span class="pp-cred">o ' + cred + ' créditos</span></div>' +
       steamHtml(it, true) +
       (agot ? '' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> créditos.</p>' : '<p class="hint">Para pagar con créditos entra a tu cuenta.</p>')) +
-      '<div class="pp-btns">' + btns + '</div></div></div>' + ofertasHtml(it) + '</div>');
+      '<div class="pp-btns">' + btns + '</div></div></div></div>' + ofertasHtml(it));
   }
 
   /* ===== Admin: panel de stock de items ===== */
@@ -1213,15 +1213,26 @@
     var k = sinTildes(it.nombre);
     return items.lista.filter(function (x) { return sinTildes(x.nombre) === k && (x.activo || admin.puede); }).sort(function (a, b) { return (a.precio || 0) - (b.precio || 0); });
   }
+  var ofe = { min: "", max: "" };
+  function ofertaFilaHtml(x, curId) {
+    var cur = x.id === curId, agot = x.stock <= 0, ne = Number(x.estilos) || 0, ok = estilosOkLista(x);
+    var est = ne ? [1, 2, 3, 4, 5, 6, 7, 8].slice(0, ne).map(function (k) { return '<span class="est' + (ok.indexOf(k) >= 0 ? '' : ' lock') + '">' + k + '</span>'; }).join("") : '<em>—</em>';
+    return '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + (gemChipsHtml(x) || '<em>Sin gemas</em>') + '</span>' +
+      '<span class="ofr-e">' + est + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b>' + (x.stock > 1 ? '<small>x' + x.stock + ' en stock</small>' : '') + '</span>' +
+      '<span class="ofr-b">' + (agot ? '<span class="ofr-ag">Agotado</span>' : '<button type="button" class="btn btn-yellow btn-sm" data-a="carAhora" data-id="' + esc(x.id) + '">⚡ Comprar ahora</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm ofr-cart' + (carro[x.id] ? ' en' : '') + '" data-a="carAdd" data-id="' + esc(x.id) + '" aria-label="Agregar al carrito" title="Agregar al carrito">🛒' + (carro[x.id] ? '<i>' + carro[x.id] + '</i>' : '') + '</button>') + '</span></div>';
+  }
+  function ofertasTablaHtml(it) {
+    var mn = parseFloat(String(ofe.min).replace(",", ".")), mx = parseFloat(String(ofe.max).replace(",", "."));
+    var l = ofertasDe(it).filter(function (x) { return (!isFinite(mn) || x.precio >= mn) && (!isFinite(mx) || x.precio <= mx); });
+    return '<div class="ofr-h"><span>Gemas / Runas</span><span>Estilos desbloqueados</span><span>Precio</span><span>Acción</span></div>' +
+      (l.length ? l.map(function (x) { return ofertaFilaHtml(x, it.id); }).join("") : '<div class="ofr-vacio">Ninguna oferta en ese rango de precio.</div>');
+  }
   function ofertasHtml(it) {
-    var l = ofertasDe(it); if (l.length < 2) return "";
-    return '<div class="ofr"><h3>' + l.length + ' ofertas de este item</h3><div class="ofr-t"><div class="ofr-h"><span>Gemas</span><span>Estilos</span><span>Precio</span><span></span></div>' +
-      l.map(function (x) {
-        var cur = x.id === it.id, agot = x.stock <= 0, ne = Number(x.estilos) || 0;
-        return '<a class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + '" href="#item/' + esc(x.id) + '"><span class="ofr-g">' + (gemChipsHtml(x) || '<em>Sin gemas</em>') + '</span>' +
-          '<span class="ofr-e">' + (ne ? (estilosOkLista(x).length || 1) + '/' + ne : '—') + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b>' + (x.stock > 1 ? '<small>x' + x.stock + '</small>' : '') + '</span>' +
-          '<span class="ofr-b">' + (cur ? 'Viendo' : (agot ? 'Agotado' : 'Ver')) + '</span></a>';
-      }).join("") + '</div></div>';
+    var n = ofertasDe(it).length;
+    return '<div class="ofr"><div class="ofr-top"><h3>📚 ' + n + (n === 1 ? ' oferta' : ' ofertas') + ' de este item</h3>' +
+      '<div class="ofr-f"><input id="ofe-min" inputmode="decimal" placeholder="Precio desde" value="' + esc(ofe.min) + '" aria-label="Precio desde"><input id="ofe-max" inputmode="decimal" placeholder="Precio hasta" value="' + esc(ofe.max) + '" aria-label="Precio hasta"></div></div>' +
+      '<div class="ofr-t" id="ofrTabla">' + ofertasTablaHtml(it) + '</div></div>';
   }
   function mensajeItem(it) {
     var p = cuenta.perfil;
@@ -1440,6 +1451,12 @@
       "\n🔗 Mi trade link: " + String(ven.link).trim() + (p ? "\n\n👤 " + p.nombre + " (📧 " + p.email + ")" : "") + "\n\n¿Me confirmas? 🙏✨";
   }
   function ventaEvento(el) {
+    if (el.id === "ofe-min" || el.id === "ofe-max") {
+      ofe[el.id === "ofe-min" ? "min" : "max"] = el.value;
+      var t = document.getElementById("ofrTabla"), it0 = itemPorId(idItemHash());
+      if (t && it0) { t.innerHTML = ofertasTablaHtml(it0); hidratarImgs(); }
+      return true;
+    }
     if (el.id === "ven-link") { ven.link = el.value; return true; }
     if (el.id === "imp-link") { impEstado().link = el.value; return true; }
     if (el.id.indexOf("imp-rep-") === 0) {
