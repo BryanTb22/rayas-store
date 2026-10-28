@@ -216,3 +216,60 @@ html.tn .icard .imeta { height: auto; min-height: 52px; overflow: visible; align
 html.tn .iprice b { white-space: nowrap; font-size: 26px; }
 html.tn .iprice { flex-wrap: nowrap; }
 html.tn .pp-btns .btn { white-space: normal; text-align: center; line-height: 1.25; }
+
+/* =====================================================================
+   AFINADO (ronda 3): portada, secciones, encabezado en celular, barra de edición
+   ===================================================================== */
+/* Imagen de Dota en la portada: suave, a la derecha, mezclada con el fondo (deja ver las partículas) */
+html.tn .hero::after { content: ""; position: absolute; inset: 0 0 0 36%; z-index: -1; pointer-events: none; background: var(--art-hero, url("img/art-dota2.jpg")) 60% 22% / cover no-repeat; opacity: .5;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 42%, #000 85%, transparent), linear-gradient(0deg, transparent, #000 35%); -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent, #000 42%, #000 85%, transparent), linear-gradient(0deg, transparent, #000 35%); mask-composite: intersect; }
+@media (max-width: 760px) { html.tn .hero::after { inset: 0; opacity: .22; } }
+
+/* "¿Qué buscas?": las tarjetas se reparten solas en una fila (sin una tarjeta suelta abajo) */
+html.tn .cards2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; max-width: 1140px; margin-inline: auto; }
+html.tn .svc .ico { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 20px; font-size: 30px; color: var(--yellow); background: radial-gradient(circle at 30% 20%, rgba(255, 201, 60, .22), rgba(255, 45, 143, .12)); box-shadow: inset 0 0 0 1px var(--tn-borde), 0 8px 24px rgba(0, 0, 0, .3); }
+html.tn .svc .ico .tn-i { width: 30px; height: 30px; }
+html.tn .svc h3 { font-family: var(--title); letter-spacing: .04em; }
+html.tn .svc { transition: transform .25s cubic-bezier(.2, .8, .2, 1), filter .25s; }
+html.tn .svc:hover { transform: translateY(-6px); filter: drop-shadow(0 16px 30px rgba(255, 201, 60, .2)); }
+
+/* Encabezado en celular: logo y botones sin pisarse */
+@media (max-width: 560px) {
+  html.tn .topbar .wrap { gap: 8px; }
+  html.tn .logo { font-size: 17px; letter-spacing: .05em; gap: 8px; }
+  html.tn .logo-img { width: 36px; height: 36px; border-radius: 10px; }
+  html.tn .nav { gap: 6px; }
+  html.tn .nav .lock { padding: 6px 10px; font-size: 11px; letter-spacing: .05em; }
+  html.tn .nav .lock.me { max-width: 150px; }
+}
+
+/* Barra de edición del administrador: una sola fila en celular */
+@media (max-width: 640px) {
+  html.tn .editbar .wrap { gap: 6px; flex-wrap: nowrap; padding-block: 6px; }
+  html.tn .editbar .estado { display: none; }
+  html.tn .editbar .btn { padding: 8px 12px; font-size: 11px; letter-spacing: .05em; white-space: nowrap; }
+  html.tn .editbar .sp { flex: 1; }
+}
+
+/* Filtros cerrados en celular: solo la barra, sin espacio vacío */
+html.tn .ifilt details:not([open]) { padding-bottom: 0; }
+html.tn .ifilt:has(details:not([open])) { padding-bottom: 0; }
+html.tn .ifilt summary { cursor: pointer; list-style-position: inside; }
+
+/* Pasos, ganadores y reglas con el mismo cristal */
+html.tn .winner .in, html.tn .rules .in { background: linear-gradient(180deg, var(--tn-cristal-2), var(--tn-cristal)); }
+html.tn .winner .thumb { border-radius: 16px; }
+html.tn .step .n { filter: drop-shadow(0 0 12px rgba(255, 201, 60, .4)); }
+
+/* Ajustes tras la ronda 3 */
+html.tn .imeta span .tn-i, html.tn .imeta .gem .tn-i { padding: 0; background: none; border: 0; border-radius: 0; text-transform: none; width: 1.2em; height: 1.2em; vertical-align: -.25em; }
+html.tn .imeta .gem { display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 640px) { html.tn .ibar select { width: 100%; } html.tn .ibar { flex-wrap: wrap; } }
+@media (max-width: 430px) { html.tn .logo { font-size: 14.5px; letter-spacing: .03em; } html.tn .logo-img { width: 32px; height: 32px; } html.tn .nav .lock { padding: 6px 8px; font-size: 10.5px; } }
+@media (max-width: 640px) {
+  html.tn #fi-orden { width: 100%; max-width: none; }
+  html.tn .iprice b { font-size: 22px; }
+  html.tn .ibuy { padding: 7px 11px; font-size: 11px; letter-spacing: .06em; }
+  html.tn .ibody { padding: 12px 12px 14px; }
+}
