@@ -988,9 +988,9 @@
     var l = items.lista.filter(function (x) { return x.id !== it.id && sinTildes(x.nombre) !== sinTildes(it.nombre) && x.stock > 0 && (x.activo || admin.puede); });
     var mismo = l.filter(function (x) { return it.heroe && x.heroe === it.heroe; }), tipo = l.filter(function (x) { return x.tipo === it.tipo && (!it.heroe || x.heroe !== it.heroe); });
     var vistos = {}, out = [];
-    mismo.concat(tipo).forEach(function (x) { var k = sinTildes(x.nombre); if (!vistos[k] && out.length < 6) { vistos[k] = 1; out.push(x); } });
+    mismo.concat(tipo).forEach(function (x) { var k = sinTildes(x.nombre); if (!vistos[k] && out.length < 14) { vistos[k] = 1; out.push(x); } });
     if (!out.length) return '';
-    return '<div class="ofr"><div class="ofr-top"><h3>✨ También te puede interesar</h3></div><div class="igrid">' + out.map(itemCardHtml).join("") + '</div></div>';
+    return '<div class="ofr"><div class="ofr-top"><h3>✨ También te puede interesar</h3><div class="rel-flechas"><button type="button" class="rel-f" data-a="relMov" data-d="-1" aria-label="Anterior">←</button><button type="button" class="rel-f" data-a="relMov" data-d="1" aria-label="Siguiente">→</button></div></div><div class="rel-fila">' + out.map(itemCardHtml).join("") + '</div></div>';
   }
   function comprarHtml() {
     if (idItemHash()) return paginaItemHtml(idItemHash());
@@ -2666,6 +2666,7 @@
       case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; render(); break;
       case "editRapido": admin.fichaU = "u_" + t.getAttribute("data-uid"); admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cantPart": var xq = (partes[t.getAttribute("data-id")] || []).filter(function (y) { return y.uid === t.getAttribute("data-uid"); })[0]; if (xq) guardarCantidad(t.getAttribute("data-id"), xq.uid, xq.cantidad + Number(t.getAttribute("data-d"))); break;
+      case "relMov": var rf = t.closest(".ofr").querySelector(".rel-fila"); if (rf) rf.scrollBy({ left: Number(t.getAttribute("data-d")) * Math.max(220, rf.clientWidth * 0.8), behavior: "smooth" }); break;
       case "itTipo": filtros.tipo = t.getAttribute("data-v") || ""; filtros.pag = 0; render(); sincHash(); break;
       case "itReset": filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "mayor", pag: 0 }; render(); sincHash(); break;
       case "itPag": filtros.pag = Math.max(0, Number(t.getAttribute("data-p")) || 0); pintarItems(); var gp = document.getElementById("itemsGrid"); if (gp && gp.scrollIntoView) gp.scrollIntoView({ block: "start", behavior: "smooth" }); break;
