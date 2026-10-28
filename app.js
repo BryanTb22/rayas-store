@@ -2175,7 +2175,7 @@
       '<header class="topbar gutter"><div class="wrap">' +
       '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
       '<nav class="nav"><a class="navlink' + (vista === "inicio" ? ' on' : '') + '" href="#inicio">Inicio</a>' + (rifasVisible() ? '<a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' : '') +
-      (admin.puede ? '<button class="lock" type="button" data-a="admin">Panel admin</button>'
+      (admin.puede ? '<button class="lock" type="button" data-a="admin">Panel admin</button><button class="lock" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button>'
         : (cuenta.perfil ? '<button class="lock hot misrifas" type="button" data-a="misRifas">🎟️ Mis rifas</button><button class="lock me" type="button" data-a="miCuenta"><b>◆ ' + cuenta.perfil.creditos + '</b> soles<span class="nm"> · ' + esc(cuenta.perfil.nombre || "Mi cuenta") + '</span></button>'
           : (leerSesion() ? '<button class="lock" type="button" data-a="miCuenta">Mi cuenta</button>'
             : '<button class="lock" type="button" data-a="entrar">Entrar</button><button class="lock hot" type="button" data-a="registro">Crear cuenta</button>'))) +
@@ -2525,7 +2525,7 @@
       lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
       '</div>' + (admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : listaPremios()))));
     return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
-      '<div class="drawer-head"><h2>' + titulo + '</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar</button></div>' +
+      '<div class="drawer-head"><h2>' + titulo + '</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" type="button" data-a="salir" title="Cerrar la sesión de administrador" style="color:var(--danger,#ff7a7a)">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
       '<div class="drawer-body">' + cuerpo + '</div>' +
       (admin.editando ? '' :
         '<div class="drawer-foot">' +
