@@ -1170,15 +1170,14 @@
       '<div class="ff"><label for="fi-rareza">Rareza</label><select id="fi-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), filtros.rareza, "Todas") + '</select></div>' +
       '<div class="ff"><label for="fi-calidad">Calidad</label><select id="fi-calidad">' + opciones(distintos("calidad", ITEM_CALIDADES), filtros.calidad, "Todas") + '</select></div>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-a="itReset" style="width:100%">Restablecer filtros</button></details></aside>';
-    return '<section class="section gutter" id="comprar"><div class="wrap">' +
-      '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><div class="orn">◆</div></div>' +
+    return '<section class="section gutter" id="comprar"><div class="wrap">' + migaCatalogoHtml(filtros.tipo, filtros.heroe, "") +
+      '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><p>Elige tu item y págalo con tu saldo o por WhatsApp.</p><div class="orn">◆</div></div>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala con el interruptor de abajo cuando esté lista.</p>') + switchItems() +
       (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkAbrir">📦 Stock de items</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + importarHtml() : '') +
-      ((filtros.tipo || filtros.heroe) ? migaCatalogoHtml(filtros.tipo, filtros.heroe, "") : '') +
       '<div class="itabs">' + tabs + '</div>' +
       '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar items…" value="' + esc(filtros.q) + '" autocomplete="off">' +
       '<select id="fi-orden" aria-label="Ordenar">' + [["nuevo", "Más nuevos"], ["menor", "Precio: menor a mayor"], ["mayor", "Precio: mayor a menor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (filtros.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
-      '<span class="icount" id="itemsCuenta"></span></div><div class="fchips" id="itemsChips">' + chipsHtml() + '</div>' + (avisoNuevoItem ? '<div class="itaviso" role="status">✔ Item agregado. Mantuve tus filtros, así que quizá no lo veas en la lista. <button type="button" class="fchip limpiar" data-a="itReset">Quitar filtros</button></div>' : '') + '<div id="itemsGrid">' + gridItemsHtml() + '</div></div></div></div></section>';
+      '<span class="icount" id="itemsCuenta">' + (items.cargado ? itemsFiltrados().length + ' items' : '') + '</span></div><div class="fchips" id="itemsChips">' + chipsHtml() + '</div>' + (avisoNuevoItem ? '<div class="itaviso" role="status">✔ Item agregado. Mantuve tus filtros, así que quizá no lo veas en la lista. <button type="button" class="fchip limpiar" data-a="itReset">Quitar filtros</button></div>' : '') + '<div id="itemsGrid">' + gridItemsHtml() + '</div></div></div></div></section>';
   }
   document.addEventListener("toggle", function (ev) { var d = ev.target; if (d && d.tagName === "DETAILS" && d.closest && d.closest("#comprar .ifilt")) filtAbierto = d.open; }, true);
   function filtroEvento(el) {
@@ -1662,7 +1661,8 @@
         '<button class="btn btn-yellow" type="button" data-a="venWsp"' + (T.n && contactos().length ? '' : ' disabled') + '>💬 Vender por WhatsApp</button></div>';
     }
     return '<section class="section gutter" id="vender"><div class="wrap">' +
-      '<div class="sec-title"><div class="kicker">Tus items</div><h2><span class="t1">Vender</span> <span>items</span></h2><div class="orn">◆</div></div>' +
+      '<div class="ipg-crumb"><a href="#inicio">Inicio</a> <span>›</span> <span>Vender items</span></div>' +
+      '<div class="sec-title"><div class="kicker">Tus items</div><h2><span class="t1">Vender</span> <span>items</span></h2><p>Pega tu trade link, elige lo que quieres vender y mira cuánto te pagamos.</p><div class="orn">◆</div></div>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala con el interruptor de abajo cuando esté lista.</p>') + switchItems() +
       '<div class="vlink frame"><div class="in"><label for="ven-link">Tu trade link de Steam</label>' +
       '<div class="vrow"><input id="ven-link" type="url" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(ven.link) + '" autocomplete="off">' +
