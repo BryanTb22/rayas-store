@@ -109,11 +109,13 @@
     var enviar = function (tk) {
       var h = { "Content-Type": "application/json" }; if (tk) h.Authorization = "Bearer " + tk;
       return fetch(PAGOS.urlSteamIniciar, { method: "POST", headers: h, body: JSON.stringify({ origen: location.origin, ruta: location.pathname }) })
+        .catch(function () { throw new Error("Steam todavía no está activado: falta publicar la función del servidor. Mientras tanto entra con Google o con tu correo."); })
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j.url) throw new Error(j.error || "No se pudo conectar con Steam."); return j.url; }); });
     };
     cuenta.msg = "Abriendo Steam…"; cuenta.msgTipo = ""; render();
     (vincular ? token() : Promise.resolve(null)).then(enviar).then(function (url) { location.href = url; }).catch(function (e) {
       cuenta.msg = (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : ((e && e.message) || "No se pudo conectar con Steam. Intenta de nuevo."); cuenta.msgTipo = "err"; render();
+      setTimeout(function () { var m = document.querySelector(".drawer p[role=status]"); if (m && m.scrollIntoView) m.scrollIntoView({ block: "center" }); }, 50);
     });
   }
   function leerHashSteam() {
