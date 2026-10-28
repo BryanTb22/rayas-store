@@ -1200,3 +1200,14 @@ body.itm-open{overflow:hidden}
 .urow.open .urow-h { border-bottom: 1px solid rgba(255, 255, 255, .08); margin-bottom: 8px; }
 .urow.open > .pbtn { width: calc(100% - 28px); box-sizing: border-box; }
 .urow.open > .btn { width: calc(100% - 28px); }
+
+/* ---------- Inicio: franja de confianza, últimos ganadores, tarjetas del mismo alto ---------- */
+.trust { list-style: none; margin: 34px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; }
+.trust li { display: flex; flex-direction: column; gap: 2px; padding: 10px 16px; border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 85%, transparent); }
+.trust .t-ico { font-size: 20px; }
+.trust b { font-size: 14px; letter-spacing: .06em; text-transform: uppercase; }
+.trust small { color: var(--muted); font-size: 12.5px; }
+.ult-mas { text-align: center; margin: 22px 0 0; }
+.cards2 .svc, .cards2 .svc > .in { height: 100%; }
+.cards2 .svc > .in { display: flex; flex-direction: column; align-items: center; }
+.cards2 .svc > .in > .btn { margin-top: auto; }
