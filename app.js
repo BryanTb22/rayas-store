@@ -1974,6 +1974,17 @@
   }
   function rifasOn() { return !(estado.secciones && estado.secciones.rifas === false); }
   function rifasVisible() { return !!(admin.puede || rifasOn()); }
+  function ultimosGanadoresHtml(cerradas) {
+    var g = (cerradas || []).filter(function (p) { return String(p.ganador || "").trim(); });
+    g.sort(function (a, b) { return String(b.cierre || b.resultado || "").localeCompare(String(a.cierre || a.resultado || "")); });
+    g = g.slice(0, 3);
+    if (!g.length || !rifasVisible()) return "";
+    return '<section class="section gutter" id="ultimos"><div class="wrap"><div class="sec-title"><div class="kicker">Salón de la fama</div><h2><span class="t1">Últimos</span> <span>ganadores</span></h2><div class="orn">◆</div></div>' +
+      '<div class="winners ult">' + g.map(function (p) {
+        return '<div class="winner frame gold"><div class="in"><div class="thumb">' + imgTag(p.img, "", ' loading="lazy"') + '</div>' +
+          '<div class="who"><b>' + esc(p.ganador) + '</b><span>' + esc(p.nombre) + (p.cierre ? ' · ' + esc(fechaCorta(p.cierre)) : '') + '</span></div><span class="crown">🏆 GANÓ</span></div></div>';
+      }).join("") + '</div><p class="ult-mas"><a class="btn btn-ghost btn-sm" href="#ganadores">Ver todos los ganadores</a></p></div></section>';
+  }
   function itemsVisible() { return !!(admin.puede || (estado.secciones && estado.secciones.items)); }
   function vistaDeHash() {
     var h = String(location.hash || "").replace("#", "");
@@ -2079,6 +2090,9 @@
         (V ? '<h1' + ed("t:inicioTitulo", "Título") + '>' + esc(T.inicioTitulo) + '</h1>' : '<h1>' + tituloHtml(T.inicioTitulo) + '</h1>') +
         tx("p", "inicioSub") +
         '<div class="actions">' + (rifasVisible() ? lnk("btn btn-yellow", "#rifas", "cardRifasBtn") : '') + btnRecargar("btn btn-fuchsia", "btnCreditos", linkCreditos) + '</div>' +
+        '<ul class="trust" aria-label="Por qué comprar aquí"><li><span class="t-ico">🎮</span><b>Entrega por Steam</b><small>Directo a tu inventario</small></li>' +
+        '<li><span class="t-ico">💳</span><b>Pago con Yape / tarjeta</b><small>Rápido y seguro</small></li>' +
+        '<li><span class="t-ico">🎲</span><b>Ganador al azar</b><small>Sorteo justo en vivo</small></li></ul>' +
         '</div></section>' +
         '<section class="section gutter" id="secciones"><div class="wrap"><div class="sec-title"><div class="kicker">Nuestras secciones</div><h2><span class="t1">¿Qué</span> <span>buscas?</span></h2><div class="orn">◆</div></div>' +
         '<div class="cards2">' +
@@ -2087,7 +2101,7 @@
           var c = v === "comprar";
           return '<a class="svc frame' + (estado.secciones.items ? ' gold' : '') + '" href="#' + v + '"><div class="in">' + (estado.secciones.items ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">' + (c ? '🛒' : '💰') + '</span><h3>' + (c ? 'Comprar items' : 'Vender items') + '</h3><p>' + (c ? 'Compra items de Dota 2 de forma segura.' : 'Vende tus items de Dota 2 de forma segura.') + '</p><span class="btn btn-fuchsia">' + (c ? 'Ver items' : 'Vender') + '</span></div></a>';
         }).join("") : '') +
-        '</div></div></section>';
+        '</div></div></section>' + ultimosGanadoresHtml(cerradas);
       if (vista === "comprar") cargarItems();
       if (vista === "vender") cargarPrecios();
       var itemsHtml = vista === "comprar" ? comprarHtml() : vista === "vender" ? venderHtml() : '<section class="section gutter" id="' + vista + '"><div class="wrap">' +
