@@ -9,6 +9,7 @@ const { packPorSoles, MIN_ORDEN, totalConComision } = require("./packs");
 const culqi = require("./culqi");
 const sets = require("./sets");
 const inv = require("./inventario");
+const sc = require("./steamcache");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -295,17 +296,25 @@ exports.inventario = onRequest(
     const okSid = okIp && await dentroDelLimite("sid:" + sid, 6, 10 * 60 * 1000);
     if (!okIp || !okSid) return res.status(429).json({ error: "Demasiadas consultas seguidas. Espera unos minutos e intenta de nuevo." });
     try {
-      const r = await fetch("https://steamcommunity.com/inventory/" + sid + "/570/2?l=english&count=2000", {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; RayasStore/1.0)", "Accept": "application/json" }
+      const detalle = (req.body || {}).detalle === true;
+      // El inventario de un mismo cliente se guarda 10 min: consultas repetidas no vuelven a molestar a Steam.
+      const x = await sc.conCache(db, "inv:" + sid + ":" + (detalle ? "d" : "n"), 10 * 60 * 1000, async () => {
+        const r = await fetch("https://steamcommunity.com/inventory/" + sid + "/570/2?l=english&count=2000", {
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; RayasStore/1.0)", "Accept": "application/json" }
+        });
+        if (r.status === 403 || r.status === 401) { const e = new Error("priv"); e.http = 403; throw e; }
+        if (r.status === 429) { const e = new Error("429"); e.limite = true; throw e; }
+        if (r.status === 500) { const e = new Error("nolee"); e.http = 404; throw e; }
+        if (!r.ok) { const e = new Error("steam " + r.status); e.http = 502; throw e; }
+        const data = await r.json();
+        if (!data || !data.assets) return { items: [], noTradables: 0 };
+        return detalle ? inv.agruparDetalle(data) : inv.agrupar(data);
       });
-      if (r.status === 403 || r.status === 401) return res.status(403).json({ error: "Tu inventario es privado. En Steam: Perfil → Editar perfil → Privacidad → Inventario: Público." });
-      if (r.status === 429) return res.status(429).json({ error: "Steam está limitando las consultas. Intenta de nuevo en unos minutos." });
-      if (r.status === 500) return res.status(404).json({ error: "No se pudo leer ese inventario. Revisa tu trade link y que tu inventario sea público." });
-      if (!r.ok) return res.status(502).json({ error: "Steam no respondió (" + r.status + "). Intenta de nuevo." });
-      const data = await r.json();
-      if (!data || !data.assets) return res.json({ ok: true, items: [], noTradables: 0 });
-      return res.json(Object.assign({ ok: true }, (req.body || {}).detalle === true ? inv.agruparDetalle(data) : inv.agrupar(data)));
+      return res.json(Object.assign({ ok: true }, x.valor));
     } catch (e) {
+      if (e && e.limite) return res.status(429).json({ error: "Steam está limitando las consultas. Intenta de nuevo en unos minutos." });
+      if (e && e.http === 403) return res.status(403).json({ error: "Tu inventario es privado. En Steam: Perfil → Editar perfil → Privacidad → Inventario: Público." });
+      if (e && e.http === 404) return res.status(404).json({ error: "No se pudo leer ese inventario. Revisa tu trade link y que tu inventario sea público." });
       console.error("inventario", e);
       return res.status(502).json({ error: "No se pudo consultar Steam. Intenta de nuevo en un momento." });
     }
@@ -440,9 +449,11 @@ exports.itemSteam = onRequest(
     const nombre = steam.nombreDesdeLink((req.body || {}).link);
     if (!nombre) return res.status(400).json({ error: "Pega un link del Mercado de Steam de Dota 2 (steamcommunity.com/market/listings/570/…)." });
     try {
-      res.json({ ok: true, item: await steam.leerItem(nombre) });
+      // Un item ya leído se guarda 24 h; "refrescar" lo vuelve a pedir a Steam (salvo que Steam esté en pausa).
+      const x = await sc.conCache(db, "item:" + nombre, 24 * 3600 * 1000, () => steam.leerItem(nombre), { forzar: (req.body || {}).refrescar === true });
+      res.json({ ok: true, item: x.valor, deCache: x.deCache, viejo: x.viejo });
     } catch (e) {
-      res.status(502).json({ error: (e && e.message) || "No se pudo leer el item de Steam." });
+      res.status(e && e.limite ? 429 : 502).json({ error: (e && e.message) || "No se pudo leer el item de Steam." });
     }
   }
 );
@@ -455,11 +466,19 @@ exports.preciosSteam = onRequest(
     const uid = await uidDeLaPeticion(req);
     if (uid !== ADMIN_UID) return res.status(403).json({ error: "Solo el administrador puede usar esto." });
     const nombres = ((req.body || {}).nombres || []).filter((n) => typeof n === "string" && n.trim() && n.length <= 150).slice(0, 6);
-    const precios = {}; let limite = false;
-    for (let i = 0; i < nombres.length && !limite; i++) {
-      if (i > 0) await new Promise((r) => setTimeout(r, 2600));
-      const x = await steam.precioUsd(nombres[i]);
-      if (x.limite) limite = true; else precios[nombres[i]] = x.usd;
+    const precios = {}; let limite = false, pidio = false;
+    for (let i = 0; i < nombres.length; i++) {
+      try {
+        // Cada precio vale 6 h en caché: solo se consulta a Steam lo que falte, con 2,6 s entre consultas.
+        const x = await sc.conCache(db, "precio:" + nombres[i], 6 * 3600 * 1000, async () => {
+          if (pidio) await new Promise((r) => setTimeout(r, 2600));
+          pidio = true;
+          const y = await steam.precioUsd(nombres[i]);
+          if (y.limite) { const e = new Error("429"); e.limite = true; throw e; }
+          return { usd: y.usd };
+        });
+        if (x.valor && x.valor.usd) precios[nombres[i]] = x.valor.usd;
+      } catch (e) { if (e && e.limite) { limite = true; break; } }
     }
     res.json({ ok: true, precios, limite });
   }
