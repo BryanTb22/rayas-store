@@ -267,11 +267,12 @@ exports.comprarItem = onRequest(
           total += precio * qty; count += qty;
         });
         total = Math.round(total * 100) / 100;
-        creditos = Math.max(1, Math.ceil(total - 1e-9)); // soles enteros: se redondea el TOTAL, no cada item
+        creditos = total; // se descuentan los céntimos exactos
         if (!u.exists) throw new Error("SIN_PERFIL");
         const d = u.data();
         const saldo = Number(d.creditos || 0);
-        if (saldo < creditos) { const er = new Error("SIN_CREDITOS"); er.falta = creditos - saldo; throw er; }
+        if (saldo + 1e-9 < creditos) { const er = new Error("SIN_CREDITOS"); er.falta = Math.round((creditos - saldo) * 100) / 100; throw er; }
+        const nuevoSaldo = Math.round((saldo - creditos) * 100) / 100;
         const pedido = {
           code: code, customerName: String(d.nombre || "Cliente").slice(0, 60), steamId: String(d.steam || "").slice(0, 20),
           items: lineas.map((l) => l.line),
@@ -281,10 +282,10 @@ exports.comprarItem = onRequest(
           email: String(d.email || ""), tradelink: String(d.tradelink || "")
         };
         if (d.whatsapp) pedido.phone = String(d.whatsapp).slice(0, 40);
-        tx.update(uRef2, { creditos: FV.increment(-creditos) });
+        tx.update(uRef2, { creditos: nuevoSaldo });
         lineas.forEach((l) => tx.update(l.ref, { stock: l.stock - l.qty }));
         tx.create(oRef, pedido);
-        return { saldo: saldo - creditos, creditos: creditos, count: count, pedido: pedido };
+        return { saldo: nuevoSaldo, creditos: creditos, count: count, pedido: pedido };
       });
       // Aviso al correo del administrador. Nunca rompe la compra: si falla, el pedido igual queda en el panel.
       try {
