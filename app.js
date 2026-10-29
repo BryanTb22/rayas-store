@@ -2212,11 +2212,10 @@
     if (vistaActual === "rifas" && !rifasVisible()) vistaActual = itemsVisible() ? "comprar" : "inicio";
     return vistaActual;
   }
-  // Menú desplegable de usuario (en Comprar / Vender items): datos de la cuenta, recargar, perfil, transacciones y cerrar sesión.
+  // Menú desplegable de usuario (en todas las secciones): datos de la cuenta, recargar, perfil, transacciones y cerrar sesión.
   function menuUsuarioHtml(vista) {
     var p = cuenta.perfil;
     var boton = '<b>◆ ' + fmtSol(p.creditos) + '</b> soles<span class="nm"> · ' + esc(p.nombre || "Mi cuenta") + '</span>';
-    if (vista !== "comprar" && vista !== "vender") return '<button class="lock me" type="button" data-a="miCuenta">' + boton + '</button>';
     return '<span class="udrop"><button class="lock me" type="button" data-a="udropToggle" aria-haspopup="menu" aria-expanded="false">' + boton + '<span class="udrop-fl" aria-hidden="true"> ▾</span></button>' +
       '<div class="udrop-menu" role="menu">' +
       '<div class="udrop-head"><b>' + esc(p.nombre || "Mi cuenta") + '</b><small>' + esc(p.email || "") + '</small><span class="udrop-saldo">Saldo: <b>S/ ' + fmtSol(p.creditos) + '</b></span></div>' +

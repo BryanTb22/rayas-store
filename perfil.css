@@ -123,3 +123,8 @@
   .pf-dr > span[data-l]::before { content: attr(data-l) ": "; color: var(--muted); font-size: 12px; }
   .pf-dr > .r { justify-self: start; text-align: left; }
 }
+
+/* Cabecera: que los enlaces y botones no se partan en dos líneas */
+.topbar .nav a.navlink, .topbar .nav .lock { white-space: nowrap; }
+/* en pantallas medianas no caben los enlaces de la rifa (Cómo participar, Ganadores, Reglas): quedan en la página de Rifas */
+@media (max-width: 1360px) and (min-width: 761px) { .topbar .nav a.navlink ~ a.navlink { display: none; } }
