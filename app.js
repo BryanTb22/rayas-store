@@ -325,7 +325,7 @@
   var sucio = false;
 
   var cuenta = { modo: null, perfil: null, msg: "", msgTipo: "" };
-  var admin = { puede: esAdmin(), usuarios: null, uFiltro: "", uMsg: "", vivo: false, imgEdit: null, imgErr: "", subiendo: null, login: false, abierto: false, tab: "premios", editando: null, borrar: null, msg: "", msgTipo: "" };
+  var admin = { puede: esAdmin(), usuarios: null, pedidos: null, uFiltro: "", uMsg: "", vivo: false, imgEdit: null, imgErr: "", subiendo: null, login: false, abierto: false, tab: "premios", editando: null, borrar: null, msg: "", msgTipo: "" };
 
   /* ================= Utilidades ================= */
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -2513,9 +2513,67 @@
       '<button class="btn btn-ghost btn-sm" type="button" data-a="recargarU">Actualizar lista</button></div>';
   }
 
-  var TABS_ADMIN = { config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pagina: "Textos y contactos" };
+
+  /* ---- Pedidos de items (solo admin) ---- */
+  var PED_ESTADOS = [["pagado", "💰 Por entregar"], ["entregado", "✅ Entregado"], ["cancelado", "✖ Cancelado"]];
+  function leerPedidoDoc(d) {
+    var f = d.fields || {}, sv = function (k) { return f[k] && f[k].stringValue || ""; }, nv = function (k) { var x = f[k]; return x ? Number(x.doubleValue !== undefined ? x.doubleValue : x.integerValue || 0) : 0; };
+    var its = ((f.items && f.items.arrayValue && f.items.arrayValue.values) || []).map(function (v) {
+      var m = (v.mapValue && v.mapValue.fields) || {};
+      return { nombre: m.name && m.name.stringValue || "Item", qty: Number(m.qty && (m.qty.integerValue || m.qty.doubleValue) || 1), precio: Number(m.price && (m.price.doubleValue !== undefined ? m.price.doubleValue : m.price.integerValue) || 0) };
+    });
+    return { id: d.name.split("/").pop(), code: sv("code") || d.name.split("/").pop(), cliente: sv("customerName"), steam: sv("steamId"), email: sv("email"), tradelink: sv("tradelink"),
+      whatsapp: sv("phone"), estado: sv("status") || "pagado", tienda: sv("tienda"), total: nv("total"), creditos: nv("creditos"), items: its,
+      fecha: f.createdAt && f.createdAt.timestampValue ? new Date(f.createdAt.timestampValue) : null };
+  }
+  function cargarPedidos() {
+    admin.pedMsg = "Cargando…"; admin.pedCargando = true;
+    return token().then(function (tk) {
+      return fetch(BASE.replace("/documents/", "/documents:runQuery"), { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
+        body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "orders" }], where: { fieldFilter: { field: { fieldPath: "origen" }, op: "EQUAL", value: { stringValue: "items" } } }, limit: 300 } }) });
+    }).then(function (r) { if (!r.ok) throw new Error(r.status === 403 ? "Firebase no te deja leer los pedidos." : "Error " + r.status); return r.json(); })
+      .then(function (j) {
+        admin.pedidos = (j || []).filter(function (x) { return x.document; }).map(function (x) { return leerPedidoDoc(x.document); })
+          .filter(function (p) { return p.tienda !== "litlejacob"; })
+          .sort(function (a, b) { return (b.fecha || 0) - (a.fecha || 0); });
+        admin.pedMsg = ""; admin.pedCargando = false; render();
+      }).catch(function (e) { admin.pedidos = []; admin.pedMsg = e.message; admin.pedCargando = false; render(); });
+  }
+  function cambiarEstadoPedido(id, estado) {
+    var p = (admin.pedidos || []).filter(function (x) { return x.id === id; })[0]; if (!p) return;
+    var antes = p.estado; p.estado = estado; render();
+    fsPedir("orders/" + encodeURIComponent(id) + "?updateMask.fieldPaths=status&updateMask.fieldPaths=updatedAt", {
+      method: "PATCH", body: JSON.stringify({ fields: { status: { stringValue: estado }, updatedAt: { timestampValue: new Date().toISOString() } } })
+    }).then(function (r) { if (!r.ok) throw new Error("Error " + r.status); })
+      .catch(function (e) { p.estado = antes; admin.pedMsg = "No se guardó: " + e.message; render(); });
+  }
+  function tabPedidos() {
+    if (admin.pedidos === null) { cargarPedidos(); return '<p class="hint">Cargando pedidos…</p>'; }
+    var fl = admin.pedFiltro || "pagado", todos = admin.pedidos;
+    var cuenta = function (k) { return todos.filter(function (p) { return k === "todos" || p.estado === k; }).length; };
+    var chips = [["pagado", "💰 Por entregar"], ["entregado", "✅ Entregados"], ["cancelado", "✖ Cancelados"], ["todos", "Todos"]].map(function (c) {
+      return '<button class="subtab" type="button" role="tab" data-a="pedFiltro" data-f="' + c[0] + '" aria-selected="' + (fl === c[0]) + '">' + c[1] + ' (' + cuenta(c[0]) + ')</button>'; }).join("");
+    var lista = todos.filter(function (p) { return fl === "todos" || p.estado === fl; });
+    return '<div class="subtabs" role="tablist">' + chips + '</div><div class="grp"><h3>Pedidos de items (' + lista.length + ')</h3>' +
+      (admin.pedMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.pedMsg) + '</p>' : '') +
+      '<div class="ulist">' + (lista.length ? lista.map(function (p) {
+        var ab = admin.pedAbierto === p.id, n = p.items.reduce(function (a, i) { return a + i.qty; }, 0);
+        var cab = '<button type="button" class="urow-h" data-a="pedAbrir" data-id="' + esc(p.id) + '" aria-expanded="' + ab + '"><b>' + esc(p.cliente || "Sin nombre") + ' · ' + n + (n === 1 ? ' item' : ' items') + '</b><span class="usal">' + fmtPrecio(p.total) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
+        if (!ab) return '<div class="urow compact">' + cab + '</div>';
+        return '<div class="urow open">' + cab + '<div class="t"><span>Pedido <b style="display:inline">' + esc(p.code) + '</b> · ' + (p.fecha ? esc(p.fecha.toLocaleString("es-PE")) : "") + '</span>' +
+          p.items.map(function (i) { return '<span>' + i.qty + ' × ' + esc(i.nombre) + ' — ' + fmtPrecio(i.precio * i.qty) + '</span>'; }).join("") +
+          '<span>ID de Steam: ' + esc(p.steam || "—") + '</span><span>WhatsApp: ' + esc(p.whatsapp || "—") + '</span><span>' + esc(p.email) + '</span>' +
+          (tradeValido(p.tradelink) ? '<span><a href="' + esc(p.tradelink) + '" target="_blank" rel="noopener">Abrir trade link ↗</a></span>' : '<span style="color:var(--fuchsia)">Sin trade link</span>') +
+          '<span>Pagado con saldo: S/ ' + esc(p.creditos) + '</span></div>' +
+          '<div class="field"><label>Estado</label><select data-a="pedEstado" data-id="' + esc(p.id) + '">' + PED_ESTADOS.map(function (e) { return '<option value="' + e[0] + '"' + (p.estado === e[0] ? ' selected' : '') + '>' + e[1] + '</option>'; }).join("") + '</select></div>' +
+          (p.estado === "cancelado" ? '<p class="hint">Cancelar no devuelve el saldo solo: súmalo en Usuarios y saldo.</p>' : '') + '</div>';
+      }).join("") : '<p class="hint">No hay pedidos aquí. Cuando alguien compre un item aparecerá y te llegará un correo.</p>') + '</div>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-a="pedRecargar">Actualizar lista</button></div>';
+  }
+
+  var TABS_ADMIN = { config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pedidos: "🛒 Pedidos", pagina: "Textos y contactos" };
   function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : "inicio"; }
-  function tabsDeSeccion(sc) { return sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "compras", "usuarios"] : ["config", "usuarios", "pagina"]; }
+  function tabsDeSeccion(sc) { return sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios"] : ["config", "usuarios", "pagina"]; }
   function panelAdmin() {
     var sc = seccionAdmin(), lista = tabsDeSeccion(sc);
     if (lista.indexOf(admin.tab) < 0) admin.tab = lista[0];
@@ -2525,7 +2583,7 @@
     if (admin.editando) cuerpo = formPremio();
     else cuerpo = '<div class="tabs" role="tablist">' +
       lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
-      '</div>' + (admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : listaPremios()))));
+      '</div>' + (admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pedidos" ? tabPedidos() : listaPremios()))));
     return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" type="button" data-a="salir" title="Cerrar la sesión de administrador" style="color:var(--danger,#ff7a7a)">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
       '<div class="drawer-body">' + cuerpo + '</div>' +
@@ -3074,6 +3132,9 @@
       case "quitarFoto": estado.contactos[i].foto = ""; marcarSucio(); render(); break;
       case "cerrarCuenta": quitarHash(); cuenta.modo = null; render(); break;
       case "cred": var uu = (admin.usuarios || []).filter(function (x) { return x.uid === t.getAttribute("data-uid"); })[0]; if (uu && !uu.guardando) guardarCreditos(uu.uid, uu.creditos + Number(t.getAttribute("data-d"))); break;
+      case "pedAbrir": var pid = t.getAttribute("data-id"); admin.pedAbierto = admin.pedAbierto === pid ? null : pid; render(); break;
+      case "pedFiltro": admin.pedFiltro = t.getAttribute("data-f"); render(); break;
+      case "pedRecargar": admin.pedidos = null; render(); break;
       case "recargarU": admin.usuarios = null; render(); break;
       case "cerrar": leerForm(); quitarHash(); admin.abierto = false; admin.editando = null; render(); break;
       case "tab": admin.tab = t.getAttribute("data-t"); render(); break;
@@ -3131,7 +3192,7 @@
       case "borrarId": var kb = buscarPremio(t.getAttribute("data-id")); if (kb >= 0) { estado.premios.splice(kb, 1); admin.borrar = null; marcarSucio(); render(); } break;
       case "nuevaRegla": estado.textos.reglas.push(""); marcarSucio(); render(); var lr = document.querySelector('[data-edit="r:' + (estado.textos.reglas.length - 1) + '"]'); if (lr) lr.focus(); break;
       case "borrarRegla": estado.textos.reglas.splice(i, 1); marcarSucio(); render(); break;
-      case "salir": guardarSesion(null); admin.puede = false; admin.abierto = false; admin.vivo = false; admin.usuarios = null; cuenta.perfil = null; cuenta.modo = null; estado = clone(publicado); sucio = false; render(); break;
+      case "salir": guardarSesion(null); admin.puede = false; admin.abierto = false; admin.vivo = false; admin.usuarios = null; admin.pedidos = null; cuenta.perfil = null; cuenta.modo = null; estado = clone(publicado); sucio = false; render(); break;
     }
   });
 
@@ -3209,6 +3270,7 @@
       return;
     }
     if (ev.target.id === "f-hasta") { var fc = document.getElementById("f-cierre"); if (fc) { fc.disabled = ev.target.checked; if (ev.target.checked) fc.value = ""; } return; }
+    if (ev.target.getAttribute && ev.target.getAttribute("data-a") === "pedEstado") { cambiarEstadoPedido(ev.target.getAttribute("data-id"), ev.target.value); return; }
     if (ev.target.classList && ev.target.classList.contains("credset")) { guardarCreditos(ev.target.getAttribute("data-uid"), num(ev.target.value, 0)); return; }
     if (ev.target.classList && ev.target.classList.contains("upfile") && ev.target.files && ev.target.files[0]) {
       var pid = ev.target.getAttribute("data-id");
