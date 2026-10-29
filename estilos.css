@@ -1331,3 +1331,10 @@ html { scroll-padding-top: 84px; }
 .urow, .urow-h { min-width: 0; max-width: 100%; box-sizing: border-box; }
 .urow-h .uav { margin-right: -2px; }
 .ficha > * { min-width: 0; max-width: 100%; }
+
+/* Items que ya existen / acciones de admin en la tabla de ofertas */
+.dupbox { border: 1px solid var(--yellow, #ffc93c); background: rgba(255, 201, 60, .06); padding: 10px; border-radius: 10px; margin: 8px 0; }
+.dupbox h3 { color: var(--yellow, #ffc93c); font-size: 15px; margin: 0 0 6px; }
+.ofr-adm { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 10px; }
+.ofr-b { flex-wrap: wrap; justify-content: flex-end; }
+.ofr-b .btn { flex: none; }
