@@ -284,7 +284,7 @@ function pedidoNuevo(tienda, p) {
   ];
   const stats = [
     { valor: soles(p.total), etiqueta: "Total del pedido" },
-    { valor: String(p.creditos), etiqueta: "Saldo descontado" },
+    { valor: soles(p.creditos), etiqueta: "Saldo descontado" },
   ];
   const titulo = "¡Pedido nuevo!";
   const subject = `🛒 Pedido nuevo ${p.code}: ${p.nombre || "cliente"} (${soles(p.total)}) · ${m.nombre}`;

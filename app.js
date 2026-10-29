@@ -541,7 +541,7 @@
     var cerrar = '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>';
     if (m.tipo === "sinSaldo") {
       var rl = creditoHref();
-      h = '<h3>Saldo insuficiente 😕</h3><p class="hint">La rifa de <b>' + esc(m.p.nombre) + '</b> cuesta <b>' + m.p.cred + '</b> soles y tú tienes <b>' + (c ? c.creditos : 0) + '</b>. Recarga saldo para poder participar.</p>';
+      h = '<h3>Saldo insuficiente 😕</h3><p class="hint">La rifa de <b>' + esc(m.p.nombre) + '</b> cuesta <b>' + m.p.cred + '</b> soles y tú tienes <b>' + fmtSol(c ? c.creditos : 0) + '</b>. Recarga saldo para poder participar.</p>';
       btns = (recargaOn() ? '<button class="btn btn-fuchsia" type="button" data-a="recargar">💳 Recargar saldo</button>' : '') +
         (rl ? '<a class="btn btn-yellow" href="' + esc(rl) + '"' + (rl === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>💎 ' + (pagosOn() ? 'Pedir por WhatsApp' : 'Recargar saldo') + '</a>' : '') + cerrar;
     } else if (m.tipo === "recarga") {
@@ -574,7 +574,7 @@
     } else if (m.tipo === "carrito") {
       var mc = carroHtml(); h = mc.h; btns = mc.btns;
     } else if (m.tipo === "itemOk") {
-      h = '<h3>¡Compra lista! 🎉</h3><p class="hint">Compraste <b>' + esc(m.nombre) + '</b>. Pedido <b>' + esc(m.code) + '</b>. Te quedan <b>' + m.saldo + '</b> soles. Te escribiremos para entregártelo por Steam; asegúrate de tener tu link de intercambio en tu cuenta.</p>';
+      h = '<h3>¡Compra lista! 🎉</h3><p class="hint">Compraste <b>' + esc(m.nombre) + '</b>. Pedido <b>' + esc(m.code) + '</b>. Te quedan <b>' + fmtSol(m.saldo) + '</b> soles. Te escribiremos para entregártelo por Steam; asegúrate de tener tu link de intercambio en tu cuenta.</p>';
       btns = cerrar;
     } else if (m.tipo === "yape") {
       var yp = estado.yape || {};
@@ -585,7 +585,7 @@
       btns = '<button class="btn btn-ghost btn-sm" type="button" data-a="yapeBajar">⬇ Descargar QR</button><button class="btn btn-yellow" type="button" data-a="yapeAvisar">✅ Ya pagué · enviar captura por WhatsApp</button><button class="btn btn-ghost btn-sm" type="button" data-a="volverRecarga">← Cambiar monto</button>' + cerrar;
     } else if (m.tipo === "efectivoPend") {
       h = '<h3>Código de pago listo 💵</h3><p class="hint">Se abrió tu código de pago por <b>S/ ' + m.soles + '</b>. Págalo en un agente, banco, app bancaria o con QR (vale por 24 horas). Cuando Culqi lo confirme, tu saldo se suman solos; puede tardar unos minutos.</p>' +
-        '<p class="hint">Tienes <b>' + (c ? c.creditos : 0) + '</b> soles ahora.</p>';
+        '<p class="hint">Tienes <b>' + fmtSol(c ? c.creditos : 0) + '</b> soles ahora.</p>';
       btns = '<button class="btn btn-fuchsia" type="button" data-a="refrescarSaldo">🔄 Ya pagué · actualizar mi saldo</button>' + cerrar;
     } else if (m.tipo === "recargaOk") {
       h = '<h3>¡Recarga lista! 🎉</h3><p class="hint">Se sumaron <b>' + m.creditos + '</b> soles' + (m.promo ? ' (incluye tu regalo de primera recarga 🎁)' : '') + '. Ahora tienes <b>' + (c ? c.creditos : 0) + '</b>.</p>';
@@ -594,7 +594,7 @@
       var tot = m.qty * m.p.cred;
       h = '<h3>¿Entrar a la rifa? 🎟️</h3><p class="hint">Rifa: <b>' + esc(m.p.nombre) + '</b> · ' + m.p.cred + ' soles por ticket.' + (m.mio ? ' Ya tienes <b>' + m.mio + '</b> ' + (m.mio === 1 ? 'ticket' : 'tickets') + '.' : '') + '</p>' +
         '<div class="qty" role="group" aria-label="Cantidad de tickets"><button type="button" data-a="qtyMenos"' + (m.qty <= 1 ? ' disabled' : '') + ' aria-label="Menos">−</button><span><b>' + m.qty + '</b><small>' + (m.qty === 1 ? 'ticket' : 'tickets') + '</small></span><button type="button" data-a="qtyMas"' + (m.qty >= m.max ? ' disabled' : '') + ' aria-label="Más">+</button></div>' +
-        '<div class="qtot"><div><small>Total</small><b>S/ ' + tot + '</b></div><div><small>Te quedarán</small><b>S/ ' + (c.creditos - tot) + '</b></div></div>' +
+        '<div class="qtot"><div><small>Total</small><b>S/ ' + tot + '</b></div><div><small>Te quedarán</small><b>S/ ' + fmtSol(c.creditos - tot) + '</b></div></div>' +
         '<p class="hint">' + (m.max < 100 ? 'Máximo ahora: ' + m.max + '. ' : '') + 'Más tickets = más chances de ganar 🍀</p>';
       btns = '<button class="btn btn-yellow" type="button" data-a="confirmarPart">✔ Confirmar ' + m.qty + (m.qty === 1 ? ' ticket' : ' tickets') + '</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cancelar</button>';
     } else if (m.tipo === "cargando") {
@@ -1195,7 +1195,7 @@
     if (!items.cargado && !items.err) return envol(miga("") + '<div class="empty frame"><div class="in"><strong>Cargando item…</strong></div></div>');
     var it = itemPorId(id);
     if (!it || (!it.activo && !admin.puede)) return envol(miga("") + '<div class="empty frame"><div class="in"><strong>Este item no está disponible</strong><span>Puede que ya se haya vendido o que aún no esté publicado.</span><a class="btn btn-yellow btn-sm" href="#comprar" style="margin-top:12px">Ver todos los items</a></div></div>');
-    var col = colorRareza(it.rareza), agot = it.stock <= 0, cred = Math.ceil(it.precio - 1e-9), sol = steamSoles(it);
+    var col = colorRareza(it.rareza), agot = it.stock <= 0, cred = Math.round(it.precio * 100) / 100, sol = steamSoles(it);
     var dto = sol && it.precio > 0 && it.precio < sol ? Math.round((1 - it.precio / sol) * 100) : 0;
     var fila = function (k, v) { return v ? '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>' : ''; };
     var attrs = fila("Héroe", esc(it.heroe)) + fila("Ranura", esc(it.ranura)) + fila("Tipo", esc(it.tipo)) +
@@ -1209,7 +1209,7 @@
       '<div class="ipg-info"><dl class="ipg-attrs">' + attrs + '</dl>' + estilosHtml(it) + descripcionHtml(it) +
       '<div class="ipg-precio"><div class="pp-top"><b>' + fmtPrecio(it.precio) + '</b>' + (dto ? '<span class="pp-dto" title="Descuento frente al precio del Mercado de Steam">-' + dto + ' %</span>' : '') + '</div>' +
       steamHtml(it, true) +
-      (agot ? '' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> soles.</p>' : '<p class="hint">Para pagar con tu saldo entra a tu cuenta.</p>')) +
+      (agot ? '' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + fmtSol(cuenta.perfil.creditos) + '</b> soles.</p>' : '<p class="hint">Para pagar con tu saldo entra a tu cuenta.</p>')) +
       '<div class="pp-btns">' + btns + '</div></div></div></div>' + ofertasHtml(it) + parecidosHtml(it) +
       (agot ? '' : '<div class="ipg-sticky"><div class="ips-p"><small>Precio</small><b>' + fmtPrecio(it.precio) + '</b></div><button class="btn btn-fuchsia" type="button" data-a="carAdd" data-id="' + esc(it.id) + '">🛒 ' + (carro[it.id] ? '✔ En el carrito (' + carro[it.id] + ')' : 'Agregar al carrito') + '</button></div>'));
   }
@@ -1385,13 +1385,13 @@
 
   function modalItemHtml(m) {
     var it = itemPorId(m.id); if (!it) return { h: '<h3>Item no encontrado</h3>', btns: '' };
-    var cred = Math.ceil(it.precio - 1e-9), agot = it.stock <= 0, col = colorRareza(it.rareza);
+    var cred = Math.round(it.precio * 100) / 100, agot = it.stock <= 0, col = colorRareza(it.rareza);
     var h = '<h3>' + esc(it.nombre) + '</h3>' +
       '<div class="ithumb big" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') + '</div>' +
       '<p class="hint">' + [it.rareza, it.calidad, it.tipo, it.heroe, it.ranura].filter(Boolean).map(esc).join(' · ') + '</p>' + estilosHtml(it) + descripcionHtml(it) +
       '<p class="resumen">Precio: <b>' + fmtPrecio(it.precio) + '</b></p>' + steamHtml(it, true) +
-      (agot ? '<p class="hint" style="color:var(--danger)">Este item está agotado.</p>' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + cuenta.perfil.creditos + '</b> soles.</p>' : '<p class="hint">Para pagar con tu saldo entra a tu cuenta.</p>'));
-    var btns = agot ? '' : ('<button class="btn btn-fuchsia" type="button" data-a="itCred" data-id="' + esc(it.id) + '">💎 Pagar con tu saldo (S/ ' + cred + ')</button>' +
+      (agot ? '<p class="hint" style="color:var(--danger)">Este item está agotado.</p>' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + fmtSol(cuenta.perfil.creditos) + '</b> soles.</p>' : '<p class="hint">Para pagar con tu saldo entra a tu cuenta.</p>'));
+    var btns = agot ? '' : ('<button class="btn btn-fuchsia" type="button" data-a="itCred" data-id="' + esc(it.id) + '">💎 Pagar con tu saldo (' + fmtPrecio(cred) + ')</button>' +
       (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="itWsp" data-id="' + esc(it.id) + '">💬 Comprar por WhatsApp</button>' : ''));
     return { h: h, btns: btns };
   }
@@ -1483,10 +1483,10 @@
   }
   function carroTotales() {
     var sol = 0, cred = 0;
-    carroLineas().forEach(function (l) { sol += l.it.precio * l.qty; cred += Math.ceil(l.it.precio - 1e-9) * l.qty; });
+    carroLineas().forEach(function (l) { sol += l.it.precio * l.qty; });
     sol = Math.round(sol * 100) / 100;
-    // El saldo se cobra en soles enteros: se redondea hacia arriba el TOTAL del carrito (no cada item).
-    return { sol: sol, cred: sol > 0 ? Math.max(1, Math.ceil(sol - 1e-9)) : 0 };
+    // El saldo se descuenta con céntimos exactos.
+    return { sol: sol, cred: sol };
   }
   function carroAgregar(id) {
     var it = itemPorId(id); if (!it || it.stock <= 0) return false;
@@ -1496,7 +1496,7 @@
     if (!items.cargado) { cargarItems(); return { h: '<h3>Tu carrito 🛒</h3><p class="hint">Cargando…</p>', btns: '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>' }; }
     var l = carroLineas(), T = carroTotales(), cerrar = '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>';
     if (!l.length) return { h: '<h3>Tu carrito 🛒</h3><p class="hint">Está vacío. Elige items del catálogo y pulsa <b>Al carrito</b>.</p>', btns: cerrar };
-    var saldo = cuenta.perfil ? Number(cuenta.perfil.creditos) || 0 : null, falta = saldo === null ? 0 : T.cred - saldo;
+    var saldo = cuenta.perfil ? Number(cuenta.perfil.creditos) || 0 : null, falta = saldo === null ? 0 : Math.round((T.cred - saldo) * 100) / 100;
     var h = '<h3>Tu carrito 🛒</h3><div class="carl">' + l.map(function (x) {
       var id = esc(x.it.id);
       return '<div class="carr"><div class="carr-t"><span class="carr-img">' + (x.it.img ? imgTag(x.it.img, "", ' width="56" height="56"') : '<span class="sinfoto">—</span>') + '</span><span class="carr-n"><b>' + esc(x.it.nombre) + '</b><small>' + fmtPrecio(x.it.precio) + ' c/u</small></span></div>' +
@@ -1505,11 +1505,10 @@
         '<div class="carr-s"><b>' + fmtPrecio(x.it.precio * x.qty) + '</b><button type="button" class="carr-x" data-a="carQuitar" data-id="' + id + '" aria-label="Quitar">🗑</button></div></div>';
     }).join("") + '</div>' +
       '<div class="cartot"><div class="cartot-r"><span>Subtotal</span><span>' + fmtPrecio(T.sol) + '</span></div>' +
-      '<div class="cartot-r tot"><span>Total a pagar con saldo</span><b>S/ ' + T.cred + '</b></div>' +
-      (T.cred - T.sol > 0.005 ? '<p class="hint" style="margin:4px 0 8px;font-size:12px">El saldo se usa en soles enteros: el total se redondea hacia arriba (subtotal real ' + fmtPrecio(T.sol) + ').</p>' : '') +
-      (saldo !== null ? '<div class="cartot-r"><span>Tu saldo</span><span>S/ ' + saldo + '</span></div>' +
-        (falta > 0 ? '<p class="cartot-aviso">Te faltan <b>S/ ' + falta + '</b>. Recarga saldo o pídelo por WhatsApp.</p>' : '<div class="cartot-r"><span>Te quedarían</span><span>S/ ' + (saldo - T.cred) + '</span></div>') : '<p class="cartot-aviso">Para pagar con tu saldo entra a tu cuenta.</p>') + '</div>';
-    var btns = '<button class="btn btn-fuchsia" type="button" data-a="carCred">💎 Pagar con tu saldo (S/ ' + T.cred + ')</button>' +
+      '<div class="cartot-r tot"><span>Total a pagar con saldo</span><b>' + fmtPrecio(T.cred) + '</b></div>' +
+      (saldo !== null ? '<div class="cartot-r"><span>Tu saldo</span><span>' + fmtPrecio(saldo) + '</span></div>' +
+        (falta > 0 ? '<p class="cartot-aviso">Te faltan <b>' + fmtPrecio(falta) + '</b>. Recarga saldo o pídelo por WhatsApp.</p>' : '<div class="cartot-r"><span>Te quedarían</span><span>' + fmtPrecio(saldo - T.cred) + '</span></div>') : '<p class="cartot-aviso">Para pagar con tu saldo entra a tu cuenta.</p>') + '</div>';
+    var btns = '<button class="btn btn-fuchsia" type="button" data-a="carCred">💎 Pagar con tu saldo (' + fmtPrecio(T.cred) + ')</button>' +
       (contactos().length ? '<button class="btn btn-yellow" type="button" data-a="carWsp">💬 Pedir por WhatsApp</button>' : '') +
       '<button class="btn btn-ghost btn-sm" type="button" data-a="carVaciar">Vaciar</button>' + cerrar;
     return { h: h, btns: btns };
@@ -2413,7 +2412,7 @@
       titulo = "Mi cuenta";
       var link = creditoHref();
       cuerpo = '<div class="drawer-body">' + (p
-        ? '<div class="saldo frame gold"><div class="in"><small>Tu saldo</small><b>S/ ' + p.creditos + '</b>' + (recargaOn() ? '<button class="btn btn-fuchsia btn-recarga" type="button" data-a="recargar">💳 Recargar saldo</button>' : '') + '</div></div>' + movsHtml() +
+        ? '<div class="saldo frame gold"><div class="in"><small>Tu saldo</small><b>S/ ' + fmtSol(p.creditos) + '</b>' + (recargaOn() ? '<button class="btn btn-fuchsia btn-recarga" type="button" data-a="recargar">💳 Recargar saldo</button>' : '') + '</div></div>' + movsHtml() +
           steamVinculoHtml() + '<form class="grp" id="formTrade"><h3>Mis datos</h3>' +
           '<div class="field"><label for="p-nombre">Nombre o apodo</label><input id="p-nombre" maxlength="40" required value="' + esc(p.nombre) + '"></div>' +
           '<div class="field"><label for="p-wa">WhatsApp</label><input id="p-wa" inputmode="tel" maxlength="30" required value="' + esc(p.whatsapp) + '"></div>' +
@@ -2459,9 +2458,9 @@
     var u = (admin.usuarios || []).filter(function (x) { return x.uid === uid; })[0];
     if (!u) return;
     var antes = u.creditos;
-    u.creditos = Math.max(0, Math.floor(valor)); u.guardando = true; render();
+    u.creditos = Math.max(0, Math.round(Number(valor) * 100) / 100); u.guardando = true; render();
     fsPedir("rayas_users/" + encodeURIComponent(uid) + "?updateMask.fieldPaths=creditos&currentDocument.exists=true", {
-      method: "PATCH", body: JSON.stringify({ fields: { creditos: { integerValue: String(u.creditos) } } })
+      method: "PATCH", body: JSON.stringify({ fields: { creditos: (u.creditos % 1 === 0 ? { integerValue: String(u.creditos) } : { doubleValue: u.creditos }) } })
     }).then(function (r) {
       if (!r.ok) throw new Error("Error " + r.status);
       u.guardando = false; u.ok = Date.now(); render();
@@ -2498,7 +2497,7 @@
           (tradeValido(u.tradelink) ? '<span><a href="' + esc(u.tradelink) + '" target="_blank" rel="noopener">Abrir trade link ↗</a></span>' : '<span style="color:var(--fuchsia)">Sin trade link</span>') + '</div>' +
           '<div class="ucred">' +
           '<button class="iconbtn" type="button" data-a="cred" data-uid="' + id + '" data-d="-1" aria-label="Quitar S/ 1">−</button>' +
-          '<input class="credset" data-uid="' + id + '" type="number" min="0" step="1" inputmode="numeric" value="' + u.creditos + '" aria-label="Saldo de ' + esc(u.nombre) + '">' +
+          '<input class="credset" data-uid="' + id + '" type="number" min="0" step="0.01" inputmode="decimal" value="' + u.creditos + '" aria-label="Saldo de ' + esc(u.nombre) + '">' +
           '<button class="iconbtn" type="button" data-a="cred" data-uid="' + id + '" data-d="1" aria-label="Sumar S/ 1">+</button>' +
           '<button class="iconbtn wide" type="button" data-a="cred" data-uid="' + id + '" data-d="5">+5</button>' +
           '<button class="iconbtn wide" type="button" data-a="cred" data-uid="' + id + '" data-d="10">+10</button>' +
@@ -2566,7 +2565,7 @@
           p.items.map(function (i) { return '<span>' + i.qty + ' × ' + esc(i.nombre) + ' — ' + fmtPrecio(i.precio * i.qty) + '</span>'; }).join("") +
           '<span>ID de Steam: ' + esc(p.steam || "—") + '</span><span>WhatsApp: ' + esc(p.whatsapp || "—") + '</span><span>' + esc(p.email) + '</span>' +
           (tradeValido(p.tradelink) ? '<span><a href="' + esc(p.tradelink) + '" target="_blank" rel="noopener">Abrir trade link ↗</a></span>' : '<span style="color:var(--fuchsia)">Sin trade link</span>') +
-          '<span>Pagado con saldo: S/ ' + esc(p.creditos) + '</span></div>' +
+          '<span>Pagado con saldo: ' + fmtPrecio(p.creditos) + '</span></div>' +
           '<div class="field"><label>Estado</label><select data-a="pedEstado" data-id="' + esc(p.id) + '">' + PED_ESTADOS.map(function (e) { return '<option value="' + e[0] + '"' + (p.estado === e[0] ? ' selected' : '') + '>' + e[1] + '</option>'; }).join("") + '</select></div>' +
           (p.estado === "cancelado" ? '<p class="hint">Cancelar no devuelve el saldo solo: súmalo en Usuarios y saldo.</p>' : '') + '</div>';
       }).join("") : '<p class="hint">No hay pedidos aquí. Cuando alguien compre un item aparecerá y te llegará un correo.</p>') + '</div>' +
@@ -2664,7 +2663,7 @@
     var h = '<div class="ficha"><div class="fhead">' + avatarUsuario(u, true) + '<div class="fnom"><b>' + esc(u.nombre || "(sin nombre)") + '</b>' +
       (u.steamPais ? '<small>📍 ' + esc(u.steamPais) + '</small>' : '') +
       (urlSteamOk(u.steamPerfilUrl) ? '<a href="' + esc(u.steamPerfilUrl) + '" target="_blank" rel="noopener noreferrer">Ver perfil de Steam ↗</a>' : '') + '</div>' +
-      '<span class="fcred">◆ ' + u.creditos + ' soles</span></div>' +
+      '<span class="fcred">◆ ' + fmtSol(u.creditos) + ' soles</span></div>' +
       (u.steamPublico === false ? '<p class="fpriv">🔒 Perfil de Steam privado: no se puede ver su inventario ni verificar la entrega de antemano.</p>' : '') +
       '<div class="frow"><span>Pedidos</span><div>' + pedHtml + '</div></div>' +
       '<div class="frow"><span>WhatsApp</span><div>' + (soloDigitos(u.whatsapp) ? '<a href="https://wa.me/' + esc(waNum(u.whatsapp)) + '" target="_blank" rel="noopener">' + esc(u.whatsapp) + ' ↗</a>' : '—') + '</div></div>' +
@@ -3273,7 +3272,7 @@
     }
     if (ev.target.id === "f-hasta") { var fc = document.getElementById("f-cierre"); if (fc) { fc.disabled = ev.target.checked; if (ev.target.checked) fc.value = ""; } return; }
     if (ev.target.getAttribute && ev.target.getAttribute("data-a") === "pedEstado") { cambiarEstadoPedido(ev.target.getAttribute("data-id"), ev.target.value); return; }
-    if (ev.target.classList && ev.target.classList.contains("credset")) { guardarCreditos(ev.target.getAttribute("data-uid"), num(ev.target.value, 0)); return; }
+    if (ev.target.classList && ev.target.classList.contains("credset")) { guardarCreditos(ev.target.getAttribute("data-uid"), Number(ev.target.value) || 0); return; }
     if (ev.target.classList && ev.target.classList.contains("upfile") && ev.target.files && ev.target.files[0]) {
       var pid = ev.target.getAttribute("data-id");
       admin.subiendo = pid; admin.imgErr = ""; render();
