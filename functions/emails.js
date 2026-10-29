@@ -63,6 +63,9 @@ const fecha = (d) =>
 const etiquetaMedio = (tipo) => (tipo === "orden" ? "PagoEfectivo, QR o billetera" : "Tarjeta o Yape");
 const codigoPedido = (id) => "#" + String(id).slice(0, 8).toUpperCase();
 const marca = (tienda) => MARCAS[tienda] || MARCAS.rayas;
+// Fecha de entrega de un pedido en cooldown ("5 nov 2026, 16:20") y líneas de items con el candado cuando toca.
+const fechaCorta = (d) => new Date(d).toLocaleString("es-PE", { timeZone: "America/Lima", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const lineaItem = (it) => `${it.qty} × ${it.name}` + (it.cooldownHasta ? ` 🔒 (cooldown hasta ${fechaCorta(it.cooldownHasta)})` : "");
 
 // Tipografías: las web fonts casi no cargan en correo; estas pilas dan el mismo aire condensado de Dota en la mayoría de equipos.
 const TITULO = "Oswald,'Barlow Condensed','Arial Narrow','Helvetica Neue',Arial,sans-serif";
@@ -272,9 +275,11 @@ function recordatorio(tienda, p) {
 // ---------------------------------------------------------------------------
 function pedidoNuevo(tienda, p) {
   const m = marca(tienda);
-  const lineas = (p.items || []).map((it) => [`${it.qty} × ${it.name}`, soles(it.price * it.qty)]);
+  const cd = !!p.entrega;   // pedido con items en cooldown: se entrega recién en p.entrega
+  const lineas = (p.items || []).map((it) => [lineaItem(it), soles(it.price * it.qty)]);
   const filas = [
     ...lineas,
+    ...(cd ? [["Entregar a partir de", fecha(p.entrega)]] : []),
     ["Cliente", p.nombre || "—"],
     ["ID de Steam", p.steamId || "—"],
     ["WhatsApp", p.whatsapp || "—"],
@@ -286,21 +291,90 @@ function pedidoNuevo(tienda, p) {
     { valor: soles(p.total), etiqueta: "Total del pedido" },
     { valor: soles(p.creditos), etiqueta: "Saldo descontado" },
   ];
-  const titulo = "¡Pedido nuevo!";
-  const subject = `🛒 Pedido nuevo ${p.code}: ${p.nombre || "cliente"} (${soles(p.total)}) · ${m.nombre}`;
+  const titulo = cd ? "Pedido nuevo en cooldown" : "¡Pedido nuevo!";
+  const subject = cd
+    ? `🔒 Pedido nuevo ${p.code} en cooldown: entregar el ${fechaCorta(p.entrega)} · ${m.nombre}`
+    : `🛒 Pedido nuevo ${p.code}: ${p.nombre || "cliente"} (${soles(p.total)}) · ${m.nombre}`;
   const boton = { texto: "Ver pedidos", url: m.url };
   const html = layout(m, {
     titulo,
-    preheader: `${p.nombre || "Un cliente"} compró items por ${soles(p.total)}.`,
-    chip: { texto: "🛒 Pagado con saldo", color: m.ok },
-    intro: `Entró un pedido de items en <b>${esc(m.nombre)}</b>. Envíalo y márcalo como entregado en el panel de pedidos.`,
+    preheader: cd ? `${p.nombre || "Un cliente"} compró un item en cooldown. Se entrega el ${fechaCorta(p.entrega)}.` : `${p.nombre || "Un cliente"} compró items por ${soles(p.total)}.`,
+    chip: cd ? { texto: "🔒 En cooldown", color: m.aviso } : { texto: "🛒 Pagado con saldo", color: m.ok },
+    intro: cd
+      ? `Entró un pedido en <b>${esc(m.nombre)}</b> con un item que todavía está en <b>cooldown de Steam</b>. Ya está pagado; <b>no lo envíes aún</b>: te mandaremos otro correo el <b>${esc(fechaCorta(p.entrega))}</b>, cuando ya se pueda entregar.`
+      : `Entró un pedido de items en <b>${esc(m.nombre)}</b>. Envíalo y márcalo como entregado en el panel de pedidos.`,
     stats,
     filas,
     boton,
-    aviso: `Pedido <b>${esc(p.code)}</b>. Ya se descontó el saldo y el stock.`,
+    aviso: `Pedido <b>${esc(p.code)}</b>. Ya se descontó el saldo y el stock.` + (cd ? ` En el panel aparece en la pestaña <b>En cooldown</b> y pasará solo a <b>Por entregar</b> cuando se libere.` : ""),
+    pie: `Aviso automático de pedidos de ${esc(m.nombre)}.`,
+  });
+  const text = aTexto(m, titulo + " " + p.code, [...(cd ? [`Item en cooldown: entregar a partir del ${fecha(p.entrega)}. No lo envíes aún; te avisaremos.`, ""] : []), ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], boton);
+  return { from: m.remitente, subject, html, text };
+}
+
+// ---------------------------------------------------------------------------
+// Correo 5 (para el administrador): un pedido en cooldown ya se liberó, hay que entregarlo.
+// p = { code, nombre, steamId, email, whatsapp, tradelink, items, total, creditos, creadoEn(Date), entrega(Date) }
+// ---------------------------------------------------------------------------
+function pedidoLiberado(tienda, p) {
+  const m = marca(tienda);
+  const filas = [
+    ...(p.items || []).map((it) => [`${it.qty} × ${it.name}`, soles(it.price * it.qty)]),
+    ["Cliente", p.nombre || "—"],
+    ["ID de Steam", p.steamId || "—"],
+    ["WhatsApp", p.whatsapp || "—"],
+    ["Correo", p.email || "—"],
+    ["Trade link", p.tradelink || "—"],
+    ["Comprado el", fecha(p.creadoEn)],
+    ["Liberado el", fecha(p.entrega)],
+  ];
+  const stats = [{ valor: soles(p.total), etiqueta: "Total del pedido" }];
+  const titulo = "¡Ya puedes entregar este pedido!";
+  const subject = `✅ Ya puedes entregar el pedido ${p.code}: ${p.nombre || "cliente"} · ${m.nombre}`;
+  const boton = { texto: "Ver pedidos", url: m.url };
+  const html = layout(m, {
+    titulo,
+    preheader: `El cooldown del pedido ${p.code} terminó. Envíaselo a ${p.nombre || "tu cliente"} por Steam.`,
+    chip: { texto: "🔓 Cooldown terminado", color: m.ok },
+    intro: `El item del pedido <b>${esc(p.code)}</b> en <b>${esc(m.nombre)}</b> ya salió del cooldown de Steam. Envíaselo al cliente y márcalo como <b>entregado</b> en el panel de pedidos. El pedido ya pasó solo a <b>Por entregar</b>.`,
+    stats,
+    filas,
+    boton,
+    aviso: `El cliente también recibió un correo avisándole que su item ya se liberó.`,
     pie: `Aviso automático de pedidos de ${esc(m.nombre)}.`,
   });
   const text = aTexto(m, titulo + " " + p.code, [...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], boton);
+  return { from: m.remitente, subject, html, text };
+}
+
+// ---------------------------------------------------------------------------
+// Correo 6 (para el cliente): su item en cooldown ya se liberó, pronto se lo entregan.
+// p = { code, nombre, items, total, creadoEn(Date), entrega(Date) }
+// ---------------------------------------------------------------------------
+function itemLiberado(tienda, p) {
+  const m = marca(tienda);
+  const saludo = p.nombre ? `Hola ${esc(p.nombre)},` : "Hola,";
+  const filas = [
+    ...(p.items || []).map((it) => [`${it.qty} × ${it.name}`, soles(it.price * it.qty)]),
+    ["Pedido", p.code],
+    ["Comprado el", fecha(p.creadoEn)],
+    ["Liberado el", fecha(p.entrega)],
+  ];
+  const stats = [{ valor: soles(p.total), etiqueta: "Total de tu compra" }];
+  const titulo = "¡Tu item ya se liberó!";
+  const subject = `🔓 Tu item del pedido ${p.code} ya se liberó: te lo entregamos pronto · ${m.nombre}`;
+  const html = layout(m, {
+    titulo,
+    preheader: `El cooldown de tu pedido ${p.code} terminó. Te escribiremos para entregártelo por Steam.`,
+    chip: { texto: "🔓 Listo para entregar", color: m.ok },
+    intro: `${saludo}<br>el item que compraste en <b>${esc(m.nombre)}</b> ya salió del cooldown de Steam. En las próximas horas te escribiremos por WhatsApp para <b>entregártelo por Steam</b>.`,
+    stats,
+    filas,
+    boton: { texto: "Ver mis transacciones", url: m.url + (tienda === "litlejacob" ? "/perfil.html#transacciones" : "/#perfil/transacciones") },
+    aviso: `Revisa que tu <b>trade link</b> esté en tu cuenta y que tu inventario de Dota 2 sea público. Si no reconoces esta compra, escríbenos por WhatsApp cuanto antes.`,
+  });
+  const text = aTexto(m, titulo + " " + p.code, [p.nombre ? `Hola ${p.nombre},` : "Hola,", "tu item ya salió del cooldown de Steam. Te escribiremos por WhatsApp para entregártelo.", "", ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], { texto: "Ir a la tienda", url: m.url });
   return { from: m.remitente, subject, html, text };
 }
 
@@ -310,9 +384,11 @@ function pedidoNuevo(tienda, p) {
 // ---------------------------------------------------------------------------
 function compraCliente(tienda, p) {
   const m = marca(tienda);
+  const cd = !!p.entrega;   // compra con items en cooldown: se entrega recién en p.entrega
   const saludo = p.nombre ? `Hola ${esc(p.nombre)},` : "Hola,";
   const filas = [
-    ...(p.items || []).map((it) => [`${it.qty} × ${it.name}`, soles(it.price * it.qty)]),
+    ...(p.items || []).map((it) => [lineaItem(it), soles(it.price * it.qty)]),
+    ...(cd ? [["Lo recibes a partir del", fecha(p.entrega)]] : []),
     ["Pedido", p.code],
     ["Pagado con saldo", soles(p.creditos)],
     ["Fecha", fecha(p.creadoEn)],
@@ -320,19 +396,21 @@ function compraCliente(tienda, p) {
   const stats = [{ valor: soles(p.total), etiqueta: "Total de tu compra" }];
   if (p.saldo != null) stats.push({ valor: soles(p.saldo), etiqueta: "Tu saldo ahora" });
   const titulo = "¡Compra confirmada!";
-  const subject = `✅ Compra confirmada ${p.code}: ${soles(p.total)} · ${m.nombre}`;
+  const subject = cd ? `✅ Compra confirmada ${p.code}: lo recibes el ${fechaCorta(p.entrega)} · ${m.nombre}` : `✅ Compra confirmada ${p.code}: ${soles(p.total)} · ${m.nombre}`;
   const html = layout(m, {
     titulo,
-    preheader: `Recibimos tu pedido ${p.code}. Te escribiremos para entregarlo por Steam.`,
-    chip: { texto: "✓ Pagado con saldo", color: m.ok },
-    intro: `${saludo}<br>tu compra quedó registrada. Te escribiremos por WhatsApp para <b>entregártela por Steam</b>. Este es tu resumen:`,
+    preheader: cd ? `Recibimos tu pedido ${p.code}. Tu item está en cooldown: lo recibes el ${fechaCorta(p.entrega)}.` : `Recibimos tu pedido ${p.code}. Te escribiremos para entregarlo por Steam.`,
+    chip: cd ? { texto: "🔒 En cooldown", color: m.aviso } : { texto: "✓ Pagado con saldo", color: m.ok },
+    intro: cd
+      ? `${saludo}<br>tu compra quedó registrada y pagada. Tu item todavía está en <b>cooldown de Steam</b>, así que te lo entregaremos a partir del <b>${esc(fechaCorta(p.entrega))}</b>. Ese día te avisaremos por correo y te escribiremos por WhatsApp para <b>entregártelo por Steam</b>. Este es tu resumen:`
+      : `${saludo}<br>tu compra quedó registrada. Te escribiremos por WhatsApp para <b>entregártela por Steam</b>. Este es tu resumen:`,
     stats,
     filas,
     boton: { texto: "Ir a la tienda", url: m.url },
     aviso: `Guarda este correo como comprobante. Para que podamos entregarte, revisa que tu <b>trade link</b> y tu inventario de Dota 2 (público) estén listos. Si no reconoces esta compra, escríbenos por WhatsApp cuanto antes.`,
   });
-  const text = aTexto(m, titulo + " " + p.code, [p.nombre ? `Hola ${p.nombre},` : "Hola,", "tu compra quedó registrada. Te escribiremos por WhatsApp para entregártela por Steam.", "", ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], { texto: "Ir a la tienda", url: m.url });
+  const text = aTexto(m, titulo + " " + p.code, [p.nombre ? `Hola ${p.nombre},` : "Hola,", cd ? `tu compra quedó registrada. Tu item está en cooldown de Steam: lo recibes a partir del ${fecha(p.entrega)}. Ese día te avisaremos.` : "tu compra quedó registrada. Te escribiremos por WhatsApp para entregártela por Steam.", "", ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], { texto: "Ir a la tienda", url: m.url });
   return { from: m.remitente, subject, html, text };
 }
 
-module.exports = { MARCAS, confirmacion, recordatorio, pedidoNuevo, compraCliente };
+module.exports = { MARCAS, confirmacion, recordatorio, pedidoNuevo, compraCliente, pedidoLiberado, itemLiberado };
