@@ -1,0 +1,73 @@
+/* Páginas legales, pie de página y Libro de Reclamaciones (Rayas Store y LitleJacob Store).
+   Mismo archivo en las dos tiendas: los colores cambian solo con html[data-t]. */
+@font-face { font-family: "Oswald"; src: url("fonts/Oswald-wght.ttf") format("truetype"); font-weight: 200 700; font-display: swap; }
+html[data-t="rayas"] { --lg-bg:#070d24; --lg-panel:#0f1a3c; --lg-raised:#16234d; --lg-line:#24336b; --lg-fg:#eef1ff; --lg-muted:#9ba7d8; --lg-pri:#ffc93c; --lg-on-pri:#1d1600; --lg-acc:#ff2d8f; --lg-hd:"Inter","Segoe UI",system-ui,sans-serif; --lg-r:16px; }
+html[data-t="litlejacob"] { --lg-bg:#08080a; --lg-panel:#131316; --lg-raised:#1b1b20; --lg-line:#3d3f45; --lg-fg:#eef0f3; --lg-muted:#9aa0a8; --lg-pri:#c4c8ce; --lg-on-pri:#0b0b0d; --lg-acc:#e0323c; --lg-hd:"Oswald","Segoe UI",system-ui,sans-serif; --lg-r:6px; }
+
+/* ---------- pie de página (en todas las páginas de la tienda) ---------- */
+.lg-foot { background: var(--lg-bg); color: var(--lg-fg); border-top: 1px solid var(--lg-line); padding: 38px 16px 26px; font: 14px/1.55 "Segoe UI", system-ui, sans-serif; position: relative; z-index: 2; }
+.lg-foot *, .lg-page * { box-sizing: border-box; }
+.lg-foot-in { max-width: 1120px; margin: 0 auto; display: grid; gap: 28px; grid-template-columns: 1.3fr 1fr 1fr; }
+.lg-foot h4 { font-family: var(--lg-hd); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-pri); margin: 0 0 12px; }
+.lg-foot p { margin: 0 0 8px; color: var(--lg-muted); }
+.lg-foot a { color: var(--lg-fg); text-decoration: none; }
+.lg-foot a:hover { color: var(--lg-pri); text-decoration: underline; }
+.lg-foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.lg-brand { font-family: var(--lg-hd); font-size: 20px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--lg-fg); margin-bottom: 8px; }
+.lg-brand i { color: var(--lg-acc); font-style: normal; }
+.lg-rs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.lg-rs a { border: 1px solid var(--lg-line); border-radius: 999px; padding: 6px 14px; font-size: 13px; background: var(--lg-panel); }
+.lg-libro { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--lg-acc); border-radius: var(--lg-r); padding: 8px 14px; font-weight: 700; background: color-mix(in srgb, var(--lg-acc) 14%, transparent); }
+.lg-foot-b { max-width: 1120px; margin: 26px auto 0; padding-top: 16px; border-top: 1px solid var(--lg-line); color: var(--lg-muted); font-size: 12.5px; display: flex; gap: 8px 18px; flex-wrap: wrap; justify-content: space-between; }
+@media (max-width: 800px) { .lg-foot-in { grid-template-columns: 1fr; } }
+
+/* ---------- páginas (términos, cambios y devoluciones, reclamaciones) ---------- */
+.lg-page { margin: 0; background: var(--lg-bg); color: var(--lg-fg); font: 16px/1.65 "Segoe UI", system-ui, sans-serif; min-height: 100vh; }
+.lg-top { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--lg-bg) 92%, transparent); border-bottom: 1px solid var(--lg-line); }
+.lg-top-in { max-width: 920px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.lg-top a.lg-logo { display: flex; align-items: center; gap: 10px; color: var(--lg-fg); text-decoration: none; font-family: var(--lg-hd); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; font-size: 18px; }
+.lg-top a.lg-logo img { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; }
+.lg-top a.lg-logo i { color: var(--lg-acc); font-style: normal; }
+.lg-top nav { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.lg-top nav a { color: var(--lg-fg); text-decoration: none; font-size: 13.5px; border: 1px solid var(--lg-line); border-radius: 999px; padding: 6px 14px; background: var(--lg-panel); }
+.lg-top nav a:hover, .lg-top nav a.on { border-color: var(--lg-pri); color: var(--lg-pri); }
+.lg-main { max-width: 920px; margin: 0 auto; padding: 30px 16px 64px; }
+.lg-main h1 { font-family: var(--lg-hd); font-size: clamp(28px, 5vw, 42px); line-height: 1.1; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .03em; }
+.lg-main h1 span { color: var(--lg-pri); }
+.lg-sub { color: var(--lg-muted); margin: 0 0 22px; }
+.lg-main h2 { font-family: var(--lg-hd); font-size: 19px; color: var(--lg-pri); margin: 30px 0 8px; text-transform: uppercase; letter-spacing: .05em; }
+.lg-main p, .lg-main li { color: color-mix(in srgb, var(--lg-fg) 90%, var(--lg-muted)); }
+.lg-main ul, .lg-main ol { padding-left: 22px; }
+.lg-main a { color: var(--lg-pri); }
+.lg-card { background: var(--lg-panel); border: 1px solid var(--lg-line); border-radius: var(--lg-r); padding: 16px 18px; margin: 14px 0; }
+.lg-card b { color: var(--lg-fg); }
+.lg-datos { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+.lg-datos dt { color: var(--lg-muted); }
+.lg-datos dd { margin: 0; color: var(--lg-fg); word-break: break-word; }
+.lg-tabla { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 15px; }
+.lg-tabla th, .lg-tabla td { border: 1px solid var(--lg-line); padding: 9px 12px; text-align: left; vertical-align: top; }
+.lg-tabla th { background: var(--lg-raised); color: var(--lg-pri); font-family: var(--lg-hd); letter-spacing: .04em; }
+.lg-pend { color: var(--lg-acc); }
+
+/* ---------- formulario del Libro de Reclamaciones ---------- */
+.lg-form fieldset { border: 1px solid var(--lg-line); border-radius: var(--lg-r); background: var(--lg-panel); margin: 18px 0; padding: 8px 18px 18px; }
+.lg-form legend { font-family: var(--lg-hd); text-transform: uppercase; letter-spacing: .06em; color: var(--lg-pri); padding: 0 8px; font-size: 15px; }
+.lg-g { display: grid; gap: 12px 14px; grid-template-columns: 1fr 1fr; }
+.lg-g .full { grid-column: 1 / -1; }
+.lg-form label { display: block; font-size: 13px; color: var(--lg-muted); margin-bottom: 4px; }
+.lg-form input, .lg-form select, .lg-form textarea { width: 100%; background: var(--lg-bg); color: var(--lg-fg); border: 1px solid var(--lg-line); border-radius: calc(var(--lg-r) - 4px); padding: 11px 12px; font: inherit; }
+.lg-form textarea { min-height: 110px; resize: vertical; }
+.lg-form input:focus, .lg-form select:focus, .lg-form textarea:focus { outline: 2px solid var(--lg-pri); outline-offset: 1px; }
+.lg-radio { display: flex; gap: 18px; flex-wrap: wrap; }
+.lg-radio label { display: flex; align-items: center; gap: 8px; color: var(--lg-fg); font-size: 15px; margin: 0; }
+.lg-radio input { width: auto; }
+.lg-chk { display: flex; gap: 10px; align-items: flex-start; color: var(--lg-fg); font-size: 14px; }
+.lg-chk input { width: auto; margin-top: 5px; }
+.lg-btn { display: inline-block; border: 0; cursor: pointer; background: var(--lg-pri); color: var(--lg-on-pri); font: 800 14px var(--lg-hd); letter-spacing: .1em; text-transform: uppercase; padding: 14px 28px; border-radius: 999px; text-decoration: none; }
+.lg-btn:disabled { opacity: .55; cursor: wait; }
+.lg-btn.sec { background: transparent; color: var(--lg-fg); border: 1px solid var(--lg-line); }
+.lg-msg { margin: 14px 0; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--lg-acc); color: var(--lg-fg); background: color-mix(in srgb, var(--lg-acc) 14%, transparent); }
+.lg-ok { border-color: #3ddc97; background: color-mix(in srgb, #3ddc97 12%, transparent); }
+.lg-trampa { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+@media (max-width: 640px) { .lg-g { grid-template-columns: 1fr; } .lg-datos { grid-template-columns: 1fr; } .lg-top nav { margin-left: 0; } }
+@media print { .lg-top, .lg-foot, .lg-noprint { display: none !important; } .lg-page { background: #fff; color: #000; } .lg-main p, .lg-main li, .lg-card b, .lg-datos dd { color: #000; } .lg-card { border-color: #999; background: #fff; } }
