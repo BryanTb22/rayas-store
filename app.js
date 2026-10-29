@@ -2210,6 +2210,25 @@
     if (vistaActual === "rifas" && !rifasVisible()) vistaActual = itemsVisible() ? "comprar" : "inicio";
     return vistaActual;
   }
+  // Menú desplegable de usuario (en Comprar / Vender items): datos de la cuenta, recargar, perfil, transacciones y cerrar sesión.
+  function menuUsuarioHtml(vista) {
+    var p = cuenta.perfil;
+    var boton = '<b>◆ ' + fmtSol(p.creditos) + '</b> soles<span class="nm"> · ' + esc(p.nombre || "Mi cuenta") + '</span>';
+    if (vista !== "comprar" && vista !== "vender") return '<button class="lock me" type="button" data-a="miCuenta">' + boton + '</button>';
+    return '<span class="udrop"><button class="lock me" type="button" data-a="udropToggle" aria-haspopup="menu" aria-expanded="false">' + boton + '<span class="udrop-fl" aria-hidden="true"> ▾</span></button>' +
+      '<div class="udrop-menu" role="menu">' +
+      '<div class="udrop-head"><b>' + esc(p.nombre || "Mi cuenta") + '</b><small>' + esc(p.email || "") + '</small><span class="udrop-saldo">Saldo: <b>S/ ' + fmtSol(p.creditos) + '</b></span></div>' +
+      (recargaOn() ? '<button type="button" role="menuitem" data-a="recargar"><i>💳</i>Recargar saldo</button>' : '') +
+      '<button type="button" role="menuitem" data-a="miCuenta"><i>👤</i>Perfil</button>' +
+      '<button type="button" role="menuitem" data-a="misMovs"><i>🧾</i>Transacciones</button>' +
+      '<button type="button" role="menuitem" class="udrop-out" data-a="salir"><i>⎋</i>Cerrar sesión</button>' +
+      '</div></span>';
+  }
+  function cerrarMenuUsuario() {
+    document.querySelectorAll(".udrop.open").forEach(function (d) { d.classList.remove("open"); var b = d.querySelector("[data-a=udropToggle]"); if (b) b.setAttribute("aria-expanded", "false"); });
+  }
+  document.addEventListener("click", function (ev) { if (!ev.target.closest(".udrop")) cerrarMenuUsuario(); });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") cerrarMenuUsuario(); });
   function render() {
     var app = document.getElementById("app");
     if (!app) return;
@@ -2230,7 +2249,7 @@
       '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
       '<nav class="nav"><a class="navlink' + (vista === "inicio" ? ' on' : '') + '" href="#inicio">Inicio</a>' + (rifasVisible() ? '<a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' : '') +
       (admin.puede ? '<button class="lock" type="button" data-a="admin">Panel admin</button><button class="lock" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button>'
-        : (cuenta.perfil ? '<button class="lock hot misrifas" type="button" data-a="misRifas">🎟️ Mis rifas</button><button class="lock me" type="button" data-a="miCuenta"><b>◆ ' + cuenta.perfil.creditos + '</b> soles<span class="nm"> · ' + esc(cuenta.perfil.nombre || "Mi cuenta") + '</span></button>'
+        : (cuenta.perfil ? '<button class="lock hot misrifas" type="button" data-a="misRifas">🎟️ Mis rifas</button>' + menuUsuarioHtml(vista)
           : (leerSesion() ? '<button class="lock" type="button" data-a="miCuenta">Mi cuenta</button>'
             : '<button class="lock" type="button" data-a="entrar">Entrar</button><button class="lock hot" type="button" data-a="registro">Crear cuenta</button>'))) +
       '</nav></div></header>' +
@@ -3077,6 +3096,8 @@
       case "entrar": ev.preventDefault(); cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); break;
       case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = t.getAttribute("data-need") ? "Para participar primero crea una cuenta en la página." : ""; cuenta.msgTipo = t.getAttribute("data-need") ? "err" : ""; render(); break;
       case "misRifas": cuenta.modo = "rifas"; cuenta.msg = ""; render(); cargarParts(); break;
+      case "udropToggle": { var dd = t.closest(".udrop"), ab = !dd.classList.contains("open"); cerrarMenuUsuario(); if (ab) { dd.classList.add("open"); t.setAttribute("aria-expanded", "true"); } break; }
+      case "misMovs": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); setTimeout(function () { var m = document.querySelector(".drawer .movs"); if (m && m.scrollIntoView) m.scrollIntoView({ block: "start", behavior: "smooth" }); }, 120); break;
       case "miCuenta": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); break;
       case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; if (admin.fichaU && /^u_/.test(admin.fichaU)) cargarPedidosU(admin.fichaU.slice(2)); render(); break;
       case "editRapido": admin.fichaU = "u_" + t.getAttribute("data-uid"); admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
