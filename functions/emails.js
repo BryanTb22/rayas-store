@@ -304,4 +304,35 @@ function pedidoNuevo(tienda, p) {
   return { from: m.remitente, subject, html, text };
 }
 
-module.exports = { MARCAS, confirmacion, recordatorio, pedidoNuevo };
+// ---------------------------------------------------------------------------
+// Correo 4 (para el cliente): comprobante de su compra de items con saldo.
+// p = { code, nombre, items:[{name,qty,price}], total, creditos, saldo, creadoEn(Date) }
+// ---------------------------------------------------------------------------
+function compraCliente(tienda, p) {
+  const m = marca(tienda);
+  const saludo = p.nombre ? `Hola ${esc(p.nombre)},` : "Hola,";
+  const filas = [
+    ...(p.items || []).map((it) => [`${it.qty} × ${it.name}`, soles(it.price * it.qty)]),
+    ["Pedido", p.code],
+    ["Pagado con saldo", soles(p.creditos)],
+    ["Fecha", fecha(p.creadoEn)],
+  ];
+  const stats = [{ valor: soles(p.total), etiqueta: "Total de tu compra" }];
+  if (p.saldo != null) stats.push({ valor: soles(p.saldo), etiqueta: "Tu saldo ahora" });
+  const titulo = "¡Compra confirmada!";
+  const subject = `✅ Compra confirmada ${p.code}: ${soles(p.total)} · ${m.nombre}`;
+  const html = layout(m, {
+    titulo,
+    preheader: `Recibimos tu pedido ${p.code}. Te escribiremos para entregarlo por Steam.`,
+    chip: { texto: "✓ Pagado con saldo", color: m.ok },
+    intro: `${saludo}<br>tu compra quedó registrada. Te escribiremos por WhatsApp para <b>entregártela por Steam</b>. Este es tu resumen:`,
+    stats,
+    filas,
+    boton: { texto: "Ir a la tienda", url: m.url },
+    aviso: `Guarda este correo como comprobante. Para que podamos entregarte, revisa que tu <b>trade link</b> y tu inventario de Dota 2 (público) estén listos. Si no reconoces esta compra, escríbenos por WhatsApp cuanto antes.`,
+  });
+  const text = aTexto(m, titulo + " " + p.code, [p.nombre ? `Hola ${p.nombre},` : "Hola,", "tu compra quedó registrada. Te escribiremos por WhatsApp para entregártela por Steam.", "", ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], { texto: "Ir a la tienda", url: m.url });
+  return { from: m.remitente, subject, html, text };
+}
+
+module.exports = { MARCAS, confirmacion, recordatorio, pedidoNuevo, compraCliente };

@@ -2576,7 +2576,7 @@
       return { nombre: m.name && m.name.stringValue || "Item", qty: Number(m.qty && (m.qty.integerValue || m.qty.doubleValue) || 1), precio: Number(m.price && (m.price.doubleValue !== undefined ? m.price.doubleValue : m.price.integerValue) || 0) };
     });
     return { id: d.name.split("/").pop(), code: sv("code") || d.name.split("/").pop(), cliente: sv("customerName"), steam: sv("steamId"), email: sv("email"), tradelink: sv("tradelink"),
-      whatsapp: sv("phone"), estado: sv("status") || "pagado", tienda: sv("tienda"), total: nv("total"), creditos: nv("creditos"), items: its,
+      whatsapp: sv("phone"), uid: sv("uid"), correoAdmin: !!(f.correoAdmin && f.correoAdmin.booleanValue), correoCliente: !!(f.correoCliente && f.correoCliente.booleanValue), correoError: sv("correoError"), estado: sv("status") || "pagado", tienda: sv("tienda"), total: nv("total"), creditos: nv("creditos"), items: its,
       fecha: f.createdAt && f.createdAt.timestampValue ? new Date(f.createdAt.timestampValue) : null };
   }
   function cargarPedidos() {
@@ -2600,6 +2600,16 @@
     }).then(function (r) { if (!r.ok) throw new Error("Error " + r.status); })
       .catch(function (e) { p.estado = antes; admin.pedMsg = "No se guardó: " + e.message; render(); });
   }
+  function pedClave(p) { return p.uid || p.steam || (p.cliente || "").toLowerCase(); }
+  function historialPedidosHtml(p) {
+    var k = pedClave(p), todos = (admin.pedidos || []).filter(function (x) { return pedClave(x) === k; }), vivos = todos.filter(function (x) { return x.estado !== "cancelado"; });
+    var gastado = vivos.reduce(function (a, x) { return a + x.total; }, 0);
+    return '<div class="hist"><b>📜 Historial de compras de este cliente</b><small class="hint">' + vivos.length + (vivos.length === 1 ? ' compra' : ' compras') + ' · ' + fmtPrecio(gastado) + ' en total</small>' +
+      todos.map(function (x) {
+        var est = (PED_ESTADOS.filter(function (e) { return e[0] === x.estado; })[0] || [0, x.estado])[1], n = x.items.map(function (i) { return i.qty + ' × ' + i.nombre; }).join(", ");
+        return '<div class="histr' + (x.id === p.id ? ' cur' : '') + '"><span>' + esc(x.fecha ? x.fecha.toLocaleDateString("es-PE") : "") + ' · <b>' + esc(x.code) + '</b></span><span>' + esc(n) + '</span><span>' + fmtPrecio(x.total) + ' · ' + esc(est) + '</span></div>';
+      }).join("") + '</div>';
+  }
   function tabPedidos() {
     if (admin.pedidos === null) { cargarPedidos(); return '<p class="hint">Cargando pedidos…</p>'; }
     var fl = admin.pedFiltro || "pagado", todos = admin.pedidos;
@@ -2617,7 +2627,9 @@
           p.items.map(function (i) { return '<span>' + i.qty + ' × ' + esc(i.nombre) + ' — ' + fmtPrecio(i.precio * i.qty) + '</span>'; }).join("") +
           '<span>ID de Steam: ' + esc(p.steam || "—") + '</span><span>WhatsApp: ' + esc(p.whatsapp || "—") + '</span><span>' + esc(p.email) + '</span>' +
           (tradeValido(p.tradelink) ? '<span><a href="' + esc(p.tradelink) + '" target="_blank" rel="noopener">Abrir trade link ↗</a></span>' : '<span style="color:var(--fuchsia)">Sin trade link</span>') +
-          '<span>Pagado con saldo: ' + fmtPrecio(p.creditos) + '</span></div>' +
+          '<span>Pagado con saldo: ' + fmtPrecio(p.creditos) + '</span>' +
+          '<span>✉ Correo a ti: ' + (p.correoAdmin ? '✔ enviado' : '✖ no enviado') + ' · Correo al cliente: ' + (p.correoCliente ? '✔ enviado' : '✖ no enviado') + '</span>' +
+          (p.correoError ? '<span style="color:var(--danger)">Motivo: ' + esc(p.correoError) + '</span>' : '') + '</div>' + historialPedidosHtml(p) +
           '<div class="field"><label>Estado</label><select data-a="pedEstado" data-id="' + esc(p.id) + '">' + PED_ESTADOS.map(function (e) { return '<option value="' + e[0] + '"' + (p.estado === e[0] ? ' selected' : '') + '>' + e[1] + '</option>'; }).join("") + '</select></div>' +
           (p.estado === "cancelado" ? '<p class="hint">Cancelar no devuelve el saldo solo: súmalo en Usuarios y saldo.</p>' : '') + '</div>';
       }).join("") : '<p class="hint">No hay pedidos aquí. Cuando alguien compre un item aparecerá y te llegará un correo.</p>') + '</div>' +
