@@ -35,7 +35,7 @@
   function dato(v) { return v ? esc(v) : '<span class="lg-pend">(por completar)</span>'; }
   function cargarCss() {
     if (document.querySelector('link[href^="legal.css"]')) return;
-    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "legal.css?v=2"; document.head.appendChild(l);
+    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "legal.css?v=3"; document.head.appendChild(l);
   }
   function tel() { return D.telefonos.map(function (p) { return '<a href="tel:+' + esc(p.n) + '">' + esc(p.t) + '</a>'; }).join(" · "); }
   function correoHtml() { return D.correo ? '<a href="mailto:' + esc(D.correo) + '">' + esc(D.correo) + '</a>' : '<span class="lg-pend">(por completar)</span>'; }

@@ -71,3 +71,6 @@ html[data-t="litlejacob"] { --lg-bg:#08080a; --lg-panel:#131316; --lg-raised:#1b
 .lg-trampa { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 @media (max-width: 640px) { .lg-g { grid-template-columns: 1fr; } .lg-datos { grid-template-columns: 1fr; } .lg-top nav { margin-left: 0; } }
 @media print { .lg-top, .lg-foot, .lg-noprint { display: none !important; } .lg-page { background: #fff; color: #000; } .lg-main p, .lg-main li, .lg-card b, .lg-datos dd { color: #000; } .lg-card { border-color: #999; background: #fff; } }
+
+/* La constancia del reclamo se muestra tal como el cliente la escribió (el tema de LitleJacob ponía todo en mayúsculas). */
+.lg-datos dd, .lg-msg, .lg-msg *, .lg-form input, .lg-form textarea, .lg-form select { text-transform: none !important; letter-spacing: normal; }
