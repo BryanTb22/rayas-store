@@ -129,7 +129,7 @@
     var o = leerHashSteam(); if (!o) return false;
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* nada */ }
     if (o.steamerror) { cuenta.modo = "login"; cuenta.msg = o.steamerror.slice(0, 160); cuenta.msgTipo = "err"; render(); return true; }
-    if (o.steam === "ok") { cuenta.modo = "perfil"; cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); cargarPerfil().then(function () { cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); }); return true; }
+    if (o.steam === "ok") { cuenta.modo = "perfil"; cuenta.tab = "seg"; cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); cargarPerfil().then(function () { cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); }); return true; }
     if (!o.steamtoken) return false;
     steamPre = { sid: String(o.sid || "").replace(/\D/g, ""), nom: String(o.nom || "").slice(0, 40), av: imgSteamOk(o.av) ? String(o.av) : "", pa: String(o.pa || "").replace(/[<>\u0000-\u001f]/g, "").slice(0, 60), pu: o.pu === "1" ? true : (o.pu === "0" ? false : null) };
     cuenta.modo = "login"; cuenta.msg = "Entrando con Steam…"; cuenta.msgTipo = ""; render();
@@ -324,7 +324,7 @@
   var estado = clone(publicado);
   var sucio = false;
 
-  var cuenta = { modo: null, perfil: null, msg: "", msgTipo: "" };
+  var cuenta = { modo: null, perfil: null, msg: "", msgTipo: "", tab: "info", abiertos: {}, tTipo: "", tBuscar: "" };
   var admin = { puede: esAdmin(), usuarios: null, pedidos: null, uFiltro: "", uMsg: "", vivo: false, imgEdit: null, imgErr: "", subiendo: null, login: false, abierto: false, tab: "premios", editando: null, borrar: null, msg: "", msgTipo: "" };
 
   /* ================= Utilidades ================= */
@@ -2370,6 +2370,7 @@
     if (modal && modal.tipo === "stock") pintarStock();
     hidratarImgs();
     aplicarFotos();
+    if (cuenta.modo === "perfil" && cuenta.tab === "trans") pfFiltrar();
     var nd = document.querySelector(".drawer-body");
     if (nd && top) nd.scrollTop = top;
   }
@@ -2391,7 +2392,7 @@
     var uid = uidSesion(); if (!uid || esAdmin()) return;
     // La consulta lleva la sesión del cliente: sin ella Firestore la rechaza y el historial salía siempre vacío.
     token().then(function (tk) { return fetch(BASE.replace("/documents/", "/documents:runQuery"), { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
-      body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "orders" }], where: { fieldFilter: { field: { fieldPath: "uid" }, op: "EQUAL", value: { stringValue: uid } } }, limit: 30 } })
+      body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "orders" }], where: { fieldFilter: { field: { fieldPath: "uid" }, op: "EQUAL", value: { stringValue: uid } } }, limit: 100 } })
     }); }).then(function (r) { return r.ok ? r.json() : []; }).then(function (j) {
       cuenta.compras = (j || []).filter(function (x) { return x.document; }).map(function (x) {
         var f = x.document.fields || {};
@@ -2399,35 +2400,159 @@
         var its = ((f.items && f.items.arrayValue && f.items.arrayValue.values) || []).map(function (v) {
           var g = (v.mapValue && v.mapValue.fields) || {};
           var num = function (k) { return Number(g[k] && (g[k].integerValue || g[k].doubleValue) || 0); };
-          return { name: g.name && g.name.stringValue || "Item", qty: num("qty") || 1, price: num("price") };
+          return { id: g.id && g.id.stringValue || "", name: g.name && g.name.stringValue || "Item", qty: num("qty") || 1, price: num("price") };
         });
         var nUni = its.reduce(function (a, i) { return a + i.qty; }, 0);
-        return { code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0) || nUni, monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "", items: its, estado: f.status && f.status.stringValue || "" };
+        return { code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0) || nUni, monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "", items: its, estado: f.status && f.status.stringValue || "", tienda: f.tienda && f.tienda.stringValue || "" };
       }).filter(function (c) { return c.monto > 0; });
-      if (cuenta.modo === "perfil") render();
+      if (cuenta.modo === "perfil") { render(); pfFiltrar(); }
     }).catch(function () { /* sin historial de compras */ });
   }
-  function movsHtml() {
-    var uid = uidSesion(), movs = [];
+  /* ================= Perfil: Información personal · Transacciones · Seguridad ================= */
+  var PF_TABS = [["info", "👤", "Información personal"], ["trans", "🔁", "Transacciones"], ["seg", "🔒", "Seguridad"]];
+  var PF_EST = { pagado: "Por entregar", entregado: "Entregado", cancelado: "Cancelado" };
+  function pfMon(n) { return "S/ " + (Math.round(Number(n) * 100) / 100).toFixed(2); }
+  // La foto del item no se guarda en el pedido: se busca en el catálogo por id (o por nombre si el id ya no existe).
+  function pfImgItem(it) {
+    var l = items.lista || [], b = null;
+    if (it.id) b = l.filter(function (x) { return x.id === it.id; })[0];
+    if (!b) b = l.filter(function (x) { return sinTildes(x.nombre) === sinTildes(it.name); })[0];
+    return b ? b.img : "";
+  }
+  function pfFilas() {
+    var uid = uidSesion(), filas = [];
     Object.keys(partes).forEach(function (pid) {
       (partes[pid] || []).forEach(function (x) {
         if (x.uid !== uid) return;
-        var k = buscarPremio(pid), nom = k >= 0 ? estado.premios[k].nombre : "Rifa";
-        movs.push({ t: x.creado || "", ico: "🎟️", txt: "Rifa: " + nom + " · " + x.cantidad + (x.cantidad === 1 ? " ticket" : " tickets"), monto: -x.costo });
+        var k = buscarPremio(pid); if (k < 0) return;
+        var p = estado.premios[k], gan = String(p.ganador || "").trim(), est = "curso", txt = "En curso";
+        if (p.estado === "cerrada" && gan) {
+          var win = p.ganadorUid ? p.ganadorUid === uid : gan.toLowerCase() === String(cuenta.perfil && cuenta.perfil.nombre || "").trim().toLowerCase();
+          est = win ? "entregado" : "cancelado"; txt = win ? "¡Ganaste!" : "No ganaste";
+        }
+        filas.push({ key: "r_" + pid + "_" + (x.creado || ""), t: x.creado || "", tipo: "rifa", titulo: "Rifa: " + p.nombre, code: "", est: est, estTxt: txt, monto: Number(x.costo) || 0,
+          det: [{ nombre: p.nombre, img: p.img, qty: x.cantidad, unit: x.cantidad ? (Number(x.costo) || 0) / x.cantidad : 0, sub: Number(x.costo) || 0, unidad: x.cantidad === 1 ? "ticket" : "tickets", estTxt: txt, est: est }], tienda: "" });
       });
     });
-    (cuenta.compras || []).forEach(function (c) { movs.push({ t: c.t, ico: "🛒", txt: "Compra " + (c.code ? c.code + " · " : "") + (c.n || 1) + (c.n === 1 ? " item" : " items"), monto: -c.monto, items: c.items || [], estado: c.estado || "" }); });
-    movs.sort(function (a, b) { return String(b.t).localeCompare(String(a.t)); });
-    var EST = { pagado: "Por entregar", entregado: "Entregado", cancelado: "Cancelado" };
-    return '<div class="grp movs"><h3>Mis movimientos</h3>' + (movs.length ? '<ul class="movl">' + movs.slice(0, 30).map(function (m) {
-      var fila = '<span class="mv-i">' + m.ico + '</span><span class="mv-t"><b>' + esc(m.txt) + '</b><small>' + (m.t ? esc(fechaHora(m.t)) : "—") + '</small></span><span class="mv-m neg">−S/ ' + fmtSol(Math.abs(m.monto)) + '</span>';
-      if (m.items && m.items.length) {
-        return '<li class="mv-det"><details><summary>' + fila + '<span class="mv-flecha" aria-hidden="true">▾</span></summary><div class="mv-items">' +
-          m.items.map(function (i) { return '<div class="mv-item"><span>' + esc(i.name) + (i.qty > 1 ? ' <em>×' + i.qty + '</em>' : '') + '</span><b>S/ ' + fmtSol(i.price * i.qty) + '</b></div>'; }).join("") +
-          (m.estado ? '<div class="mv-est est-' + esc(m.estado) + '">' + esc(EST[m.estado] || m.estado) + '</div>' : '') + '</div></details></li>';
-      }
-      return '<li>' + fila + '</li>';
-    }).join("") + '</ul>' : '<p class="hint">Todavía no tienes movimientos. Tus compras y tickets aparecerán aquí.</p>') + '</div>';
+    (cuenta.compras || []).forEach(function (c) {
+      filas.push({ key: "c_" + (c.code || c.t), t: c.t, tipo: "compra", titulo: "Compra de items", code: c.code || "", est: c.estado || "pagado", estTxt: PF_EST[c.estado] || c.estado || "Pagado", monto: c.monto,
+        det: (c.items || []).map(function (i) { return { nombre: i.name, img: pfImgItem(i), qty: i.qty, unit: i.price, sub: i.price * i.qty, unidad: "", estTxt: PF_EST[c.estado] || "", est: c.estado || "pagado" }; }),
+        tienda: c.tienda === "litlejacob" ? "LitleJacob Store" : (c.tienda === "rayas" ? "Rayas Store" : "") });
+    });
+    filas.sort(function (a, b) { return String(b.t).localeCompare(String(a.t)); });
+    return filas;
+  }
+  function pfTransHtml() {
+    var filas = pfFilas(), ab = cuenta.abiertos || {};
+    var tipoSel = cuenta.tTipo || "";
+    var cab = '<div class="pf-tools"><h3 class="pf-h">Transacciones</h3><div class="pf-filtros">' +
+      '<select id="pf-tipo" aria-label="Tipo de transacción"><option value="">Tipo de transacción</option><option value="compra"' + (tipoSel === "compra" ? " selected" : "") + '>Compras de items</option><option value="rifa"' + (tipoSel === "rifa" ? " selected" : "") + '>Rifas</option></select>' +
+      '<input id="pf-buscar" type="search" placeholder="ID de transacción / Nombre del item" autocomplete="off" value="' + esc(cuenta.tBuscar || "") + '"></div></div>';
+    if (!filas.length) return cab + '<div class="pf-vacio">Todavía no tienes transacciones. Tus compras de items y tus tickets de rifas aparecerán aquí.</div>';
+    var tabla = '<div class="pf-tabla" role="table"><div class="pf-th" role="row"><span>Tipo / Fecha</span><span>ID</span><span>Estado</span><span>Sistema de pago</span><span>Importe</span><span class="r">Saldo</span></div>' +
+      filas.map(function (f) {
+        var abierto = !!ab[f.key], q = sinTildes(f.code + " " + f.titulo + " " + f.det.map(function (d) { return d.nombre; }).join(" "));
+        var det = '<div class="pf-det"><div class="pf-dh"><span>Nombre del item</span><span>Cantidad</span><span>Estado</span><span>Precio unitario</span><span class="r">Subtotal</span></div>' +
+          (f.det.length ? f.det.map(function (d) {
+            return '<div class="pf-dr"><span class="pf-it"><span class="pf-foto">' + (imgTag(d.img, d.nombre, "") || '<i>🎁</i>') + '</span><b>' + esc(d.nombre) + '</b></span>' +
+              '<span data-l="Cantidad">' + d.qty + (d.unidad ? " " + d.unidad : "") + '</span>' +
+              '<span data-l="Estado"><i class="pf-dot est-' + esc(d.est) + '"></i>' + esc(d.estTxt) + '</span>' +
+              '<span data-l="Precio unitario">' + pfMon(d.unit) + '</span><span class="r" data-l="Subtotal"><b>' + pfMon(d.sub) + '</b></span></div>';
+          }).join("") : '<div class="pf-dr"><span class="hint">No hay detalle guardado de esta compra.</span></div>') +
+          (f.tienda ? '<div class="pf-pie">Comprado en <b>' + esc(f.tienda) + '</b></div>' : '') + '</div>';
+        return '<div class="pf-tx' + (abierto ? ' open' : '') + '" data-tipo="' + f.tipo + '" data-q="' + esc(q) + '">' +
+          '<button type="button" class="pf-row" data-a="txAbrir" data-k="' + esc(f.key) + '" aria-expanded="' + abierto + '">' +
+          '<span class="c-tipo"><b>' + esc(f.titulo) + '<i class="pf-fl" aria-hidden="true">▾</i></b><small>' + (f.t ? esc(fechaHora(f.t)) : "—") + '</small></span>' +
+          '<span class="c-id" data-l="ID">' + (esc(f.code) || "—") + '</span>' +
+          '<span class="c-est" data-l="Estado"><i class="pf-dot est-' + esc(f.est) + '"></i>' + esc(f.estTxt) + '</span>' +
+          '<span class="c-pago" data-l="Sistema de pago">Saldo</span>' +
+          '<span class="c-imp" data-l="Importe">' + pfMon(f.monto) + '</span>' +
+          '<span class="c-sal neg r" data-l="Saldo">−' + pfMon(f.monto) + '</span></button>' + det + '</div>';
+      }).join("") + '<p class="pf-nada" hidden>Ninguna transacción coincide con tu búsqueda.</p></div>';
+    return cab + tabla;
+  }
+  // Filtra las filas sin volver a dibujar la página (así no se pierde el foco al escribir).
+  function pfFiltrar() {
+    var tipo = cuenta.tTipo || "", q = sinTildes(cuenta.tBuscar || "").trim(), n = 0;
+    document.querySelectorAll(".pf-tx").forEach(function (el) {
+      var ok = (!tipo || el.getAttribute("data-tipo") === tipo) && (!q || (el.getAttribute("data-q") || "").indexOf(q) >= 0);
+      el.hidden = !ok; if (ok) n++;
+    });
+    var nada = document.querySelector(".pf-nada"); if (nada) nada.hidden = n > 0;
+  }
+  function pfInfoHtml(p) {
+    return '<form class="pf-form" id="formTrade"><h3 class="pf-h">Información personal</h3>' +
+      '<div class="pf-grid">' +
+      '<div class="field"><label for="p-nombre">Nombre de usuario</label><input id="p-nombre" maxlength="40" required value="' + esc(p.nombre) + '"></div>' +
+      '<div class="field"><label for="p-email">Correo</label><input id="p-email" value="' + esc(p.email) + '" disabled></div>' +
+      '<div class="field"><label for="p-wa">WhatsApp</label><input id="p-wa" inputmode="tel" maxlength="30" required value="' + esc(p.whatsapp) + '"></div>' +
+      campoSteam("p-steam", p.steam) +
+      '<div class="field pf-ancho"><label for="p-trade">Link de intercambio de Steam</label><input id="p-trade" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(p.tradelink) + '"></div></div>' +
+      (p.steam ? '' : '<p class="hint" style="color:var(--fuchsia)">Agrega tu ID de Steam para que podamos agregarte y enviarte tus premios.</p>') +
+      (p.tradelink ? '' : '<p class="hint" style="color:var(--fuchsia)">Sin trade link no podemos enviarte tus items.</p>') +
+      '<p class="hint">' + TRADE_AYUDA + '</p>' +
+      '<div><button class="btn btn-yellow" type="submit">Guardar cambios</button></div>' +
+      '<p class="hint" role="status" id="tradeMsg"></p></form>';
+  }
+  function pfSegHtml() {
+    var tp = cuenta.tienePass, link = creditoHref();
+    var clave = tp === false
+      ? '<div class="pf-bloque"><h3 class="pf-h">Contraseña</h3><p class="hint">Tu cuenta entra con Steam o Google y todavía no tiene contraseña. Si quieres una, te enviamos un correo para crearla.</p>' +
+        (cuenta.perfil && cuenta.perfil.email ? '<div><button class="btn btn-yellow btn-sm" type="button" data-a="pfCrearClave">Enviarme el correo</button></div>' : '<p class="hint">Primero agrega un correo a tu cuenta escribiendo al encargado.</p>') + '</div>'
+      : '<form class="pf-bloque pf-form" id="formClave"><h3 class="pf-h">Cambiar contraseña</h3>' +
+        '<div class="pf-grid"><div class="field pf-ancho"><label for="k-actual">Contraseña actual</label><input id="k-actual" type="password" autocomplete="current-password" required></div>' +
+        '<div class="field"><label for="k-nueva">Contraseña nueva (mínimo 6)</label><input id="k-nueva" type="password" minlength="6" autocomplete="new-password" required></div>' +
+        '<div class="field"><label for="k-repite">Repite la contraseña nueva</label><input id="k-repite" type="password" minlength="6" autocomplete="new-password" required></div></div>' +
+        '<div><button class="btn btn-yellow" type="submit">Cambiar contraseña</button></div>' +
+        '<p class="hint" role="status" id="claveMsg"></p>' +
+        '<p class="hint"><a href="#" data-a="pfCrearClave">¿Olvidaste tu contraseña actual? Te enviamos un correo.</a></p></form>';
+    return clave + steamVinculoHtml() +
+      '<div class="pf-bloque"><h3 class="pf-h">Sesión</h3><p class="hint">Cierra tu sesión en este dispositivo.</p><div><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div></div>' +
+      (link ? '<p class="hint">¿Algún problema con tu cuenta? <a href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Escríbenos por WhatsApp</a>.</p>' : '');
+  }
+  function pfPerfilHtml() {
+    var p = cuenta.perfil, tab = cuenta.tab || "info";
+    if (!p) return '<p class="hint">' + (cuenta.msg ? esc(cuenta.msg) : "Cargando tu cuenta…") + '</p>';
+    var msg = cuenta.msg ? '<p class="hint" role="status" style="color:var(--' + (cuenta.msgTipo === "err" ? "danger" : "ok") + ')">' + esc(cuenta.msg) + '</p>' : '';
+    return '<nav class="pf-tabs" role="tablist" aria-label="Secciones del perfil">' + PF_TABS.map(function (t) {
+      return '<button type="button" class="pf-tab" role="tab" data-a="pfTab" data-t="' + t[0] + '" aria-selected="' + (tab === t[0]) + '"><span aria-hidden="true">' + t[1] + '</span><b>' + t[2] + '</b></button>';
+    }).join("") + '</nav>' + msg +
+      '<section class="pf-panel" role="tabpanel">' + (tab === "trans" ? pfTransHtml() : tab === "seg" ? pfSegHtml() : pfInfoHtml(p)) + '</section>';
+  }
+  // ¿La cuenta tiene contraseña? Las de Steam o Google pueden no tenerla.
+  function pfVerPass() {
+    if (cuenta.tienePass !== undefined || cuenta.verPass) return;
+    cuenta.verPass = true;
+    token().then(function (tk) {
+      return fetch("https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=" + encodeURIComponent(FB.apiKey), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: tk }) });
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      var u = j && j.users && j.users[0]; if (!u) throw new Error("x");
+      cuenta.tienePass = (u.providerUserInfo || []).some(function (x) { return x.providerId === "password"; });
+      cuenta.emailAuth = u.email || "";
+      if (cuenta.modo === "perfil" && cuenta.tab === "seg") render();
+    }).catch(function () { cuenta.tienePass = true; }).then(function () { cuenta.verPass = false; });
+  }
+  function pfCambiarClave(actual, nueva) {
+    var s = leerSesion(), em = cuenta.emailAuth || (s && s.email) || (cuenta.perfil && cuenta.perfil.email) || "";
+    if (!em) return Promise.reject(new Error("EMAIL_NOT_FOUND"));
+    return login(em, actual).then(function (ses) {
+      return fetch("https://identitytoolkit.googleapis.com/v1/accounts:update?key=" + encodeURIComponent(FB.apiKey), {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: ses.id, password: nueva, returnSecureToken: true })
+      });
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.idToken) throw new Error((j.error && j.error.message) || "UPDATE_FAILED");
+      guardarSesion({ id: j.idToken, ref: j.refreshToken || (s && s.ref), exp: Date.now() + (Number(j.expiresIn) || 3600) * 1000 - 60000, email: em, uid: uidSesion() || (s && s.uid) });
+    });
+  }
+  function pfEnviarClave() {
+    var em = (cuenta.perfil && cuenta.perfil.email) || cuenta.emailAuth || "";
+    if (!em) { cuenta.msg = "Tu cuenta no tiene un correo registrado."; cuenta.msgTipo = "err"; render(); return; }
+    fetch("https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=" + encodeURIComponent(FB.apiKey), {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Firebase-Locale": "es" }, body: JSON.stringify({ requestType: "PASSWORD_RESET", email: em })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.error) throw new Error(j.error.message || "ERROR");
+      cuenta.msg = "Te enviamos un correo a " + em + " para crear una contraseña nueva. Revisa también spam."; cuenta.msgTipo = "ok";
+    }).catch(function (e) { cuenta.msg = "No se pudo enviar el correo (" + (e && e.message) + ")."; cuenta.msgTipo = "err"; }).then(function () { render(); });
   }
   function listaMisRifas() {
     var uid = uidSesion(), yo = cuenta.perfil, g = { gano: [], curso: [], perdio: [] };
@@ -2464,7 +2589,7 @@
       bloque("gano", "🏆 Ganadas") + bloque("curso", "⏳ En curso") + bloque("perdio", "No ganadas");
   }
   function panelCuenta() {
-    var m = cuenta.modo, cuerpo, titulo;
+    var m = cuenta.modo, cuerpo, titulo, cabeza = "";
     var msg = '<p class="hint" role="status"' + (cuenta.msgTipo === "err" ? ' style="color:var(--danger)"' : (cuenta.msgTipo === "ok" ? ' style="color:var(--ok)"' : '')) + '>' + esc(cuenta.msg) + '</p>';
     if (m === "registro") {
       titulo = "Crear cuenta";
@@ -2494,26 +2619,11 @@
       cuerpo = '<div class="drawer-body">' + listaMisRifas() + '</div>';
     } else if (m === "perfil") {
       var p = cuenta.perfil;
-      titulo = "Mi cuenta";
-      var link = creditoHref();
-      cuerpo = '<div class="drawer-body">' + (p
-        ? '<div class="saldo frame gold"><div class="in"><small>Tu saldo</small><b>S/ ' + fmtSol(p.creditos) + '</b>' + (recargaOn() ? '<button class="btn btn-fuchsia btn-recarga" type="button" data-a="recargar">💳 Recargar saldo</button>' : '') + '</div></div>' + movsHtml() +
-          steamVinculoHtml() + '<form class="grp" id="formTrade"><h3>Mis datos</h3>' +
-          '<div class="field"><label for="p-nombre">Nombre o apodo</label><input id="p-nombre" maxlength="40" required value="' + esc(p.nombre) + '"></div>' +
-          '<div class="field"><label for="p-wa">WhatsApp</label><input id="p-wa" inputmode="tel" maxlength="30" required value="' + esc(p.whatsapp) + '"></div>' +
-          '<div class="field"><label for="p-email">Correo</label><input id="p-email" value="' + esc(p.email) + '" disabled></div>' +
-          campoSteam("p-steam", p.steam) + (p.steam ? '' : '<p class="hint" style="color:var(--fuchsia)">Agrega tu ID de Steam para que podamos agregarte y enviarte tus premios.</p>') + '<div class="field"><label for="p-trade">Link de intercambio de Steam</label><input id="p-trade" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(p.tradelink) + '"></div>' +
-          (p.tradelink ? '' : '<p class="hint" style="color:var(--fuchsia)">Sin trade link no podemos enviarte el item si ganas.</p>') +
-          '<p class="hint">' + TRADE_AYUDA + '</p>' +
-          '<div><button class="btn btn-yellow btn-sm" type="submit">Guardar cambios</button></div>' +
-          '<p class="hint" role="status" id="tradeMsg"></p></form>' +
-          '<div class="grp">' + (pagosOn()
-            ? '<p class="hint">Recarga con tarjeta (o Yape / QR desde S/ ' + PAGOS.minYape + ') y el saldo se suma al instante.' + (p.promoUsada ? '' : ' ¡Tu primera recarga trae saldo extra! 🎁') + '</p>' +
-              (link ? '<p class="hint">¿Algún problema con tu recarga? Escríbenos.</p><a class="btn btn-ghost btn-sm" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Escribir por WhatsApp</a>' : '')
-            : '<p class="hint">Para recibir saldo, escribe al encargado. Él los carga en tu cuenta.</p>' +
-              (link ? '<a class="btn btn-yellow" href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Pedir saldo por WhatsApp</a>' : '')) + '</div>'
-        : '<p class="hint">' + (cuenta.msg ? esc(cuenta.msg) : "Cargando tu cuenta…") + '</p>') +
-        '<div class="grp"><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div></div>';
+      titulo = "Perfil";
+      cuerpo = '<div class="drawer-body pf-body">' + pfPerfilHtml() + '</div>';
+      cabeza = '<div class="drawer-head pf-head"><div class="pf-tit"><nav class="pf-mig" aria-label="Ruta"><a href="#" data-a="cerrarCuenta">Inicio</a><span aria-hidden="true">›</span><span>Perfil</span></nav><h2>Perfil</h2></div>' +
+        (p ? '<div class="pf-saldo"><span><small>Tu saldo</small><b>S/ ' + fmtSol(p.creditos) + '</b></span>' + (recargaOn() ? '<button class="btn btn-fuchsia btn-sm" type="button" data-a="recargar">💳 Recargar</button>' : '') + '</div>' : '') +
+        '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarCuenta">Cerrar</button></div>';
     } else {
       titulo = "Entrar";
       cuerpo = '<form class="drawer-body form" id="formLogin">' + btnGoogle() +
@@ -2523,8 +2633,8 @@
         '<p class="hint"><a href="#" data-a="olvide">¿Olvidaste tu contraseña?</a></p>' +
         '<p class="hint">¿No tienes cuenta? <a href="#" data-a="registro">Créala aquí</a></p></form>';
     }
-    return '<aside class="drawer" role="dialog" aria-label="' + titulo + '">' +
-      '<div class="drawer-head"><h2>' + titulo + '</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarCuenta">Cerrar</button></div>' +
+    return '<aside class="drawer' + (m === "perfil" ? ' perfil-pag' : '') + '" role="dialog" aria-label="' + titulo + '">' +
+      (cabeza || '<div class="drawer-head"><h2>' + titulo + '</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarCuenta">Cerrar</button></div>') +
       cuerpo + '</aside>';
   }
 
@@ -3097,8 +3207,11 @@
       case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = t.getAttribute("data-need") ? "Para participar primero crea una cuenta en la página." : ""; cuenta.msgTipo = t.getAttribute("data-need") ? "err" : ""; render(); break;
       case "misRifas": cuenta.modo = "rifas"; cuenta.msg = ""; render(); cargarParts(); break;
       case "udropToggle": { var dd = t.closest(".udrop"), ab = !dd.classList.contains("open"); cerrarMenuUsuario(); if (ab) { dd.classList.add("open"); t.setAttribute("aria-expanded", "true"); } break; }
-      case "misMovs": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); setTimeout(function () { var m = document.querySelector(".drawer .movs"); if (m && m.scrollIntoView) m.scrollIntoView({ block: "start", behavior: "smooth" }); }, 120); break;
-      case "miCuenta": cuenta.modo = "perfil"; cuenta.msg = ""; render(); cargarPerfil(); break;
+      case "misMovs": cuenta.modo = "perfil"; cuenta.tab = "trans"; cuenta.msg = ""; render(); cargarPerfil(); cargarItems(); break;
+      case "miCuenta": cuenta.modo = "perfil"; cuenta.tab = "info"; cuenta.msg = ""; render(); cargarPerfil(); break;
+      case "pfTab": cuenta.tab = t.getAttribute("data-t") || "info"; cuenta.msg = ""; cuenta.msgTipo = ""; if (cuenta.tab === "trans") cargarItems(); if (cuenta.tab === "seg") pfVerPass(); render(); pfFiltrar(); var pfb = document.querySelector(".pf-body"); if (pfb) pfb.scrollTop = 0; break;
+      case "txAbrir": { var kk = t.getAttribute("data-k"); cuenta.abiertos = cuenta.abiertos || {}; cuenta.abiertos[kk] = !cuenta.abiertos[kk]; render(); pfFiltrar(); break; }
+      case "pfCrearClave": ev.preventDefault(); pfEnviarClave(); break;
       case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; if (admin.fichaU && /^u_/.test(admin.fichaU)) cargarPedidosU(admin.fichaU.slice(2)); render(); break;
       case "editRapido": admin.fichaU = "u_" + t.getAttribute("data-uid"); admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cantPart": var xq = (partes[t.getAttribute("data-id")] || []).filter(function (y) { return y.uid === t.getAttribute("data-uid"); })[0]; if (xq) guardarCantidad(t.getAttribute("data-id"), xq.uid, xq.cantidad + Number(t.getAttribute("data-d"))); break;
@@ -3340,6 +3453,7 @@
   document.addEventListener("input", function (ev) {
     if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.closest && ev.target.closest("[data-edit]")) { aplicarEdicion(ev.target.closest("[data-edit]")); return; }
+    if (ev.target.id === "pf-buscar") { cuenta.tBuscar = ev.target.value; pfFiltrar(); return; }
     if (ev.target.id === "u-buscar") {
       admin.uFiltro = ev.target.value;
       var pos = ev.target.selectionStart; render();
@@ -3363,6 +3477,7 @@
   });
   // Al salir de un campo de texto de la página, refresca la vista previa.
   document.addEventListener("change", function (ev) {
+    if (ev.target.id === "pf-tipo") { cuenta.tTipo = ev.target.value; pfFiltrar(); return; }
     if (ev.target.id === "it-nombre" && admin.itemForm && !admin.itemForm.id && !admin.itemForm.soloCambios) { admin.itemForm.nombre = ev.target.value; render(); hidratarImgs(); return; }
     if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.id === "sk-file" && ev.target.files && ev.target.files[0]) { stkFoto(ev.target); return; }
@@ -3471,6 +3586,19 @@
         if (cuenta.perfil) { cuenta.perfil.nombre = nom; cuenta.perfil.whatsapp = wa; cuenta.perfil.tradelink = val; cuenta.perfil.steam = stm; }
         render(); var m2 = document.getElementById("tradeMsg"); if (m2) { m2.style.color = "var(--ok)"; m2.textContent = "✔ Cambios guardados."; }
       }).catch(function (e) { msgEl.style.color = "var(--danger)"; msgEl.textContent = "No se pudo guardar (" + e.message + ")."; });
+    } else if (ev.target.id === "formClave") {
+      ev.preventDefault();
+      var kA = document.getElementById("k-actual").value, kN = document.getElementById("k-nueva").value, kR = document.getElementById("k-repite").value, kM = document.getElementById("claveMsg");
+      if (kN.length < 6) { kM.style.color = "var(--danger)"; kM.textContent = "La contraseña nueva debe tener al menos 6 caracteres."; return; }
+      if (kN !== kR) { kM.style.color = "var(--danger)"; kM.textContent = "Las dos contraseñas nuevas no coinciden."; return; }
+      if (kN === kA) { kM.style.color = "var(--danger)"; kM.textContent = "La contraseña nueva debe ser distinta de la actual."; return; }
+      kM.style.color = ""; kM.textContent = "Cambiando…";
+      pfCambiarClave(kA, kN).then(function () {
+        render(); var k2 = document.getElementById("claveMsg"); if (k2) { k2.style.color = "var(--ok)"; k2.textContent = "✔ Contraseña cambiada. Úsala la próxima vez que entres."; }
+      }).catch(function (e) {
+        var k3 = document.getElementById("claveMsg"); if (!k3) return; k3.style.color = "var(--danger)";
+        k3.textContent = /INVALID_PASSWORD|INVALID_LOGIN|CREDENTIAL/.test(String(e && e.message)) ? "La contraseña actual no es correcta." : errAuth(e && e.message);
+      });
     } else if (ev.target.id === "formCompletar") {
       ev.preventDefault();
       var ses = leerSesion(), vc = function (id) { return document.getElementById(id).value.trim(); };
