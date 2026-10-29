@@ -1435,7 +1435,7 @@
   function ofertaFilaHtml(x, curId, mejor) {
     var cur = x.id === curId, ne = Number(x.estilos) || 0, ok = estilosOkLista(x), n = Math.max(1, Math.min(30, x.stock)), agot = x.stock <= 0;
     var est = ne ? [1, 2, 3, 4, 5, 6, 7, 8].slice(0, ne).map(function (k) { return '<span class="est' + (ok.indexOf(k) >= 0 ? '' : ' lock') + '">' + k + '</span>'; }).join("") : '';
-    var gem = gemChipsHtml(x), out = "", edit = admin.puede ? '<button type="button" class="btn btn-ghost btn-sm ofr-ed" data-a="itEditar" data-id="' + esc(x.id) + '"' + (x.stock > 1 ? ' data-u="1"' : '') + ' title="Editar esta unidad (gemas, estilos y precio)">✎ Editar</button>' : '';
+    var gem = gemChipsHtml(x), out = "", edit = admin.puede ? '<button type="button" class="btn btn-ghost btn-sm ofr-ed" data-a="itEditar" data-id="' + esc(x.id) + '"' + (x.stock > 1 ? ' data-u="1"' : '') + ' title="Editar esta unidad (gemas, estilos y precio)" aria-label="Editar">✎</button><button type="button" class="btn btn-ghost btn-sm" data-a="itMas1" data-id="' + esc(x.id) + '" title="Sumar una unidad">➕</button>' + (admin.itemDel === x.id ? '<button type="button" class="btn btn-sm itdel" data-a="itQuitarSi" data-id="' + esc(x.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itQuitar1" data-id="' + esc(x.id) + '" title="Quitar una unidad" aria-label="Quitar">🗑</button>') : '';
     for (var u = 0; u < n; u++) {
       var enCarro = !agot && u < (Number(carro[x.id]) || 0);
  var best = mejor && u === 0;
@@ -1458,6 +1458,7 @@
     var n = ofertasDe(it).reduce(function (a, x) { return a + Math.max(1, Math.min(30, x.stock)); }, 0);
     return '<div class="ofr"><div class="ofr-top"><h3>📚 ' + n + (n === 1 ? ' oferta' : ' ofertas') + ' de este item</h3>' +
       '<div class="ofr-f"><input id="ofe-min" inputmode="decimal" placeholder="Precio desde" value="' + esc(ofe.min) + '" aria-label="Precio desde"><input id="ofe-max" inputmode="decimal" placeholder="Precio hasta" value="' + esc(ofe.max) + '" aria-label="Precio hasta"></div></div>' +
+      (admin.puede ? '<div class="ofr-adm"><button type="button" class="btn btn-fuchsia btn-sm" data-a="itVersion" data-id="' + esc(it.id) + '">➕ Agregar otra versión (otra gema / estilos / precio)</button>' + (admin.itemMsg ? '<span class="hint" style="color:var(--danger)">' + esc(admin.itemMsg) + '</span>' : '') + '</div>' : '') +
       '<div class="ofr-t" id="ofrTabla">' + ofertasTablaHtml(it) + '</div></div>';
   }
   function mensajeItem(it) {
@@ -1827,17 +1828,69 @@
       (F.id ? '<button type="button" class="btn btn-ghost btn-sm" data-a="itVariante">⧉ Crear otra versión (otra gema)</button>' : '') + '</div></div>';
   }
   function gemasAString(l) { return l.map(function (g) { var t = String(g.t || "").trim(), v = String(g.v || "").trim(); return t ? (t + ":" + (v ? " " + v : "")) : v; }).filter(Boolean).join("\n"); }
+  /* ---- Items que ya existen: sumar unidades o crear otra versión sin repetir todo ---- */
+  function resumenVersion(x) {
+    var g = gemasDe(x).map(function (q) { return q.v || q.t; }).filter(Boolean).join(", "), ne = Number(x.estilos) || 0, ok = estilosOkLista(x);
+    return (g ? '💎 ' + esc(g) : 'Sin gemas') + (ne ? ' · Estilos ' + (ok.length ? ok.join(",") : "—") + '/' + ne : '');
+  }
+  function existentesDe(F) {
+    var n = sinTildes(String(F.nombre || "").trim());
+    if (n.length < 3 || F.id) return [];
+    return items.lista.filter(function (x) { return sinTildes(x.nombre) === n; }).sort(function (a, b) { return (a.precio || 0) - (b.precio || 0); });
+  }
+  function existentesHtml(F) {
+    var l = existentesDe(F); if (!l.length) return "";
+    return '<div class="grp dupbox"><h3>⚠ Este item ya existe (' + l.length + (l.length === 1 ? ' versión' : ' versiones') + ')</h3>' +
+      '<p class="hint">No hace falta repetir todo. Suma una unidad a una versión que ya tienes, o crea una versión nueva y solo cambia lo que cambia (gema, estilos, precio).</p>' +
+      l.map(function (x) {
+        return '<div class="itrow"><div class="itrow-t"><span><b>' + resumenVersion(x) + '</b><small>' + fmtPrecio(x.precio) + ' · stock ' + x.stock + (x.activo ? '' : ' · OCULTO') + '</small></span></div>' +
+          '<div class="itrow-b"><button type="button" class="btn btn-yellow btn-sm" data-a="itMas1" data-id="' + esc(x.id) + '" title="Sumar una unidad a esta versión">+1 unidad</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(x.id) + '">✎</button></div></div>';
+      }).join("") +
+      '<div class="cav"><button type="button" class="btn btn-fuchsia btn-sm" data-a="itVersion" data-id="' + esc(l[0].id) + '">➕ Agregar versión nueva (otra gema / estilos / precio)</button></div></div>';
+  }
+  function abrirVersion(base) {
+    admin.itemForm = Object.assign({}, base, { id: "", desdeId: "", creado: "", precio: "", stock: "1", descripcion: "", estilos: String(base.estilos || 0), estOk: base.estOk || (base.estilos ? "1" : ""), soloCambios: true, activo: true });
+    admin.itemMsg = ""; admin.steamInfo = ""; render(); hidratarImgs(); irAlForm();
+  }
+  function cambiarStock(id, delta) {
+    var o = itemPorId(id); if (!o) return;
+    var ns = (Number(o.stock) || 0) + delta;
+    if (ns < 0) return;
+    fsPedir("rayas_items/" + encodeURIComponent(id) + "?updateMask.fieldPaths=stock", { method: "PATCH", body: JSON.stringify({ fields: { stock: { integerValue: String(ns) } } }) }).then(function (r) {
+      if (!r.ok) throw new Error("No se pudo cambiar el stock (" + r.status + ").");
+      o.stock = ns; admin.itemMsg = ""; render(); hidratarImgs();
+    }).catch(function (e) { admin.itemMsg = e.message; render(); });
+  }
+  // Quita UNA unidad de la oferta; si era la última, borra la oferta.
+  function quitarUnidad(id) {
+    var o = itemPorId(id); admin.itemDel = null; if (!o) return;
+    if ((Number(o.stock) || 0) > 1) cambiarStock(id, -1); else borrarItem(id);
+  }
+  function estilosFormHtml(F) {
+    return '<div class="field"><label for="it-estilos">Estilos (solo si el item los tiene)</label><select id="it-estilos">' + ["0", "2", "3", "4", "5", "6"].map(function (v) { return '<option value="' + v + '"' + (String(F.estilos || 0) === v ? ' selected' : '') + '>' + (v === "0" ? 'Sin estilos' : v + ' estilos') + '</option>'; }).join("") + '</select></div>' +
+      ((Number(F.estilos) || 0) > 0 ? '<div class="field"><label>Estilos que SÍ tiene (los demás saldrán "Bloqueado")</label><div class="estchk">' + (function () { var o = "", ok = estilosOkLista(F); for (var k = 1; k <= Number(F.estilos); k++) o += '<label class="chk"><input type="checkbox" id="it-est-' + k + '"' + (ok.indexOf(k) >= 0 ? ' checked' : '') + '> Estilo ' + k + '</label>'; return o; })() + '</div></div>' : '');
+  }
   function itemFormHtml() {
     var F = admin.itemForm;
     var form = '';
-    if (F) form = '<div class="grp" id="itForm"><h3>' + (F.desdeId ? 'Editar esta unidad' : F.id ? 'Editar item' : 'Nuevo item') + '</h3>' +
+    if (F && F.soloCambios) form = '<div class="grp" id="itForm"><h3>Nueva versión de «' + esc(F.nombre) + '»</h3>' +
+      '<div class="itrow-t">' + (F.img ? imgTag(F.img, "", ' width="56" height="56"') : '') + '<span><b>' + esc(F.nombre) + '</b><small>' + esc([F.tipo, F.heroe, F.ranura, F.rareza].filter(Boolean).join(" · ")) + '</small></span></div>' +
+      '<p class="hint">Lo demás se copia del item. Solo pon lo que cambia en esta versión.</p>' +
+      '<div class="field"><label for="it-precio">Precio en soles (S/)</label><input id="it-precio" inputmode="decimal" value="' + esc(F.precio) + '"></div>' +
+      '<div class="field"><label for="it-stock">Stock (cuántos tienes)</label><input id="it-stock" inputmode="numeric" value="' + esc(F.stock) + '"></div>' +
+      gemasFormHtml(F) + estilosFormHtml(F) +
+      '<label class="chk"><input type="checkbox" id="it-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
+      (admin.itemMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.itemMsg) + '</p>' : '') +
+      '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="itGuardar">' + (admin.itemGuardando ? 'Guardando…' : '💾 Guardar versión') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="itCompleto">Cambiar más datos</button><button type="button" class="btn btn-ghost btn-sm" data-a="itCerrarForm">Cancelar</button></div></div>';
+    else if (F) form = '<div class="grp" id="itForm"><h3>' + (F.desdeId ? 'Editar esta unidad' : F.id ? 'Editar item' : 'Nuevo item') + '</h3>' +
       '<div class="field"><label for="it-link">Link del Mercado de Steam</label><input id="it-link" inputmode="url" placeholder="https://steamcommunity.com/market/listings/570/…" value="' + esc(F.link || "") + '"></div>' +
       '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="itSteam">' + (admin.steamCargando ? 'Leyendo Steam…' : '⚡ Rellenar desde Steam') + '</button></div>' +
       (admin.steamInfo ? '<p class="hint">' + esc(admin.steamInfo) + '</p>' : '') +
       (F.img ? '<div class="yapeqr"><img data-fs="' + esc(F.img.slice(3)) + '" alt="" width="140" height="140" style="width:140px;height:auto"></div>' : '') +
       '<div class="cav"><label class="btn btn-ghost btn-sm" for="it-file">' + (admin.subiendo === "item" ? 'Subiendo…' : (F.img ? 'Cambiar foto' : 'Subir foto')) + '</label><input id="it-file" class="itfile" type="file" accept="image/*" hidden>' +
       (F.img ? '<button type="button" class="btn btn-ghost btn-sm" data-a="itQuitarFoto">Quitar foto</button>' : '') + '</div>' +
-      '<div class="field"><label for="it-nombre">Nombre</label><input id="it-nombre" maxlength="90" value="' + esc(F.nombre) + '"></div>' +
+      '<div class="field"><label for="it-nombre">Nombre</label><input id="it-nombre" maxlength="90" value="' + esc(F.nombre) + '"></div>' + existentesHtml(F) +
       '<div class="field"><label for="it-precio">Precio en soles (S/)</label><input id="it-precio" inputmode="decimal" value="' + esc(F.precio) + '"></div>' +
       '<div class="field"><label for="it-stock">Stock (cuántos tienes)</label><input id="it-stock" inputmode="numeric" value="' + esc(F.stock) + '"></div>' +
       '<div class="field"><label for="it-tipo">Tipo</label><select id="it-tipo">' + opciones(ITEM_TIPOS, F.tipo, "—") + '</select></div>' +
@@ -1846,8 +1899,7 @@
       '<div class="field"><label for="it-rareza">Rareza</label><select id="it-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), F.rareza, "—") + '</select></div>' +
       '<div class="field"><label for="it-calidad">Calidad</label><input id="it-calidad" list="dl-calidad" maxlength="30" value="' + esc(F.calidad) + '"><datalist id="dl-calidad">' + distintos("calidad", ITEM_CALIDADES).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
       gemasFormHtml(F) +
-      '<div class="field"><label for="it-estilos">Estilos (solo si el item los tiene)</label><select id="it-estilos">' + ["0", "2", "3", "4", "5", "6"].map(function (v) { return '<option value="' + v + '"' + (String(F.estilos || 0) === v ? ' selected' : '') + '>' + (v === "0" ? 'Sin estilos' : v + ' estilos') + '</option>'; }).join("") + '</select></div>' +
-      ((Number(F.estilos) || 0) > 0 ? '<div class="field"><label>Estilos que SÍ tiene (los demás saldrán "Bloqueado")</label><div class="estchk">' + (function () { var o = "", ok = estilosOkLista(F); for (var k = 1; k <= Number(F.estilos); k++) o += '<label class="chk"><input type="checkbox" id="it-est-' + k + '"' + (ok.indexOf(k) >= 0 ? ' checked' : '') + '> Estilo ' + k + '</label>'; return o; })() + '</div></div>' : '') +
+      estilosFormHtml(F) +
       '<label class="chk"><input type="checkbox" id="it-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
       (admin.itemMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.itemMsg) + '</p>' : '') +
       '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="itGuardar">' + (admin.itemGuardando ? 'Guardando…' : '💾 Guardar item') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="itCerrarForm">Cancelar</button></div></div>';
@@ -3066,6 +3118,11 @@
       case "itQuitarFoto": if (admin.itemForm) { admin.itemForm.img = ""; render(); } break;
       case "itGuardar": guardarItem(); break;
       case "itSteam": rellenarDesdeSteam(); break;
+      case "itMas1": cambiarStock(t.getAttribute("data-id"), 1); break;
+      case "itVersion": var ib = itemPorId(t.getAttribute("data-id")); if (ib) abrirVersion(ib); break;
+      case "itCompleto": if (admin.itemForm) { admin.itemForm.soloCambios = false; render(); hidratarImgs(); } break;
+      case "itQuitar1": admin.itemDel = t.getAttribute("data-id"); render(); break;
+      case "itQuitarSi": quitarUnidad(t.getAttribute("data-id")); break;
       case "itBorrar": admin.itemDel = t.getAttribute("data-id"); render(); break;
       case "itBorrarSi": borrarItem(t.getAttribute("data-id")); break;
       case "crearPrueba": crearCuentaPrueba(); break;
@@ -3259,6 +3316,7 @@
   });
   // Al salir de un campo de texto de la página, refresca la vista previa.
   document.addEventListener("change", function (ev) {
+    if (ev.target.id === "it-nombre" && admin.itemForm && !admin.itemForm.id && !admin.itemForm.soloCambios) { admin.itemForm.nombre = ev.target.value; render(); hidratarImgs(); return; }
     if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.id === "sk-file" && ev.target.files && ev.target.files[0]) { stkFoto(ev.target); return; }
     if (ev.target.classList && ev.target.classList.contains("itfile") && ev.target.files && ev.target.files[0]) {
