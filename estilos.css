@@ -1376,3 +1376,6 @@ html { scroll-padding-top: 84px; }
 .udrop-menu button:hover, .udrop-menu button:focus-visible { background: rgba(255, 255, 255, .07); color: var(--yellow); outline: none; }
 .udrop-menu button.udrop-out { color: var(--fuchsia); border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; margin-top: 4px; padding-top: 13px; }
 @media (max-width: 560px) { .udrop-menu { position: fixed; right: 10px; left: 10px; top: 58px; min-width: 0; } }
+
+/* Tarjetas de rifa iguales: la descripción y la barra guardan su lugar aunque estén vacías */
+.card .desc.vacia, .cbar.nolim { visibility: hidden; }

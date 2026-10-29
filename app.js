@@ -2105,13 +2105,22 @@
   var ESTADOS = ["activa", "proxima", "cerrada", "oculta"];
   var LISTA_RAREZAS = ["", "ARCANO", "INMORTAL", "LEGENDARIO", "MÍTICO", "RARO", "POCO COMÚN", "COMÚN"];
 
+  /* Rifa nueva: sale con los mismos ajustes (precio, tickets y máximo por persona) que la última rifa con tickets configurados, para que su tarjeta se vea igual. */
+  function premioBase() {
+    var ps = estado.premios || [], u = null;
+    for (var k = ps.length - 1; k >= 0; k--) if (ps[k] && num(ps[k].cupos, 0) > 0) { u = ps[k]; break; }
+    if (!u) for (k = ps.length - 1; k >= 0; k--) if (ps[k] && ps[k].estado !== "cerrada") { u = ps[k]; break; }
+    if (!u && ps.length) u = ps[ps.length - 1];
+    return { id: "p" + Date.now().toString(36), nombre: "", rareza: "", img: "", descripcion: "", creditos: u ? num(u.creditos, 10) : 10, estado: "activa", cierre: "", participantes: 0,
+      cupos: u ? num(u.cupos, 0) : 0, maxPorUsuario: u ? num(u.maxPorUsuario, 0) : 0, ganador: "" };
+  }
   /* ================= Vista pública ================= */
   function tarjeta(p) {
     var img = imgTag(p.img, p.nombre, ' loading="lazy"');
     var est = p.estado === "proxima" ? "proxima" : (p.estado === "cerrada" ? "cerrada" : (p.estado === "oculta" ? "oculta" : "activa"));
     var estTxt = est === "activa" ? "Abierta" : (est === "proxima" ? "Próximamente" : (est === "oculta" ? "Deshabilitada" : "Cerrada"));
     var cupos = num(p.cupos, 0), part = Math.max(num(p.participantes, 0), tomados(p.id)), cred = num(p.creditos, 0);
-    var partTxt = cupos > 0 ? (part + " / " + cupos + " tickets") : (part + (part === 1 ? " ticket tomado" : " tickets tomados"));
+    var partTxt = cupos > 0 ? (part + " / " + cupos + " tickets") : (part + (part === 1 ? " ticket" : " tickets"));
     var lleno = cupos > 0 && part >= cupos;
     var mio0 = misParts[p.id] || 0, tope0 = num(p.maxPorUsuario, 0), topeOk = tope0 > 0 && mio0 >= tope0;
     var fz = vivo() ? est : fase(p);
@@ -2165,15 +2174,16 @@
       (V ? '<button type="button" class="rarity rbtn" data-a="ciclarRareza" data-id="' + id + '" title="Clic para cambiar la rareza">' + esc(p.rareza || "Sin rareza") + ' ⟳</button>'
          : (p.rareza ? '<div class="rarity">' + esc(p.rareza) + '</div>' : '')) +
       '<h3' + ed("p:" + p.id + ":nombre", "Nombre del premio") + '>' + esc(V ? p.nombre : (p.nombre || "Premio")) + '</h3>' +
-      (p.descripcion || V ? '<p class="desc"' + ed("p:" + p.id + ":descripcion", "Descripción (opcional)") + '>' + esc(p.descripcion) + '</p>' : '') +
+      (p.descripcion || V ? '<p class="desc"' + ed("p:" + p.id + ":descripcion", "Descripción (opcional)") + '>' + esc(p.descripcion) + '</p>' : '<p class="desc vacia" aria-hidden="true">&nbsp;</p>') +
       '<div class="meta"><span class="cost"><small>S/</small><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small>por ticket</small></span><span class="pill">' + partTxt + '</span></div>' +
-      (cupos > 0 ? '<div class="cbar' + (part >= cupos ? ' full' : (part / cupos >= 0.8 ? ' hot' : '')) + '" role="img" aria-label="' + esc(partTxt) + '"><i style="width:' + Math.min(100, Math.round(part / cupos * 100)) + '%"></i></div>' : '') +
+      (cupos > 0 ? '<div class="cbar' + (part >= cupos ? ' full' : (part / cupos >= 0.8 ? ' hot' : '')) + '" role="img" aria-label="' + esc(partTxt) + '"><i style="width:' + Math.min(100, Math.round(part / cupos * 100)) + '%"></i></div>' : '<div class="cbar nolim" aria-hidden="true"><i style="width:0"></i></div>') +
       (est === "activa" && p.cierre ? '<div class="timer' + (urg ? ' urg' : '') + '" data-cierre="' + esc(p.cierre) + '"><span class="tic">⏳</span> <span class="tx">' + esc(restante(p.cierre)) + '</span></div>' : '') +
       (est === "activa" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + (+p.cupos > 0 ? ' o al agotar tickets' : '') + '</div>' : '') +
       (est === "activa" && !p.cierre && +p.cupos > 0 ? '<div class="pill fechas">Cierra al agotar tickets</div>' : '') +
+      (est === "activa" && !p.cierre && !(+p.cupos > 0) ? '<div class="pill fechas">Tickets sin límite</div>' : '') +
       (est === "proxima" && p.inicio && tiempoDe(p.inicio) ? '<div class="pill fechas">Abre: ' + esc(fechaHora(p.inicio)) + '</div>' : '') +
       (est === "proxima" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + '</div>' : '') +
-      ((est === "activa" || est === "proxima") && +p.maxPorUsuario > 0 ? '<div class="pill maxp">🎟️ Máx. ' + (+p.maxPorUsuario) + (+p.maxPorUsuario === 1 ? ' ticket' : ' tickets') + ' por persona</div>' : '') +
+      ((est === "activa" || est === "proxima") && +p.maxPorUsuario > 0 ? '<div class="pill maxp">🎟️ Máx. ' + (+p.maxPorUsuario) + (+p.maxPorUsuario === 1 ? ' ticket' : ' tickets') + ' por persona</div>' : ((est === "activa" || est === "proxima") ? '<div class="pill maxp">🎟️ Sin límite por persona</div>' : '')) +
       boton + (est === "cerrada" && p.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + id + '" style="margin-top:8px">🎬 Ver repetición</button>' : '') + '</div></div></article>';
   }
 
@@ -3382,7 +3392,7 @@
       case "tab": admin.tab = t.getAttribute("data-t"); render(); break;
       case "uAbrir": var uu = t.getAttribute("data-uid"); admin.uAbierto = admin.uAbierto === uu ? null : uu; render(); break;
       case "nuevo":
-        admin.editando = { nuevo: true, p: { id: "p" + Date.now().toString(36), nombre: "", rareza: "", img: "", descripcion: "", creditos: 10, estado: "activa", cierre: "", participantes: 0, cupos: 0, ganador: "" } };
+        admin.editando = { nuevo: true, p: premioBase() };
         render(); var fi = document.getElementById("f-img"); if (fi) fi.focus(); break;
       case "editar": admin.editando = { nuevo: false, i: i, p: clone(estado.premios[i]) }; render(); break;
       case "subir": if (i > 0) { estado.premios.splice(i - 1, 0, estado.premios.splice(i, 1)[0]); marcarSucio(); render(); } break;
@@ -3400,7 +3410,7 @@
       case "publicar": publicar(); break;
       case "toggleVivo": admin.vivo = !admin.vivo; admin.imgEdit = null; admin.borrar = null; admin.msg = ""; admin.msgTipo = ""; render(); break;
       case "nuevoVivo":
-        var np = { id: "p" + Date.now().toString(36), nombre: "", rareza: "", img: "", descripcion: "", creditos: 10, estado: "activa", cierre: "", participantes: 0, cupos: 0, ganador: "" };
+        var np = premioBase();
         estado.premios.push(np); admin.imgEdit = np.id; marcarSucio(); render();
         var h = document.querySelector('[data-edit="p:' + np.id + ':nombre"]'); if (h) { h.scrollIntoView({ block: "center" }); h.focus(); }
         break;
