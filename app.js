@@ -2376,7 +2376,14 @@
     }); }).then(function (r) { return r.ok ? r.json() : []; }).then(function (j) {
       cuenta.compras = (j || []).filter(function (x) { return x.document; }).map(function (x) {
         var f = x.document.fields || {};
-        return { code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0), monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "" };
+        // Detalle de lo comprado: items[{name, qty, price}] del pedido.
+        var its = ((f.items && f.items.arrayValue && f.items.arrayValue.values) || []).map(function (v) {
+          var g = (v.mapValue && v.mapValue.fields) || {};
+          var num = function (k) { return Number(g[k] && (g[k].integerValue || g[k].doubleValue) || 0); };
+          return { name: g.name && g.name.stringValue || "Item", qty: num("qty") || 1, price: num("price") };
+        });
+        var nUni = its.reduce(function (a, i) { return a + i.qty; }, 0);
+        return { code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0) || nUni, monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "", items: its, estado: f.status && f.status.stringValue || "" };
       }).filter(function (c) { return c.monto > 0; });
       if (cuenta.modo === "perfil") render();
     }).catch(function () { /* sin historial de compras */ });
@@ -2390,10 +2397,17 @@
         movs.push({ t: x.creado || "", ico: "🎟️", txt: "Rifa: " + nom + " · " + x.cantidad + (x.cantidad === 1 ? " ticket" : " tickets"), monto: -x.costo });
       });
     });
-    (cuenta.compras || []).forEach(function (c) { movs.push({ t: c.t, ico: "🛒", txt: "Compra " + (c.code ? c.code + " · " : "") + (c.n || 1) + (c.n === 1 ? " item" : " items"), monto: -c.monto }); });
+    (cuenta.compras || []).forEach(function (c) { movs.push({ t: c.t, ico: "🛒", txt: "Compra " + (c.code ? c.code + " · " : "") + (c.n || 1) + (c.n === 1 ? " item" : " items"), monto: -c.monto, items: c.items || [], estado: c.estado || "" }); });
     movs.sort(function (a, b) { return String(b.t).localeCompare(String(a.t)); });
-    return '<div class="grp movs"><h3>Mis movimientos</h3>' + (movs.length ? '<ul class="movl">' + movs.slice(0, 15).map(function (m) {
-      return '<li><span class="mv-i">' + m.ico + '</span><span class="mv-t"><b>' + esc(m.txt) + '</b><small>' + (m.t ? esc(fechaHora(m.t)) : "—") + '</small></span><span class="mv-m neg">−S/ ' + (Math.round(Math.abs(m.monto) * 100) / 100).toFixed(2).replace(/\.00$/, "") + '</span></li>';
+    var EST = { pagado: "Por entregar", entregado: "Entregado", cancelado: "Cancelado" };
+    return '<div class="grp movs"><h3>Mis movimientos</h3>' + (movs.length ? '<ul class="movl">' + movs.slice(0, 30).map(function (m) {
+      var fila = '<span class="mv-i">' + m.ico + '</span><span class="mv-t"><b>' + esc(m.txt) + '</b><small>' + (m.t ? esc(fechaHora(m.t)) : "—") + '</small></span><span class="mv-m neg">−S/ ' + fmtSol(Math.abs(m.monto)) + '</span>';
+      if (m.items && m.items.length) {
+        return '<li class="mv-det"><details><summary>' + fila + '<span class="mv-flecha" aria-hidden="true">▾</span></summary><div class="mv-items">' +
+          m.items.map(function (i) { return '<div class="mv-item"><span>' + esc(i.name) + (i.qty > 1 ? ' <em>×' + i.qty + '</em>' : '') + '</span><b>S/ ' + fmtSol(i.price * i.qty) + '</b></div>'; }).join("") +
+          (m.estado ? '<div class="mv-est est-' + esc(m.estado) + '">' + esc(EST[m.estado] || m.estado) + '</div>' : '') + '</div></details></li>';
+      }
+      return '<li>' + fila + '</li>';
     }).join("") + '</ul>' : '<p class="hint">Todavía no tienes movimientos. Tus compras y tickets aparecerán aquí.</p>') + '</div>';
   }
   function listaMisRifas() {
