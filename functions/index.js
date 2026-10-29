@@ -177,8 +177,6 @@ exports.cobrar = onRequest(
 exports.comprarSets = onRequest(
   { region: REGION, cors: ORIGENES, maxInstances: 5, timeoutSeconds: 30 },
   async (req, res) => {
-    // Abrir la dirección en el navegador sirve para comprobar qué versión está desplegada.
-    if (req.method === "GET") return res.json({ ok: true, funcion: "comprarItem", version: VERSION_COMPRAR_ITEM });
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
     if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con tu saldo." });
@@ -235,6 +233,8 @@ const VERSION_COMPRAR_ITEM = "2026-10-29 · céntimos exactos + correos admin/cl
 exports.comprarItem = onRequest(
   { region: REGION, cors: ORIGENES, secrets: [RESEND_KEY], maxInstances: 5, timeoutSeconds: 30 },
   async (req, res) => {
+    // Abrir la dirección en el navegador sirve para comprobar qué versión está desplegada.
+    if (req.method === "GET") return res.json({ ok: true, funcion: "comprarItem", version: VERSION_COMPRAR_ITEM });
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
     if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con tu saldo." });
