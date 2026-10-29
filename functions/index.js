@@ -264,9 +264,10 @@ exports.comprarItem = onRequest(
           const precio = Number(it.precio);
           if (!(precio > 0)) throw new Error("SIN_PRECIO");
           lineas.push({ ref: refs[k], stock: stock, qty: qty, line: { id: ids[k], name: String(it.nombre || "Item").slice(0, 90), qty: qty, price: precio } });
-          total += precio * qty; creditos += Math.ceil(precio) * qty; count += qty;
+          total += precio * qty; count += qty;
         });
         total = Math.round(total * 100) / 100;
+        creditos = Math.max(1, Math.ceil(total - 1e-9)); // soles enteros: se redondea el TOTAL, no cada item
         if (!u.exists) throw new Error("SIN_PERFIL");
         const d = u.data();
         const saldo = Number(d.creditos || 0);
