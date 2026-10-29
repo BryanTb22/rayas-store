@@ -1,0 +1,102 @@
+/* Perfil de usuario: Información personal · Transacciones · Seguridad (página ancha, tabla con filas desplegables) */
+html body .drawer.perfil-pag {
+  left: 50%; right: auto; width: min(100%, 1120px); transform: translateX(-50%);
+  border-left: 1px solid var(--line); border-right: 1px solid var(--line); box-shadow: 0 0 60px rgba(0, 0, 0, .6);
+}
+.perfil-pag .pf-head { align-items: center; flex-wrap: wrap; row-gap: 10px; padding: 18px 28px; }
+.perfil-pag .pf-tit { display: grid; gap: 4px; margin-right: auto; }
+.perfil-pag .pf-mig { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.perfil-pag .pf-mig a { color: var(--muted); text-decoration: none; }
+.perfil-pag .pf-mig a:hover { color: var(--yellow); }
+.perfil-pag .pf-head h2 { font-size: 34px; letter-spacing: .04em; text-transform: uppercase; line-height: 1; }
+.perfil-pag .pf-saldo { display: flex; align-items: center; gap: 12px; padding: 6px 8px 6px 16px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, .04); }
+.perfil-pag .pf-saldo span { display: grid; line-height: 1.05; }
+.perfil-pag .pf-saldo small { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.perfil-pag .pf-saldo b { font-family: var(--num); font-size: 26px; font-weight: 600; color: var(--yellow); }
+.perfil-pag .pf-body { padding: 22px 28px 40px; gap: 18px; grid-auto-rows: max-content; }
+
+.perfil-pag .pf-tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-radius: 12px; overflow: hidden; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); }
+.perfil-pag .pf-tab { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 18px 10px; background: transparent; border: 0; border-right: 1px solid var(--line); color: var(--muted); cursor: pointer; font: inherit; transition: background .15s, color .15s; }
+.perfil-pag .pf-tab:last-child { border-right: 0; }
+.perfil-pag .pf-tab b { font-weight: 600; font-size: 15px; }
+.perfil-pag .pf-tab:hover { color: var(--text, #fff); background: rgba(255, 255, 255, .04); }
+.perfil-pag .pf-tab[aria-selected="true"] { color: var(--yellow); background: rgba(255, 255, 255, .08); box-shadow: inset 0 -3px 0 var(--yellow); }
+
+.perfil-pag .pf-panel { display: grid; gap: 18px; align-content: start; }
+.perfil-pag .pf-h { font-family: var(--title); font-size: 34px; font-weight: 700; line-height: 1.1; text-transform: none; letter-spacing: 0; color: var(--text, #fff); margin: 0; }
+.perfil-pag .pf-tools { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+.perfil-pag .pf-filtros { display: flex; gap: 10px; flex-wrap: wrap; flex: 1 1 420px; justify-content: flex-end; }
+.perfil-pag .pf-filtros select, .perfil-pag .pf-filtros input { height: 46px; padding: 0 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); color: inherit; font: inherit; min-width: 0; }
+.perfil-pag .pf-filtros select { flex: 0 1 240px; }
+.perfil-pag .pf-filtros input { flex: 1 1 280px; }
+.perfil-pag .pf-filtros select:focus, .perfil-pag .pf-filtros input:focus { outline: none; border-color: var(--yellow); }
+
+/* Tabla de transacciones */
+.perfil-pag .pf-tabla { display: grid; gap: 0; }
+.perfil-pag .pf-th, .perfil-pag .pf-row { display: grid; grid-template-columns: minmax(200px, 2.1fr) 1.1fr 1.5fr 1.2fr 1fr 1.3fr; align-items: center; gap: 12px; padding: 0 16px; }
+.perfil-pag .pf-th { min-height: 44px; border-radius: 8px; background: rgba(255, 255, 255, .06); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.perfil-pag .pf-tx { border-bottom: 1px solid var(--line); }
+.perfil-pag .pf-tx[hidden] { display: none; }
+.perfil-pag .pf-tx.open { background: rgba(255, 255, 255, .03); border-radius: 10px; border-bottom-color: transparent; margin-bottom: 4px; }
+.perfil-pag .pf-row { width: 100%; min-height: 72px; background: transparent; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 10px; }
+.perfil-pag .pf-row:hover { background: rgba(255, 255, 255, .04); }
+.perfil-pag .c-tipo { display: grid; gap: 4px; min-width: 0; }
+.perfil-pag .c-tipo b { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.perfil-pag .c-tipo small { color: var(--muted); font-size: 14px; }
+.perfil-pag .pf-fl { font-style: normal; font-size: 14px; opacity: .7; transition: transform .2s; }
+.perfil-pag .pf-tx.open .pf-fl { transform: rotate(180deg); }
+.perfil-pag .c-id { font-weight: 700; letter-spacing: .02em; overflow-wrap: anywhere; }
+.perfil-pag .c-est, .perfil-pag .pf-dr [data-l="Estado"] { display: flex; align-items: center; gap: 8px; }
+.perfil-pag .pf-dot { width: 8px; height: 8px; border-radius: 50%; background: #9aa3b8; flex: none; }
+.perfil-pag .pf-dot.est-pagado, .perfil-pag .pf-dot.est-curso { background: #ffc93c; }
+.perfil-pag .pf-dot.est-entregado { background: #38d98a; }
+.perfil-pag .pf-dot.est-cancelado { background: #ff6b6b; }
+.perfil-pag .c-est { color: #e8ecf8; }
+.perfil-pag .c-imp { font-weight: 800; font-size: 16px; }
+.perfil-pag .r { text-align: right; justify-self: end; }
+.perfil-pag .c-sal.neg { color: #ff6b81; font-weight: 700; }
+
+/* Detalle desplegado */
+.perfil-pag .pf-det { display: none; margin: 0 8px 10px; border-radius: 10px; background: rgba(0, 0, 0, .22); overflow: hidden; }
+.perfil-pag .pf-tx.open .pf-det { display: block; }
+.perfil-pag .pf-dh, .perfil-pag .pf-dr { display: grid; grid-template-columns: minmax(220px, 2.6fr) 1fr 1.4fr 1.3fr 1.2fr; align-items: center; gap: 12px; padding: 0 16px; }
+.perfil-pag .pf-dh { min-height: 38px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
+.perfil-pag .pf-dr { min-height: 82px; }
+.perfil-pag .pf-dr + .pf-dr { border-top: 1px solid rgba(255, 255, 255, .06); }
+.perfil-pag .pf-it { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.perfil-pag .pf-it b { font-weight: 600; font-size: 15px; line-height: 1.3; }
+.perfil-pag .pf-foto { width: 90px; aspect-ratio: 3 / 2; flex: none; border-radius: 8px; overflow: hidden; background: rgba(255, 255, 255, .06); display: grid; place-items: center; }
+.perfil-pag .pf-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.perfil-pag .pf-foto i { font-style: normal; font-size: 26px; opacity: .6; }
+.perfil-pag .pf-pie { padding: 10px 16px 14px; font-size: 13px; color: var(--muted); border-top: 1px solid rgba(255, 255, 255, .06); }
+.perfil-pag .pf-vacio, .perfil-pag .pf-nada { padding: 34px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; margin: 0; }
+
+/* Formularios (información y seguridad) */
+.perfil-pag .pf-form, .perfil-pag .pf-bloque { display: grid; gap: 14px; max-width: 760px; }
+.perfil-pag .pf-bloque { padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.perfil-pag .pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.perfil-pag .pf-ancho { grid-column: 1 / -1; }
+.perfil-pag .steamlink { max-width: 760px; gap: 14px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.perfil-pag .steamlink h3 { font-family: var(--title); font-size: 34px; font-weight: 700; line-height: 1.1; text-transform: none; letter-spacing: 0; color: var(--text, #fff); }
+
+@media (max-width: 900px) {
+  .perfil-pag .pf-filtros { justify-content: stretch; flex-basis: 100%; }
+  .perfil-pag .pf-filtros select, .perfil-pag .pf-filtros input { flex: 1 1 100%; }
+  .perfil-pag .pf-head { padding: 14px 16px; }
+  .perfil-pag .pf-head h2 { font-size: 28px; }
+  .perfil-pag .pf-body { padding: 16px 14px 36px; }
+  .perfil-pag .pf-tab { flex-direction: column; gap: 4px; padding: 12px 4px; }
+  .perfil-pag .pf-tab b { font-size: 12px; text-align: center; line-height: 1.2; }
+  .perfil-pag .pf-h { font-size: 28px; }
+  .perfil-pag .pf-th, .perfil-pag .pf-dh { display: none; }
+  .perfil-pag .pf-row { grid-template-columns: 1fr auto; grid-template-areas: "tipo imp" "est sal" "id id" "pago pago"; padding: 12px 12px; row-gap: 6px; min-height: 0; }
+  .perfil-pag .c-tipo { grid-area: tipo; } .perfil-pag .c-imp { grid-area: imp; justify-self: end; }
+  .perfil-pag .c-est { grid-area: est; } .perfil-pag .c-sal { grid-area: sal; }
+  .perfil-pag .c-id { grid-area: id; font-size: 13px; color: var(--muted); } .perfil-pag .c-pago { display: none; }
+  .perfil-pag .c-id::before { content: "ID: "; }
+  .perfil-pag .pf-dr { grid-template-columns: 1fr 1fr; padding: 12px; row-gap: 8px; }
+  .perfil-pag .pf-dr .pf-it { grid-column: 1 / -1; }
+  .perfil-pag .pf-dr > span[data-l]::before { content: attr(data-l) ": "; color: var(--muted); font-size: 12px; }
+  .perfil-pag .pf-dr > .r { justify-self: start; text-align: left; }
+  .perfil-pag .pf-grid { grid-template-columns: 1fr; }
+}
