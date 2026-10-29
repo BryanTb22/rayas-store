@@ -129,7 +129,7 @@
     var o = leerHashSteam(); if (!o) return false;
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* nada */ }
     if (o.steamerror) { cuenta.modo = "login"; cuenta.msg = o.steamerror.slice(0, 160); cuenta.msgTipo = "err"; render(); return true; }
-    if (o.steam === "ok") { cuenta.modo = "perfil"; cuenta.tab = "seg"; cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); cargarPerfil().then(function () { cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); }); return true; }
+    if (o.steam === "ok") { cuenta.modo = "perfil"; cuenta.irTab = "seg"; cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); cargarPerfil().then(function () { cuenta.msg = "✔ Steam vinculado a tu cuenta."; cuenta.msgTipo = "ok"; render(); }); return true; }
     if (!o.steamtoken) return false;
     steamPre = { sid: String(o.sid || "").replace(/\D/g, ""), nom: String(o.nom || "").slice(0, 40), av: imgSteamOk(o.av) ? String(o.av) : "", pa: String(o.pa || "").replace(/[<>\u0000-\u001f]/g, "").slice(0, 60), pu: o.pu === "1" ? true : (o.pu === "0" ? false : null) };
     cuenta.modo = "login"; cuenta.msg = "Entrando con Steam…"; cuenta.msgTipo = ""; render();
@@ -2182,7 +2182,7 @@
       (sub ? '<p>' + sub + '</p>' : '') + '<div class="orn">◆</div></div>';
   }
 
-  var VISTA_HASH = { inicio: "inicio", rifas: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender" };
+  var VISTA_HASH = { inicio: "inicio", rifas: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender", perfil: "perfil", "perfil/transacciones": "perfil", "perfil/seguridad": "perfil" };
   var vistaActual = "inicio";
   function switchItems() {
     if (!admin.puede) return "";
@@ -2205,6 +2205,8 @@
   function vistaDeHash() {
     var h = String(location.hash || "").replace("#", "");
     if (VISTA_HASH[h]) vistaActual = VISTA_HASH[h];
+    if (/^perfil(\/|$)/.test(h)) vistaActual = admin.puede ? "inicio" : "perfil";
+    else if (vistaActual === "perfil") vistaActual = "inicio";
     if (/^item\//.test(h) || /^comprar\//.test(h)) vistaActual = "comprar";
     if ((vistaActual === "comprar" || vistaActual === "vender") && !itemsVisible()) vistaActual = "inicio";
     if (vistaActual === "rifas" && !rifasVisible()) vistaActual = itemsVisible() ? "comprar" : "inicio";
@@ -2239,6 +2241,12 @@
 
     var V = vivo();
     var vista = vistaDeHash();
+    // El perfil ya no se abre como panel encima: si algo pidió el modo "perfil", se va a la página #perfil.
+    if (cuenta.modo === "perfil") { cuenta.modo = null; if (vista !== "perfil" && !admin.puede) { try { history.pushState(null, "", location.pathname + location.search + "#" + PF_RUTA[cuenta.irTab || "info"]); } catch (e) { location.hash = PF_RUTA[cuenta.irTab || "info"]; return; } vista = vistaDeHash(); window.scrollTo(0, 0); } cuenta.irTab = ""; }
+    if (vista === "perfil") {
+      if (!cuenta.pfPedido && leerSesion()) { cuenta.pfPedido = true; setTimeout(function () { cargarPerfil(); cargarItems(); }, 0); }
+      if (pfTabDeHash() === "seg") pfVerPass();
+    } else cuenta.pfPedido = false;
     function sec(kk, k1, k2, subk) {
       return '<div class="sec-title">' + tx("div", kk, 'class="kicker"') +
         '<h2>' + (k1 ? tx("span", k1, 'class="t1"') + ' ' : '') + tx("span", k2) + '</h2>' +
@@ -2347,7 +2355,7 @@
         (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Configuraciones principales.</p>') +
         '<div class="empty frame"><div class="in"><strong>Estamos preparando esta sección</strong><span>Muy pronto podrás ' + (vista === "vender" ? 'vender' : 'comprar') + ' items de Dota 2 aquí.</span></div></div>' +
         '</div></section>';
-      html = a[0] + (vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : inicioHtml) + b[1];
+      html = a[0] + (vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : vista === "perfil" ? perfilPaginaHtml() : inicioHtml) + b[1];
     })();
     if (ruleta) html += modalRuleta();
     else if (modal && modal.tipo === "stock") html += stkPanelHtml();
@@ -2370,7 +2378,7 @@
     if (modal && modal.tipo === "stock") pintarStock();
     hidratarImgs();
     aplicarFotos();
-    if (cuenta.modo === "perfil" && cuenta.tab === "trans") pfFiltrar();
+    if (vista === "perfil" && cuenta.tab === "trans") pfFiltrar();
     var nd = document.querySelector(".drawer-body");
     if (nd && top) nd.scrollTop = top;
   }
@@ -2405,7 +2413,7 @@
         var nUni = its.reduce(function (a, i) { return a + i.qty; }, 0);
         return { code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0) || nUni, monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "", items: its, estado: f.status && f.status.stringValue || "", tienda: f.tienda && f.tienda.stringValue || "" };
       }).filter(function (c) { return c.monto > 0; });
-      if (cuenta.modo === "perfil") { render(); pfFiltrar(); }
+      if (vistaActual === "perfil") { render(); pfFiltrar(); }
     }).catch(function () { /* sin historial de compras */ });
   }
   /* ================= Perfil: Información personal · Transacciones · Seguridad ================= */
@@ -2445,10 +2453,10 @@
   function pfTransHtml() {
     var filas = pfFilas(), ab = cuenta.abiertos || {};
     var tipoSel = cuenta.tTipo || "";
-    var cab = '<div class="pf-tools"><h3 class="pf-h">Transacciones</h3><div class="pf-filtros">' +
-      '<select id="pf-tipo" aria-label="Tipo de transacción"><option value="">Tipo de transacción</option><option value="compra"' + (tipoSel === "compra" ? " selected" : "") + '>Compras de items</option><option value="rifa"' + (tipoSel === "rifa" ? " selected" : "") + '>Rifas</option></select>' +
-      '<input id="pf-buscar" type="search" placeholder="ID de transacción / Nombre del item" autocomplete="off" value="' + esc(cuenta.tBuscar || "") + '"></div></div>';
-    if (!filas.length) return cab + '<div class="pf-vacio">Todavía no tienes transacciones. Tus compras de items y tus tickets de rifas aparecerán aquí.</div>';
+    var cab = '<div class="pf-tools"><div class="pf-sec-h"><h2>Transacciones</h2><p>Tus compras de items y tickets de rifas. Toca una fila para ver el detalle.</p></div><div class="pf-filtros">' +
+      '<select id="pf-tipo" aria-label="Tipo de transacción"><option value="">Todas</option><option value="compra"' + (tipoSel === "compra" ? " selected" : "") + '>Compras de items</option><option value="rifa"' + (tipoSel === "rifa" ? " selected" : "") + '>Rifas</option></select>' +
+      '<input id="pf-buscar" type="search" placeholder="Buscar por ID o nombre del item" autocomplete="off" value="' + esc(cuenta.tBuscar || "") + '"></div></div>';
+    if (!filas.length) return cab + '<div class="pf-vacio pf-vacio-t">Todavía no tienes transacciones. Tus compras de items y tus tickets de rifas aparecerán aquí.</div>';
     var tabla = '<div class="pf-tabla" role="table"><div class="pf-th" role="row"><span>Tipo / Fecha</span><span>ID</span><span>Estado</span><span>Sistema de pago</span><span>Importe</span><span class="r">Saldo</span></div>' +
       filas.map(function (f) {
         var abierto = !!ab[f.key], q = sinTildes(f.code + " " + f.titulo + " " + f.det.map(function (d) { return d.nombre; }).join(" "));
@@ -2481,43 +2489,67 @@
     var nada = document.querySelector(".pf-nada"); if (nada) nada.hidden = n > 0;
   }
   function pfInfoHtml(p) {
-    return '<form class="pf-form" id="formTrade"><h3 class="pf-h">Información personal</h3>' +
+    return '<form class="pf-form" id="formTrade">' +
+      '<div class="pf-sec-h"><h2>Información personal</h2><p>Estos datos los usamos para enviarte tus items por Steam.</p></div>' +
       '<div class="pf-grid">' +
       '<div class="field"><label for="p-nombre">Nombre de usuario</label><input id="p-nombre" maxlength="40" required value="' + esc(p.nombre) + '"></div>' +
       '<div class="field"><label for="p-email">Correo</label><input id="p-email" value="' + esc(p.email) + '" disabled></div>' +
       '<div class="field"><label for="p-wa">WhatsApp</label><input id="p-wa" inputmode="tel" maxlength="30" required value="' + esc(p.whatsapp) + '"></div>' +
       campoSteam("p-steam", p.steam) +
-      '<div class="field pf-ancho"><label for="p-trade">Link de intercambio de Steam</label><input id="p-trade" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(p.tradelink) + '"></div></div>' +
-      (p.steam ? '' : '<p class="hint" style="color:var(--fuchsia)">Agrega tu ID de Steam para que podamos agregarte y enviarte tus premios.</p>') +
-      (p.tradelink ? '' : '<p class="hint" style="color:var(--fuchsia)">Sin trade link no podemos enviarte tus items.</p>') +
-      '<p class="hint">' + TRADE_AYUDA + '</p>' +
-      '<div><button class="btn btn-yellow" type="submit">Guardar cambios</button></div>' +
-      '<p class="hint" role="status" id="tradeMsg"></p></form>';
+      '<div class="field pf-ancho"><label for="p-trade">Link de intercambio de Steam</label><input id="p-trade" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(p.tradelink) + '">' +
+      '<p class="hint">' + TRADE_AYUDA + '</p></div></div>' +
+      (p.steam ? '' : '<p class="pf-aviso">Agrega tu ID de Steam para que podamos agregarte y enviarte tus premios.</p>') +
+      (p.tradelink ? '' : '<p class="pf-aviso">Sin trade link no podemos enviarte tus items.</p>') +
+      '<div class="pf-acciones"><button class="btn btn-yellow" type="submit">Guardar cambios</button><span class="hint" role="status" id="tradeMsg"></span></div></form>';
   }
   function pfSegHtml() {
-    var tp = cuenta.tienePass, link = creditoHref();
-    var clave = tp === false
-      ? '<div class="pf-bloque"><h3 class="pf-h">Contraseña</h3><p class="hint">Tu cuenta entra con Steam o Google y todavía no tiene contraseña. Si quieres una, te enviamos un correo para crearla.</p>' +
-        (cuenta.perfil && cuenta.perfil.email ? '<div><button class="btn btn-yellow btn-sm" type="button" data-a="pfCrearClave">Enviarme el correo</button></div>' : '<p class="hint">Primero agrega un correo a tu cuenta escribiendo al encargado.</p>') + '</div>'
-      : '<form class="pf-bloque pf-form" id="formClave"><h3 class="pf-h">Cambiar contraseña</h3>' +
-        '<div class="pf-grid"><div class="field pf-ancho"><label for="k-actual">Contraseña actual</label><input id="k-actual" type="password" autocomplete="current-password" required></div>' +
-        '<div class="field"><label for="k-nueva">Contraseña nueva (mínimo 6)</label><input id="k-nueva" type="password" minlength="6" autocomplete="new-password" required></div>' +
-        '<div class="field"><label for="k-repite">Repite la contraseña nueva</label><input id="k-repite" type="password" minlength="6" autocomplete="new-password" required></div></div>' +
-        '<div><button class="btn btn-yellow" type="submit">Cambiar contraseña</button></div>' +
-        '<p class="hint" role="status" id="claveMsg"></p>' +
-        '<p class="hint"><a href="#" data-a="pfCrearClave">¿Olvidaste tu contraseña actual? Te enviamos un correo.</a></p></form>';
-    return clave + steamVinculoHtml() +
-      '<div class="pf-bloque"><h3 class="pf-h">Sesión</h3><p class="hint">Cierra tu sesión en este dispositivo.</p><div><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div></div>' +
-      (link ? '<p class="hint">¿Algún problema con tu cuenta? <a href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Escríbenos por WhatsApp</a>.</p>' : '');
+    var tp = cuenta.tienePass, link = creditoHref(), v = steamVinculado(), abierta = !!cuenta.claveAbierta;
+    var clave;
+    if (tp === false) {
+      clave = '<div class="pf-fila"><div class="pf-fila-tx"><b>Contraseña</b><span>Entras con Steam o Google y aún no tienes contraseña.</span></div>' +
+        (cuenta.perfil && cuenta.perfil.email ? '<button class="btn btn-ghost btn-sm" type="button" data-a="pfCrearClave">Crear contraseña</button>' : '') + '</div>';
+    } else {
+      clave = '<div class="pf-fila' + (abierta ? ' open' : '') + '"><div class="pf-fila-tx"><b>Contraseña</b><span>Cámbiala cuando quieras. Te pediremos la actual.</span></div>' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-a="pfClaveToggle" aria-expanded="' + abierta + '">' + (abierta ? 'Cancelar' : 'Cambiar') + '</button>' +
+        (abierta ? '<form class="pf-form pf-clave" id="formClave"><div class="pf-grid">' +
+          '<div class="field pf-ancho"><label for="k-actual">Contraseña actual</label><input id="k-actual" type="password" autocomplete="current-password" required></div>' +
+          '<div class="field"><label for="k-nueva">Nueva (mínimo 6)</label><input id="k-nueva" type="password" minlength="6" autocomplete="new-password" required></div>' +
+          '<div class="field"><label for="k-repite">Repite la nueva</label><input id="k-repite" type="password" minlength="6" autocomplete="new-password" required></div></div>' +
+          '<div class="pf-acciones"><button class="btn btn-yellow btn-sm" type="submit">Guardar contraseña</button><a href="#" class="hint" data-a="pfCrearClave">¿Olvidaste la actual?</a></div>' +
+          '<p class="hint" role="status" id="claveMsg"></p></form>' : '') + '</div>';
+    }
+    return '<div class="pf-sec-h"><h2>Seguridad</h2><p>Controla cómo entras a tu cuenta.</p></div><div class="pf-lista">' + clave +
+      '<div class="pf-fila"><div class="pf-fila-tx"><b>Steam</b><span>' + (v ? '✔ Vinculado (ID ' + esc(v) + '). Puedes entrar con «Entrar con Steam».' : 'Vincúlalo para entrar con un clic, sin contraseña.') + '</span></div>' +
+        (v ? '' : '<button type="button" class="btn btn-ghost btn-sm" data-a="steamVincular">Vincular Steam</button>') + '</div>' +
+      '<div class="pf-fila"><div class="pf-fila-tx"><b>Sesión</b><span>Cierra tu sesión en este dispositivo.</span></div><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div>' +
+      '</div>' + (link ? '<p class="hint pf-ayuda">¿Problemas con tu cuenta? <a href="' + esc(link) + '"' + (link === "#elegir" ? ' data-a="elegir"' : ' target="_blank" rel="noopener"') + '>Escríbenos por WhatsApp</a>.</p>' : '');
   }
-  function pfPerfilHtml() {
-    var p = cuenta.perfil, tab = cuenta.tab || "info";
-    if (!p) return '<p class="hint">' + (cuenta.msg ? esc(cuenta.msg) : "Cargando tu cuenta…") + '</p>';
-    var msg = cuenta.msg ? '<p class="hint" role="status" style="color:var(--' + (cuenta.msgTipo === "err" ? "danger" : "ok") + ')">' + esc(cuenta.msg) + '</p>' : '';
-    return '<nav class="pf-tabs" role="tablist" aria-label="Secciones del perfil">' + PF_TABS.map(function (t) {
-      return '<button type="button" class="pf-tab" role="tab" data-a="pfTab" data-t="' + t[0] + '" aria-selected="' + (tab === t[0]) + '"><span aria-hidden="true">' + t[1] + '</span><b>' + t[2] + '</b></button>';
-    }).join("") + '</nav>' + msg +
-      '<section class="pf-panel" role="tabpanel">' + (tab === "trans" ? pfTransHtml() : tab === "seg" ? pfSegHtml() : pfInfoHtml(p)) + '</section>';
+  var PF_RUTA = { info: "perfil", trans: "perfil/transacciones", seg: "perfil/seguridad" };
+  function pfTabDeHash() {
+    var h = String(location.hash || "").replace("#", "");
+    return h === "perfil/transacciones" ? "trans" : h === "perfil/seguridad" ? "seg" : "info";
+  }
+  function pfAvatar(p) {
+    var a = p && p.steamAvatar && /^https:\/\/(avatars\.(steamstatic|akamai\.steamstatic|cloudflare\.steamstatic)\.com|steamcdn-a\.akamaihd\.net)\//.test(p.steamAvatar) ? p.steamAvatar : "";
+    return a ? '<img src="' + esc(a) + '" alt="" width="56" height="56">' : '<span>' + esc(String(p && p.nombre || "?").trim().charAt(0).toUpperCase() || "?") + '</span>';
+  }
+  // Página de perfil (#perfil, #perfil/transacciones, #perfil/seguridad): ocupa el lugar de la sección, no se superpone.
+  function perfilPaginaHtml() {
+    var p = cuenta.perfil, tab = pfTabDeHash(), ses = leerSesion();
+    cuenta.tab = tab;
+    var cuerpo;
+    if (!ses) cuerpo = '<div class="pf-card pf-vacio"><b>Entra a tu cuenta para ver tu perfil.</b><div class="pf-acciones" style="justify-content:center"><button class="btn btn-yellow" type="button" data-a="entrar">Entrar</button><button class="btn btn-ghost" type="button" data-a="registro">Crear cuenta</button></div></div>';
+    else if (!p) cuerpo = '<div class="pf-card pf-vacio">' + (cuenta.msg && cuenta.msgTipo === "err" ? esc(cuenta.msg) : 'Cargando tu cuenta…') + '</div>';
+    else {
+      var msg = cuenta.msg ? '<p class="pf-msg ' + (cuenta.msgTipo === "err" ? "err" : "ok") + '" role="status">' + esc(cuenta.msg) + '</p>' : '';
+      cuerpo = '<div class="pf-top"><div class="pf-user"><span class="pf-av">' + pfAvatar(p) + '</span><div><h1>' + esc(p.nombre || "Mi cuenta") + '</h1><small>' + esc(p.email || "") + '</small></div></div>' +
+        '<div class="pf-saldo"><div><small>Saldo</small><b>S/ ' + (Math.round(p.creditos * 100) / 100).toFixed(2) + '</b></div>' + (recargaOn() ? '<button class="btn btn-fuchsia btn-sm" type="button" data-a="recargar">Recargar</button>' : '') + '</div></div>' +
+        '<nav class="pf-nav" aria-label="Secciones del perfil">' + PF_TABS.map(function (t) {
+          return '<a href="#' + PF_RUTA[t[0]] + '"' + (tab === t[0] ? ' class="on" aria-current="page"' : '') + '>' + (t[0] === "info" ? 'Información<span class="pf-largo"> personal</span>' : t[2]) + '</a>';
+        }).join("") + '</nav>' + msg +
+        '<div class="pf-card">' + (tab === "trans" ? pfTransHtml() : tab === "seg" ? pfSegHtml() : pfInfoHtml(p)) + '</div>';
+    }
+    return '<section class="pf-page gutter" id="perfil"><div class="wrap pf-wrap"><nav class="pf-mig" aria-label="Ruta"><a href="#inicio">Inicio</a><span aria-hidden="true">/</span><span>Mi perfil</span></nav>' + cuerpo + '</div></section>';
   }
   // ¿La cuenta tiene contraseña? Las de Steam o Google pueden no tenerla.
   function pfVerPass() {
@@ -2529,7 +2561,7 @@
       var u = j && j.users && j.users[0]; if (!u) throw new Error("x");
       cuenta.tienePass = (u.providerUserInfo || []).some(function (x) { return x.providerId === "password"; });
       cuenta.emailAuth = u.email || "";
-      if (cuenta.modo === "perfil" && cuenta.tab === "seg") render();
+      if (vistaActual === "perfil" && pfTabDeHash() === "seg") render();
     }).catch(function () { cuenta.tienePass = true; }).then(function () { cuenta.verPass = false; });
   }
   function pfCambiarClave(actual, nueva) {
@@ -2617,13 +2649,6 @@
     } else if (m === "rifas") {
       titulo = "Mis rifas";
       cuerpo = '<div class="drawer-body">' + listaMisRifas() + '</div>';
-    } else if (m === "perfil") {
-      var p = cuenta.perfil;
-      titulo = "Perfil";
-      cuerpo = '<div class="drawer-body pf-body">' + pfPerfilHtml() + '</div>';
-      cabeza = '<div class="drawer-head pf-head"><div class="pf-tit"><nav class="pf-mig" aria-label="Ruta"><a href="#" data-a="cerrarCuenta">Inicio</a><span aria-hidden="true">›</span><span>Perfil</span></nav><h2>Perfil</h2></div>' +
-        (p ? '<div class="pf-saldo"><span><small>Tu saldo</small><b>S/ ' + fmtSol(p.creditos) + '</b></span>' + (recargaOn() ? '<button class="btn btn-fuchsia btn-sm" type="button" data-a="recargar">💳 Recargar</button>' : '') + '</div>' : '') +
-        '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarCuenta">Cerrar</button></div>';
     } else {
       titulo = "Entrar";
       cuerpo = '<form class="drawer-body form" id="formLogin">' + btnGoogle() +
@@ -2633,7 +2658,7 @@
         '<p class="hint"><a href="#" data-a="olvide">¿Olvidaste tu contraseña?</a></p>' +
         '<p class="hint">¿No tienes cuenta? <a href="#" data-a="registro">Créala aquí</a></p></form>';
     }
-    return '<aside class="drawer' + (m === "perfil" ? ' perfil-pag' : '') + '" role="dialog" aria-label="' + titulo + '">' +
+    return '<aside class="drawer" role="dialog" aria-label="' + titulo + '">' +
       (cabeza || '<div class="drawer-head"><h2>' + titulo + '</h2><button class="btn btn-ghost btn-sm" type="button" data-a="cerrarCuenta">Cerrar</button></div>') +
       cuerpo + '</aside>';
   }
@@ -3207,9 +3232,9 @@
       case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = t.getAttribute("data-need") ? "Para participar primero crea una cuenta en la página." : ""; cuenta.msgTipo = t.getAttribute("data-need") ? "err" : ""; render(); break;
       case "misRifas": cuenta.modo = "rifas"; cuenta.msg = ""; render(); cargarParts(); break;
       case "udropToggle": { var dd = t.closest(".udrop"), ab = !dd.classList.contains("open"); cerrarMenuUsuario(); if (ab) { dd.classList.add("open"); t.setAttribute("aria-expanded", "true"); } break; }
-      case "misMovs": cuenta.modo = "perfil"; cuenta.tab = "trans"; cuenta.msg = ""; render(); cargarPerfil(); cargarItems(); break;
-      case "miCuenta": cuenta.modo = "perfil"; cuenta.tab = "info"; cuenta.msg = ""; render(); cargarPerfil(); break;
-      case "pfTab": cuenta.tab = t.getAttribute("data-t") || "info"; cuenta.msg = ""; cuenta.msgTipo = ""; if (cuenta.tab === "trans") cargarItems(); if (cuenta.tab === "seg") pfVerPass(); render(); pfFiltrar(); var pfb = document.querySelector(".pf-body"); if (pfb) pfb.scrollTop = 0; break;
+      case "misMovs": cuenta.msg = ""; location.hash = PF_RUTA.trans; break;
+      case "miCuenta": cuenta.msg = ""; location.hash = PF_RUTA.info; break;
+      case "pfClaveToggle": cuenta.claveAbierta = !cuenta.claveAbierta; render(); if (cuenta.claveAbierta) { var ka = document.getElementById("k-actual"); if (ka) ka.focus(); } break;
       case "txAbrir": { var kk = t.getAttribute("data-k"); cuenta.abiertos = cuenta.abiertos || {}; cuenta.abiertos[kk] = !cuenta.abiertos[kk]; render(); pfFiltrar(); break; }
       case "pfCrearClave": ev.preventDefault(); pfEnviarClave(); break;
       case "verFicha": var kf = t.getAttribute("data-key"); admin.fichaU = admin.fichaU === kf ? null : kf; admin.editU = null; admin.uMsg = ""; if (admin.fichaU && /^u_/.test(admin.fichaU)) cargarPedidosU(admin.fichaU.slice(2)); render(); break;
@@ -3559,7 +3584,7 @@
     admin.puede = esAdmin();
     cuenta.msg = ""; cuenta.msgTipo = "";
     if (admin.puede) { cuenta.modo = null; admin.abierto = true; render(); return; }
-    cuenta.modo = "perfil"; render(); cargarPerfil();
+    cuenta.modo = null; cuenta.pfPedido = false; render(); cargarPerfil();
   }
   document.addEventListener("submit", function (ev) {
     if (ev.target.id === "formLogin") {
@@ -3594,7 +3619,7 @@
       if (kN === kA) { kM.style.color = "var(--danger)"; kM.textContent = "La contraseña nueva debe ser distinta de la actual."; return; }
       kM.style.color = ""; kM.textContent = "Cambiando…";
       pfCambiarClave(kA, kN).then(function () {
-        render(); var k2 = document.getElementById("claveMsg"); if (k2) { k2.style.color = "var(--ok)"; k2.textContent = "✔ Contraseña cambiada. Úsala la próxima vez que entres."; }
+        cuenta.claveAbierta = false; cuenta.msg = "✔ Contraseña cambiada. Úsala la próxima vez que entres."; cuenta.msgTipo = "ok"; render();
       }).catch(function (e) {
         var k3 = document.getElementById("claveMsg"); if (!k3) return; k3.style.color = "var(--danger)";
         k3.textContent = /INVALID_PASSWORD|INVALID_LOGIN|CREDENTIAL/.test(String(e && e.message)) ? "La contraseña actual no es correcta." : errAuth(e && e.message);
@@ -3746,7 +3771,10 @@
     if (h === "comprar" && vistaActual === "comprar") { filtros.tipo = ""; filtros.heroe = ""; filtros.pag = 0; }
     if (!VISTA_HASH[h]) return;
     var antes = vistaActual;
+    if (/^perfil/.test(h)) { cuenta.msg = ""; cuenta.msgTipo = ""; cuenta.claveAbierta = false; }
     render();
+    if (vistaActual === "perfil") { if (antes !== "perfil") window.scrollTo(0, 0); document.title = "Mi perfil • Rayas Store"; return; }
+    if (antes === "perfil") document.title = "Rayas Store";
     var el = (h === "inicio" || h === "rifas" && antes !== vistaActual) ? null : document.getElementById(h);
     if (el) el.scrollIntoView(); else if (antes !== vistaActual || h === "inicio") window.scrollTo(0, 0);
   }
