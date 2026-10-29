@@ -177,6 +177,8 @@ exports.cobrar = onRequest(
 exports.comprarSets = onRequest(
   { region: REGION, cors: ORIGENES, maxInstances: 5, timeoutSeconds: 30 },
   async (req, res) => {
+    // Abrir la dirección en el navegador sirve para comprobar qué versión está desplegada.
+    if (req.method === "GET") return res.json({ ok: true, funcion: "comprarItem", version: VERSION_COMPRAR_ITEM });
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
     if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con tu saldo." });
@@ -229,6 +231,7 @@ exports.comprarSets = onRequest(
 /* ---------- 1b2) Comprar UN item del catálogo (rayas_items) con créditos ----------
  * 1 crédito = S/ 1. Créditos del item = precio redondeado hacia arriba. Todo en una transacción.
  */
+const VERSION_COMPRAR_ITEM = "2026-10-29 · céntimos exactos + correos admin/cliente";
 exports.comprarItem = onRequest(
   { region: REGION, cors: ORIGENES, secrets: [RESEND_KEY], maxInstances: 5, timeoutSeconds: 30 },
   async (req, res) => {
@@ -287,15 +290,22 @@ exports.comprarItem = onRequest(
         tx.create(oRef, pedido);
         return { saldo: nuevoSaldo, creditos: creditos, count: count, pedido: pedido };
       });
-      // Aviso al correo del administrador. Nunca rompe la compra: si falla, el pedido igual queda en el panel.
-      try {
-        const a = String((await admin.auth().getUser(ADMIN_UID)).email || "");
-        if (a) {
-          const p = r.pedido;
-          const c = emails.pedidoNuevo(p.tienda, { code: code, nombre: p.customerName, steamId: p.steamId, email: p.email, whatsapp: p.phone, tradelink: p.tradelink, items: p.items, total: p.total, creditos: p.creditos, creadoEn: new Date() });
-          await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: a, subject: c.subject, html: c.html, text: c.text, clave: "pedido-" + code });
-        }
-      } catch (e) { console.error("comprarItem correo admin", e); }
+      // Correos: uno para el administrador y otro de comprobante para el cliente. Nunca rompen la compra:
+      // si fallan, el pedido igual queda en el panel y se anota el motivo en el pedido (correoError).
+      const p = r.pedido, datos = { code: code, nombre: p.customerName, steamId: p.steamId, email: p.email, whatsapp: p.phone, tradelink: p.tradelink, items: p.items, total: p.total, creditos: p.creditos, saldo: r.saldo, creadoEn: new Date() };
+      const estado = { correoAdmin: false, correoCliente: false }, fallos = [];
+      let correoAdmin = "";
+      try { correoAdmin = String((await admin.auth().getUser(ADMIN_UID)).email || ""); } catch (e) { fallos.push("admin sin correo: " + (e && e.message)); }
+      const mandar = async (para, c, clave, campo) => {
+        if (!para) { fallos.push(campo + ": sin destinatario"); return; }
+        try { await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: para, subject: c.subject, html: c.html, text: c.text, clave: clave }); estado[campo] = true; }
+        catch (e) { console.error("comprarItem " + campo, e); fallos.push(campo + ": " + String((e && e.message) || e).slice(0, 160)); }
+      };
+      await Promise.all([
+        mandar(correoAdmin, emails.pedidoNuevo(p.tienda, datos), "pedido-" + code, "correoAdmin"),
+        mandar(p.email, emails.compraCliente(p.tienda, datos), "compra-" + code, "correoCliente")
+      ]);
+      await oRef.update(Object.assign({}, estado, fallos.length ? { correoError: fallos.join(" | ").slice(0, 400) } : {})).catch(() => {});
       return res.json({ ok: true, code: code, creditos: r.creditos, saldo: r.saldo, count: r.count });
     } catch (e) {
       const m = e && e.message;

@@ -1338,3 +1338,9 @@ html { scroll-padding-top: 84px; }
 .ofr-adm { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 10px; }
 .ofr-b { flex-wrap: wrap; justify-content: flex-end; }
 .ofr-b .btn { flex: none; }
+
+/* Historial de compras del cliente (panel de pedidos) */
+.hist { display: grid; gap: 4px; margin: 8px 0; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
+.hist small { display: block; }
+.histr { display: grid; gap: 2px; padding: 4px 0; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.histr.cur { color: var(--text, #eef1ff); }
