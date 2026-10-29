@@ -13,7 +13,7 @@
       nombre: "Rayas Store", n1: "Rayas", n2: "Store", url: "https://rayas.trade", logo: "img/logo.webp",
       rubro: "Tienda virtual de items de Dota 2: compra y venta de items con entrega por Steam, y rifas de items.",
       ofrece: ["Compra de items de Dota 2 (entrega por Steam, con precio en soles)", "Venta de items de Dota 2 (te los compramos)", "Rifas de items de Dota 2 con tickets pagados con tu saldo"],
-      razonSocial: "", ruc: "", direccion: "", correo: "",
+      razonSocial: "TIRAPO BUSTILLOS BRYAN DARWIN", ruc: "10712504761", direccion: "Mz A1 Lte 20, Jardines de Shangrila, Puente Piedra, Lima", correo: "pedidos@rayas.trade",
       telefonos: [{ t: "+51 900 049 694", n: "51900049694" }],
       redes: [{ n: "WhatsApp", u: "https://wa.me/51900049694" }]
     },
@@ -21,7 +21,7 @@
       nombre: "LitleJacob Store", n1: "LitleJacob", n2: "Store", url: "https://litlejacob.trade", logo: "apple-touch-icon.png",
       rubro: "Tienda virtual de Dota 2: Sets Caché, compra y venta de items con entrega por Steam, y rifas de items.",
       ofrece: ["Sets Caché de Dota 2 (reserva y entrega por Steam)", "Compra y venta de items de Dota 2 (entrega por Steam, con precio en soles)", "Rifas de items de Dota 2 con tickets pagados con tu saldo"],
-      razonSocial: "", ruc: "", direccion: "", correo: "",
+      razonSocial: "TIRAPO BUSTILLOS BRYAN DARWIN", ruc: "10712504761", direccion: "Mz A1 Lte 20, Jardines de Shangrila, Puente Piedra, Lima", correo: "pedidos@litlejacob.trade",
       telefonos: [{ t: "+51 952 997 030", n: "51952997030" }],
       redes: [{ n: "WhatsApp", u: "https://wa.me/51952997030" }]
     }
@@ -35,7 +35,7 @@
   function dato(v) { return v ? esc(v) : '<span class="lg-pend">(por completar)</span>'; }
   function cargarCss() {
     if (document.querySelector('link[href^="legal.css"]')) return;
-    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "legal.css?v=1"; document.head.appendChild(l);
+    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "legal.css?v=2"; document.head.appendChild(l);
   }
   function tel() { return D.telefonos.map(function (p) { return '<a href="tel:+' + esc(p.n) + '">' + esc(p.t) + '</a>'; }).join(" · "); }
   function correoHtml() { return D.correo ? '<a href="mailto:' + esc(D.correo) + '">' + esc(D.correo) + '</a>' : '<span class="lg-pend">(por completar)</span>'; }
