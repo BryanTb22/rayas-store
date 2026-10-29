@@ -574,8 +574,13 @@
     } else if (m.tipo === "carrito") {
       var mc = carroHtml(); h = mc.h; btns = mc.btns;
     } else if (m.tipo === "itemOk") {
-      h = '<h3>¡Compra lista! 🎉</h3><p class="hint">Compraste <b>' + esc(m.nombre) + '</b>. Pedido <b>' + esc(m.code) + '</b>. Te quedan <b>' + fmtSol(m.saldo) + '</b> soles. Te escribiremos para entregártelo por Steam; asegúrate de tener tu link de intercambio en tu cuenta.</p>';
+      h = '<h3>¡Compra lista! 🎉</h3><p class="hint">Compraste <b>' + esc(m.nombre) + '</b>. Pedido <b>' + esc(m.code) + '</b>. Te quedan <b>' + fmtSol(m.saldo) + '</b> soles. ' +
+        (m.entrega ? 'Tu item está en <b>cooldown de Steam</b>: lo recibes el <b>' + esc(fechaEntrega(m.entrega)) + '</b>. Ese día te avisaremos por correo y te escribiremos para entregártelo por Steam.' : 'Te escribiremos para entregártelo por Steam.') + ' Asegúrate de tener tu link de intercambio en tu cuenta.</p>';
       btns = cerrar;
+    } else if (m.tipo === "cdAviso") {
+      h = '<h3>🔒 Item en cooldown</h3><p class="hint">' + (m.items.length === 1 ? 'Este item está' : 'Estos items están') + ' en <b>cooldown de Steam</b>. Puedes pagar ahora, pero lo recibirás el <b>' + esc(fechaEntrega(m.hasta)) + '</b>, cuando Steam permita intercambiarlo. Ese día te avisaremos por correo.</p>' +
+        '<div class="cdlista">' + m.items.map(function (x) { return '<div class="cdlin">🔒 <b>' + esc(x.nombre) + '</b><small>se libera el ' + esc(x.fecha) + ' · faltan ' + esc(x.resta) + '</small></div>'; }).join("") + '</div>';
+      btns = '<button class="btn btn-yellow" type="button" data-a="cdAceptar">✔ Entiendo, pagar igual</button><button class="btn btn-ghost btn-sm" type="button" data-a="' + (m.accion === "carro" ? 'verCarrito' : 'cerrarModal') + '">Volver</button>';
     } else if (m.tipo === "yape") {
       var yp = estado.yape || {};
       h = '<h3>Pagar con Yape 💜</h3><p class="hint">Yapea <b>S/ ' + fmtSol(m.sel) + '</b> (sin comisión) y avísanos por WhatsApp con tu captura. Te cargamos <b>' + creditosPara(m.sel) + ' soles</b> a tu cuenta.</p>' +
@@ -985,13 +990,47 @@
     return { id: d.name.split("/").pop(), nombre: sv("nombre"), img: sv("img"), precio: nv("precio"), stock: f.stock ? nv("stock") : 1,
       tipo: sv("tipo"), heroe: sv("heroe"), ranura: sv("ranura"), rareza: sv("rareza"), calidad: sv("calidad"),
       estilos: nv("estilos"), estOk: sv("estOk"), descripcion: sv("descripcion"), steamUsd: nv("steamUsd"), steamAct: f.steamAct && f.steamAct.timestampValue || "",
-      activo: f.activo ? f.activo.booleanValue !== false : true, creado: f.creado && f.creado.timestampValue || "" };
+      activo: f.activo ? f.activo.booleanValue !== false : true, creado: f.creado && f.creado.timestampValue || "", cooldownHasta: f.cooldownHasta && f.cooldownHasta.timestampValue || "" };
   }
   function itemAFields(it) {
     var s = function (v) { return { stringValue: String(v || "") }; };
-    return { fields: { nombre: s(it.nombre), img: s(it.img), precio: { doubleValue: Number(it.precio) }, stock: { integerValue: String(Math.max(0, Math.floor(Number(it.stock) || 0))) },
+    var f = { nombre: s(it.nombre), img: s(it.img), precio: { doubleValue: Number(it.precio) }, stock: { integerValue: String(Math.max(0, Math.floor(Number(it.stock) || 0))) },
       tipo: s(it.tipo), heroe: s(it.heroe), ranura: s(it.ranura), rareza: s(it.rareza), calidad: s(it.calidad), estilos: { integerValue: String(Math.max(0, Math.min(8, Math.floor(Number(it.estilos) || 0)))) }, estOk: s(it.estOk), descripcion: s(it.descripcion), activo: { booleanValue: it.activo !== false }, steamUsd: { doubleValue: Number(it.steamUsd) > 0 ? Number(it.steamUsd) : 0 }, steamAct: { timestampValue: it.steamAct || new Date(0).toISOString() },
-      creado: { timestampValue: it.creado || new Date().toISOString() } } };
+      creado: { timestampValue: it.creado || new Date().toISOString() } };
+    // Cooldown de Steam: solo se guarda si hay fecha (sin el campo = sin cooldown).
+    if (cdMs(it) > 0) f.cooldownHasta = { timestampValue: new Date(it.cooldownHasta).toISOString() };
+    return { fields: f };
+  }
+  /* ===== Cooldown de Steam: un item recién recibido no se puede intercambiar hasta cooldownHasta. Se vende igual y se entrega al liberarse. ===== */
+  function cdMs(it) { var t = it && it.cooldownHasta ? new Date(it.cooldownHasta).getTime() : 0; return isFinite(t) ? t : 0; }
+  function enCooldown(it) { return cdMs(it) > Date.now(); }
+  // "5 d 14 h" / "3 h 20 min" / "menos de 1 min" que falta para que se libere.
+  function cdRestante(it) {
+    var ms = cdMs(it) - Date.now(); if (ms <= 0) return "";
+    var min = Math.ceil(ms / 60000), h = Math.floor(min / 60), d = Math.floor(h / 24);
+    if (d >= 1) return d + " d " + (h % 24) + " h";
+    if (h >= 1) return h + " h " + (min % 60) + " min";
+    return min + " min";
+  }
+  function cdFechaCorta(it) { var t = cdMs(it); if (!t) return ""; var d = new Date(t), p = function (n) { return (n < 10 ? "0" : "") + n; }; return p(d.getDate()) + "/" + p(d.getMonth() + 1); }
+  function fechaEntrega(iso) { var t = iso ? new Date(iso).getTime() : 0; return isFinite(t) && t ? new Date(t).toLocaleString("es-PE", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : ""; }
+  function cdFechaLarga(it) { return fechaEntrega(it.cooldownHasta); }
+  // Candado con el tiempo que falta (tarjetas, filas de ofertas, carrito).
+  function cdChipHtml(it, largo) { return enCooldown(it) ? '<span class="cdchip" title="En cooldown de Steam: se entrega al liberarse (' + esc(cdFechaLarga(it)) + ')">🔒 ' + (largo ? 'En cooldown · se libera en ' : '') + esc(cdRestante(it)) + '</span>' : ''; }
+  // <input type="datetime-local"> trabaja en hora local sin zona: ida y vuelta con ISO.
+  function isoALocal(iso) { var t = iso ? new Date(iso) : null; if (!t || !isFinite(t.getTime())) return ""; var p = function (n) { return (n < 10 ? "0" : "") + n; }; return t.getFullYear() + "-" + p(t.getMonth() + 1) + "-" + p(t.getDate()) + "T" + p(t.getHours()) + ":" + p(t.getMinutes()); }
+  function localAIso(v) { var t = v ? new Date(v) : null; return t && isFinite(t.getTime()) ? t.toISOString() : ""; }
+  function cdDefecto() { return new Date(Date.now() + 7 * 86400000).toISOString(); }
+  // Campo "Cooldown" de los formularios del admin (prefijo it- o sk-).
+  function cdCampoHtml(pre, F) {
+    var on = !!F.cooldownHasta;
+    return '<div class="field cdf"><label class="chk"><input type="checkbox" id="' + pre + 'cd"' + (on ? ' checked' : '') + '> 🔒 Está en cooldown de Steam (se vende igual y se entrega al liberarse)</label>' +
+      (on ? '<div class="cdf-r"><label for="' + pre + 'cdh">Se libera el</label><input type="datetime-local" id="' + pre + 'cdh" value="' + esc(isoALocal(F.cooldownHasta)) + '"><span class="hint">' + (enCooldown(F) ? 'Faltan ' + esc(cdRestante(F)) + '.' : 'Esa fecha ya pasó: se guardará sin cooldown.') + ' Por defecto son 7 días desde ahora.</span></div>' : '') + '</div>';
+  }
+  function cdCampoEvento(el, pre, F, repintar) {
+    if (el.id === pre + "cd") { F.cooldownHasta = el.checked ? (F.cooldownHasta || cdDefecto()) : ""; repintar(); return true; }
+    if (el.id === pre + "cdh") { F.cooldownHasta = localAIso(el.value) || F.cooldownHasta; return true; }
+    return false;
   }
   function cargarItems(forzar) {
     if (items.cargando || (items.cargado && !forzar)) return;
@@ -1029,12 +1068,13 @@
       return true;
     });
     // Mismo item con distintas versiones (gemas, precio): una sola tarjeta con el precio más bajo, como lis-skins.
-    var gr = {}, orden = [];
+    // La tarjeta representa a la mejor versión: primero las libres con stock, luego las que están en cooldown, al final las agotadas.
+    var gr = {}, orden = [], rango = function (x) { return x.stock <= 0 ? 0 : enCooldown(x) ? 1 : 2; };
     l.forEach(function (it) {
       var k = sinTildes(it.nombre), g = gr[k];
       if (!g) { g = gr[k] = { rep: it, tot: 0, precios: {} }; orden.push(k); }
       g.tot += Math.max(0, it.stock); g.precios[it.precio] = 1;
-      if (g.rep !== it && ((g.rep.stock <= 0 && it.stock > 0) || ((g.rep.stock > 0) === (it.stock > 0) && it.precio < g.rep.precio))) g.rep = it;
+      if (g.rep !== it && (rango(it) > rango(g.rep) || (rango(it) === rango(g.rep) && it.precio < g.rep.precio))) g.rep = it;
     });
     l = orden.map(function (k) { var g = gr[k]; return Object.assign({}, g.rep, { _tot: g.tot, _desde: Object.keys(g.precios).length > 1 }); });
     l.sort(function (a, b) {
@@ -1066,13 +1106,14 @@
       '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>';
   }
   function itemCardHtml(it) {
-    var agot = it.stock <= 0, col = colorRareza(it.rareza);
-    return '<article class="icard' + (agot ? ' agot' : '') + (it.activo ? '' : ' oculto') + '" data-a="itVer" data-id="' + esc(it.id) + '" tabindex="0" role="button" aria-label="Ver ' + esc(it.nombre) + '">' +
+    var agot = it.stock <= 0, col = colorRareza(it.rareza), cd = !agot && enCooldown(it);   // cd = todas sus unidades disponibles están en cooldown
+    return '<article class="icard' + (agot ? ' agot' : '') + (cd ? ' cd' : '') + (it.activo ? '' : ' oculto') + '" data-a="itVer" data-id="' + esc(it.id) + '" tabindex="0" role="button" aria-label="Ver ' + esc(it.nombre) + '">' +
       '<div class="ithumb" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') +
-      (agot ? '<span class="itag agotado">Agotado</span>' : ((it._tot || it.stock) > 1 ? '<span class="itag">x' + (it._tot || it.stock) + '</span>' : '')) + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
+      (agot ? '<span class="itag agotado">Agotado</span>' : ((it._tot || it.stock) > 1 ? '<span class="itag">x' + (it._tot || it.stock) + '</span>' : '')) + (cd ? '<span class="itag cdtag">🔒 Cooldown</span>' : '') + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
       (admin.puede ? '<div class="itadmb"><button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(it.id) + '" aria-label="Editar">✎</button>' + (admin.itemDel === it.id ? '<button type="button" class="btn btn-sm itdel" data-a="itBorrarSi" data-id="' + esc(it.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itBorrar" data-id="' + esc(it.id) + '" aria-label="Quitar">🗑</button>') + '</div>' : '') +
       '<div class="ibody"><h4>' + esc(it.nombre) + '</h4>' +
       '<div class="imeta">' + (it.rareza ? '<span style="color:' + col + '">' + esc(it.rareza) + '</span>' : '') + (it.calidad ? '<span>' + esc(it.calidad) + '</span>' : '') + (it.heroe ? '<span>' + esc(it.heroe) + '</span>' : '') + (it.descripcion ? '<span class="gem">💎 ' + (efectoUnusual(it) ? esc(efectoUnusual(it)) : lineasDesc(it).length) + '</span>' : '') + '</div>' +
+      (cd ? '<div class="icd">' + cdChipHtml(it, true) + '</div>' : '') +
       '<div class="iprice"><b>' + (it._desde ? '<small class="desde">desde</small> ' : '') + fmtPrecio(it.precio) + '</b><span class="iacts">' + (agot ? '' : '<button type="button" class="icart" data-a="carAdd" data-id="' + esc(it.id) + '" aria-label="Agregar ' + esc(it.nombre) + ' al carrito" title="Agregar al carrito">🛒<span> Al carrito</span></button>') + '<span class="ibuy">' + (agot ? 'Agotado' : 'Comprar') + '</span></span></div>' + steamHtml(it) + '</div></article>';
   }
   function gridItemsHtml() {
@@ -1195,20 +1236,22 @@
     if (!items.cargado && !items.err) return envol(miga("") + '<div class="empty frame"><div class="in"><strong>Cargando item…</strong></div></div>');
     var it = itemPorId(id);
     if (!it || (!it.activo && !admin.puede)) return envol(miga("") + '<div class="empty frame"><div class="in"><strong>Este item no está disponible</strong><span>Puede que ya se haya vendido o que aún no esté publicado.</span><a class="btn btn-yellow btn-sm" href="#comprar" style="margin-top:12px">Ver todos los items</a></div></div>');
-    var col = colorRareza(it.rareza), agot = it.stock <= 0, cred = Math.round(it.precio * 100) / 100, sol = steamSoles(it);
+    var col = colorRareza(it.rareza), agot = it.stock <= 0, cred = Math.round(it.precio * 100) / 100, sol = steamSoles(it), cd = !agot && enCooldown(it);
     var dto = sol && it.precio > 0 && it.precio < sol ? Math.round((1 - it.precio / sol) * 100) : 0;
     var fila = function (k, v) { return v ? '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>' : ''; };
     var attrs = fila("Héroe", esc(it.heroe)) + fila("Ranura", esc(it.ranura)) + fila("Tipo", esc(it.tipo)) +
-      fila("Rareza", it.rareza ? '<i class="ipg-dot" style="background:' + col + '"></i>' + esc(it.rareza) : "") + fila("Calidad", esc(it.calidad)) + fila("Efecto Unusual", esc(efectoUnusual(it))) + fila("Disponibles", agot ? "Agotado" : String(it.stock));
+      fila("Rareza", it.rareza ? '<i class="ipg-dot" style="background:' + col + '"></i>' + esc(it.rareza) : "") + fila("Calidad", esc(it.calidad)) + fila("Efecto Unusual", esc(efectoUnusual(it))) + fila("Disponibles", agot ? "Agotado" : String(it.stock)) +
+      fila("Entrega", cd ? '🔒 En cooldown · el ' + esc(cdFechaLarga(it)) : "");
     var btns = agot ? '<button class="btn btn-ghost" type="button" disabled>Agotado</button>'
       : '<button class="btn btn-fuchsia" type="button" data-a="carAdd" data-id="' + esc(it.id) + '">🛒 ' + (carro[it.id] ? '✔ En el carrito (' + carro[it.id] + ') · agregar otro' : 'Al carrito') + '</button>' +
-        '<button class="btn btn-yellow" type="button" data-a="carAhora" data-id="' + esc(it.id) + '">⚡ Comprar ahora</button>';
+        '<button class="btn btn-yellow" type="button" data-a="carAhora" data-id="' + esc(it.id) + '">⚡ ' + (cd ? 'Comprar (entrega el ' + esc(cdFechaCorta(it)) + ')' : 'Comprar ahora') + '</button>';
     return envol(miga(it.tipo, it.nombre, it.heroe) + '<h1 class="ipg-t">' + esc(it.nombre) + (it.activo ? '' : ' <small>(oculto)</small>') + '</h1>' +
       '<div class="ipg-grid"><div class="ipg-foto' + (imgTag(it.img, it.nombre) ? ' zoomable' : '') + '" style="--rar:' + col + '"' + (imgTag(it.img, it.nombre) ? ' data-a="zoomImg" role="button" tabindex="0" aria-label="Ampliar foto"' : '') + '>' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') + (imgTag(it.img, it.nombre) ? '<span class="ipg-lupa" aria-hidden="true">⤢</span>' : '') +
-      '<span class="ipg-tag' + (agot ? ' off' : '') + '">' + (agot ? 'Agotado' : (it.stock > 1 ? it.stock + ' disponibles' : 'Disponible')) + '</span></div>' +
+      '<span class="ipg-tag' + (agot ? ' off' : '') + (cd ? ' cd' : '') + '">' + (agot ? 'Agotado' : cd ? '🔒 En cooldown' : (it.stock > 1 ? it.stock + ' disponibles' : 'Disponible')) + '</span></div>' +
       '<div class="ipg-info"><dl class="ipg-attrs">' + attrs + '</dl>' + estilosHtml(it) + descripcionHtml(it) +
       '<div class="ipg-precio"><div class="pp-top"><b>' + fmtPrecio(it.precio) + '</b>' + (dto ? '<span class="pp-dto" title="Descuento frente al precio del Mercado de Steam">-' + dto + ' %</span>' : '') + '</div>' +
       steamHtml(it, true) +
+      (cd ? '<div class="cdaviso">🔒 <b>Este item está en cooldown de Steam.</b> Puedes comprarlo ahora y lo recibes el <b>' + esc(cdFechaLarga(it)) + '</b> (faltan ' + esc(cdRestante(it)) + '), cuando Steam permita intercambiarlo.</div>' : '') +
       (agot ? '' : (cuenta.perfil ? '<p class="hint">Tienes <b>' + fmtSol(cuenta.perfil.creditos) + '</b> soles.</p>' : '<p class="hint">Para pagar con tu saldo entra a tu cuenta.</p>')) +
       '<div class="pp-btns">' + btns + '</div></div></div></div>' + ofertasHtml(it) + parecidosHtml(it) +
       (agot ? '' : '<div class="ipg-sticky"><div class="ips-p"><small>Precio</small><b>' + fmtPrecio(it.precio) + '</b></div><button class="btn btn-fuchsia" type="button" data-a="carAdd" data-id="' + esc(it.id) + '">🛒 ' + (carro[it.id] ? '✔ En el carrito (' + carro[it.id] + ')' : 'Agregar al carrito') + '</button></div>'));
@@ -1218,6 +1261,7 @@
   var stk = { q: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", estado: "all", orden: "nombre", pag: 0, msg: "", ed: null }, STK_POR_PAG = 40, STK_TIMERS = {};
   function stkEstado(it) {
     if (it.stock <= 0) return { cls: "st-zero", txt: "Agotado", key: "zero" };
+    if (enCooldown(it)) return { cls: "st-cd", txt: "🔒 Cooldown " + cdRestante(it), key: "cd" };
     if (it.stock <= 2) return { cls: "st-low", txt: "Pocas", key: "low" };
     return { cls: "st-ok", txt: "En stock", key: "ok" };
   }
@@ -1230,6 +1274,7 @@
       if (stk.rareza && it.rareza !== stk.rareza) return false;
       if (stk.calidad && it.calidad !== stk.calidad) return false;
       if (stk.estado === "oculto") { if (it.activo) return false; }
+      else if (stk.estado === "cd") { if (!(it.stock > 0 && enCooldown(it))) return false; }
       else if (stk.estado !== "all" && stkEstado(it).key !== stk.estado) return false;
       if (q && sinTildes(it.nombre + " " + it.heroe + " " + it.tipo + " " + it.descripcion).indexOf(q) < 0) return false;
       return true;
@@ -1244,15 +1289,15 @@
     return l;
   }
   function stkStatsHtml(l) {
-    var uni = 0, val = 0, vs = 0, con = 0, zero = 0, low = 0;
-    l.forEach(function (it) { var s = Math.max(0, it.stock); uni += s; val += s * (it.precio > 0 ? it.precio : 0); vs += s * steamSoles(it); if (it.stock > 0) con++; else zero++; if (it.stock > 0 && it.stock <= 2) low++; });
+    var uni = 0, val = 0, vs = 0, con = 0, zero = 0, low = 0, cd = 0;
+    l.forEach(function (it) { var s = Math.max(0, it.stock); uni += s; val += s * (it.precio > 0 ? it.precio : 0); vs += s * steamSoles(it); if (it.stock > 0) con++; else zero++; if (it.stock > 0 && it.stock <= 2) low++; if (it.stock > 0 && enCooldown(it)) cd++; });
     var st = function (b, t, w, sub) { return '<div class="stk-stat' + (w ? ' warn' : '') + '"><b>' + b + '</b><span>' + t + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; };
-    return st(con + "/" + l.length, "Items con stock") + st(uni, "Unidades") + st(fmtPrecio(val), "Valor del stock", false, vs ? "Steam ≈ " + fmtPrecio(vs) : "") + st(low, "Pocas (1-2)", low) + st(zero, "Agotados", zero);
+    return st(con + "/" + l.length, "Items con stock") + st(uni, "Unidades") + st(fmtPrecio(val), "Valor del stock", false, vs ? "Steam ≈ " + fmtPrecio(vs) : "") + st(low, "Pocas (1-2)", low) + st(zero, "Agotados", zero) + st("🔒 " + cd, "En cooldown", false, cd ? "se entregan al liberarse" : "");
   }
   function stkFilaHtml(it) {
     var e = stkEstado(it), col = colorRareza(it.rareza);
     return '<div class="stk-row" data-id="' + esc(it.id) + '"><div class="stk-thumb" style="--rar:' + col + '">' + (imgTag(it.img, "", ' loading="lazy"') || "") + '</div>' +
-      '<div class="stk-info"><div class="stk-name">' + esc(it.nombre) + (it.activo ? '' : ' <em>(oculto)</em>') + '</div><div class="stk-meta"><span style="color:' + col + '">' + esc(it.rareza || "—") + '</span>' + (it.heroe ? ' • ' + esc(it.heroe) : '') + ' • ' + (it.precio > 0 ? fmtPrecio(it.precio) : 'sin precio') + (it.descripcion ? ' • 💎 ' + lineasDesc(it).length : '') + '</div></div>' +
+      '<div class="stk-info"><div class="stk-name">' + esc(it.nombre) + (it.activo ? '' : ' <em>(oculto)</em>') + '</div><div class="stk-meta"><span style="color:' + col + '">' + esc(it.rareza || "—") + '</span>' + (it.heroe ? ' • ' + esc(it.heroe) : '') + ' • ' + (it.precio > 0 ? fmtPrecio(it.precio) : 'sin precio') + (it.descripcion ? ' • 💎 ' + lineasDesc(it).length : '') + (enCooldown(it) ? ' • 🔒 se libera el ' + esc(cdFechaLarga(it)) : '') + '</div></div>' +
       '<button type="button" class="stk-edbtn' + (stk.ed && stk.ed.id === it.id ? ' on' : '') + '" data-a="stkEd" aria-label="Editar ' + esc(it.nombre) + '" title="Editar todos los detalles">✎</button><span class="stk-status ' + e.cls + '">' + e.txt + '</span>' +
       '<div class="stk-qty"><button type="button" data-a="stkMenos" aria-label="Menos">−</button><input type="number" min="0" step="1" value="' + it.stock + '" id="stk-in-' + esc(it.id) + '" data-stk-in="' + esc(it.id) + '" aria-label="Stock de ' + esc(it.nombre) + '"><button type="button" data-a="stkMas" aria-label="Más">+</button></div></div>' + (stk.ed && stk.ed.id === it.id ? stkEdHtml() : '');
   }
@@ -1279,6 +1324,7 @@
       '<div class="field gform"><label>💎 Gemas (cada versión con distinta gema lleva su propio precio)</label><datalist id="dl-gtipo2">' + GEMA_TIPOS.map(function (t) { return '<option value="' + esc(t) + '">'; }).join("") + '</datalist>' +
       (g.length ? g.map(function (x, i) { return '<div class="grow-f"><input id="sk-gt-' + i + '" list="dl-gtipo2" maxlength="30" placeholder="Tipo (Unusual Effect Gem)" value="' + esc(x.t) + '"><input id="sk-gv-' + i + '" maxlength="60" placeholder="Nombre (Candy Caster)" value="' + esc(x.v) + '"><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaDel" data-i="' + i + '" aria-label="Quitar gema">✕</button></div>'; }).join("") : '<p class="hint">Sin gemas.</p>') +
       '<div class="cav"><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Unusual Effect Gem">+ Efecto Unusual</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Prismatic Gem">+ Prismatic</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Ethereal Gem">+ Etérea</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="Kinetic Gem">+ Cinética</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkGemaMas" data-t="">+ Otra gema</button></div></div>' +
+      cdCampoHtml("sk-", F) +
       '<label class="chk"><input type="checkbox" id="sk-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
       (stk.ed.msg ? '<p class="hint" style="color:var(--danger)">' + esc(stk.ed.msg) + '</p>' : '') +
       '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="stkEdGuardar">' + (stk.ed.guardando ? 'Guardando…' : '💾 Guardar cambios') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkEdCerrar">Cancelar</button></div></div>';
@@ -1301,6 +1347,7 @@
   function stkEdCampo(el) {
     var ed = stk.ed, F = ed.F, m = { "sk-nombre": "nombre", "sk-precio": "precio", "sk-stock": "stock", "sk-tipo": "tipo", "sk-heroe": "heroe", "sk-ranura": "ranura", "sk-rareza": "rareza", "sk-calidad": "calidad" };
     if (el.id === "sk-activo") { F.activo = el.checked; return; }
+    if (cdCampoEvento(el, "sk-", F, pintarStock)) return;
     if (el.id === "sk-estilos") {
       F.estilos = el.value; var nn = Number(el.value) || 0, oks = estilosOkLista(F).filter(function (x) { return x <= nn; });
       if (nn > 0 && !oks.length) oks = [1]; F.estOk = oks.join(","); pintarStock(); return;
@@ -1322,7 +1369,7 @@
     if (!isFinite(precio) || precio <= 0) return fallo("Pon un precio mayor a 0.");
     if (!isFinite(stock) || stock < 0) stock = 0;
     var it = Object.assign({}, F, { id: ed.id, nombre: String(F.nombre).trim(), precio: Math.round(precio * 100) / 100, stock: stock, heroe: String(F.heroe || "").trim(), ranura: String(F.ranura || "").trim(), calidad: String(F.calidad || "").trim(),
-      estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: gemasAString(gemasDe(F).filter(function (g) { return g.v; })).slice(0, 600), activo: F.activo !== false });
+      estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: gemasAString(gemasDe(F).filter(function (g) { return g.v; })).slice(0, 600), activo: F.activo !== false, cooldownHasta: enCooldown(F) ? new Date(cdMs(F)).toISOString() : "" });
     ed.guardando = true; ed.msg = ""; pintarStock();
     fsPedir("rayas_items/" + encodeURIComponent(it.id), { method: "PATCH", body: JSON.stringify(itemAFields(it)) }).then(function (r) {
       if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
@@ -1338,7 +1385,7 @@
       '<div class="stk-ctl"><input id="stk-q" type="search" placeholder="Buscar item…" value="' + esc(stk.q) + '" autocomplete="off">' +
       sel("stk-tipo", ITEM_TIPOS, stk.tipo, "Todos los tipos") + sel("stk-heroe", distintos("heroe", HEROES_DOTA), stk.heroe, "Todos los héroes") + sel("stk-ranura", distintos("ranura", SLOTS_DOTA), stk.ranura, "Todas las ranuras") +
       sel("stk-rareza", LISTA_RAREZAS.filter(Boolean), stk.rareza, "Todas las rarezas") + sel("stk-calidad", distintos("calidad", ITEM_CALIDADES), stk.calidad, "Todas las calidades") +
-      '<select id="stk-estado">' + op([["all", "Todos"], ["ok", "Con stock"], ["low", "Pocas unidades (1-2)"], ["zero", "Agotados (0)"], ["oculto", "Ocultos"]], stk.estado) + '</select>' +
+      '<select id="stk-estado">' + op([["all", "Todos"], ["ok", "Con stock"], ["low", "Pocas unidades (1-2)"], ["cd", "🔒 En cooldown"], ["zero", "Agotados (0)"], ["oculto", "Ocultos"]], stk.estado) + '</select>' +
       '<select id="stk-orden">' + op([["nombre", "Nombre A-Z"], ["stockMenor", "Stock: menor a mayor"], ["stockMayor", "Stock: mayor a menor"], ["valor", "Mayor valor"], ["nuevo", "Más nuevos"]], stk.orden) + '</select>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-a="stkReset">Restablecer</button></div>' +
       '<div id="stkList" class="stk-list"></div>' +
@@ -1427,23 +1474,24 @@
   }
   // Mismo item con distintas gemas: cada uno es su propia oferta con su precio.
   function ofertasDe(it) {
-    var k = sinTildes(it.nombre);
-    return items.lista.filter(function (x) { return sinTildes(x.nombre) === k && (x.activo || admin.puede); }).sort(function (a, b) { return (a.precio || 0) - (b.precio || 0); });
+    var k = sinTildes(it.nombre), cdv = function (x) { return x.stock > 0 && enCooldown(x) ? 1 : 0; };
+    // Primero las ofertas libres, después las que están en cooldown; dentro de cada grupo por precio.
+    return items.lista.filter(function (x) { return sinTildes(x.nombre) === k && (x.activo || admin.puede); }).sort(function (a, b) { return cdv(a) - cdv(b) || (a.precio || 0) - (b.precio || 0); });
   }
   var ofe = { min: "", max: "" };
   // Una fila por cada unidad en stock (como lis-skins): si hay 3, salen 3 filas separadas.
   function ofertaFilaHtml(x, curId, mejor) {
-    var cur = x.id === curId, ne = Number(x.estilos) || 0, ok = estilosOkLista(x), n = Math.max(1, Math.min(30, x.stock)), agot = x.stock <= 0;
+    var cur = x.id === curId, ne = Number(x.estilos) || 0, ok = estilosOkLista(x), n = Math.max(1, Math.min(30, x.stock)), agot = x.stock <= 0, cd = !agot && enCooldown(x);
     var est = ne ? [1, 2, 3, 4, 5, 6, 7, 8].slice(0, ne).map(function (k) { return '<span class="est' + (ok.indexOf(k) >= 0 ? '' : ' lock') + '">' + k + '</span>'; }).join("") : '';
-    var gem = gemChipsHtml(x), out = "", edit = admin.puede ? '<button type="button" class="btn btn-ghost btn-sm ofr-ed" data-a="itEditar" data-id="' + esc(x.id) + '"' + (x.stock > 1 ? ' data-u="1"' : '') + ' title="Editar esta unidad (gemas, estilos y precio)" aria-label="Editar">✎</button><button type="button" class="btn btn-ghost btn-sm" data-a="itMas1" data-id="' + esc(x.id) + '" title="Sumar una unidad">➕</button>' + (admin.itemDel === x.id ? '<button type="button" class="btn btn-sm itdel" data-a="itQuitarSi" data-id="' + esc(x.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itQuitar1" data-id="' + esc(x.id) + '" title="Quitar una unidad" aria-label="Quitar">🗑</button>') : '';
+    var gem = gemChipsHtml(x) + (cd ? '<span class="ofr-cd">' + cdChipHtml(x, true) + '</span>' : ''), out = "", edit = admin.puede ? '<button type="button" class="btn btn-ghost btn-sm ofr-ed" data-a="itEditar" data-id="' + esc(x.id) + '"' + (x.stock > 1 ? ' data-u="1"' : '') + ' title="Editar esta unidad (gemas, estilos y precio)" aria-label="Editar">✎</button><button type="button" class="btn btn-ghost btn-sm" data-a="itMas1" data-id="' + esc(x.id) + '" title="Sumar una unidad">➕</button>' + (admin.itemDel === x.id ? '<button type="button" class="btn btn-sm itdel" data-a="itQuitarSi" data-id="' + esc(x.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itQuitar1" data-id="' + esc(x.id) + '" title="Quitar una unidad" aria-label="Quitar">🗑</button>') : '';
     for (var u = 0; u < n; u++) {
       var enCarro = !agot && u < (Number(carro[x.id]) || 0);
  var best = mejor && u === 0;
-      out += '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + (enCarro ? ' enc' : '') + (best ? ' best' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + gem + '</span>' +
+      out += '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + (cd ? ' cd' : '') + (enCarro ? ' enc' : '') + (best ? ' best' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + gem + '</span>' +
         '<span class="ofr-e">' + est + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b>' + (best ? '<em class="ofr-best">Mejor precio</em>' : '') + '</span>' +
         '<span class="ofr-b">' + edit + (agot ? '<span class="ofr-ag">Agotado</span>' : (enCarro
           ? '<button type="button" class="btn btn-ghost btn-sm ofr-in" data-a="carMenos" data-id="' + esc(x.id) + '" title="Quitar del carrito">✔ En el carrito</button>'
-          : '<button type="button" class="btn btn-yellow btn-sm" data-a="carAhora" data-id="' + esc(x.id) + '">⚡ Comprar ahora</button>' +
+          : '<button type="button" class="btn btn-yellow btn-sm" data-a="carAhora" data-id="' + esc(x.id) + '"' + (cd ? ' title="Se entrega el ' + esc(cdFechaLarga(x)) + '"' : '') + '>⚡ ' + (cd ? 'Comprar (entrega el ' + esc(cdFechaCorta(x)) + ')' : 'Comprar ahora') + '</button>' +
             '<button type="button" class="btn btn-ghost btn-sm ofr-cart" data-a="carAdd" data-id="' + esc(x.id) + '" aria-label="Agregar al carrito" title="Agregar al carrito">🛒</button>')) + '</span></div>';
     }
     return out;
@@ -1452,7 +1500,7 @@
     var mn = parseFloat(String(ofe.min).replace(",", ".")), mx = parseFloat(String(ofe.max).replace(",", "."));
     var l = ofertasDe(it).filter(function (x) { return (!isFinite(mn) || x.precio >= mn) && (!isFinite(mx) || x.precio <= mx); });
     return '<div class="ofr-h"><span>Gemas / Runas</span><span>Estilos desbloqueados</span><span>Precio</span><span>Acción</span></div>' +
-      (l.length ? (function () { var mj = null; l.forEach(function (x) { if (x.stock > 0 && (mj === null || x.precio < mj.precio)) mj = x; }); return l.map(function (x) { return ofertaFilaHtml(x, it.id, x === mj && l.length > 1); }).join(""); })() : '<div class="ofr-vacio">Ninguna oferta en ese rango de precio.</div>');
+      (l.length ? (function () { var mj = null; l.forEach(function (x) { if (x.stock > 0 && (mj === null || (!enCooldown(x) && enCooldown(mj)) || (enCooldown(x) === enCooldown(mj) && x.precio < mj.precio))) mj = x; }); return l.map(function (x) { return ofertaFilaHtml(x, it.id, x === mj && l.length > 1); }).join(""); })() : '<div class="ofr-vacio">Ninguna oferta en ese rango de precio.</div>');
   }
   function ofertasHtml(it) {
     var n = ofertasDe(it).reduce(function (a, x) { return a + Math.max(1, Math.min(30, x.stock)); }, 0);
@@ -1500,7 +1548,7 @@
     var saldo = cuenta.perfil ? Number(cuenta.perfil.creditos) || 0 : null, falta = saldo === null ? 0 : Math.round((T.cred - saldo) * 100) / 100;
     var h = '<h3>Tu carrito 🛒</h3><div class="carl">' + l.map(function (x) {
       var id = esc(x.it.id);
-      return '<div class="carr"><div class="carr-t"><span class="carr-img">' + (x.it.img ? imgTag(x.it.img, "", ' width="56" height="56"') : '<span class="sinfoto">—</span>') + '</span><span class="carr-n"><b>' + esc(x.it.nombre) + '</b><small>' + fmtPrecio(x.it.precio) + ' c/u</small></span></div>' +
+      return '<div class="carr' + (enCooldown(x.it) ? ' cd' : '') + '"><div class="carr-t"><span class="carr-img">' + (x.it.img ? imgTag(x.it.img, "", ' width="56" height="56"') : '<span class="sinfoto">—</span>') + '</span><span class="carr-n"><b>' + esc(x.it.nombre) + '</b><small>' + fmtPrecio(x.it.precio) + ' c/u</small>' + (enCooldown(x.it) ? '<small class="carr-cd">🔒 Cooldown · lo recibes el ' + esc(cdFechaCorta(x.it)) + '</small>' : '') + '</span></div>' +
         '<div class="carr-q"><button type="button" class="btn btn-ghost btn-sm" data-a="carMenos" data-id="' + id + '" aria-label="Menos">−</button><span>' + x.qty + '</span>' +
         '<button type="button" class="btn btn-ghost btn-sm" data-a="carMas" data-id="' + id + '" aria-label="Más"' + (x.qty >= x.it.stock ? ' disabled' : '') + '>+</button></div>' +
         '<div class="carr-s"><b>' + fmtPrecio(x.it.precio * x.qty) + '</b><button type="button" class="carr-x" data-a="carQuitar" data-id="' + id + '" aria-label="Quitar">🗑</button></div></div>';
@@ -1519,9 +1567,17 @@
     return "¡Hola! 👋🔥 Quiero comprar estos items de *RAYAS STORE* 🛒\n\n" + carroLineas().map(function (x) { return "🎮 " + x.qty + "x *" + x.it.nombre + "* — " + fmtPrecio(x.it.precio * x.qty); }).join("\n") +
       "\n\n💰 Total: " + fmtPrecio(T.sol) + (p ? "\n\n👤 " + p.nombre + " (📧 " + p.email + ")" : "") + "\n\n¿Siguen disponibles? 🙏✨";
   }
-  function pagarCarro() {
+  // Items en cooldown: la fecha de entrega del pedido es la más lejana de todos.
+  function cdEntregaDe(lineas) { var t = 0; lineas.forEach(function (x) { var it = x.it || x; if (enCooldown(it) && cdMs(it) > t) t = cdMs(it); }); return t ? new Date(t).toISOString() : ""; }
+  // Antes de pagar algo en cooldown el cliente tiene que aceptar que lo recibe recién al liberarse.
+  function cdAvisoModal(lineas, accion, id) {
+    var hasta = cdEntregaDe(lineas), ls = lineas.filter(function (x) { return enCooldown(x.it || x); });
+    return { tipo: "cdAviso", accion: accion, id: id, hasta: hasta, items: ls.map(function (x) { var it = x.it || x; return { nombre: it.nombre, fecha: cdFechaLarga(it), resta: cdRestante(it) }; }) };
+  }
+  function pagarCarro(aceptado) {
     var l = carroLineas(); if (!l.length) return;
     if (!cuenta.perfil) { modal = null; cuenta.modo = "login"; cuenta.msg = "Entra a tu cuenta para pagar con tu saldo."; cuenta.msgTipo = ""; render(); return; }
+    if (!aceptado && cdEntregaDe(l)) { modal = cdAvisoModal(l, "carro"); render(); return; }
     var payload = l.map(function (x) { return { id: x.it.id, qty: x.qty }; }), n = l.reduce(function (a, x) { return a + x.qty; }, 0);
     modal = { tipo: "cargando" }; render();
     token().then(function (tk) {
@@ -1530,20 +1586,21 @@
       .then(function (x) {
         if (!x.ok) { modal = { tipo: "error", msg: (x.j && x.j.error) || "No se pudo completar la compra." }; render(); cargarItems(true); return; }
         carro = {}; carroGuardar();
-        modal = { tipo: "itemOk", code: x.j.code, nombre: n + (n === 1 ? " item" : " items"), saldo: x.j.saldo }; render();
+        modal = { tipo: "itemOk", code: x.j.code, nombre: n + (n === 1 ? " item" : " items"), saldo: x.j.saldo, entrega: x.j.entregaDesde || "" }; render();
         cargarPerfil(); cargarItems(true);
       }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : "No se pudo completar la compra. No se descontó saldo." }; render(); });
   }
-  function comprarItemCreditos(id) {
+  function comprarItemCreditos(id, aceptado) {
     var it = itemPorId(id); if (!it) return;
     if (!cuenta.perfil) { modal = null; cuenta.modo = "login"; cuenta.msg = "Entra a tu cuenta para pagar con tu saldo."; cuenta.msgTipo = ""; render(); return; }
+    if (!aceptado && enCooldown(it)) { modal = cdAvisoModal([it], "item", id); render(); return; }
     modal = { tipo: "cargando" }; render();
     token().then(function (tk) {
       return fetch(ITEMS_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ id: id }) });
     }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (x) {
         if (!x.ok) { modal = { tipo: "error", msg: (x.j && x.j.error) || "No se pudo completar la compra." }; render(); cargarItems(true); return; }
-        modal = { tipo: "itemOk", code: x.j.code, nombre: it.nombre, saldo: x.j.saldo }; render();
+        modal = { tipo: "itemOk", code: x.j.code, nombre: it.nombre, saldo: x.j.saldo, entrega: x.j.entregaDesde || "" }; render();
         cargarPerfil(); cargarItems(true);
       }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : "No se pudo completar la compra. No se descontó saldo." }; render(); });
   }
@@ -1779,7 +1836,7 @@
     }
   }
   /* --- Admin: pestaña Items --- */
-  function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", estilos: "0", estOk: "1", descripcion: "", steamUsd: 0, steamAct: "", activo: true, creado: "", link: "" }; }
+  function nuevoItemForm() { return { id: "", nombre: "", img: "", precio: "", stock: "1", tipo: "Wearable", heroe: "", ranura: "", rareza: "", calidad: "", estilos: "0", estOk: "1", descripcion: "", steamUsd: 0, steamAct: "", activo: true, creado: "", link: "", cooldownHasta: "" }; }
   /* Rellena el formulario a partir del link del Mercado de Steam (lo lee la función itemSteam, solo admin). */
   function rellenarDesdeSteam() {
     var F = admin.itemForm; if (!F || admin.steamCargando) return;
@@ -1850,7 +1907,7 @@
       '<div class="cav"><button type="button" class="btn btn-fuchsia btn-sm" data-a="itVersion" data-id="' + esc(l[0].id) + '">➕ Agregar versión nueva (otra gema / estilos / precio)</button></div></div>';
   }
   function abrirVersion(base) {
-    admin.itemForm = Object.assign({}, base, { id: "", desdeId: "", creado: "", precio: "", stock: "1", descripcion: "", estilos: String(base.estilos || 0), estOk: base.estOk || (base.estilos ? "1" : ""), soloCambios: true, activo: true });
+    admin.itemForm = Object.assign({}, base, { id: "", desdeId: "", creado: "", precio: "", stock: "1", descripcion: "", estilos: String(base.estilos || 0), estOk: base.estOk || (base.estilos ? "1" : ""), soloCambios: true, activo: true, cooldownHasta: "" });
     admin.itemMsg = ""; admin.steamInfo = ""; render(); hidratarImgs(); irAlForm();
   }
   function cambiarStock(id, delta) {
@@ -1879,7 +1936,7 @@
       '<p class="hint">Lo demás se copia del item. Solo pon lo que cambia en esta versión.</p>' +
       '<div class="field"><label for="it-precio">Precio en soles (S/)</label><input id="it-precio" inputmode="decimal" value="' + esc(F.precio) + '"></div>' +
       '<div class="field"><label for="it-stock">Stock (cuántos tienes)</label><input id="it-stock" inputmode="numeric" value="' + esc(F.stock) + '"></div>' +
-      gemasFormHtml(F) + estilosFormHtml(F) +
+      gemasFormHtml(F) + estilosFormHtml(F) + cdCampoHtml("it-", F) +
       '<label class="chk"><input type="checkbox" id="it-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
       (admin.itemMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.itemMsg) + '</p>' : '') +
       '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="itGuardar">' + (admin.itemGuardando ? 'Guardando…' : '💾 Guardar versión') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="itCompleto">Cambiar más datos</button><button type="button" class="btn btn-ghost btn-sm" data-a="itCerrarForm">Cancelar</button></div></div>';
@@ -1899,7 +1956,7 @@
       '<div class="field"><label for="it-rareza">Rareza</label><select id="it-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), F.rareza, "—") + '</select></div>' +
       '<div class="field"><label for="it-calidad">Calidad</label><input id="it-calidad" list="dl-calidad" maxlength="30" value="' + esc(F.calidad) + '"><datalist id="dl-calidad">' + distintos("calidad", ITEM_CALIDADES).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
       gemasFormHtml(F) +
-      estilosFormHtml(F) +
+      estilosFormHtml(F) + cdCampoHtml("it-", F) +
       '<label class="chk"><input type="checkbox" id="it-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
       (admin.itemMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.itemMsg) + '</p>' : '') +
       '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="itGuardar">' + (admin.itemGuardando ? 'Guardando…' : '💾 Guardar item') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="itCerrarForm">Cancelar</button></div></div>';
@@ -1925,7 +1982,8 @@
     if (!isFinite(precio) || precio <= 0) { admin.itemMsg = "Pon un precio mayor a 0."; render(); return; }
     if (!isFinite(stock) || stock < 0) stock = 1;
     var it = { id: F.id || ("it-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), nombre: F.nombre.trim(), img: F.img, precio: Math.round(precio * 100) / 100, stock: stock,
-      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: gemasAString(gemasDe(F).filter(function (g) { return g.v; })).slice(0, 600), steamUsd: Number(F.steamUsd) || 0, steamAct: F.steamAct || "", activo: F.activo, creado: F.creado || new Date().toISOString() };
+      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: gemasAString(gemasDe(F).filter(function (g) { return g.v; })).slice(0, 600), steamUsd: Number(F.steamUsd) || 0, steamAct: F.steamAct || "", activo: F.activo, creado: F.creado || new Date().toISOString(),
+      cooldownHasta: enCooldown(F) ? new Date(cdMs(F)).toISOString() : "" };
     admin.itemGuardando = true; admin.itemMsg = ""; render();
     fsPedir("rayas_items/" + encodeURIComponent(it.id), { method: "PATCH", body: JSON.stringify(itemAFields(it)) }).then(function (r) {
       if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
@@ -2420,14 +2478,14 @@
           return { id: g.id && g.id.stringValue || "", name: g.name && g.name.stringValue || "Item", qty: num("qty") || 1, price: num("price") };
         });
         var nUni = its.reduce(function (a, i) { return a + i.qty; }, 0);
-        return { code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0) || nUni, monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "", items: its, estado: f.status && f.status.stringValue || "", tienda: f.tienda && f.tienda.stringValue || "" };
+        return { code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0) || nUni, monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "", items: its, estado: f.status && f.status.stringValue || "", tienda: f.tienda && f.tienda.stringValue || "", entregaDesde: f.entregaDesde && f.entregaDesde.timestampValue || "" };
       }).filter(function (c) { return c.monto > 0; });
       if (vistaActual === "perfil") { render(); pfFiltrar(); }
     }).catch(function () { /* sin historial de compras */ });
   }
   /* ================= Perfil: Información personal · Transacciones · Seguridad ================= */
   var PF_TABS = [["info", "👤", "Información personal"], ["trans", "🔁", "Transacciones"], ["seg", "🔒", "Seguridad"]];
-  var PF_EST = { pagado: "Por entregar", entregado: "Entregado", cancelado: "Cancelado" };
+  var PF_EST = { cooldown: "En cooldown", pagado: "Por entregar", entregado: "Entregado", cancelado: "Cancelado" };
   function pfMon(n) { return "S/ " + (Math.round(Number(n) * 100) / 100).toFixed(2); }
   // La foto del item no se guarda en el pedido: se busca en el catálogo por id (o por nombre si el id ya no existe).
   function pfImgItem(it) {
@@ -2452,8 +2510,9 @@
       });
     });
     (cuenta.compras || []).forEach(function (c) {
-      filas.push({ key: "c_" + (c.code || c.t), t: c.t, tipo: "compra", titulo: "Compra de items", code: c.code || "", est: c.estado || "pagado", estTxt: PF_EST[c.estado] || c.estado || "Pagado", monto: c.monto,
-        det: (c.items || []).map(function (i) { return { nombre: i.name, img: pfImgItem(i), qty: i.qty, unit: i.price, sub: i.price * i.qty, unidad: "", estTxt: PF_EST[c.estado] || "", est: c.estado || "pagado" }; }),
+      var cdTxt = c.estado === "cooldown" ? "En cooldown · lo recibes el " + cdFechaCorta({ cooldownHasta: c.entregaDesde }) : "";
+      filas.push({ key: "c_" + (c.code || c.t), t: c.t, tipo: "compra", titulo: "Compra de items", code: c.code || "", est: c.estado || "pagado", estTxt: cdTxt || PF_EST[c.estado] || c.estado || "Pagado", monto: c.monto,
+        det: (c.items || []).map(function (i) { return { nombre: i.name, img: pfImgItem(i), qty: i.qty, unit: i.price, sub: i.price * i.qty, unidad: "", estTxt: cdTxt || PF_EST[c.estado] || "", est: c.estado || "pagado" }; }),
         tienda: c.tienda === "litlejacob" ? "LitleJacob Store" : (c.tienda === "rayas" ? "Rayas Store" : "") });
     });
     filas.sort(function (a, b) { return String(b.t).localeCompare(String(a.t)); });
@@ -2745,7 +2804,7 @@
 
 
   /* ---- Pedidos de items (solo admin) ---- */
-  var PED_ESTADOS = [["pagado", "💰 Por entregar"], ["entregado", "✅ Entregado"], ["cancelado", "✖ Cancelado"]];
+  var PED_ESTADOS = [["cooldown", "🔒 En cooldown"], ["pagado", "💰 Por entregar"], ["entregado", "✅ Entregado"], ["cancelado", "✖ Cancelado"]];
   function leerPedidoDoc(d) {
     var f = d.fields || {}, sv = function (k) { return f[k] && f[k].stringValue || ""; }, nv = function (k) { var x = f[k]; return x ? Number(x.doubleValue !== undefined ? x.doubleValue : x.integerValue || 0) : 0; };
     var its = ((f.items && f.items.arrayValue && f.items.arrayValue.values) || []).map(function (v) {
@@ -2754,7 +2813,8 @@
     });
     return { id: d.name.split("/").pop(), code: sv("code") || d.name.split("/").pop(), cliente: sv("customerName"), steam: sv("steamId"), email: sv("email"), tradelink: sv("tradelink"),
       whatsapp: sv("phone"), uid: sv("uid"), correoAdmin: !!(f.correoAdmin && f.correoAdmin.booleanValue), correoCliente: !!(f.correoCliente && f.correoCliente.booleanValue), correoError: sv("correoError"), estado: sv("status") || "pagado", tienda: sv("tienda"), total: nv("total"), creditos: nv("creditos"), items: its,
-      fecha: f.createdAt && f.createdAt.timestampValue ? new Date(f.createdAt.timestampValue) : null };
+      fecha: f.createdAt && f.createdAt.timestampValue ? new Date(f.createdAt.timestampValue) : null, entregaDesde: f.entregaDesde && f.entregaDesde.timestampValue || "", liberadoEn: f.liberadoEn && f.liberadoEn.timestampValue || "",
+      correoLiberadoAdmin: !!(f.correoLiberadoAdmin && f.correoLiberadoAdmin.booleanValue), correoLiberadoCliente: !!(f.correoLiberadoCliente && f.correoLiberadoCliente.booleanValue) };
   }
   function cargarPedidos() {
     admin.pedMsg = "Cargando…"; admin.pedCargando = true;
@@ -2791,24 +2851,25 @@
     if (admin.pedidos === null) { cargarPedidos(); return '<p class="hint">Cargando pedidos…</p>'; }
     var fl = admin.pedFiltro || "pagado", todos = admin.pedidos;
     var cuenta = function (k) { return todos.filter(function (p) { return k === "todos" || p.estado === k; }).length; };
-    var chips = [["pagado", "💰 Por entregar"], ["entregado", "✅ Entregados"], ["cancelado", "✖ Cancelados"], ["todos", "Todos"]].map(function (c) {
+    var chips = [["pagado", "💰 Por entregar"], ["cooldown", "🔒 En cooldown"], ["entregado", "✅ Entregados"], ["cancelado", "✖ Cancelados"], ["todos", "Todos"]].map(function (c) {
       return '<button class="subtab" type="button" role="tab" data-a="pedFiltro" data-f="' + c[0] + '" aria-selected="' + (fl === c[0]) + '">' + c[1] + ' (' + cuenta(c[0]) + ')</button>'; }).join("");
     var lista = todos.filter(function (p) { return fl === "todos" || p.estado === fl; });
     return '<div class="subtabs" role="tablist">' + chips + '</div><div class="grp"><h3>Pedidos de items (' + lista.length + ')</h3>' +
       (admin.pedMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.pedMsg) + '</p>' : '') +
       '<div class="ulist">' + (lista.length ? lista.map(function (p) {
         var ab = admin.pedAbierto === p.id, n = p.items.reduce(function (a, i) { return a + i.qty; }, 0);
-        var cab = '<button type="button" class="urow-h" data-a="pedAbrir" data-id="' + esc(p.id) + '" aria-expanded="' + ab + '"><b>' + esc(p.cliente || "Sin nombre") + ' · ' + n + (n === 1 ? ' item' : ' items') + '</b><span class="usal">' + fmtPrecio(p.total) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
+        var cab = '<button type="button" class="urow-h" data-a="pedAbrir" data-id="' + esc(p.id) + '" aria-expanded="' + ab + '"><b>' + esc(p.cliente || "Sin nombre") + ' · ' + n + (n === 1 ? ' item' : ' items') + (p.estado === "cooldown" ? ' <small class="pedcd">🔒 entregar el ' + esc(cdFechaCorta({ cooldownHasta: p.entregaDesde })) + '</small>' : '') + '</b><span class="usal">' + fmtPrecio(p.total) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
         if (!ab) return '<div class="urow compact">' + cab + '</div>';
         return '<div class="urow open">' + cab + '<div class="t"><span>Pedido <b style="display:inline">' + esc(p.code) + '</b> · ' + (p.fecha ? esc(p.fecha.toLocaleString("es-PE")) : "") + '</span>' +
           p.items.map(function (i) { return '<span>' + i.qty + ' × ' + esc(i.nombre) + ' — ' + fmtPrecio(i.precio * i.qty) + '</span>'; }).join("") +
           '<span>ID de Steam: ' + esc(p.steam || "—") + '</span><span>WhatsApp: ' + esc(p.whatsapp || "—") + '</span><span>' + esc(p.email) + '</span>' +
           (tradeValido(p.tradelink) ? '<span><a href="' + esc(p.tradelink) + '" target="_blank" rel="noopener">Abrir trade link ↗</a></span>' : '<span style="color:var(--fuchsia)">Sin trade link</span>') +
           '<span>Pagado con saldo: ' + fmtPrecio(p.creditos) + '</span>' +
-          '<span>✉ Correo a ti: ' + (p.correoAdmin ? '✔ enviado' : '✖ no enviado') + ' · Correo al cliente: ' + (p.correoCliente ? '✔ enviado' : '✖ no enviado') + '</span>' +
+          (p.entregaDesde ? '<span class="pedcd-l">🔒 ' + (p.estado === "cooldown" ? 'En cooldown de Steam: <b style="display:inline">no lo entregues todavía</b>. Se libera el <b style="display:inline">' + esc(fechaEntrega(p.entregaDesde)) + '</b>' + (enCooldown({ cooldownHasta: p.entregaDesde }) ? ' (faltan ' + esc(cdRestante({ cooldownHasta: p.entregaDesde })) + ')' : ' (ya pasó: en la próxima hora pasa solo a Por entregar)') : 'Estuvo en cooldown hasta el ' + esc(fechaEntrega(p.entregaDesde)) + (p.liberadoEn ? ' · liberado y avisado por correo' : '')) + '</span>' : '') +
+          '<span>✉ Correo a ti: ' + (p.correoAdmin ? '✔ enviado' : '✖ no enviado') + ' · Correo al cliente: ' + (p.correoCliente ? '✔ enviado' : '✖ no enviado') + (p.liberadoEn ? ' · Aviso de liberación: ' + (p.correoLiberadoAdmin ? '✔ a ti' : '✖ a ti') + ' / ' + (p.correoLiberadoCliente ? '✔ al cliente' : '✖ al cliente') : '') + '</span>' +
           (p.correoError ? '<span style="color:var(--danger)">Motivo: ' + esc(p.correoError) + '</span>' : '') + '</div>' + historialPedidosHtml(p) +
           '<div class="field"><label>Estado</label><select data-a="pedEstado" data-id="' + esc(p.id) + '">' + PED_ESTADOS.map(function (e) { return '<option value="' + e[0] + '"' + (p.estado === e[0] ? ' selected' : '') + '>' + e[1] + '</option>'; }).join("") + '</select></div>' +
-          (p.estado === "cancelado" ? '<p class="hint">Cancelar no devuelve el saldo solo: súmalo en Usuarios y saldo.</p>' : '') + '</div>';
+          (p.estado === "cancelado" ? '<p class="hint">Cancelar no devuelve el saldo solo: súmalo en Usuarios y saldo.</p>' : '') + (p.estado === "cooldown" ? '<p class="hint">Cuando el item se libere, el pedido pasa solo a <b>Por entregar</b> y les llega un correo a ti y al cliente.</p>' : '') + '</div>';
       }).join("") : '<p class="hint">No hay pedidos aquí. Cuando alguien compre un item aparecerá y te llegará un correo.</p>') + '</div>' +
       '<button class="btn btn-ghost btn-sm" type="button" data-a="pedRecargar">Actualizar lista</button></div>';
   }
@@ -3292,6 +3353,8 @@
       case "carQuitar": delete carro[t.getAttribute("data-id")]; carroGuardar(); render(); break;
       case "carVaciar": carro = {}; carroGuardar(); render(); break;
       case "carCred": pagarCarro(); break;
+      case "cdAceptar": if (modal && modal.tipo === "cdAviso") { if (modal.accion === "item") comprarItemCreditos(modal.id, true); else pagarCarro(true); } break;
+      case "verCarrito": modal = { tipo: "carrito" }; render(); break;
       case "carWsp":
         var ccw = contactos();
         if (ccw.length > 1) { modal = null; elegirMsg = mensajeCarro(); elegirAbierto = true; render(); }
@@ -3308,7 +3371,7 @@
       case "itCerrarForm": admin.itemForm = null; admin.itemMsg = ""; render(); break;
       case "itGemaMas": if (admin.itemForm) { var gl2 = gemasDe(admin.itemForm); gl2.push({ t: t.getAttribute("data-t") || "", v: "" }); admin.itemForm.descripcion = gemasAString(gl2); render(); hidratarImgs(); } break;
       case "itGemaDel": if (admin.itemForm) { var gl3 = gemasDe(admin.itemForm); gl3.splice(parseInt(t.getAttribute("data-i"), 10), 1); admin.itemForm.descripcion = gemasAString(gl3); render(); hidratarImgs(); } break;
-      case "itVariante": if (admin.itemForm) { var fv = Object.assign({}, admin.itemForm, { id: "", precio: "", stock: "1", descripcion: "", creado: "", steamAct: admin.itemForm.steamAct }); admin.itemForm = fv; admin.itemMsg = "Versión nueva: pon su gema y su precio."; render(); hidratarImgs(); irAlForm(); } break;
+      case "itVariante": if (admin.itemForm) { var fv = Object.assign({}, admin.itemForm, { id: "", precio: "", stock: "1", descripcion: "", creado: "", cooldownHasta: "", steamAct: admin.itemForm.steamAct }); admin.itemForm = fv; admin.itemMsg = "Versión nueva: pon su gema y su precio."; render(); hidratarImgs(); irAlForm(); } break;
       case "itQuitarFoto": if (admin.itemForm) { admin.itemForm.img = ""; render(); } break;
       case "itGuardar": guardarItem(); break;
       case "itSteam": rellenarDesdeSteam(); break;
@@ -3467,6 +3530,7 @@
     var F = admin.itemForm; if (!F || !el.id || el.id.indexOf("it-") !== 0) return false;
     var m = { "it-link": "link", "it-nombre": "nombre", "it-precio": "precio", "it-stock": "stock", "it-tipo": "tipo", "it-heroe": "heroe", "it-ranura": "ranura", "it-desc": "descripcion", "it-rareza": "rareza", "it-calidad": "calidad" };
     if (el.id === "it-activo") { F.activo = el.checked; return true; }
+    if (cdCampoEvento(el, "it-", F, function () { render(); })) return true;
     if (el.id === "it-estilos") {
       F.estilos = el.value;
       var nn = Number(el.value) || 0, oks = estilosOkLista(F).filter(function (x) { return x <= nn; });

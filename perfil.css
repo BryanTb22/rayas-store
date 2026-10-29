@@ -128,3 +128,4 @@
 .topbar .nav a.navlink, .topbar .nav .lock { white-space: nowrap; }
 /* en pantallas medianas no caben los enlaces de la rifa (Cómo participar, Ganadores, Reglas): quedan en la página de Rifas */
 @media (max-width: 1360px) and (min-width: 761px) { .topbar .nav a.navlink ~ a.navlink { display: none; } }
+.pf-dot.est-cooldown { background: #ffb14a; }

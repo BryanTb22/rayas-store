@@ -231,7 +231,13 @@ exports.comprarSets = onRequest(
 /* ---------- 1b2) Comprar UN item del catálogo (rayas_items) con créditos ----------
  * 1 crédito = S/ 1. Créditos del item = precio redondeado hacia arriba. Todo en una transacción.
  */
-const VERSION_COMPRAR_ITEM = "2026-10-29 · céntimos exactos + correos admin/cliente";
+const VERSION_COMPRAR_ITEM = "2026-10-29 · items en cooldown (entrega aplazada) + correos";
+// Fecha en que se libera el cooldown de Steam de un item (campo cooldownHasta en rayas_items). null = sin cooldown o ya vencido.
+function cooldownDe(it, ahora) {
+  const t = it && it.cooldownHasta;
+  const d = t && t.toDate ? t.toDate() : (t ? new Date(t) : null);
+  return d && isFinite(d.getTime()) && d.getTime() > ahora.getTime() ? d : null;
+}
 exports.comprarItem = onRequest(
   { region: REGION, cors: ORIGENES, secrets: [RESEND_KEY], maxInstances: 5, timeoutSeconds: 30 },
   async (req, res) => {
@@ -258,7 +264,8 @@ exports.comprarItem = onRequest(
         const refs = ids.map((i) => db.doc("rayas_items/" + i));
         const snaps = await Promise.all(refs.map((rf) => tx.get(rf)));
         const u = await tx.get(uRef2);
-        const lineas = []; let total = 0, creditos = 0, count = 0;
+        const lineas = []; let total = 0, creditos = 0, count = 0, entrega = null;
+        const ahora = new Date();
         snaps.forEach((sn, k) => {
           if (!sn.exists || sn.data().activo === false) throw new Error("NO_EXISTE");
           const it = sn.data(), qty = unicos[ids[k]];
@@ -266,7 +273,11 @@ exports.comprarItem = onRequest(
           if (stock < qty) throw new Error("AGOTADO");
           const precio = Number(it.precio);
           if (!(precio > 0)) throw new Error("SIN_PRECIO");
-          lineas.push({ ref: refs[k], stock: stock, qty: qty, line: { id: ids[k], name: String(it.nombre || "Item").slice(0, 90), qty: qty, price: precio } });
+          const line = { id: ids[k], name: String(it.nombre || "Item").slice(0, 90), qty: qty, price: precio };
+          // Item en cooldown de Steam: se vende igual, pero se entrega cuando se libere. El pedido espera hasta la fecha más lejana.
+          const cd = cooldownDe(it, ahora);
+          if (cd) { line.cooldownHasta = cd.toISOString(); if (!entrega || cd > entrega) entrega = cd; }
+          lineas.push({ ref: refs[k], stock: stock, qty: qty, line: line });
           total += precio * qty; count += qty;
         });
         total = Math.round(total * 100) / 100;
@@ -280,19 +291,21 @@ exports.comprarItem = onRequest(
           code: code, customerName: String(d.nombre || "Cliente").slice(0, 60), steamId: String(d.steam || "").slice(0, 20),
           items: lineas.map((l) => l.line),
           count: count, subtotal: total, discount: 0, total: total,
-          status: "pagado", createdAt: FV.serverTimestamp(),
+          // "cooldown" = pagado, pero se entrega cuando el item se libere en Steam (entregaDesde). liberarCooldown lo pasa a "pagado".
+          status: entrega ? "cooldown" : "pagado", createdAt: FV.serverTimestamp(),
           paidWith: "creditos", creditos: creditos, uid: uid, origen: "items", tienda: tiendaDeOrigen(req),
           email: String(d.email || ""), tradelink: String(d.tradelink || "")
         };
+        if (entrega) { pedido.entregaDesde = admin.firestore.Timestamp.fromDate(entrega); pedido.cooldownAvisado = false; }
         if (d.whatsapp) pedido.phone = String(d.whatsapp).slice(0, 40);
         tx.update(uRef2, { creditos: nuevoSaldo });
         lineas.forEach((l) => tx.update(l.ref, { stock: l.stock - l.qty }));
         tx.create(oRef, pedido);
-        return { saldo: nuevoSaldo, creditos: creditos, count: count, pedido: pedido };
+        return { saldo: nuevoSaldo, creditos: creditos, count: count, pedido: pedido, entrega: entrega };
       });
       // Correos: uno para el administrador y otro de comprobante para el cliente. Nunca rompen la compra:
       // si fallan, el pedido igual queda en el panel y se anota el motivo en el pedido (correoError).
-      const p = r.pedido, datos = { code: code, nombre: p.customerName, steamId: p.steamId, email: p.email, whatsapp: p.phone, tradelink: p.tradelink, items: p.items, total: p.total, creditos: p.creditos, saldo: r.saldo, creadoEn: new Date() };
+      const p = r.pedido, datos = { code: code, nombre: p.customerName, steamId: p.steamId, email: p.email, whatsapp: p.phone, tradelink: p.tradelink, items: p.items, total: p.total, creditos: p.creditos, saldo: r.saldo, creadoEn: new Date(), entrega: r.entrega };
       const estado = { correoAdmin: false, correoCliente: false }, fallos = [];
       let correoAdmin = "";
       try { correoAdmin = String((await admin.auth().getUser(ADMIN_UID)).email || ""); } catch (e) { fallos.push("admin sin correo: " + (e && e.message)); }
@@ -306,7 +319,7 @@ exports.comprarItem = onRequest(
         mandar(p.email, emails.compraCliente(p.tienda, datos), "compra-" + code, "correoCliente")
       ]);
       await oRef.update(Object.assign({}, estado, fallos.length ? { correoError: fallos.join(" | ").slice(0, 400) } : {})).catch(() => {});
-      return res.json({ ok: true, code: code, creditos: r.creditos, saldo: r.saldo, count: r.count });
+      return res.json({ ok: true, code: code, creditos: r.creditos, saldo: r.saldo, count: r.count, entregaDesde: r.entrega ? r.entrega.toISOString() : null });
     } catch (e) {
       const m = e && e.message;
       if (m === "SIN_CREDITOS") return res.status(402).json({ error: "No te alcanza el saldo. Te faltan " + e.falta + ".", falta: e.falta });
@@ -494,6 +507,47 @@ exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "Am
   console.log("recordatorio enviado", lista.length, r.status);
 });
 
+/* ---------- Items en cooldown: cada hora revisa los pedidos "cooldown" cuya fecha ya pasó, los pasa a
+ * "pagado" (por entregar) y avisa por correo al administrador y al cliente. ---------- */
+async function liberarPedidosEnCooldown(ahora) {
+  ahora = ahora || new Date();
+  const qs = await db.collection("orders").where("status", "==", "cooldown").get();
+  let adminMail = "";
+  try { adminMail = String((await admin.auth().getUser(ADMIN_UID)).email || ""); } catch (e) { console.error("liberarCooldown: admin sin correo", e); }
+  let liberados = 0;
+  for (const doc of qs.docs) {
+    const p = doc.data();
+    const hasta = p.entregaDesde && p.entregaDesde.toDate ? p.entregaDesde.toDate() : null;
+    if (hasta && hasta.getTime() > ahora.getTime()) continue;   // todavía en cooldown
+    // Solo el primero que llegue lo libera (si dos corridas coinciden, la segunda ve "pagado" y no hace nada).
+    const ok = await db.runTransaction(async (tx) => {
+      const s = await tx.get(doc.ref);
+      if (!s.exists || s.data().status !== "cooldown") return false;
+      tx.update(doc.ref, { status: "pagado", liberadoEn: FV.serverTimestamp(), cooldownAvisado: true, updatedAt: FV.serverTimestamp() });
+      return true;
+    });
+    if (!ok) continue;
+    liberados++;
+    const datos = { code: p.code || doc.id, nombre: p.customerName, steamId: p.steamId, email: p.email, whatsapp: p.phone, tradelink: p.tradelink, items: p.items || [], total: p.total, creditos: p.creditos, creadoEn: aFecha(p.createdAt), entrega: hasta || ahora };
+    const estado = {}, fallos = [];
+    const mandar = async (para, c, clave, campo) => {
+      if (!para) { fallos.push(campo + ": sin destinatario"); return; }
+      try { await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: para, subject: c.subject, html: c.html, text: c.text, clave: clave }); estado[campo] = true; }
+      catch (e) { console.error("liberarCooldown " + campo, e); estado[campo] = false; fallos.push(campo + ": " + String((e && e.message) || e).slice(0, 160)); }
+    };
+    await Promise.all([
+      mandar(adminMail, emails.pedidoLiberado(p.tienda || "rayas", datos), "liberado-admin-" + doc.id, "correoLiberadoAdmin"),
+      mandar(p.email, emails.itemLiberado(p.tienda || "rayas", datos), "liberado-cliente-" + doc.id, "correoLiberadoCliente")
+    ]);
+    await doc.ref.update(Object.assign({}, estado, fallos.length ? { correoLiberadoError: fallos.join(" | ").slice(0, 400) } : {})).catch(() => {});
+  }
+  return { revisados: qs.size, liberados: liberados };
+}
+exports.liberarCooldown = onSchedule({ schedule: "every 1 hours", timeZone: "America/Lima", region: REGION, secrets: [RESEND_KEY], timeoutSeconds: 300 }, async () => {
+  const r = await liberarPedidosEnCooldown(new Date());
+  console.log("liberarCooldown", r);
+});
+
 /* ---- Admin: manda 4 correos de EJEMPLO (confirmación y pendiente, de cada tienda) al correo del administrador. No cobra ni toca saldos. ---- */
 exports.probarCorreos = onRequest(
   { region: REGION, cors: ORIGENES, secrets: [RESEND_KEY], maxInstances: 1, timeoutSeconds: 60 },
@@ -504,12 +558,14 @@ exports.probarCorreos = onRequest(
     let a;
     try { a = String((await admin.auth().getUser(uid)).email || ""); } catch (e) { a = ""; }
     if (!a) return res.status(400).json({ error: "La cuenta de administrador no tiene correo." });
-    const ahora = new Date(), venc = new Date(ahora.getTime() + 22 * 3600 * 1000), tanda = String(Date.now());
+    const ahora = new Date(), venc = new Date(ahora.getTime() + 22 * 3600 * 1000), enCd = new Date(ahora.getTime() + 7 * 86400 * 1000), tanda = String(Date.now());
     let enviados = 0, fallaron = 0, error = "";
     for (const tienda of ["rayas", "litlejacob"]) {
       const lista = [
         ["confirmacion", emails.confirmacion(tienda, { id: "prueba" + tienda, nombre: "Bryan", soles: 10, creditos: 12, tipo: "tarjeta", pagadoEn: ahora, saldo: 15 })],
-        ["pendiente", emails.recordatorio(tienda, { id: "prueba" + tienda, nombre: "Bryan", soles: 10, creditos: 12, expiraEn: venc })]
+        ["pendiente", emails.recordatorio(tienda, { id: "prueba" + tienda, nombre: "Bryan", soles: 10, creditos: 12, expiraEn: venc })],
+        ["cooldown", emails.compraCliente(tienda, { code: "PRUEBA-CD", nombre: "Bryan", items: [{ name: "Dragonclaw Hook", qty: 1, price: 1050, cooldownHasta: enCd.toISOString() }], total: 1050, creditos: 1050, saldo: 20, creadoEn: ahora, entrega: enCd })],
+        ["liberado", emails.itemLiberado(tienda, { code: "PRUEBA-CD", nombre: "Bryan", items: [{ name: "Dragonclaw Hook", qty: 1, price: 1050 }], total: 1050, creditos: 1050, creadoEn: ahora, entrega: ahora })]
       ];
       for (const [nombre, c] of lista) {
         try {
