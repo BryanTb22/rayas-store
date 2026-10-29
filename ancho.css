@@ -1,0 +1,34 @@
+/* =====================================================================
+   Ancho en pantallas grandes: menos espacio vacío a los lados y cabecera en proporción.
+   Hasta 1279 px no cambia nada. Prefijo "html:root body" para mandar sobre tema-nuevo.css.
+   ===================================================================== */
+@media (min-width: 1280px) {
+  html:root body .wrap,
+  html:root body #rifas .wrap, html:root body #ganadores .wrap,
+  html:root body .itadm { max-width: min(88vw, 1680px); }
+  html:root body .cards2, html:root body #ultimos .winners { max-width: min(88vw, 1680px); }
+  html:root body .pf-wrap { max-width: min(80vw, 1320px); }
+  html:root body .lg-foot-in, html:root body .lg-foot-b { max-width: min(88vw, 1680px); }
+}
+
+@media (min-width: 1600px) {
+  /* cabecera más grande, en proporción al ancho */
+  html:root body .topbar .wrap { padding-block: 14px; }
+  html:root body .topbar .logo { font-size: 30px; gap: 12px; }
+  html:root body .topbar .logo-img { width: 54px; height: 54px; }
+  html:root body .nav { gap: 26px; }
+  html:root body .nav a.navlink { font-size: 15.5px; }
+  html:root body .nav .lock { font-size: 14.5px; padding: 11px 20px; }
+  html:root body .nav .lock.me { max-width: 340px; }
+  html:root body .svcbar .wrap { padding-block: 12px; gap: 12px; }
+  html:root body .svc-tab { font-size: 15px; padding: 12px 24px; }
+  html:root body .svc-tab .tn-i, html:root body .svc-tab span { font-size: 22px; }
+  html:root body .udrop-menu { min-width: 280px; }
+}
+
+@media (min-width: 2200px) {
+  html:root body .topbar .logo { font-size: 34px; }
+  html:root body .topbar .logo-img { width: 60px; height: 60px; }
+  html:root body .nav a.navlink { font-size: 17px; }
+  html:root body .svc-tab { font-size: 16.5px; padding: 14px 28px; }
+}
