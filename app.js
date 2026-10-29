@@ -2393,7 +2393,7 @@
     (cuenta.compras || []).forEach(function (c) { movs.push({ t: c.t, ico: "🛒", txt: "Compra " + (c.code ? c.code + " · " : "") + (c.n || 1) + (c.n === 1 ? " item" : " items"), monto: -c.monto }); });
     movs.sort(function (a, b) { return String(b.t).localeCompare(String(a.t)); });
     return '<div class="grp movs"><h3>Mis movimientos</h3>' + (movs.length ? '<ul class="movl">' + movs.slice(0, 15).map(function (m) {
-      return '<li><span class="mv-i">' + m.ico + '</span><span class="mv-t"><b>' + esc(m.txt) + '</b><small>' + (m.t ? esc(fechaHora(m.t)) : "—") + '</small></span><span class="mv-m neg">−S/ ' + Math.abs(m.monto) + '</span></li>';
+      return '<li><span class="mv-i">' + m.ico + '</span><span class="mv-t"><b>' + esc(m.txt) + '</b><small>' + (m.t ? esc(fechaHora(m.t)) : "—") + '</small></span><span class="mv-m neg">−S/ ' + (Math.round(Math.abs(m.monto) * 100) / 100).toFixed(2).replace(/\.00$/, "") + '</span></li>';
     }).join("") + '</ul>' : '<p class="hint">Todavía no tienes movimientos. Tus compras y tickets aparecerán aquí.</p>') + '</div>';
   }
   function listaMisRifas() {
