@@ -2317,9 +2317,10 @@
   // Historial de movimientos: rifas (participaciones) y compras de items. Las recargas aún no se guardan en un registro que el navegador pueda leer.
   function cargarMovs() {
     var uid = uidSesion(); if (!uid || esAdmin()) return;
-    fetch(BASE.replace("/documents/", "/documents:runQuery"), { method: "POST", headers: { "Content-Type": "application/json" },
+    // La consulta lleva la sesión del cliente: sin ella Firestore la rechaza y el historial salía siempre vacío.
+    token().then(function (tk) { return fetch(BASE.replace("/documents/", "/documents:runQuery"), { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
       body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "orders" }], where: { fieldFilter: { field: { fieldPath: "uid" }, op: "EQUAL", value: { stringValue: uid } } }, limit: 30 } })
-    }).then(function (r) { return r.ok ? r.json() : []; }).then(function (j) {
+    }); }).then(function (r) { return r.ok ? r.json() : []; }).then(function (j) {
       cuenta.compras = (j || []).filter(function (x) { return x.document; }).map(function (x) {
         var f = x.document.fields || {};
         return { code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0), monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "" };
