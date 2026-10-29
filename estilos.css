@@ -962,7 +962,7 @@ select option:checked, select option:hover { background-color: #1b2a63; color: #
 .elegir.stkp { width: min(1000px, calc(100vw - 20px)); max-height: calc(100vh - 24px); overflow: auto; text-align: left; }
 .elegir.stkp h3 { text-align: left; padding-right: 36px; }
 .stk-x { position: absolute; right: 12px; top: 10px; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; font-size: 22px; cursor: pointer; }
-.stk-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 10px 0 14px; }
+.stk-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 10px 0 14px; }
 .stk-stat { text-align: center; padding: 12px 6px; border: 1px solid var(--line); border-radius: 10px; background: rgba(0,0,0,.3); }
 .stk-stat b { display: block; font-family: var(--title); font-size: 22px; color: var(--yellow); }
 .stk-stat span { display: block; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
