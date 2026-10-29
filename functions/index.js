@@ -230,7 +230,7 @@ exports.comprarSets = onRequest(
  * 1 crédito = S/ 1. Créditos del item = precio redondeado hacia arriba. Todo en una transacción.
  */
 exports.comprarItem = onRequest(
-  { region: REGION, cors: ORIGENES, maxInstances: 5, timeoutSeconds: 30 },
+  { region: REGION, cors: ORIGENES, secrets: [RESEND_KEY], maxInstances: 5, timeoutSeconds: 30 },
   async (req, res) => {
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
@@ -276,15 +276,24 @@ exports.comprarItem = onRequest(
           items: lineas.map((l) => l.line),
           count: count, subtotal: total, discount: 0, total: total,
           status: "pagado", createdAt: FV.serverTimestamp(),
-          paidWith: "creditos", creditos: creditos, uid: uid, origen: "items",
+          paidWith: "creditos", creditos: creditos, uid: uid, origen: "items", tienda: tiendaDeOrigen(req),
           email: String(d.email || ""), tradelink: String(d.tradelink || "")
         };
         if (d.whatsapp) pedido.phone = String(d.whatsapp).slice(0, 40);
         tx.update(uRef2, { creditos: FV.increment(-creditos) });
         lineas.forEach((l) => tx.update(l.ref, { stock: l.stock - l.qty }));
         tx.create(oRef, pedido);
-        return { saldo: saldo - creditos, creditos: creditos, count: count };
+        return { saldo: saldo - creditos, creditos: creditos, count: count, pedido: pedido };
       });
+      // Aviso al correo del administrador. Nunca rompe la compra: si falla, el pedido igual queda en el panel.
+      try {
+        const a = String((await admin.auth().getUser(ADMIN_UID)).email || "");
+        if (a) {
+          const p = r.pedido;
+          const c = emails.pedidoNuevo(p.tienda, { code: code, nombre: p.customerName, steamId: p.steamId, email: p.email, whatsapp: p.phone, tradelink: p.tradelink, items: p.items, total: p.total, creditos: p.creditos, creadoEn: new Date() });
+          await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: a, subject: c.subject, html: c.html, text: c.text, clave: "pedido-" + code });
+        }
+      } catch (e) { console.error("comprarItem correo admin", e); }
       return res.json({ ok: true, code: code, creditos: r.creditos, saldo: r.saldo, count: r.count });
     } catch (e) {
       const m = e && e.message;

@@ -163,7 +163,7 @@ function layout(m, o) {
     </td></tr>
     <tr><td align="center" bgcolor="${m.fondo}" style="background:${m.fondo};padding:8px 16px 22px;font-family:${CUERPO};font-size:12px;line-height:1.6;color:${m.suave}">
       <a href="${esc(m.url)}" style="color:${m.primario};text-decoration:none;font-weight:600">${esc(m.url.replace("https://", ""))}</a><br>
-      Recibes este correo porque hiciste una recarga en ${esc(m.nombre)}.
+      ${o.pie ? o.pie : 'Recibes este correo porque hiciste una recarga en ' + esc(m.nombre) + '.'}
     </td></tr>
     <tr><td style="font-size:0;line-height:0;height:5px;${franja}">&nbsp;</td></tr>
   </table>
@@ -266,4 +266,42 @@ function recordatorio(tienda, p) {
   return { from: m.remitente, subject, html, text };
 }
 
-module.exports = { MARCAS, confirmacion, recordatorio };
+// ---------------------------------------------------------------------------
+// Correo 3 (para el administrador): pedido nuevo de items pagado con saldo.
+// p = { code, nombre, steamId, email, whatsapp, tradelink, items:[{name,qty,price}], total, creditos, creadoEn(Date) }
+// ---------------------------------------------------------------------------
+function pedidoNuevo(tienda, p) {
+  const m = marca(tienda);
+  const lineas = (p.items || []).map((it) => [`${it.qty} × ${it.name}`, soles(it.price * it.qty)]);
+  const filas = [
+    ...lineas,
+    ["Cliente", p.nombre || "—"],
+    ["ID de Steam", p.steamId || "—"],
+    ["WhatsApp", p.whatsapp || "—"],
+    ["Correo", p.email || "—"],
+    ["Trade link", p.tradelink || "—"],
+    ["Fecha", fecha(p.creadoEn)],
+  ];
+  const stats = [
+    { valor: soles(p.total), etiqueta: "Total del pedido" },
+    { valor: String(p.creditos), etiqueta: "Saldo descontado" },
+  ];
+  const titulo = "¡Pedido nuevo!";
+  const subject = `🛒 Pedido nuevo ${p.code}: ${p.nombre || "cliente"} (${soles(p.total)}) · ${m.nombre}`;
+  const boton = { texto: "Ver pedidos", url: m.url };
+  const html = layout(m, {
+    titulo,
+    preheader: `${p.nombre || "Un cliente"} compró items por ${soles(p.total)}.`,
+    chip: { texto: "🛒 Pagado con saldo", color: m.ok },
+    intro: `Entró un pedido de items en <b>${esc(m.nombre)}</b>. Envíalo y márcalo como entregado en el panel de pedidos.`,
+    stats,
+    filas,
+    boton,
+    aviso: `Pedido <b>${esc(p.code)}</b>. Ya se descontó el saldo y el stock.`,
+    pie: `Aviso automático de pedidos de ${esc(m.nombre)}.`,
+  });
+  const text = aTexto(m, titulo + " " + p.code, [...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], boton);
+  return { from: m.remitente, subject, html, text };
+}
+
+module.exports = { MARCAS, confirmacion, recordatorio, pedidoNuevo };
