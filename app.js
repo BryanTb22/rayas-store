@@ -1938,15 +1938,17 @@
     var o = itemPorId(id); if (!o) return;
     var ns = (Number(o.stock) || 0) + delta;
     if (ns < 0) return;
-    fsPedir("rayas_items/" + encodeURIComponent(id) + "?updateMask.fieldPaths=stock", { method: "PATCH", body: JSON.stringify({ fields: { stock: { integerValue: String(ns) } } }) }).then(function (r) {
+    // Sin unidades: queda agotada y oculta para los clientes. Al volver a tener stock, se muestra otra vez.
+    var act = ns === 0 ? false : ((Number(o.stock) || 0) === 0 && o.activo === false ? true : null);
+    fsPedir("rayas_items/" + encodeURIComponent(id) + "?updateMask.fieldPaths=stock" + (act !== null ? "&updateMask.fieldPaths=activo" : ""), { method: "PATCH", body: JSON.stringify({ fields: act !== null ? { stock: { integerValue: String(ns) }, activo: { booleanValue: act } } : { stock: { integerValue: String(ns) } } }) }).then(function (r) {
       if (!r.ok) throw new Error("No se pudo cambiar el stock (" + r.status + ").");
-      o.stock = ns; admin.itemMsg = ""; render(); hidratarImgs();
+      o.stock = ns; if (act !== null) o.activo = act; admin.itemMsg = ""; render(); hidratarImgs();
     }).catch(function (e) { admin.itemMsg = e.message; render(); });
   }
-  // Quita UNA unidad de la oferta; si era la última, borra la oferta.
+  // Quita UNA unidad de la oferta; si era la última, queda agotada y oculta (no se borra).
   function quitarUnidad(id) {
     var o = itemPorId(id); admin.itemDel = null; if (!o) return;
-    if ((Number(o.stock) || 0) > 1) cambiarStock(id, -1); else borrarItem(id);
+    if ((Number(o.stock) || 0) > 0) cambiarStock(id, -1);
   }
   function estilosFormHtml(F) {
     return '<div class="field"><label for="it-estilos">Estilos (solo si el item los tiene)</label><select id="it-estilos">' + ["0", "2", "3", "4", "5", "6"].map(function (v) { return '<option value="' + v + '"' + (String(F.estilos || 0) === v ? ' selected' : '') + '>' + (v === "0" ? 'Sin estilos' : v + ' estilos') + '</option>'; }).join("") + '</select></div>' +
