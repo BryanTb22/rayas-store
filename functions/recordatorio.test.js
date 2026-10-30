@@ -46,4 +46,17 @@ assert.strictEqual(planEntregas(otros, cli(otros, "2026-09-30"), hoy).cupoHoy, 0
 const man = ord(300, { manual: true, phone: "@juan_wsp", steamId: "555123", customerName: "Juanito" });
 const r = resumen(pedidosParaEntregar([man], { s555123: { friendSince: "2026-09-01" } }, hoy));
 assert.deepStrictEqual([r.length, r[0].whatsapp, r[0].manual, r[0].entrega], [1, "@juan_wsp", true, hoy]);
+// El cupo cuenta SETS, no pedidos: 3 pedidos de 3 sets = 9 sets → el tercero pasa a mañana
+os = [1, 2, 3].map((i) => ord(i, { count: 3, items: [{ name: "Set", qty: 3 }] }));
+p = planEntregas(os, cli(os, "2026-09-30"), hoy);
+assert.deepStrictEqual([p.entregar.length, p.programados.length, p.cupoHoy], [2, 1, 6]);
+assert.strictEqual(p.programados[0].entregaDia, "2026-10-31");
+// 8 pedidos de 1 set siguen cabiendo hoy; un pedido de 5 sets + otro de 4 → el de 4 pasa a mañana
+os = [ord(1, { count: 5 }), ord(2, { count: 4 })];
+p = planEntregas(os, cli(os, "2026-09-30"), hoy);
+assert.deepStrictEqual([p.entregar.length, p.programados.length], [1, 1]);
+// Un pedido de 10 sets (más de 8) ocupa un día completo y no se bloquea
+os = [ord(1, { count: 10 }), ord(2, { count: 1 })];
+p = planEntregas(os, cli(os, "2026-09-30"), hoy);
+assert.deepStrictEqual([p.entregar.map((o) => o.code), p.programados[0].entregaDia], [["LJ-1"], "2026-10-31"]);
 console.log("recordatorio: todo bien");
