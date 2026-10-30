@@ -38,7 +38,7 @@
   function fmtSol(n) { return (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
   function bajarQr(img) {
     try {
-      var src = img && img.getAttribute("src"); if (!src || src.indexOf("data:image/") !== 0) return false;
+      var src = img && img.getAttribute("src"); if (!src || !/^(data:image\/|blob:)/.test(src)) return false;
       var a = document.createElement("a"); a.href = src; a.download = "yape-qr.png"; a.rel = "noopener";
       document.body.appendChild(a); a.click(); a.remove(); return true;
     } catch (e) { return false; }
@@ -852,18 +852,24 @@
   function imgTag(src, alt, extra) {
     if (esFs(src)) {
       var id = src.slice(3);
-      return '<img data-fs="' + esc(id) + '"' + (IMG_CACHE[id] ? ' src="' + IMG_CACHE[id] + '"' : '') + ' alt="' + esc(alt) + '"' + (extra || '') + '>';
+      var ya = IMG_CACHE[id] || (window.fotoFsYa && window.fotoFsYa(id)) || "";
+      return '<img data-fs="' + esc(id) + '"' + (ya ? ' src="' + ya + '"' : '') + ' alt="' + esc(alt) + '"' + (extra || '') + '>';
     }
     var u = safeImg(src);
     return u ? '<img src="' + esc(u) + '" alt="' + esc(alt) + '" decoding="async"' + (extra || '') + '>' : '';
   }
-  function cargarFs(id) {
-    if (IMG_CACHE[id]) return Promise.resolve(IMG_CACHE[id]);
-    if (!IMG_PEND[id]) IMG_PEND[id] = fetch(DOC_URL.replace(/estado$/, id)).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+  // Pide una foto subida. Con fotos.js sale guardada del navegador (y como enlace corto); sin él, como antes.
+  function fsPedir(id) {
+    if (window.fotoFs) return window.fotoFs(id).then(function (u) { if (u) IMG_CACHE[id] = u; return IMG_CACHE[id]; });
+    return fetch(DOC_URL.replace(/estado$/, id)).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
       var u = d && d.fields && d.fields.data && d.fields.data.stringValue;
       if (u && /^data:image\/(webp|jpeg|png);base64,/.test(u)) IMG_CACHE[id] = u;
       return IMG_CACHE[id];
     }).catch(function () { return null; });
+  }
+  function cargarFs(id) {
+    if (IMG_CACHE[id]) return Promise.resolve(IMG_CACHE[id]);
+    if (!IMG_PEND[id]) IMG_PEND[id] = fsPedir(id);
     return IMG_PEND[id];
   }
   var FOTO_VARS = { hero: "--art-hero", lava: "--art-lava", sombra: "--art-sombra" };
@@ -889,12 +895,12 @@
     for (var k = 0; k < els.length; k++) (function (el) {
       var id = el.getAttribute("data-fs");
       if (IMG_CACHE[id]) { el.src = IMG_CACHE[id]; return; }
-      if (!IMG_PEND[id]) IMG_PEND[id] = fetch(DOC_URL.replace(/estado$/, id)).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
-        var u = d && d.fields && d.fields.data && d.fields.data.stringValue;
-        if (u && /^data:image\/(webp|jpeg|png);base64,/.test(u)) IMG_CACHE[id] = u;
-        return IMG_CACHE[id];
-      }).catch(function () { return null; });
-      IMG_PEND[id].then(function (u) { if (u) { var all = document.querySelectorAll('img[data-fs="' + id + '"]'); for (var j = 0; j < all.length; j++) all[j].src = u; } });
+      var ir = function () {
+        if (!IMG_PEND[id]) IMG_PEND[id] = fsPedir(id);
+        IMG_PEND[id].then(function (u) { if (u) { var all = document.querySelectorAll('img[data-fs="' + id + '"]'); for (var j = 0; j < all.length; j++) all[j].src = u; } });
+      };
+      // Solo se baja cuando está por verse en pantalla (fotos.js); si ya se estaba bajando, se usa de frente.
+      if (window.fotoFsVer && !IMG_PEND[id]) window.fotoFsVer(el, id, ir); else ir();
     })(els[k]);
   }
   // Editor de foto del item: encuadra a 3:2 (640x427) antes de subir. Devuelve un File listo, o null si cancela.
@@ -1032,8 +1038,16 @@
     if (el.id === pre + "cdh") { F.cooldownHasta = localAIso(el.value) || F.cooldownHasta; return true; }
     return false;
   }
+  // Catálogo guardado en el navegador: en la siguiente visita se muestra al instante y se actualiza por detrás.
+  // Solo para clientes (el admin siempre ve lo último). El precio y el stock reales igual los revisa el servidor al pagar.
+  var ITEMS_GUARDA = "rayas_items_guardados_v2";
+  function itemsGuardados() {
+    try { var raw = localStorage.getItem(ITEMS_GUARDA) || "", l = raw ? JSON.parse(raw) : null; return Array.isArray(l) && l.length ? { l: l, raw: raw } : null; } catch (e) { return null; }
+  }
   function cargarItems(forzar) {
     if (items.cargando || (items.cargado && !forzar)) return;
+    var cliente = !(admin.puede || esAdmin()), guardado = null;
+    if (cliente && !items.cargado && (guardado = itemsGuardados())) { items.lista = guardado.l; items.cargado = true; items.deGuardado = true; }
     items.cargando = true; items.err = "";
     var acc = [];
     function pag(t) {
@@ -1045,8 +1059,18 @@
         return j.nextPageToken && acc.length < 2000 ? pag(j.nextPageToken) : null;
       });
     }
-    pag("").then(function () { items.lista = acc; items.cargado = true; }).catch(function (e) { items.err = e.message || "No se pudo cargar el catálogo."; })
-      .then(function () { items.cargando = false; aplicarRutaCatalogo(); render(); });
+    pag("").then(function () {
+      var txt = cliente ? JSON.stringify(acc) : "", igual = !!(guardado && items.deGuardado && guardado.raw === txt);
+      items.lista = acc; items.cargado = true; items.deGuardado = false;
+      if (cliente && !igual) { try { localStorage.setItem(ITEMS_GUARDA, txt); } catch (e) { /* sin espacio: no pasa nada */ } }
+      return igual;
+    }).catch(function (e) { if (items.deGuardado) { items.deGuardado = false; return true; } items.err = e.message || "No se pudo cargar el catálogo."; })
+      .then(function (yaPintado) {
+        items.cargando = false;
+        if (yaPintado === true) return;            // lo guardado ya era lo último: no hace falta redibujar
+        if (!guardado) aplicarRutaCatalogo();      // primera vez: igual que antes
+        render();
+      });
   }
   function heroeCoincide(h) {
     var f = sinTildes(filtros.heroe).trim(); if (!f) return true;
