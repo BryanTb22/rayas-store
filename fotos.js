@@ -72,9 +72,23 @@
   function limpiar() {   // suelta las fotos que ya no están en la página (la página se redibuja seguido)
     ESPERA.forEach(function (fn, el) { if (!el.isConnected) { VER.unobserve(el); ESPERA.delete(el); } });
   }
+  // Respaldo: algunos navegadores (pestaña en segundo plano, navegadores dentro de otras apps) no avisan
+  // cuando algo aparece en pantalla. Cada tanto se revisa a mano qué fotos ya están cerca de la pantalla.
+  var REVISA = null;
+  function revisar() {
+    REVISA = null;
+    var alto = window.innerHeight || 800;
+    ESPERA.forEach(function (fn, el) {
+      if (!el.isConnected) { VER.unobserve(el); ESPERA.delete(el); return; }
+      var r = el.getBoundingClientRect();
+      if ((r.width || r.height) && r.bottom > -800 && r.top < alto + 800) { VER.unobserve(el); ESPERA.delete(el); fn(); }
+    });
+    if (ESPERA.size) REVISA = setTimeout(revisar, 1500);
+  }
   window.fotoFsVer = function (el, id, fn) {
     if (!VER || MEM[id] || !el || !el.isConnected) { fn(); return; }
     if (ESPERA.size > 200) limpiar();
     ESPERA.set(el, fn); VER.observe(el);
+    if (!REVISA) REVISA = setTimeout(revisar, 700);
   };
 })();
