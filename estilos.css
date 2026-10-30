@@ -935,8 +935,9 @@ select option:checked, select option:hover { background-color: #1b2a63; color: #
 
 /* Página de un item */
 .ipg-crumb { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
-.ipg-crumb a { color: var(--text, #f2efe6); font-weight: 700; }
-.ipg-crumb span { margin: 0 4px; }
+.ipg-crumb a { color: var(--muted); text-decoration: none; }
+.ipg-crumb a:hover { color: var(--yellow); }
+.ipg-crumb .sep { margin: 0 6px; opacity: .6; }
 .ipg-t { font-family: var(--title); font-size: clamp(24px, 4vw, 36px); margin: 4px 0 18px; color: var(--yellow); }
 .ipg-t small { font-size: .5em; opacity: .6; }
 .ipg-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 24px; align-items: start; }

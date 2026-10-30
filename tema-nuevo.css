@@ -187,11 +187,11 @@ html.tn .itab { padding: 9px 16px; }
 html.tn .icount, html.tn .hint { color: var(--muted); }
 
 /* ---------- Ruta de navegación ---------- */
-html.tn .ipg-crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; letter-spacing: .04em; margin-bottom: 14px; }
-html.tn .ipg-crumb a { color: var(--muted); text-decoration: none; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .05); }
-html.tn .ipg-crumb a:hover { color: var(--yellow); background: rgba(255, 201, 60, .1); }
-html.tn .ipg-crumb > span:not(:last-child) { opacity: .5; }
-html.tn .ipg-crumb > span:last-child { color: var(--yellow-2); font-weight: 700; }
+html.tn .ipg-crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+html.tn .ipg-crumb a { color: var(--muted); text-decoration: none; transition: color .2s; }
+html.tn .ipg-crumb a:hover { color: var(--yellow); }
+html.tn .ipg-crumb .sep { margin: 0; opacity: .6; }
+html.tn .ipg-crumb .act { margin: 0; color: var(--muted); font-weight: 400; }
 
 /* ---------- Página de un item y ofertas ---------- */
 html.tn .ipg-t { font-family: var(--title); letter-spacing: .03em; margin-bottom: 20px; }
