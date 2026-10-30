@@ -2631,7 +2631,8 @@
     cuenta.tab = tab;
     var cuerpo;
     if (!ses) cuerpo = '<div class="pf-card pf-vacio"><b>Entra a tu cuenta para ver tu perfil.</b><div class="pf-acciones" style="justify-content:center"><button class="btn btn-yellow" type="button" data-a="entrar">Entrar</button><button class="btn btn-ghost" type="button" data-a="registro">Crear cuenta</button></div></div>';
-    else if (!p) cuerpo = '<div class="pf-card pf-vacio">' + (cuenta.msg && cuenta.msgTipo === "err" ? esc(cuenta.msg) : 'Cargando tu cuenta…') + '</div>';
+    else if (esAdmin()) cuerpo = '<div class="pf-card pf-vacio"><b>Esta es la cuenta de administrador.</b><span>El admin no tiene perfil de cliente. Para ver un perfil, entra con una cuenta de cliente.</span><div class="pf-acciones" style="justify-content:center"><a class="btn btn-ghost" href="#inicio">Ir al inicio</a><button class="btn btn-ghost" type="button" data-a="salir">Cerrar sesión</button></div></div>';
+    else if (!p) cuerpo = '<div class="pf-card pf-vacio">' + (cuenta.msg && cuenta.msgTipo === "err" ? esc(cuenta.msg) + '<div class="pf-acciones" style="justify-content:center"><button class="btn btn-yellow" type="button" data-a="pfReintentar">Reintentar</button></div>' : 'Cargando tu cuenta…') + '</div>';
     else {
       var msg = cuenta.msg ? '<p class="pf-msg ' + (cuenta.msgTipo === "err" ? "err" : "ok") + '" role="status">' + esc(cuenta.msg) + '</p>' : '';
       cuerpo = '<div class="pf-top"><div class="pf-user"><span class="pf-av">' + pfAvatar(p) + '</span><div><h1>' + esc(p.nombre || "Mi cuenta") + '</h1><small>' + esc(p.email || "") + '</small></div></div>' +
@@ -3435,6 +3436,7 @@
         } break;
       case "pagarCulqi": if (modal && modal.tipo === "recarga" && modal.sel) iniciarPago(modal.sel); break;
       case "pagarEfectivo": if (modal && modal.tipo === "recarga" && modal.sel) iniciarEfectivo(modal.sel); break;
+      case "pfReintentar": cuenta.msg = ""; cuenta.msgTipo = ""; render(); cargarPerfil(); break;
       case "refrescarSaldo": cargarPerfil().then(function () { render(); }); break;
       case "yape": if (modal && modal.tipo === "recarga" && modal.sel) { modal = { tipo: "yape", sel: modal.sel }; render(); hidratarImgs(); } break;
       case "volverRecarga": if (modal && modal.tipo === "yape") { modal = { tipo: "recarga", sel: modal.sel }; render(); } break;
@@ -3787,7 +3789,7 @@
     }).then(function (d) { if (!d) return; cuenta.perfil = leerPerfilDoc(d); cuenta.msg = ""; render(); cargarParts(); cargarMovs(); })
       .catch(function (e) {
         if (e && e.message === "NO_SESSION") { guardarSesion(null); cuenta.perfil = null; cuenta.modo = null; render(); return; }
-        cuenta.msg = errSimple(e && e.message); render();
+        cuenta.msg = errSimple(e && e.message); cuenta.msgTipo = "err"; render();
       });
   }
 
