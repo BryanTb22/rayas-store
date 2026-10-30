@@ -499,11 +499,13 @@ exports.webhookCulqi = onRequest(
 /* ---------- recordatorio diario de entregas (8:00 a. m. hora de Lima) ---------- */
 const RECORDATORIO_URL = defineSecret("RECORDATORIO_URL"); // dirección /exec de tu Apps Script que manda el correo
 exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "America/Lima", region: REGION, secrets: [RECORDATORIO_URL] }, async () => {
-  const [os, cs] = await Promise.all([db.collection("orders").where("status", "==", "pagado").get(), db.collection("customers").get()]);
+  const hoy = rec.hoyLima();
+  // Pagados (por entregar) + los entregados hoy, que ya ocuparon cupo de hoy (máximo 8 entregas por día).
+  const [os, hechos, cs] = await Promise.all([db.collection("orders").where("status", "==", "pagado").get(), db.collection("orders").where("entregadoDia", "==", hoy).get(), db.collection("customers").get()]);
   const clientes = {}; cs.forEach((d) => { clientes[d.id] = d.data(); });
-  const lista = rec.resumen(rec.pedidosParaEntregar(os.docs.map((d) => d.data()), clientes, rec.hoyLima()));
+  const lista = rec.resumen(rec.pedidosParaEntregar(os.docs.concat(hechos.docs).map((d) => d.data()), clientes, hoy));
   if (!lista.length) return;
-  const r = await fetch(String(RECORDATORIO_URL.value()).trim(), { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ recordatorio: true, fecha: rec.hoyLima(), pedidos: lista }) });
+  const r = await fetch(String(RECORDATORIO_URL.value()).trim(), { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ recordatorio: true, fecha: hoy, cupo: rec.ENTREGA_CAP, pedidos: lista }) });
   console.log("recordatorio enviado", lista.length, r.status);
 });
 
