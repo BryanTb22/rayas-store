@@ -897,7 +897,7 @@
       if (IMG_CACHE[id]) { el.src = IMG_CACHE[id]; return; }
       var ir = function () {
         if (!IMG_PEND[id]) IMG_PEND[id] = fotoPedir(id);
-        IMG_PEND[id].then(function (u) { if (u) { var all = document.querySelectorAll('img[data-fs="' + id + '"]'); for (var j = 0; j < all.length; j++) all[j].src = u; } });
+        IMG_PEND[id].then(function (u) { if (u) { var all = document.querySelectorAll('img[data-fs="' + id + '"]'); for (var j = 0; j < all.length; j++) all[j].src = u; } else delete IMG_PEND[id]; });
       };
       // Solo se baja cuando está por verse en pantalla (fotos.js); si ya se estaba bajando, se usa de frente.
       if (window.fotoFsVer && !IMG_PEND[id]) window.fotoFsVer(el, id, ir); else ir();
