@@ -1140,12 +1140,24 @@
       (cd ? '<div class="icd">' + cdChipHtml(it, true) + '</div>' : '') +
       '<div class="iprice"><b>' + (it._desde ? '<small class="desde">desde</small> ' : '') + fmtPrecio(it.precio) + '</b><span class="iacts">' + (agot ? '' : '<button type="button" class="icart" data-a="carAdd" data-id="' + esc(it.id) + '" aria-label="Agregar ' + esc(it.nombre) + ' al carrito" title="Agregar al carrito">🛒<span> Al carrito</span></button>') + '<span class="ibuy">' + (agot ? 'Agotado' : 'Comprar') + '</span></span></div>' + steamHtml(it) + '</div></article>';
   }
+  // Items por página = columnas que caben × filas, para que las filas salgan completas (sin huecos al final).
+  var GRID_COLS = 0, GRID_SEL = ".igrid:not(.sk-grid)";
+  function porPagina() { var c = GRID_COLS || 4; return c * Math.ceil(24 / c); }
+  function medirCols() {
+    var g = document.querySelector(GRID_SEL); if (!g) return;
+    var v = getComputedStyle(g).gridTemplateColumns; if (!v || v === "none") return;
+    var n = v.split(" ").filter(Boolean).length;
+    if (n && n !== GRID_COLS) { var antes = porPagina(); GRID_COLS = n; filtros.pag = Math.floor(filtros.pag * antes / porPagina()); render(); hidratarImgs(); }
+  }
+  (function () { var t; window.addEventListener("resize", function () { clearTimeout(t); t = setTimeout(medirCols, 150); }); })();
+
   function gridItemsHtml() {
     if (items.err) return '<div class="empty frame"><div class="in"><strong>No se pudo cargar</strong><span>' + esc(items.err) + '</span></div></div>';
     if (!items.cargado) return '<div class="igrid sk-grid" aria-busy="true" aria-label="Cargando items">' + new Array(9).join('<article class="icard sk" aria-hidden="true"><div class="ithumb"></div><div class="ibody"><i class="sk-l w80"></i><i class="sk-l w50"></i><i class="sk-l w60 tall"></i></div></article>') + '</div>';
     var l = itemsFiltrados();
     if (!l.length) return '<div class="empty frame"><div class="in"><strong>' + (items.lista.length ? 'Ningún item coincide' : 'Pronto nuevos items') + '</strong><span>' + (items.lista.length ? 'Prueba con otros filtros.' : 'Estamos subiendo el catálogo.') + '</span></div></div>';
-    var porPag = 24, total = Math.ceil(l.length / porPag);
+    var porPag = porPagina(), total = Math.ceil(l.length / porPag);
+    setTimeout(medirCols, 0);
     if (filtros.pag >= total) filtros.pag = Math.max(0, total - 1);
     return '<div class="igrid">' + l.slice(filtros.pag * porPag, filtros.pag * porPag + porPag).map(itemCardHtml).join("") + '</div>' + paginadorHtml(total, filtros.pag, "itPag");
   }
