@@ -60,3 +60,17 @@ os = [ord(1, { count: 10 }), ord(2, { count: 1 })];
 p = planEntregas(os, cli(os, "2026-09-30"), hoy);
 assert.deepStrictEqual([p.entregar.map((o) => o.code), p.programados[0].entregaDia], [["LJ-1"], "2026-10-31"]);
 console.log("recordatorio: todo bien");
+
+// Correo con fotos
+const emails = require("./emails");
+const { urlFoto, resumen: res2 } = require("./recordatorio");
+assert.strictEqual(urlFoto("img/foto06.jpg"), "https://litlejacob.trade/img/foto06.jpg");
+assert.strictEqual(urlFoto("./img/a.jpg"), "https://litlejacob.trade/img/a.jpg");
+assert.strictEqual(urlFoto("data:image/png;base64,AAA"), "");
+assert.strictEqual(urlFoto(""), "");
+const ped = res2([ord(1, { items: [{ id: "6", name: "Acechadora Sombría", qty: 2 }, { id: "9", name: "Sin foto", qty: 1, img: "" }], count: 3, phone: "51987654321" }), ord(2, { phone: "@jossad", manual: true, items: [{ id: "6", name: "X", qty: 1, img: "img/up-1.jpg" }] })], { "6": "img/foto11.jpg" });
+const mail = emails.recordatorioEntregas("litlejacob", { fecha: hoy, cupo: 8, pedidos: ped });
+assert.ok(mail.html.includes("https://litlejacob.trade/img/foto11.jpg") && mail.html.includes("https://litlejacob.trade/img/up-1.jpg"));
+assert.ok(mail.html.includes("https://wa.me/51987654321") && mail.html.includes("@jossad") && mail.html.includes("🎁"));
+assert.ok(mail.subject.includes("2 pedidos (4 sets)") && mail.from.includes("litlejacob.trade") && mail.text.includes("Acechadora"));
+console.log("correo con fotos: todo bien");

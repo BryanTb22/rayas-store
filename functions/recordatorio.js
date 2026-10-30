@@ -42,12 +42,22 @@ function planEntregas(ordenes, clientes, hoy) {
   return { entregar, programados, cupoHoy: cnt[hoy] || 0 };
 }
 function pedidosParaEntregar(ordenes, clientes, hoy) { return planEntregas(ordenes, clientes, hoy).entregar; }
-function resumen(pedidos) {
+// URL completa de la foto de un set ("img/foto06.jpg" -> https://litlejacob.trade/img/foto06.jpg). Vacío si no hay o es una imagen incrustada.
+function urlFoto(img, base) {
+  img = String(img || "").trim();
+  if (!img || /^data:/i.test(img)) return "";
+  if (/^https?:\/\//i.test(img)) return img;
+  return String(base || "https://litlejacob.trade").replace(/\/$/, "") + "/" + img.replace(/^\.?\//, "");
+}
+// imgPorId: { "<id del set>": "img/fotoNN.jpg" } (catálogo en vivo) para los pedidos que no guardaron la foto
+function resumen(pedidos, imgPorId, base) {
+  imgPorId = imgPorId || {};
   return pedidos.map((o) => ({
     code: o.code || "", cliente: o.customerName || "Sin nombre", steam: o.steamId || "", total: Number(o.total) || 0,
     whatsapp: o.phone || "", manual: !!o.manual, entrega: o.entregaDia || "", corrido: o.corrido || 0,
     nSets: setsDe(o),
+    items: (o.items || []).map((it) => ({ name: it.name || "Set", qty: Number(it.qty) || 1, img: urlFoto(it.img || imgPorId[String(it.id)], base) })),
     sets: (o.items || []).map((it) => (it.qty > 1 ? it.qty + " x " : "") + it.name).join(", ")
   }));
 }
-module.exports = { ENTREGA_CAP, ESPERA_DIAS, custKey, hoyLima, planEntregas, pedidosParaEntregar, resumen };
+module.exports = { ENTREGA_CAP, ESPERA_DIAS, custKey, hoyLima, planEntregas, pedidosParaEntregar, resumen, urlFoto };

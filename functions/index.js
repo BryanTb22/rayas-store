@@ -207,7 +207,7 @@ exports.comprarSets = onRequest(
         if (saldo < q.creditos) { const er = new Error("SIN_CREDITOS"); er.falta = q.creditos - saldo; throw er; }
         const pedido = {
           code: code, customerName: String(d.nombre || "Cliente").slice(0, 60), steamId: String(d.steam || "").slice(0, 20),
-          items: q.lineas.map((l) => ({ id: l.id, name: l.name, qty: l.qty, price: l.price })),
+          items: q.lineas.map((l) => ({ id: l.id, name: l.name, qty: l.qty, price: l.price, img: String((live[l.id] && live[l.id].img) || "").slice(0, 300) })),
           count: q.count, subtotal: q.subtotal, discount: q.discount, total: q.total,
           status: "pagado", createdAt: FV.serverTimestamp(),
           paidWith: "creditos", creditos: q.creditos, uid: uid,
@@ -496,17 +496,23 @@ exports.webhookCulqi = onRequest(
   }
 );
 
-/* ---------- recordatorio diario de entregas (8:00 a. m. hora de Lima) ---------- */
-const RECORDATORIO_URL = defineSecret("RECORDATORIO_URL"); // dirección /exec de tu Apps Script que manda el correo
-exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "America/Lima", region: REGION, secrets: [RECORDATORIO_URL] }, async () => {
+/* ---------- recordatorio diario de entregas (8:00 a. m. hora de Lima) ----------
+ * Correo al administrador (por Resend) con los pedidos de sets que ya le toca entregar hoy, con la foto de cada set.
+ * Regla: 30 días de amistad y máximo 8 sets por día (functions/recordatorio.js). */
+exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "America/Lima", region: REGION, secrets: [RESEND_KEY], timeoutSeconds: 120 }, async () => {
   const hoy = rec.hoyLima();
-  // Pagados (por entregar) + los entregados hoy, que ya ocuparon cupo de hoy (máximo 8 entregas por día).
-  const [os, hechos, cs] = await Promise.all([db.collection("orders").where("status", "==", "pagado").get(), db.collection("orders").where("entregadoDia", "==", hoy).get(), db.collection("customers").get()]);
+  // Pagados (por entregar) + los entregados hoy, que ya ocuparon cupo de hoy (máximo 8 sets por día).
+  const [os, hechos, cs, live] = await Promise.all([db.collection("orders").where("status", "==", "pagado").get(), db.collection("orders").where("entregadoDia", "==", hoy).get(), db.collection("customers").get(), db.doc("live/catalog").get()]);
   const clientes = {}; cs.forEach((d) => { clientes[d.id] = d.data(); });
-  const lista = rec.resumen(rec.pedidosParaEntregar(os.docs.concat(hechos.docs).map((d) => d.data()), clientes, hoy));
+  const fotos = {}; const sl = live.exists ? (live.data().sets || {}) : {};
+  Object.keys(sl).forEach((id) => { if (sl[id] && sl[id].img) fotos[id] = sl[id].img; });
+  const lista = rec.resumen(rec.pedidosParaEntregar(os.docs.concat(hechos.docs).map((d) => d.data()), clientes, hoy), fotos);
   if (!lista.length) return;
-  const r = await fetch(String(RECORDATORIO_URL.value()).trim(), { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ recordatorio: true, fecha: hoy, cupo: rec.ENTREGA_CAP, pedidos: lista }) });
-  console.log("recordatorio enviado", lista.length, r.status);
+  let para = "";
+  try { para = String((await admin.auth().getUser(ADMIN_UID)).email || ""); } catch (e) { console.error("recordatorioEntregas: admin sin correo", e); return; }
+  const c = emails.recordatorioEntregas("litlejacob", { fecha: hoy, cupo: rec.ENTREGA_CAP, pedidos: lista });
+  await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: para, subject: c.subject, html: c.html, text: c.text, clave: "entregas-hoy-" + hoy });
+  console.log("recordatorio enviado", lista.length);
 });
 
 /* ---------- Items en cooldown: cada hora revisa los pedidos "cooldown" cuya fecha ya pasó, los pasa a

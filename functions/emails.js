@@ -154,6 +154,7 @@ function layout(m, o) {
         <tr><td align="center" style="font-family:${TITULO};font-size:30px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;line-height:1.2;color:${m.texto};padding-bottom:12px">${esc(o.titulo)}</td></tr>
         <tr><td align="center" style="font-family:${CUERPO};font-size:15px;line-height:1.65;color:${m.texto};padding-bottom:22px">${o.intro}</td></tr>
         <tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${stats}</tr></table></td></tr>
+        ${o.bloque || ""}
         <tr><td style="padding-top:8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${filas}</table></td></tr>
         ${boton}
         ${pasos}
@@ -413,4 +414,59 @@ function compraCliente(tienda, p) {
   return { from: m.remitente, subject, html, text };
 }
 
-module.exports = { MARCAS, confirmacion, recordatorio, pedidoNuevo, compraCliente, pedidoLiberado, itemLiberado };
+// ---------------------------------------------------------------------------
+// Correo diario (8:00) para el administrador: pedidos de sets que ya le toca entregar hoy, con la foto de cada set.
+// p = { fecha:"YYYY-MM-DD", cupo, pedidos:[{ code, cliente, steam, whatsapp, total, nSets, corrido, manual, items:[{name, qty, img(URL completa)}] }] }
+// ---------------------------------------------------------------------------
+function recordatorioEntregas(tienda, p) {
+  const m = marca(tienda);
+  const pedidos = p.pedidos || [];
+  const totalSets = pedidos.reduce((n, o) => n + (Number(o.nSets) || 0), 0);
+  const waLink = (w) => {
+    if (!w) return "—";
+    if (String(w).startsWith("@")) return esc(w);
+    const d = String(w).replace(/\D/g, "");
+    return `<a href="https://wa.me/${d}" style="color:${m.primario};text-decoration:underline">+${esc(d)}</a>`;
+  };
+  const tarjeta = (o) => {
+    const items = (o.items || []).map((it) => {
+      const foto = it.img
+        ? `<img src="${esc(it.img)}" width="120" height="80" alt="" style="display:block;width:120px;height:80px;object-fit:cover;border:1px solid ${m.borde};border-radius:3px">`
+        : `<div style="width:120px;height:80px;line-height:80px;text-align:center;background:${m.tarjeta};border:1px solid ${m.borde};border-radius:3px;font-size:28px">🎁</div>`;
+      return `<tr>
+        <td width="132" valign="middle" style="padding:6px 12px 6px 0">${foto}</td>
+        <td valign="middle" style="padding:6px 0;font-family:${CUERPO};font-size:15px;font-weight:700;color:${m.texto}">${it.qty > 1 ? esc(it.qty) + " × " : ""}${esc(it.name)}</td>
+      </tr>`;
+    }).join("");
+    return `<tr><td style="padding:12px 0 0">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${m.fondo};border:1px solid ${m.borde};border-left:3px solid ${m.acento}">
+        <tr><td style="padding:12px 14px 4px;font-family:${CUERPO};font-size:14px;color:${m.texto}">
+          <b style="font-size:16px">${esc(o.cliente)}</b> <span style="color:${m.suave}">· ${esc(o.code)}${o.manual ? " · pedido manual" : ""}</span><br>
+          <span style="color:${m.suave}">🎮 ID de Steam: <b style="color:${m.texto}">${esc(o.steam || "—")}</b> &nbsp;·&nbsp; 📱 ${waLink(o.whatsapp)}</span>
+          ${o.corrido ? `<br><span style="color:${m.aviso}">⏳ Se corrió ${esc(o.corrido)} ${o.corrido === 1 ? "día" : "días"} por el cupo de ${esc(p.cupo)} sets por día.</span>` : ""}
+        </td></tr>
+        <tr><td style="padding:4px 14px 10px"><table role="presentation" cellpadding="0" cellspacing="0">${items}</table></td></tr>
+      </table></td></tr>`;
+  };
+  const stats = [{ valor: String(pedidos.length), etiqueta: pedidos.length === 1 ? "Pedido" : "Pedidos" }, { valor: totalSets + "/" + p.cupo, etiqueta: "Sets de hoy" }];
+  const titulo = "Hoy toca entregar";
+  const subject = `🚚 Hoy toca entregar: ${pedidos.length} ${pedidos.length === 1 ? "pedido" : "pedidos"} (${totalSets} ${totalSets === 1 ? "set" : "sets"}) · ${m.nombre}`;
+  const boton = { texto: "Abrir pedidos", url: m.url };
+  const html = layout(m, {
+    titulo,
+    preheader: `${pedidos.length} ${pedidos.length === 1 ? "pedido" : "pedidos"} para entregar hoy en ${m.nombre}.`,
+    chip: { texto: "🚚 Entregas de hoy", color: m.ok },
+    intro: `Ya cumplieron los 30 días de amistad. Estos son los sets que puedes enviar hoy (Steam deja <b>${esc(p.cupo)} sets por día</b>). Cuando entregues uno, márcalo como <b>entregado</b> en el panel de pedidos.`,
+    stats,
+    bloque: pedidos.length ? `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${pedidos.map(tarjeta).join("")}</table></td></tr>` : "",
+    filas: [],
+    boton,
+    aviso: `Lo que pase de ${esc(p.cupo)} sets por día se corre automáticamente al día siguiente.`,
+    pie: `Recordatorio automático de entregas de ${esc(m.nombre)}.`,
+  });
+  const lineas = pedidos.flatMap((o) => [`• ${o.cliente} (${o.code}) · Steam ${o.steam || "—"} · WhatsApp ${o.whatsapp || "—"}`, ...(o.items || []).map((it) => `   ${it.qty} × ${it.name}`)]);
+  const text = aTexto(m, `${titulo}: ${pedidos.length} pedidos, ${totalSets}/${p.cupo} sets`, lineas, boton);
+  return { from: m.remitente, subject, html, text };
+}
+
+module.exports = { MARCAS, confirmacion, recordatorio, pedidoNuevo, compraCliente, pedidoLiberado, itemLiberado, recordatorioEntregas };
