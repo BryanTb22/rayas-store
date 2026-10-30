@@ -1219,12 +1219,17 @@
     if (location.hash !== r) { try { history.replaceState(null, "", location.pathname + location.search + r); } catch (e) { /* sin historial */ } }
   }
   function migaCatalogoHtml(tipo, heroe, nombre) {
-    var sep = ' <span>›</span> ', l = '<a href="#inicio">Inicio</a>' + sep + '<a href="#comprar">Comprar items</a>';
-    if (tipo) l += sep + (heroe || nombre ? '<a href="' + rutaCatalogo(tipo, "") + '">' + esc(tipo) + '</a>' : '<span>' + esc(tipo) + '</span>');
-    if (heroe) l += sep + (nombre ? '<a href="' + rutaCatalogo(tipo, heroe) + '">' + esc(heroe) + '</a>' : '<span>' + esc(heroe) + '</span>');
-    if (nombre) l += sep + '<span>' + esc(nombre) + '</span>';
-    return '<div class="ipg-crumb">' + l + '</div>';
+    // Igual que la ruta del perfil: texto simple con "/" y la página actual sin enlace.
+    var sep = '<span class="sep" aria-hidden="true">/</span>';
+    var partes = [['Inicio', '#inicio'], ['Comprar items', '#comprar']];
+    if (tipo) partes.push([tipo, rutaCatalogo(tipo, "")]);
+    if (heroe) partes.push([heroe, rutaCatalogo(tipo, heroe)]);
+    if (nombre) partes.push([nombre, ""]);
+    return '<nav class="ipg-crumb" aria-label="Ruta">' + partes.map(function (p, k) {
+      return k === partes.length - 1 ? '<span class="act" aria-current="page">' + esc(p[0]) + '</span>' : '<a href="' + p[1] + '">' + esc(p[0]) + '</a>';
+    }).join(sep) + '</nav>';
   }
+
   function parecidosHtml(it) {
     var l = items.lista.filter(function (x) { return x.id !== it.id && sinTildes(x.nombre) !== sinTildes(it.nombre) && x.stock > 0 && (x.activo || admin.puede); });
     var mismo = l.filter(function (x) { return it.heroe && x.heroe === it.heroe; }), tipo = l.filter(function (x) { return x.tipo === it.tipo && (!it.heroe || x.heroe !== it.heroe); });
