@@ -1,0 +1,70 @@
+/* Previsualización en el juego (ojito + visor + editor del admin). Mismo archivo en las dos webs; solo cambian los colores de abajo. */
+:root { --pv-acc: #ffc93c; --pv-acc2: #ff2d8f; --pv-fondo: rgba(4, 7, 22, .96); --pv-caja: #0d1638; --pv-txt: #eef2ff; --pv-suave: #9ba7d8; }
+
+/* ---- Ojito ---- */
+.pv-ojo { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none; width: 32px; height: 32px; padding: 0; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--pv-acc) 55%, transparent); background: color-mix(in srgb, var(--pv-acc) 14%, transparent); color: var(--pv-acc); cursor: pointer; font: inherit; line-height: 1; transition: background .15s, transform .15s, box-shadow .15s; vertical-align: middle; }
+.pv-ojo:hover, .pv-ojo:focus-visible { background: color-mix(in srgb, var(--pv-acc) 26%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pv-acc) 22%, transparent); transform: translateY(-1px); outline: none; }
+.pv-ojo svg { display: block; }
+.pv-ojo i { position: absolute; top: -6px; right: -6px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--pv-acc2); color: #fff; font: 800 10px/17px system-ui, sans-serif; font-style: normal; text-align: center; }
+.pv-ojo.pv-pill { width: auto; height: 30px; padding: 0 12px 0 10px; font-size: .74rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.pv-ojo.pv-pill i { position: static; margin-left: 2px; }
+.ofr-g { align-items: center; }
+.idesc .grow .pv-ojo, .itx-desc .grow .pv-ojo, .ipg-pv .pv-ojo { margin-left: 4px; }
+.ipg-pv { margin: 10px 0; }
+
+/* ---- Visor ---- */
+.pv-ov { position: fixed; inset: 0; z-index: 10050; background: var(--pv-fondo); display: flex; align-items: stretch; justify-content: center; opacity: 0; transition: opacity .18s ease; color: var(--pv-txt); }
+.pv-ov.on { opacity: 1; }
+.pv-box { width: min(1360px, 100%); height: 100%; display: flex; flex-direction: column; gap: 12px; padding: 18px 24px 20px; box-sizing: border-box; }
+.pv-top { display: flex; align-items: center; gap: 14px; flex: none; }
+.pv-tit { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pv-tit small { display: inline-flex; align-items: center; gap: 6px; color: var(--pv-acc); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.pv-tit b { font-size: 1.15rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pv-num { flex: none; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .08); font-size: .8rem; font-weight: 700; color: var(--pv-suave); }
+.pv-x { flex: none; width: 42px; height: 42px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .06); color: #fff; font-size: 1.1rem; cursor: pointer; }
+.pv-x:hover, .pv-x:focus-visible { background: rgba(255, 255, 255, .16); outline: none; }
+.pv-esc { flex: 1; min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.pv-img { position: relative; height: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; grid-column: 2; }
+.pv-img img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 14px; box-shadow: 0 18px 50px rgba(0, 0, 0, .55); border: 1px solid rgba(255, 255, 255, .1); transition: opacity .15s; -webkit-user-drag: none; }
+.pv-img img:not([src]) { visibility: hidden; }
+.pv-img.cargando img { opacity: .25; }
+.pv-carga { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .18); border-top-color: var(--pv-acc); animation: pv-gira .8s linear infinite; display: none; }
+.pv-img.cargando .pv-carga { display: block; }
+.pv-img.error::after { content: "No se pudo cargar esta foto."; position: absolute; color: var(--pv-suave); font-size: .95rem; }
+@keyframes pv-gira { to { transform: rotate(360deg); } }
+.pv-fl { width: 54px; height: 54px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--pv-acc) 50%, transparent); background: color-mix(in srgb, var(--pv-caja) 80%, transparent); color: var(--pv-acc); font-size: 2rem; line-height: 1; padding: 0 0 4px; cursor: pointer; transition: background .15s, transform .15s; }
+.pv-fl:hover, .pv-fl:focus-visible { background: color-mix(in srgb, var(--pv-acc) 20%, var(--pv-caja)); transform: scale(1.06); outline: none; }
+.pv-ant { grid-column: 1; }
+.pv-sig { grid-column: 3; }
+.pv-dots { flex: none; display: flex; justify-content: center; gap: 9px; padding: 2px 0; }
+.pv-dots button { width: 10px; height: 10px; padding: 0; border-radius: 999px; border: 0; background: rgba(255, 255, 255, .3); cursor: pointer; transition: width .2s, background .2s; }
+.pv-dots button.on { width: 28px; background: var(--pv-acc); }
+.pv-dots button:focus-visible { outline: 2px solid var(--pv-acc); outline-offset: 3px; }
+@media (max-width: 700px) {
+  .pv-box { padding: 10px 8px 14px; gap: 8px; }
+  .pv-tit b { font-size: 1rem; }
+  .pv-esc { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .pv-img { grid-column: 1; grid-row: 1; }
+  .pv-img img { border-radius: 10px; }
+  .pv-fl { grid-row: 1; z-index: 2; width: 40px; height: 40px; font-size: 1.6rem; background: rgba(0, 0, 0, .55); }
+  .pv-ant { grid-column: 1; justify-self: start; margin-left: 4px; }
+  .pv-sig { grid-column: 1; justify-self: end; margin-right: 4px; }
+}
+
+/* ---- Editor del admin ---- */
+.pvf { margin: 12px 0; padding: 12px; border: 1px dashed color-mix(in srgb, var(--pv-acc) 45%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--pv-acc) 5%, transparent); }
+.pvf > label, .pvf .pvf-h { display: block; font-weight: 800; margin-bottom: 6px; }
+.pvf .pvf-h small { font-weight: 400; color: var(--pv-suave); }
+.pvf-l { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; }
+.pvf-t { position: relative; width: 136px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .16); background: #000; }
+.pvf-t img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.pvf-t .pvf-n { position: absolute; top: 4px; left: 4px; min-width: 20px; height: 20px; border-radius: 999px; background: var(--pv-acc); color: #111; font: 800 11px/20px system-ui, sans-serif; text-align: center; }
+.pvf-b { display: flex; justify-content: space-between; gap: 2px; padding: 4px; background: rgba(0, 0, 0, .7); }
+.pvf-b button { flex: 1; height: 26px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .06); color: #fff; cursor: pointer; font-size: .8rem; padding: 0; }
+.pvf-b button:hover:not(:disabled) { background: rgba(255, 255, 255, .18); }
+.pvf-b button:disabled { opacity: .3; cursor: default; }
+.pvf-b button.pvf-del:hover { background: rgba(255, 80, 80, .35); }
+.pvf-acc { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pvf .pvf-vacio { color: var(--pv-suave); font-size: .85rem; margin: 6px 0; }
+.pvf .pvf-misma { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; font-weight: 600; }
+@media (max-width: 520px) { .pvf-t { width: calc(50% - 5px); } }

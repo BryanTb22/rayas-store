@@ -964,7 +964,11 @@
       };
       im.onerror = function () { URL.revokeObjectURL(url); fail(new Error("No se pudo leer la imagen.")); };
       im.src = url;
-    }).then(function (data) {
+    }).then(guardarDataImg);
+  }
+  // Guarda una foto ya preparada (data:image/…) como documento rayas/img-… y devuelve "fs:img-…".
+  function guardarDataImg(data) {
+    {
       var id = "img-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       return token().then(function (tk) {
         return fetch(DOC_URL.replace(/estado$/, id), {
@@ -976,7 +980,7 @@
         IMG_CACHE[id] = data;
         return "fs:" + id;
       });
-    });
+    }
   }
 
   /* ================= Comprar items (catálogo que agrega el admin a mano) ================= */
@@ -996,8 +1000,15 @@
     return { id: d.name.split("/").pop(), nombre: sv("nombre"), img: sv("img"), precio: nv("precio"), stock: f.stock ? nv("stock") : 1,
       tipo: sv("tipo"), heroe: sv("heroe"), ranura: sv("ranura"), rareza: sv("rareza"), calidad: sv("calidad"),
       estilos: nv("estilos"), estOk: sv("estOk"), descripcion: sv("descripcion"), steamUsd: nv("steamUsd"), steamAct: f.steamAct && f.steamAct.timestampValue || "",
-      activo: f.activo ? f.activo.booleanValue !== false : true, creado: f.creado && f.creado.timestampValue || "", cooldownHasta: f.cooldownHasta && f.cooldownHasta.timestampValue || "" };
+      activo: f.activo ? f.activo.booleanValue !== false : true, creado: f.creado && f.creado.timestampValue || "", cooldownHasta: f.cooldownHasta && f.cooldownHasta.timestampValue || "",
+      previas: pvDeCampo(f.previas) };
   }
+  /* ===== Previsualización en el juego: campo "previas" = lista de fotos "fs:img-…" (hasta 6) de esa versión. Sin el campo = sin previsualización. ===== */
+  var PV_MAX = 6;
+  function pvLista(x) { var l = Array.isArray(x) ? x : (x && x.previas) || []; return l.filter(esFs).slice(0, PV_MAX); }
+  function pvDeCampo(f) { var v = f && f.arrayValue && f.arrayValue.values; return Array.isArray(v) ? pvLista(v.map(function (o) { return o && o.stringValue; })) : []; }
+  // Ojito que abre el visor (previa.js). modo "pill" = con texto.
+  function pvOjo(it, modo) { return window.previa && pvLista(it).length ? window.previa.ojo({ nombre: it.nombre, previas: pvLista(it) }, modo) : ""; }
   function itemAFields(it) {
     var s = function (v) { return { stringValue: String(v || "") }; };
     var f = { nombre: s(it.nombre), img: s(it.img), precio: { doubleValue: Number(it.precio) }, stock: { integerValue: String(Math.max(0, Math.floor(Number(it.stock) || 0))) },
@@ -1005,6 +1016,8 @@
       creado: { timestampValue: it.creado || new Date().toISOString() } };
     // Cooldown de Steam: solo se guarda si hay fecha (sin el campo = sin cooldown).
     if (cdMs(it) > 0) f.cooldownHasta = { timestampValue: new Date(it.cooldownHasta).toISOString() };
+    // Previsualización: solo se guarda si hay fotos.
+    var pvl = pvLista(it); if (pvl.length) f.previas = { arrayValue: { values: pvl.map(function (r) { return { stringValue: r }; }) } };
     return { fields: f };
   }
   /* ===== Cooldown de Steam: un item recién recibido no se puede intercambiar hasta cooldownHasta. Se vende igual y se entrega al liberarse. ===== */
@@ -1289,7 +1302,7 @@
     return envol(miga(it.tipo, it.nombre, it.heroe) + '<h1 class="ipg-t">' + esc(it.nombre) + (it.activo ? '' : ' <small>(oculto)</small>') + '</h1>' +
       '<div class="ipg-grid"><div class="ipg-foto' + (imgTag(it.img, it.nombre) ? ' zoomable' : '') + '" style="--rar:' + col + '"' + (imgTag(it.img, it.nombre) ? ' data-a="zoomImg" role="button" tabindex="0" aria-label="Ampliar foto"' : '') + '>' + (imgTag(it.img, it.nombre) || '<span class="sinfoto">Sin foto</span>') + (imgTag(it.img, it.nombre) ? '<span class="ipg-lupa" aria-hidden="true">⤢</span>' : '') +
       '<span class="ipg-tag' + (agot ? ' off' : '') + (cd ? ' cd' : '') + '">' + (agot ? 'Agotado' : cd ? '🔒 En cooldown' : (it.stock > 1 ? it.stock + ' disponibles' : 'Disponible')) + '</span></div>' +
-      '<div class="ipg-info"><dl class="ipg-attrs">' + attrs + '</dl>' + estilosHtml(it) + descripcionHtml(it) +
+      '<div class="ipg-info"><dl class="ipg-attrs">' + attrs + '</dl>' + estilosHtml(it) + descripcionHtml(it, true) +
       '<div class="ipg-precio"><div class="pp-top"><b>' + fmtPrecio(it.precio) + '</b>' + (dto ? '<span class="pp-dto" title="Descuento frente al precio del Mercado de Steam">-' + dto + ' %</span>' : '') + '</div>' +
       steamHtml(it, true) +
       (cd ? '<div class="cdaviso">🔒 <b>Este item está en cooldown de Steam.</b> Puedes comprarlo ahora y lo recibes el <b>' + esc(cdFechaLarga(it)) + '</b> (faltan ' + esc(cdRestante(it)) + '), cuando Steam permita intercambiarlo.</div>' : '') +
@@ -1509,9 +1522,11 @@
   function gemChipsHtml(it) {
     return gemasDe(it).map(function (g) { var ic = gemaIconoHtml(g.t, 26); return '<span class="gchip ' + gemaClase(g.t) + (ic ? ' gp' : '') + '" title="' + esc((g.v || "") + (g.t ? " · " + g.t : "")) + '">' + ic + esc(g.v || g.t) + '</span>'; }).join("");
   }
-  function descripcionHtml(it) {
-    var l = gemasDe(it); if (!l.length) return "";
-    return '<div class="idesc"><b>💎 Gemas</b>' + l.map(function (g) { return '<div class="grow ' + gemaClase(g.t) + '">' + (gemaIconoHtml(g.t, 30) || '<span class="gdot"></span>') + '<span class="gv">' + esc(g.v || g.t) + '</span>' + (g.t && g.v ? '<span class="gk">' + esc(g.t) + '</span>' : '') + '</div>'; }).join("") + '</div>';
+  // conOjo: en la página del item, el ojito de la previsualización sale al lado de la primera gema.
+  function descripcionHtml(it, conOjo) {
+    var l = gemasDe(it), ojo = conOjo ? pvOjo(it, "pill") : "";
+    if (!l.length) return ojo ? '<div class="ipg-pv">' + ojo + '</div>' : "";
+    return '<div class="idesc"><b>💎 Gemas</b>' + l.map(function (g, i) { return '<div class="grow ' + gemaClase(g.t) + '">' + (gemaIconoHtml(g.t, 30) || '<span class="gdot"></span>') + '<span class="gv">' + esc(g.v || g.t) + '</span>' + (i === 0 ? ojo : '') + (g.t && g.v ? '<span class="gk">' + esc(g.t) + '</span>' : '') + '</div>'; }).join("") + '</div>';
   }
   // Mismo item con distintas gemas: cada uno es su propia oferta con su precio.
   function ofertasDe(it) {
@@ -1524,7 +1539,7 @@
   function ofertaFilaHtml(x, curId, mejor) {
     var cur = x.id === curId, ne = Number(x.estilos) || 0, ok = estilosOkLista(x), n = Math.max(1, Math.min(30, x.stock)), agot = x.stock <= 0, cd = !agot && enCooldown(x);
     var est = ne ? [1, 2, 3, 4, 5, 6, 7, 8].slice(0, ne).map(function (k) { return '<span class="est' + (ok.indexOf(k) >= 0 ? '' : ' lock') + '">' + k + '</span>'; }).join("") : '';
-    var gem = gemChipsHtml(x) + (cd ? '<span class="ofr-cd">' + cdChipHtml(x, true) + '</span>' : ''), out = "", edit = admin.puede ? '<button type="button" class="btn btn-ghost btn-sm ofr-ed" data-a="itEditar" data-id="' + esc(x.id) + '"' + (x.stock > 1 ? ' data-u="1"' : '') + ' title="Editar esta unidad (gemas, estilos y precio)" aria-label="Editar">✎</button><button type="button" class="btn btn-ghost btn-sm" data-a="itMas1" data-id="' + esc(x.id) + '" title="Sumar una unidad">➕</button>' + (admin.itemDel === x.id ? '<button type="button" class="btn btn-sm itdel" data-a="itQuitarSi" data-id="' + esc(x.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itQuitar1" data-id="' + esc(x.id) + '" title="Quitar una unidad" aria-label="Quitar">🗑</button>') : '';
+    var gem = gemChipsHtml(x) + pvOjo(x) + (cd ? '<span class="ofr-cd">' + cdChipHtml(x, true) + '</span>' : ''), out = "", edit = admin.puede ? '<button type="button" class="btn btn-ghost btn-sm ofr-ed" data-a="itEditar" data-id="' + esc(x.id) + '"' + (x.stock > 1 ? ' data-u="1"' : '') + ' title="Editar esta unidad (gemas, estilos y precio)" aria-label="Editar">✎</button><button type="button" class="btn btn-ghost btn-sm" data-a="itMas1" data-id="' + esc(x.id) + '" title="Sumar una unidad">➕</button>' + (admin.itemDel === x.id ? '<button type="button" class="btn btn-sm itdel" data-a="itQuitarSi" data-id="' + esc(x.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itQuitar1" data-id="' + esc(x.id) + '" title="Quitar una unidad" aria-label="Quitar">🗑</button>') : '';
     for (var u = 0; u < n; u++) {
       var enCarro = !agot && u < (Number(carro[x.id]) || 0);
  var best = mejor && u === 0;
@@ -1948,7 +1963,7 @@
       '<div class="cav"><button type="button" class="btn btn-fuchsia btn-sm" data-a="itVersion" data-id="' + esc(l[0].id) + '">➕ Agregar versión nueva (otra gema / estilos / precio)</button></div></div>';
   }
   function abrirVersion(base) {
-    admin.itemForm = Object.assign({}, base, { id: "", desdeId: "", creado: "", precio: "", stock: "1", descripcion: "", estilos: String(base.estilos || 0), estOk: base.estOk || (base.estilos ? "1" : ""), soloCambios: true, activo: true, cooldownHasta: "" });
+    admin.itemForm = Object.assign({}, base, { id: "", desdeId: "", creado: "", precio: "", stock: "1", descripcion: "", estilos: String(base.estilos || 0), estOk: base.estOk || (base.estilos ? "1" : ""), soloCambios: true, activo: true, cooldownHasta: "", previas: [], pvBase: pvLista(base), pvMisma: false });
     admin.itemMsg = ""; admin.steamInfo = ""; render(); hidratarImgs(); irAlForm();
   }
   function cambiarStock(id, delta) {
@@ -1971,6 +1986,41 @@
     return '<div class="field"><label for="it-estilos">Estilos (solo si el item los tiene)</label><select id="it-estilos">' + ["0", "2", "3", "4", "5", "6"].map(function (v) { return '<option value="' + v + '"' + (String(F.estilos || 0) === v ? ' selected' : '') + '>' + (v === "0" ? 'Sin estilos' : v + ' estilos') + '</option>'; }).join("") + '</select></div>' +
       ((Number(F.estilos) || 0) > 0 ? '<div class="field"><label>Estilos que SÍ tiene (los demás saldrán "Bloqueado")</label><div class="estchk">' + (function () { var o = "", ok = estilosOkLista(F); for (var k = 1; k <= Number(F.estilos); k++) o += '<label class="chk"><input type="checkbox" id="it-est-' + k + '"' + (ok.indexOf(k) >= 0 ? ' checked' : '') + '> Estilo ' + k + '</label>'; return o; })() + '</div></div>' : '');
   }
+  // Sección "Previsualización en el juego" del formulario del item (hasta 6 fotos, se pueden ordenar y borrar).
+  function pvFormHtml(F) {
+    var l = pvLista(F), base = pvLista(F.pvBase), sub = admin.subiendo === "previa";
+    return '<div class="pvf"><div class="pvf-h">👁 Previsualización en el juego <small>(opcional · hasta ' + PV_MAX + ' fotos)</small></div>' +
+      (base.length ? '<label class="pvf-misma"><input type="checkbox" id="it-pvmisma"' + (F.pvMisma ? ' checked' : '') + '> Usar las mismas fotos de previsualización (' + base.length + ')</label>' : '') +
+      (l.length ? '<div class="pvf-l">' + l.map(function (r, i) {
+        return '<div class="pvf-t">' + imgTag(r, "Foto " + (i + 1)) + '<span class="pvf-n">' + (i + 1) + '</span><div class="pvf-b">' +
+          '<button type="button" data-a="pvIzq" data-i="' + i + '" title="Mover a la izquierda" aria-label="Mover a la izquierda"' + (i === 0 ? ' disabled' : '') + '>◀</button>' +
+          '<button type="button" data-a="pvDer" data-i="' + i + '" title="Mover a la derecha" aria-label="Mover a la derecha"' + (i === l.length - 1 ? ' disabled' : '') + '>▶</button>' +
+          '<button type="button" class="pvf-del" data-a="pvDel" data-i="' + i + '" title="Quitar esta foto" aria-label="Quitar esta foto">✕</button></div></div>';
+      }).join("") + '</div>' : '<p class="pvf-vacio">Sin fotos: a los clientes no les sale el ojito.</p>') +
+      '<div class="pvf-acc">' + (l.length < PV_MAX ? '<label class="btn btn-ghost btn-sm" for="it-pvfile">' + (sub ? esc(admin.pvSubTxt || "Subiendo…") : '📷 Subir fotos') + '</label><input id="it-pvfile" class="pvfile" type="file" accept="image/*" multiple hidden' + (sub ? ' disabled' : '') + '>' : '<span class="hint">Llegaste al máximo de ' + PV_MAX + ' fotos.</span>') + '</div>' +
+      '<p class="hint">Capturas del juego (formato ancho, tipo 16:9). No se recortan: se achican a 1280 px y se guardan livianas. La foto 1 es la que se ve primero.</p></div>';
+  }
+  // Sube las fotos elegidas una por una (sin pasar del máximo).
+  function pvSubir(files) {
+    var F = admin.itemForm; if (!F || admin.subiendo === "previa") return;
+    var l = pvLista(F), cola = Array.prototype.slice.call(files || []).filter(function (f) { return /^image\//.test(f.type); }).slice(0, PV_MAX - l.length);
+    if (!cola.length) { admin.itemMsg = l.length >= PV_MAX ? "Ya tiene " + PV_MAX + " fotos de previsualización." : "Elige fotos (JPG, PNG o WEBP)."; render(); hidratarImgs(); return; }
+    F.previas = l; F.pvMisma = false; admin.subiendo = "previa"; admin.itemMsg = "";
+    var hecho = 0;
+    function sig() {
+      if (admin.itemForm !== F) { admin.subiendo = null; return; }
+      if (hecho >= cola.length) { admin.subiendo = null; admin.pvSubTxt = ""; render(); hidratarImgs(); return; }
+      admin.pvSubTxt = "Subiendo " + (hecho + 1) + " de " + cola.length + "…"; render(); hidratarImgs();
+      return window.previa.comprimir(cola[hecho]).then(guardarDataImg).then(function (ref) { F.previas.push(ref); hecho++; return sig(); });
+    }
+    Promise.resolve().then(sig).catch(function (e) { admin.subiendo = null; admin.pvSubTxt = ""; admin.itemMsg = (e && e.message) || "No se pudo subir la foto."; render(); hidratarImgs(); });
+  }
+  function pvMover(i, d) {
+    var F = admin.itemForm; if (!F) return; var l = pvLista(F), j = i + d;
+    if (d && (j < 0 || j >= l.length)) return;
+    if (d) { var x = l[i]; l[i] = l[j]; l[j] = x; } else l.splice(i, 1);
+    F.previas = l; F.pvMisma = false; render(); hidratarImgs();
+  }
   function itemFormHtml() {
     var F = admin.itemForm;
     var form = '';
@@ -1979,7 +2029,7 @@
       '<p class="hint">Lo demás se copia del item. Solo pon lo que cambia en esta versión.</p>' +
       '<div class="field"><label for="it-precio">Precio en soles (S/)</label><input id="it-precio" inputmode="decimal" value="' + esc(F.precio) + '"></div>' +
       '<div class="field"><label for="it-stock">Stock (cuántos tienes)</label><input id="it-stock" inputmode="numeric" value="' + esc(F.stock) + '"></div>' +
-      gemasFormHtml(F) + estilosFormHtml(F) + cdCampoHtml("it-", F) +
+      gemasFormHtml(F) + pvFormHtml(F) + estilosFormHtml(F) + cdCampoHtml("it-", F) +
       '<label class="chk"><input type="checkbox" id="it-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
       (admin.itemMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.itemMsg) + '</p>' : '') +
       '<div class="cav"><button type="button" class="btn btn-yellow btn-sm" data-a="itGuardar">' + (admin.itemGuardando ? 'Guardando…' : '💾 Guardar versión') + '</button><button type="button" class="btn btn-ghost btn-sm" data-a="itCompleto">Cambiar más datos</button><button type="button" class="btn btn-ghost btn-sm" data-a="itCerrarForm">Cancelar</button></div></div>';
@@ -1998,7 +2048,7 @@
       '<div class="field"><label for="it-ranura">Ranura (Weapon, Head, Back…)</label><input id="it-ranura" list="dl-ranura" maxlength="40" value="' + esc(F.ranura) + '"><datalist id="dl-ranura">' + distintos("ranura", SLOTS_DOTA).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
       '<div class="field"><label for="it-rareza">Rareza</label><select id="it-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), F.rareza, "—") + '</select></div>' +
       '<div class="field"><label for="it-calidad">Calidad</label><input id="it-calidad" list="dl-calidad" maxlength="30" value="' + esc(F.calidad) + '"><datalist id="dl-calidad">' + distintos("calidad", ITEM_CALIDADES).map(function (v) { return '<option value="' + esc(v) + '">'; }).join("") + '</datalist></div>' +
-      gemasFormHtml(F) +
+      gemasFormHtml(F) + pvFormHtml(F) +
       estilosFormHtml(F) + cdCampoHtml("it-", F) +
       '<label class="chk"><input type="checkbox" id="it-activo"' + (F.activo ? ' checked' : '') + '> Visible para los clientes</label>' +
       (admin.itemMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.itemMsg) + '</p>' : '') +
@@ -2026,7 +2076,7 @@
     if (!isFinite(stock) || stock < 0) stock = 1;
     var it = { id: F.id || ("it-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), nombre: F.nombre.trim(), img: F.img, precio: Math.round(precio * 100) / 100, stock: stock,
       tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: gemasAString(gemasDe(F).filter(function (g) { return g.v; })).slice(0, 600), steamUsd: Number(F.steamUsd) || 0, steamAct: F.steamAct || "", activo: F.activo, creado: F.creado || new Date().toISOString(),
-      cooldownHasta: enCooldown(F) ? new Date(cdMs(F)).toISOString() : "" };
+      cooldownHasta: enCooldown(F) ? new Date(cdMs(F)).toISOString() : "", previas: pvLista(F) };
     admin.itemGuardando = true; admin.itemMsg = ""; render();
     fsPedir("rayas_items/" + encodeURIComponent(it.id), { method: "PATCH", body: JSON.stringify(itemAFields(it)) }).then(function (r) {
       if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "Tu sesión no tiene permiso. Vuelve a entrar." : "No se pudo guardar (" + r.status + ").");
@@ -3415,7 +3465,10 @@
       case "itCerrarForm": admin.itemForm = null; admin.itemMsg = ""; render(); break;
       case "itGemaMas": if (admin.itemForm) { var gl2 = gemasDe(admin.itemForm); gl2.push({ t: t.getAttribute("data-t") || "", v: "" }); admin.itemForm.descripcion = gemasAString(gl2); render(); hidratarImgs(); } break;
       case "itGemaDel": if (admin.itemForm) { var gl3 = gemasDe(admin.itemForm); gl3.splice(parseInt(t.getAttribute("data-i"), 10), 1); admin.itemForm.descripcion = gemasAString(gl3); render(); hidratarImgs(); } break;
-      case "itVariante": if (admin.itemForm) { var fv = Object.assign({}, admin.itemForm, { id: "", precio: "", stock: "1", descripcion: "", creado: "", cooldownHasta: "", steamAct: admin.itemForm.steamAct }); admin.itemForm = fv; admin.itemMsg = "Versión nueva: pon su gema y su precio."; render(); hidratarImgs(); irAlForm(); } break;
+      case "itVariante": if (admin.itemForm) { var fv = Object.assign({}, admin.itemForm, { id: "", precio: "", stock: "1", descripcion: "", creado: "", cooldownHasta: "", steamAct: admin.itemForm.steamAct, previas: [], pvBase: pvLista(admin.itemForm), pvMisma: false }); admin.itemForm = fv; admin.itemMsg = "Versión nueva: pon su gema y su precio."; render(); hidratarImgs(); irAlForm(); } break;
+      case "pvIzq": pvMover(i, -1); break;
+      case "pvDer": pvMover(i, 1); break;
+      case "pvDel": pvMover(i, 0); break;
       case "itQuitarFoto": if (admin.itemForm) { admin.itemForm.img = ""; render(); } break;
       case "itGuardar": guardarItem(); break;
       case "itSteam": rellenarDesdeSteam(); break;
@@ -3575,6 +3628,8 @@
     var F = admin.itemForm; if (!F || !el.id || el.id.indexOf("it-") !== 0) return false;
     var m = { "it-link": "link", "it-nombre": "nombre", "it-precio": "precio", "it-stock": "stock", "it-tipo": "tipo", "it-heroe": "heroe", "it-ranura": "ranura", "it-desc": "descripcion", "it-rareza": "rareza", "it-calidad": "calidad" };
     if (el.id === "it-activo") { F.activo = el.checked; return true; }
+    if (el.id === "it-pvmisma") { if (!!F.pvMisma !== el.checked) { F.pvMisma = el.checked; F.previas = el.checked ? pvLista(F.pvBase) : []; render(); hidratarImgs(); } return true; }
+    if (el.id === "it-pvfile") return false;
     if (cdCampoEvento(el, "it-", F, function () { render(); })) return true;
     if (el.id === "it-estilos") {
       F.estilos = el.value;
@@ -3624,6 +3679,7 @@
     if (ev.target.id === "it-nombre" && admin.itemForm && !admin.itemForm.id && !admin.itemForm.soloCambios) { admin.itemForm.nombre = ev.target.value; render(); hidratarImgs(); return; }
     if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.id === "sk-file" && ev.target.files && ev.target.files[0]) { stkFoto(ev.target); return; }
+    if (ev.target.id === "it-pvfile" && ev.target.files && ev.target.files.length) { var pvf = ev.target.files; pvSubir(pvf); ev.target.value = ""; return; }
     if (ev.target.classList && ev.target.classList.contains("itfile") && ev.target.files && ev.target.files[0]) {
       var fi = ev.target.files[0]; ev.target.value = "";
       editorFoto(fi).then(function (listo) {
