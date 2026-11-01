@@ -10,7 +10,7 @@ const culqi = require("./culqi");
 const sets = require("./sets");
 const inv = require("./inventario");
 const sc = require("./steamcache");
-const { enviarCorreo } = require("./correo");
+const { enviarCorreo, CORREOS_ADMIN } = require("./correo");
 const emails = require("./emails");
 
 admin.initializeApp();
@@ -307,8 +307,7 @@ exports.comprarItem = onRequest(
       // si fallan, el pedido igual queda en el panel y se anota el motivo en el pedido (correoError).
       const p = r.pedido, datos = { code: code, nombre: p.customerName, steamId: p.steamId, email: p.email, whatsapp: p.phone, tradelink: p.tradelink, items: p.items, total: p.total, creditos: p.creditos, saldo: r.saldo, creadoEn: new Date(), entrega: r.entrega };
       const estado = { correoAdmin: false, correoCliente: false }, fallos = [];
-      let correoAdmin = "";
-      try { correoAdmin = String((await admin.auth().getUser(ADMIN_UID)).email || ""); } catch (e) { fallos.push("admin sin correo: " + (e && e.message)); }
+      const correoAdmin = CORREOS_ADMIN;
       const mandar = async (para, c, clave, campo) => {
         if (!para) { fallos.push(campo + ": sin destinatario"); return; }
         try { await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: para, subject: c.subject, html: c.html, text: c.text, clave: clave }); estado[campo] = true; }
@@ -508,8 +507,7 @@ exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "Am
   Object.keys(sl).forEach((id) => { if (sl[id] && sl[id].img) fotos[id] = sl[id].img; });
   const lista = rec.resumen(rec.pedidosParaEntregar(os.docs.concat(hechos.docs).map((d) => d.data()), clientes, hoy), fotos);
   if (!lista.length) return;
-  let para = "";
-  try { para = String((await admin.auth().getUser(ADMIN_UID)).email || ""); } catch (e) { console.error("recordatorioEntregas: admin sin correo", e); return; }
+  const para = CORREOS_ADMIN;
   const c = emails.recordatorioEntregas("litlejacob", { fecha: hoy, cupo: rec.ENTREGA_CAP, pedidos: lista });
   await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: para, subject: c.subject, html: c.html, text: c.text, clave: "entregas-hoy-" + hoy });
   console.log("recordatorio enviado", lista.length);
@@ -520,8 +518,7 @@ exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "Am
 async function liberarPedidosEnCooldown(ahora) {
   ahora = ahora || new Date();
   const qs = await db.collection("orders").where("status", "==", "cooldown").get();
-  let adminMail = "";
-  try { adminMail = String((await admin.auth().getUser(ADMIN_UID)).email || ""); } catch (e) { console.error("liberarCooldown: admin sin correo", e); }
+  const adminMail = CORREOS_ADMIN;
   let liberados = 0;
   for (const doc of qs.docs) {
     const p = doc.data();
@@ -556,16 +553,14 @@ exports.liberarCooldown = onSchedule({ schedule: "every 1 hours", timeZone: "Ame
   console.log("liberarCooldown", r);
 });
 
-/* ---- Admin: manda 4 correos de EJEMPLO (confirmación y pendiente, de cada tienda) al correo del administrador. No cobra ni toca saldos. ---- */
+/* ---- Admin: manda 8 correos de EJEMPLO (de cada tienda) a los correos de CORREOS_ADMIN. No cobra ni toca saldos. ---- */
 exports.probarCorreos = onRequest(
   { region: REGION, cors: ORIGENES, secrets: [RESEND_KEY], maxInstances: 1, timeoutSeconds: 60 },
   async (req, res) => {
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
     if (uid !== ADMIN_UID) return res.status(403).json({ error: "Solo el administrador puede usar esto." });
-    let a;
-    try { a = String((await admin.auth().getUser(uid)).email || ""); } catch (e) { a = ""; }
-    if (!a) return res.status(400).json({ error: "La cuenta de administrador no tiene correo." });
+    const a = CORREOS_ADMIN;
     const ahora = new Date(), venc = new Date(ahora.getTime() + 22 * 3600 * 1000), enCd = new Date(ahora.getTime() + 7 * 86400 * 1000), tanda = String(Date.now());
     let enviados = 0, fallaron = 0, error = "";
     for (const tienda of ["rayas", "litlejacob"]) {
@@ -583,7 +578,7 @@ exports.probarCorreos = onRequest(
       }
     }
     if (!enviados) return res.status(502).json({ error: "No se pudo enviar ningún correo. " + error });
-    res.json({ ok: true, a: a, enviados: enviados, fallaron: fallaron, error: error });
+    res.json({ ok: true, a: a.join(", "), enviados: enviados, fallaron: fallaron, error: error });
   }
 );
 

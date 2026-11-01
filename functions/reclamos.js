@@ -9,7 +9,7 @@
  */
 const crypto = require("crypto");
 const { MARCAS } = require("./emails");
-const { enviarCorreo } = require("./correo");
+const { enviarCorreo, CORREOS_ADMIN } = require("./correo");
 
 const TIPOS_DOC = ["DNI", "CE", "Pasaporte", "RUC"];
 const PREFIJO = { rayas: "RY", litlejacob: "LJ" };
@@ -155,8 +155,8 @@ function crear(ctx) {
         correoCliente = true;
       } catch (e) { console.error("registrarReclamo correo cliente", e); }
       try {
-        const a = String((await admin.auth().getUser(ADMIN_UID)).email || "");
-        if (a) { const c = correoHoja(tienda, r, true); await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: a, subject: c.subject, html: c.html, text: c.text, clave: "reclamo-" + numero + "-admin" }); }
+        const a = CORREOS_ADMIN;
+        { const c = correoHoja(tienda, r, true); await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: a, subject: c.subject, html: c.html, text: c.text, clave: "reclamo-" + numero + "-admin" }); }
       } catch (e) { console.error("registrarReclamo correo admin", e); }
       await db.doc("reclamos/" + numero).update({ correoCliente: correoCliente, actualizado: FV.serverTimestamp() }).catch(() => {});
 
