@@ -4,6 +4,7 @@
  * Los precios NO vienen del navegador: se leen de live/catalog (LitleJacob) o live/rayasSets (Rayas), que actualiza el panel admin
  * de cada tienda cada vez que cambia precio o stock). El descuento se calcula aquí, igual que en la web:
  *   3+ sets = 10 %, 6+ sets = 15 %; todos los sets cuentan para llegar, pero el % solo se aplica a sets de hasta S/ 25.
+ *   Rayas Store NO tiene esta promo (opciones.sinDescuento): paga el precio normal.
  * El costo en créditos es el total redondeado hacia arriba (créditos enteros).
  */
 const DISCOUNT_TIERS = [{ min: 6, pct: 15 }, { min: 3, pct: 10 }];
@@ -13,7 +14,7 @@ const MAX_ITEMS = 80;
 function round2(n) { return Math.round(n * 100) / 100; }
 
 // items: [{ id, qty, name }] del navegador; live: { "<id>": { price, stock, soldOut } }
-function cotizar(items, live) {
+function cotizar(items, live, opciones) {
   if (!Array.isArray(items) || !items.length || items.length > MAX_ITEMS) throw new Error("CARRITO_INVALIDO");
   const vistos = new Set();
   const lineas = items.map((it) => {
@@ -30,7 +31,7 @@ function cotizar(items, live) {
   const count = lineas.reduce((n, l) => n + l.qty, 0);
   const subtotal = round2(lineas.reduce((t, l) => t + l.price * l.qty, 0));
   const elegible = round2(lineas.filter((l) => l.price <= DISCOUNT_MAX_PRICE).reduce((t, l) => t + l.price * l.qty, 0));
-  const tier = DISCOUNT_TIERS.find((t) => count >= t.min) || null;
+  const tier = (opciones && opciones.sinDescuento) ? null : (DISCOUNT_TIERS.find((t) => count >= t.min) || null);
   const discount = tier ? round2(elegible * tier.pct / 100) : 0;
   const total = round2(subtotal - discount);
   return { lineas, count, subtotal, discount, total, creditos: Math.ceil(total - 1e-9) };

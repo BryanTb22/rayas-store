@@ -5,6 +5,7 @@
 .sc-cli { display: block; }
 .sc-cli.sc-con-barra { padding-bottom: 96px; }
 .sc-info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+.sc-info.sc-info1 { grid-template-columns: 1fr; }
 .sc-info > div { display: grid; gap: 4px; padding: 14px 16px; border-radius: var(--r-md, 16px); border: 1px solid var(--line); background: color-mix(in srgb, var(--raised) 70%, transparent); }
 .sc-info b { font-size: 15px; }
 .sc-info span { color: var(--muted); font-size: 14px; line-height: 1.45; }

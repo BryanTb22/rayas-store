@@ -649,7 +649,7 @@
   var rLogo = null;
   function ruletaDibujar(rotDeg, t) {
     var cv = document.getElementById("ruleta-cv"); if (!cv || !ruleta) return;
-    if (!rLogo) { rLogo = new Image(); rLogo.src = "img/logo.webp"; rLogo.onload = function () { ruletaDibujar(ruleta && ruleta.fin ? ruleta.rot : (ruleta ? ruleta.rotAct || 0 : 0), 0); }; }
+    if (!rLogo) { rLogo = new Image(); rLogo.src = "img/logo-v2.webp"; rLogo.onload = function () { ruletaDibujar(ruleta && ruleta.fin ? ruleta.rot : (ruleta ? ruleta.rotAct || 0 : 0), 0); }; }
     var ctx = cv.getContext("2d"), W = cv.width, cx = W / 2, R = W / 2 - 34, rim = R + 22, i, PI = Math.PI;
     t = t || 0; ruleta.rotAct = rotDeg;
     ctx.clearRect(0, 0, W, W);
@@ -881,7 +881,7 @@
     });
     var logos = document.querySelectorAll(".hero-logo, .logo-img");
     if (esFs(F.logo)) cargarFs(F.logo.slice(3)).then(function (u) { if (u) for (var i = 0; i < logos.length; i++) logos[i].src = u; });
-    else for (var i = 0; i < logos.length; i++) if (logos[i].getAttribute("src") !== "img/logo.webp") logos[i].src = "img/logo.webp";
+    else for (var i = 0; i < logos.length; i++) if (logos[i].getAttribute("src") !== "img/logo-v2.webp") logos[i].src = "img/logo-v2.webp";
   }
   var FOTO_TXT = { logo: "Cambiar logo", hero: "Cambiar fondo de portada", lava: "Cambiar fondo (Cómo participar)", sombra: "Cambiar fondo (Ganadores)" };
   function fotoBtn(k) {
@@ -2387,7 +2387,7 @@
     }
     var html = '' +
       '<header class="topbar gutter"><div class="wrap">' +
-      '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
+      '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo-v2.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
       '<nav class="nav"><a class="navlink' + (vista === "inicio" ? ' on' : '') + '" href="#inicio">Inicio</a>' + (rifasVisible() ? '<a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' : '') +
       (admin.puede ? '<button class="lock" type="button" data-a="admin">Panel admin</button><button class="lock" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button>'
         : (cuenta.perfil ? '<button class="lock hot misrifas" type="button" data-a="misRifas">🎟️ Mis rifas</button>' + menuUsuarioHtml(vista)
@@ -2404,7 +2404,7 @@
 
       '@@VISTA@@' +
       '<section class="hero gutter" id="rifas-top">' + fotoBtn("hero") + '<div class="wrap">' +
-      '<img class="hero-logo" src="img/logo.webp" alt="Rayas Store" width="132" height="132">' + fotoBtn("logo") +
+      '<img class="hero-logo" src="img/logo-v2.webp" alt="Rayas Store" width="132" height="132">' + fotoBtn("logo") +
       tx("div", "kicker", 'class="kicker"') +
       (V ? '<h1' + ed("t:titulo", "Título") + '>' + esc(T.titulo) + '</h1>' : '<h1>' + tituloHtml(T.titulo) + '</h1>') +
       tx("p", "subtitulo") +
@@ -2453,7 +2453,7 @@
       '</div></section>' +
 
       '@@FIN@@' + '<footer class="footer gutter"><div class="wrap">' +
-      '<span class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
+      '<span class="logo"><img class="logo-img" src="img/logo-v2.webp" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
       '<nav class="fnav" aria-label="Enlaces rápidos"><a href="#inicio">Inicio</a>' +
         (rifasVisible() ? '<a href="#rifas">Rifas</a><a href="#como">Cómo participar</a><a href="#ganadores">Ganadores</a><a href="#reglas">Reglas</a>' : '') +
         (itemsVisible() ? '<a href="#comprar">Comprar items</a><a href="#vender">Vender items</a>' : '') + (setsVisible() ? '<a href="#sets">Sets Caché</a>' : '') + '</nav>' +
@@ -2465,7 +2465,7 @@
     (function () {
       var a = html.split("@@VISTA@@"), b = a[1].split("@@FIN@@");
       var inicioHtml = '<section class="hero gutter" id="inicio">' + fotoBtn("hero") + '<div class="wrap">' +
-        '<img class="hero-logo" src="img/logo.webp" alt="Rayas Store" width="132" height="132">' +
+        '<img class="hero-logo" src="img/logo-v2.webp" alt="Rayas Store" width="132" height="132">' +
         tx("div", "inicioKicker", 'class="kicker"') +
         (V ? '<h1' + ed("t:inicioTitulo", "Título") + '>' + esc(T.inicioTitulo) + '</h1>' : '<h1>' + tituloHtml(T.inicioTitulo) + '</h1>') +
         tx("p", "inicioSub") +
@@ -2481,7 +2481,7 @@
           var c = v === "comprar";
           return '<a class="svc frame' + (estado.secciones.items ? ' gold' : '') + '" href="#' + v + '"><div class="in">' + (estado.secciones.items ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">' + (c ? '🛒' : '💰') + '</span><h3>' + (c ? 'Comprar items' : 'Vender items') + '</h3><p>' + (c ? 'Compra items de Dota 2 de forma segura.' : 'Vende tus items de Dota 2 de forma segura.') + '</p><span class="btn btn-fuchsia">' + (c ? 'Ver items' : 'Vender') + '</span></div></a>';
         }).join("") : '') +
-        (setsVisible() ? '<a class="svc frame' + (setsOn() ? ' gold' : '') + '" href="#sets"><div class="in">' + (setsOn() ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">🎁</span><h3>Sets Caché</h3><p>Sets de cofres de Dota 2 a buen precio. Más sets, más descuento.</p><span class="btn btn-yellow">Ver sets</span></div></a>' : '') +
+        (setsVisible() ? '<a class="svc frame' + (setsOn() ? ' gold' : '') + '" href="#sets"><div class="in">' + (setsOn() ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">🎁</span><h3>Sets Caché</h3><p>Sets de cofres de Dota 2 a buen precio, con entrega por Steam.</p><span class="btn btn-yellow">Ver sets</span></div></a>' : '') +
         '</div></div></section>' + ultimosGanadoresHtml(cerradas);
       if (vista === "comprar") cargarItems();
       if (vista === "vender") cargarPrecios();
@@ -3977,7 +3977,7 @@
       var d = document.createElement("div");
       d.id = "promoPop"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Promoción de primera recarga");
       d.innerHTML = '<div class="promo-box"><button type="button" class="promo-x" aria-label="Cerrar">✕</button>' +
-        '<div class="promo-card" style="--promo-bg:url(img/art-sombra.jpg)"><div class="promo-brand"><img src="img/logo.webp" alt="" width="46" height="46"><span>RAYAS <i>STORE</i></span></div>' +
+        '<div class="promo-card" style="--promo-bg:url(img/art-sombra.jpg)"><div class="promo-brand"><img src="img/logo-v2.webp" alt="" width="46" height="46"><span>RAYAS <i>STORE</i></span></div>' +
         '<div class="promo-kick">Promo de bienvenida</div><div class="promo-tit">Primera<br>recarga</div>' +
         '<div class="promo-pk"><div class="promo-p"><small>Recarga</small><b>S/ 50</b><u>▼</u><strong>S/ 55</strong><em>de saldo</em></div><div class="promo-p"><small>Recarga</small><b>S/ 100</b><u>▼</u><strong>S/ 110</strong><em>de saldo</em></div></div>' +
         '<div class="promo-pill">+10% de saldo extra</div><div class="promo-url">rayas.trade</div></div>' +

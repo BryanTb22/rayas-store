@@ -14,7 +14,7 @@
   var URL_COMPRAR = "https://us-central1-litlejacob-store.cloudfunctions.net/comprarSets";
   var LJ_WEB = "https://litlejacob.trade/";
   var RAREZAS = ["MÍTICO", "INMORTAL", "ARCANO"];
-  var DTO = [{ min: 6, pct: 15 }, { min: 3, pct: 10 }], DTO_MAX = 25;   // igual que functions/sets.js
+  var DTO = [], DTO_MAX = 25;   // Rayas NO tiene promo por cantidad (functions/sets.js: sinDescuento para tienda rayas)
   var CAP = 8, ESPERA = 30, PREF = "r_";                                // igual que functions/recordatorio.js
   var CARRO_KEY = "rayas_sets_carrito", CAT_KEY = "rayas_sets_guardados_v1";
   var ESTADOS = [["pendiente", "⏳ Pendiente"], ["pagado", "💰 Pagado"], ["entregado", "✅ Entregado"], ["cancelado", "✖ Cancelado"]];
@@ -164,6 +164,7 @@
     return { ls: ls, n: n, sub: r2(sub), dto: dto, tot: tot, nivel: dto > 0 ? nivel : null, alcanzado: nivel, sig: sig, fuera: fuera, costo: Math.ceil(tot - 1e-9) };
   }
   function msgNivel(t) {
+    if (!DTO.length) return "Toca para ver tu carrito y pagar";
     if (!t.sig) return "¡Tienes el descuento máximo de " + t.alcanzado.pct + "%!";
     return "Agrega " + nSets(t.sig.min - t.n) + " más y obtén " + t.sig.pct + "% de descuento" + (t.alcanzado ? " (ahora tienes " + t.alcanzado.pct + "%)" : "");
   }
@@ -172,7 +173,7 @@
     var c = carro.filter(function (x) { return x.id === s.id; })[0];
     if (c) { if (s.stock !== null && c.qty >= s.stock) { aviso("Solo hay " + s.stock + (s.stock === 1 ? " unidad" : " unidades") + " de \"" + s.name + "\"."); return; } c.qty = Math.min(20, c.qty + 1); }
     else carro.push({ id: s.id, qty: 1 });
-    guardarCarro(); pintarCli(); aviso("\"" + s.name + "\" agregado. " + msgNivel(totales()));
+    guardarCarro(); pintarCli(); aviso("\"" + s.name + "\" agregado al carrito.");
   }
   function quitar(id) { carro = carro.filter(function (c) { return c.id !== Number(id); }); guardarCarro(); pintarCli(); }
   function cambiarQty(id, d) {
@@ -206,7 +207,7 @@
     return '<article class="icard sc-card' + (ok ? '' : ' agot') + (dentro ? ' sc-in' : '') + '">' +
       '<div class="ithumb" style="--rar:' + col + '">' + foto(s.img) +
       (ok ? (s.stock !== null && s.stock <= 3 ? '<span class="itag">Quedan ' + s.stock + '</span>' : '') : '<span class="itag agotado">Agotado</span>') +
-      (s.price !== null && s.price <= DTO_MAX ? '' : '<span class="itag sc-nodto" title="No recibe el descuento por cantidad">Sin dscto.</span>') + '</div>' +
+      '</div>' +
       '<div class="ibody"><h4>' + esc(s.name) + '</h4>' +
       '<div class="imeta"><span style="color:' + col + '">' + esc(s.rarity) + '</span>' + (s.hero ? '<span>' + esc(nombreHeroe(s.hero)) + '</span>' : '') + (s.styles > 1 ? '<span>🎨 ' + s.styles + ' estilos</span>' : '') + '</div>' +
       '<div class="iprice"><b>' + (s.price === null ? 'Consultar' : esc(mon(s.price))) + '</b><span class="iacts">' +
@@ -225,7 +226,7 @@
       cliEl.innerHTML = h + '<div class="empty frame"><div class="in"><strong>Muy pronto</strong><span>Estamos preparando los sets caché. Vuelve en unos días.</span></div></div>';
       return;
     }
-    h += '<div class="sc-info"><div class="sc-promo"><b>🎁 Más sets, más descuento</b><span>3 sets = <b>10%</b> · 6 sets = <b>15%</b> <small>(en sets de hasta S/ ' + DTO_MAX + ')</small></span></div>' +
+    h += '<div class="sc-info sc-info1">' +
       '<div class="sc-entrega"><b>🚚 Entrega por Steam</b><span>⚡ Si ya somos amigos, la entrega es inmediata. ⏳ Si aún no, se cumplen 30 días de amistad antes de la entrega.</span></div></div>';
     h += '<div class="sc-bar"><input type="search" class="sc-q" placeholder="Buscar set o héroe…" autocomplete="off" value="' + esc(cli.q) + '">' +
       '<div class="sc-rars" role="group" aria-label="Rareza">' + [""].concat(RAREZAS).map(function (r) {
@@ -265,17 +266,13 @@
       else {
         h += '<div class="carl">' + t.ls.map(function (l) {
           var s = l.s;
-          return '<div class="carr"><div class="carr-t"><span class="carr-img">' + foto(s.img, ' width="56" height="56"') + '</span><span class="carr-n"><b>' + esc(s.name) + '</b><small>' + esc(mon(s.price)) + ' c/u' + (s.price > DTO_MAX ? ' · sin descuento' : '') + '</small></span></div>' +
+          return '<div class="carr"><div class="carr-t"><span class="carr-img">' + foto(s.img, ' width="56" height="56"') + '</span><span class="carr-n"><b>' + esc(s.name) + '</b><small>' + esc(mon(s.price)) + ' c/u</small></span></div>' +
             '<div class="carr-q"><button type="button" class="btn btn-ghost btn-sm" data-s="menos" data-id="' + s.id + '" aria-label="Menos">−</button><span>' + l.qty + '</span>' +
             '<button type="button" class="btn btn-ghost btn-sm" data-s="mas" data-id="' + s.id + '" aria-label="Más"' + (s.stock !== null && l.qty >= s.stock ? ' disabled' : '') + '>+</button></div>' +
             '<div class="carr-s"><b>' + esc(mon(s.price * l.qty)) + '</b><button type="button" class="carr-x" data-s="quitarCarro" data-id="' + s.id + '" aria-label="Quitar">🗑</button></div></div>';
         }).join("") + '</div>';
-        var pct = Math.min(100, t.n / DTO[0].min * 100);
-        h += '<div class="sc-prog"><div class="sc-prog-msg">🎁 ' + esc(msgNivel(t)) + '</div><div class="sc-prog-bar"><i style="width:' + pct + '%"></i></div>' +
-          '<div class="sc-prog-m"><span>0</span>' + DTO.slice().reverse().map(function (d) { return '<span class="' + (t.n >= d.min ? 'on' : '') + '">' + d.min + ' sets = ' + d.pct + '%</span>'; }).join("") + '</div></div>';
         h += '<div class="cartot"><div class="cartot-r"><span>Subtotal (' + nSets(t.n) + ')</span><span>' + mon(t.sub) + '</span></div>' +
           (t.nivel ? '<div class="cartot-r sc-dto"><span>Descuento ' + t.nivel.pct + '% (sets de hasta S/ ' + DTO_MAX + ')</span><span>−' + mon(t.dto) + '</span></div>' : '') +
-          (t.fuera ? '<p class="hint sc-nota">* ' + nSets(t.fuera) + ' de más de S/ ' + DTO_MAX + (t.fuera === 1 ? ' cuenta' : ' cuentan') + ' para la promoción, pero no ' + (t.fuera === 1 ? 'recibe' : 'reciben') + ' descuento.</p>' : '') +
           '<div class="cartot-r tot"><span>Total</span><b>' + mon(t.tot) + '</b></div>' +
           (t.costo !== t.tot ? '<div class="cartot-r"><span>Pagando con tu saldo (redondeado)</span><span>' + mon(t.costo) + '</span></div>' : '') +
           (saldo !== null ? '<div class="cartot-r"><span>Tu saldo</span><span>' + mon(saldo) + '</span></div>' +
