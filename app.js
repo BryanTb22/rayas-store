@@ -1528,18 +1528,18 @@
     var est = ne ? [1, 2, 3, 4, 5, 6, 7, 8].slice(0, ne).map(function (k) { return '<span class="est' + (ok.indexOf(k) >= 0 ? '' : ' lock') + '">' + k + '</span>'; }).join("") : '';
     var gem = gemChipsHtml(x) + (cd ? '<span class="ofr-cd">' + cdChipHtml(x, true) + '</span>' : ''), out = "", edit = admin.puede ? '<button type="button" class="btn btn-ghost btn-sm ofr-ed" data-a="itEditar" data-id="' + esc(x.id) + '"' + (x.stock > 1 ? ' data-u="1"' : '') + ' title="Editar esta unidad (gemas, estilos y precio)" aria-label="Editar">✎</button><button type="button" class="btn btn-ghost btn-sm" data-a="itMas1" data-id="' + esc(x.id) + '" title="Sumar una unidad">➕</button>' + (admin.itemDel === x.id ? '<button type="button" class="btn btn-sm itdel" data-a="itQuitarSi" data-id="' + esc(x.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itQuitar1" data-id="' + esc(x.id) + '" title="Quitar una unidad" aria-label="Quitar">🗑</button>') : '';
     var subV = admin.subiendo === "vista-" + x.id;
-    var ojo = (x.vista ? '<button type="button" class="btn btn-ghost btn-sm ofr-ojo" data-a="ofrVista" data-id="' + esc(x.id) + '" title="Ver cómo se ve" aria-label="Ver vista previa">👁</button>' : '') +
-      (admin.puede ? '<label class="btn btn-ghost btn-sm ofr-vsub" data-a="ofrVistaSubir" title="' + (x.vista ? 'Cambiar la foto de vista previa' : 'Subir foto de vista previa') + '">' + (subV ? '…' : '📷') + '<input type="file" accept="image/*" class="vistafile" data-id="' + esc(x.id) + '" hidden></label>' +
+    var ojo = x.vista ? '<button type="button" class="btn btn-ghost btn-sm ofr-ojo" data-a="ofrVista" data-id="' + esc(x.id) + '" title="Ver cómo se ve" aria-label="Ver vista previa">👁</button>' : '';
+    var vadm = (admin.puede ? '<label class="btn btn-ghost btn-sm ofr-vsub" data-a="ofrVistaSubir" title="' + (x.vista ? 'Cambiar la foto de vista previa' : 'Subir foto de vista previa') + '">' + (subV ? '…' : '📷') + '<input type="file" accept="image/*" class="vistafile" data-id="' + esc(x.id) + '" hidden></label>' +
         (x.vista ? '<button type="button" class="btn btn-ghost btn-sm" data-a="ofrVistaQuitar" data-id="' + esc(x.id) + '" title="Quitar la vista previa" aria-label="Quitar vista previa">✕</button>' : '') : '');
     for (var u = 0; u < n; u++) {
       var enCarro = !agot && u < (Number(carro[x.id]) || 0);
  var best = mejor && u === 0;
       out += '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + (cd ? ' cd' : '') + (enCarro ? ' enc' : '') + (best ? ' best' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + gem + '</span>' +
         '<span class="ofr-e">' + est + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b>' + (best ? '<em class="ofr-best">Mejor precio</em>' : '') + '</span>' +
-        '<span class="ofr-b">' + edit + ojo + (agot ? '<span class="ofr-ag">Agotado</span>' : (enCarro
+        '<span class="ofr-b">' + edit + vadm + (agot ? '<span class="ofr-ag">Agotado</span>' : (enCarro
           ? '<button type="button" class="btn btn-ghost btn-sm ofr-in" data-a="carMenos" data-id="' + esc(x.id) + '" title="Quitar del carrito">✔ En el carrito</button>'
           : '<button type="button" class="btn btn-yellow btn-sm" data-a="carAhora" data-id="' + esc(x.id) + '"' + (cd ? ' title="Se entrega el ' + esc(cdFechaLarga(x)) + '"' : '') + '>⚡ ' + (cd ? 'Comprar (entrega el ' + esc(cdFechaCorta(x)) + ')' : 'Comprar ahora') + '</button>' +
-            '<button type="button" class="btn btn-ghost btn-sm ofr-cart" data-a="carAdd" data-id="' + esc(x.id) + '" aria-label="Agregar al carrito" title="Agregar al carrito">🛒</button>')) + '</span></div>';
+            '<button type="button" class="btn btn-ghost btn-sm ofr-cart" data-a="carAdd" data-id="' + esc(x.id) + '" aria-label="Agregar al carrito" title="Agregar al carrito">🛒</button>')) + ojo + '</span></div>';
     }
     return out;
   }
