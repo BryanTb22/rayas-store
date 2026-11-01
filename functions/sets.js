@@ -1,8 +1,8 @@
 "use strict";
 /*
- * Compra de sets caché de LitleJacob Store pagando con CRÉDITOS (1 crédito = S/ 1).
- * Los precios NO vienen del navegador: se leen de live/catalog (lo actualiza el panel admin
- * de la tienda cada vez que cambia precio o stock). El descuento se calcula aquí, igual que en la web:
+ * Compra de sets caché (LitleJacob Store y Rayas Store) pagando con CRÉDITOS (1 crédito = S/ 1).
+ * Los precios NO vienen del navegador: se leen de live/catalog (LitleJacob) o live/rayasSets (Rayas), que actualiza el panel admin
+ * de cada tienda cada vez que cambia precio o stock). El descuento se calcula aquí, igual que en la web:
  *   3+ sets = 10 %, 6+ sets = 15 %; todos los sets cuentan para llegar, pero el % solo se aplica a sets de hasta S/ 25.
  * El costo en créditos es el total redondeado hacia arriba (créditos enteros).
  */
@@ -36,10 +36,11 @@ function cotizar(items, live) {
   return { lineas, count, subtotal, discount, total, creditos: Math.ceil(total - 1e-9) };
 }
 
-function nuevoCodigo() {
+// prefijo: "LJ" (LitleJacob Store) o "RY" (Rayas Store)
+function nuevoCodigo(prefijo) {
   const t = Date.now().toString(36).toUpperCase().slice(-5);
   const r = Math.random().toString(36).toUpperCase().slice(2, 4);
-  return "LJ-" + t + r;
+  return (prefijo === "RY" ? "RY" : "LJ") + "-" + t + r;
 }
 
 module.exports = { cotizar, nuevoCodigo, DISCOUNT_TIERS, DISCOUNT_MAX_PRICE };

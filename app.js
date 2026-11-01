@@ -2313,7 +2313,7 @@
       (sub ? '<p>' + sub + '</p>' : '') + '<div class="orn">◆</div></div>';
   }
 
-  var VISTA_HASH = { inicio: "inicio", rifas: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender", perfil: "perfil", "perfil/transacciones": "perfil", "perfil/seguridad": "perfil" };
+  var VISTA_HASH = { sets: "sets", inicio: "inicio", rifas: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender", perfil: "perfil", "perfil/transacciones": "perfil", "perfil/seguridad": "perfil" };
   var vistaActual = "inicio";
   function switchItems() {
     if (!admin.puede) return "";
@@ -2333,6 +2333,9 @@
       }).join("") + '</div><p class="ult-mas"><a class="btn btn-ghost btn-sm" href="#ganadores">Ver todos los ganadores</a></p></div></section>';
   }
   function itemsVisible() { return !!(admin.puede || (estado.secciones && estado.secciones.items)); }
+  // Sets Caché (sets.js): su catálogo y su interruptor de "visible" están en live/rayasSets.
+  function setsVisible() { return !!(admin.puede || (window.setsCache && window.setsCache.visible())); }
+  function setsOn() { return !!(window.setsCache && window.setsCache.visible()); }
   function vistaDeHash() {
     var h = String(location.hash || "").replace("#", "");
     if (VISTA_HASH[h]) vistaActual = VISTA_HASH[h];
@@ -2393,6 +2396,7 @@
       '</nav></div></header>' +
       '<div class="svcbar gutter"><div class="wrap">' +
       (itemsVisible() ? '<a class="svc-tab comprar' + (vista === "comprar" ? ' on' : '') + '" href="#comprar"><span>🛒</span>Comprar items' + (estado.secciones.items ? '' : ' 🔒') + '</a><a class="svc-tab vender' + (vista === "vender" ? ' on' : '') + '" href="#vender"><span>💰</span>Vender items' + (estado.secciones.items ? '' : ' 🔒') + '</a>' : '') +
+      (setsVisible() ? '<a class="svc-tab sets' + (vista === "sets" ? ' on' : '') + '" href="#sets"><span>🎁</span>Sets Caché' + (setsOn() ? '' : ' 🔒') + '</a>' : '') +
       (itemsVisible() ? '<button type="button" class="svc-tab carrito" data-a="carAbrir"><span>🛒</span>Carrito' + (carroN() ? ' (' + carroN() + ')' : '') + '</button>' : '') +
       (rifasVisible() ? '<a class="svc-tab' + (vista === "rifas" ? ' on' : '') + '" href="#rifas"><span>🎟️</span>Rifas' + (rifasOn() ? '' : ' 🔒') + '</a>' : '') +
       (linkCreditos || V || recargaOn() ? btnRecargar("svc-tab recargar", "btnRecargarNav", linkCreditos) : '') +
@@ -2452,7 +2456,7 @@
       '<span class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
       '<nav class="fnav" aria-label="Enlaces rápidos"><a href="#inicio">Inicio</a>' +
         (rifasVisible() ? '<a href="#rifas">Rifas</a><a href="#como">Cómo participar</a><a href="#ganadores">Ganadores</a><a href="#reglas">Reglas</a>' : '') +
-        (itemsVisible() ? '<a href="#comprar">Comprar items</a><a href="#vender">Vender items</a>' : '') + '</nav>' +
+        (itemsVisible() ? '<a href="#comprar">Comprar items</a><a href="#vender">Vender items</a>' : '') + (setsVisible() ? '<a href="#sets">Sets Caché</a>' : '') + '</nav>' +
       (V ? '<button type="button" class="btn btn-ghost btn-sm" data-a="editContactos">✎ Editar contactos de WhatsApp</button>'
          : (contactos().length ? '<span>WhatsApp: ' + contactos().map(function (c) { return esc(c.nombre) + ' <span class="wa">' + esc(waBonito(c.numero)) + '</span>'; }).join(' · ') + '</span>' : '')) +
       tx("span", "pie") +
@@ -2477,6 +2481,7 @@
           var c = v === "comprar";
           return '<a class="svc frame' + (estado.secciones.items ? ' gold' : '') + '" href="#' + v + '"><div class="in">' + (estado.secciones.items ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">' + (c ? '🛒' : '💰') + '</span><h3>' + (c ? 'Comprar items' : 'Vender items') + '</h3><p>' + (c ? 'Compra items de Dota 2 de forma segura.' : 'Vende tus items de Dota 2 de forma segura.') + '</p><span class="btn btn-fuchsia">' + (c ? 'Ver items' : 'Vender') + '</span></div></a>';
         }).join("") : '') +
+        (setsVisible() ? '<a class="svc frame' + (setsOn() ? ' gold' : '') + '" href="#sets"><div class="in">' + (setsOn() ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">🎁</span><h3>Sets Caché</h3><p>Sets de cofres de Dota 2 a buen precio. Más sets, más descuento.</p><span class="btn btn-yellow">Ver sets</span></div></a>' : '') +
         '</div></div></section>' + ultimosGanadoresHtml(cerradas);
       if (vista === "comprar") cargarItems();
       if (vista === "vender") cargarPrecios();
@@ -2485,7 +2490,8 @@
         (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Configuraciones principales.</p>') +
         '<div class="empty frame"><div class="in"><strong>Estamos preparando esta sección</strong><span>Muy pronto podrás ' + (vista === "vender" ? 'vender' : 'comprar') + ' items de Dota 2 aquí.</span></div></div>' +
         '</div></section>';
-      html = a[0] + (vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : vista === "perfil" ? perfilPaginaHtml() : inicioHtml) + b[1];
+      var setsHtml = '<section class="section gutter" id="sets"><div class="wrap"><div id="setsSlot"></div></div></section>';
+      html = a[0] + (vista === "sets" ? setsHtml : vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : vista === "perfil" ? perfilPaginaHtml() : inicioHtml) + b[1];
     })();
     if (ruleta) html += modalRuleta();
     else if (modal && modal.tipo === "stock") html += stkPanelHtml();
@@ -2509,6 +2515,7 @@
     hidratarImgs();
     aplicarFotos();
     if (vista === "perfil" && cuenta.tab === "trans") pfFiltrar();
+    if (window.setsCache) window.setsCache.montar(vista);
     var nd = document.querySelector(".drawer-body");
     if (nd && top) nd.scrollTop = top;
   }
@@ -2538,17 +2545,17 @@
         var its = ((f.items && f.items.arrayValue && f.items.arrayValue.values) || []).map(function (v) {
           var g = (v.mapValue && v.mapValue.fields) || {};
           var num = function (k) { return Number(g[k] && (g[k].integerValue || g[k].doubleValue) || 0); };
-          return { id: g.id && g.id.stringValue || "", name: g.name && g.name.stringValue || "Item", qty: num("qty") || 1, price: num("price") };
+          return { id: g.id && g.id.stringValue || "", name: g.name && g.name.stringValue || "Item", qty: num("qty") || 1, price: num("price"), img: g.img && g.img.stringValue || "" };
         });
         var nUni = its.reduce(function (a, i) { return a + i.qty; }, 0);
-        return { code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0) || nUni, monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "", items: its, estado: f.status && f.status.stringValue || "", tienda: f.tienda && f.tienda.stringValue || "", entregaDesde: f.entregaDesde && f.entregaDesde.timestampValue || "" };
+        return { sets: !(f.origen && f.origen.stringValue === "items"), code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0) || nUni, monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "", items: its, estado: f.status && f.status.stringValue || "", tienda: f.tienda && f.tienda.stringValue || "", entregaDesde: f.entregaDesde && f.entregaDesde.timestampValue || "" };
       }).filter(function (c) { return c.monto > 0; });
       if (vistaActual === "perfil") { render(); pfFiltrar(); }
     }).catch(function () { /* sin historial de compras */ });
   }
   /* ================= Perfil: Información personal · Transacciones · Seguridad ================= */
   var PF_TABS = [["info", "👤", "Información personal"], ["trans", "🔁", "Transacciones"], ["seg", "🔒", "Seguridad"]];
-  var PF_EST = { cooldown: "En cooldown", pagado: "Por entregar", entregado: "Entregado", cancelado: "Cancelado" };
+  var PF_EST = { cooldown: "En cooldown", pendiente: "Pendiente", pagado: "Por entregar", entregado: "Entregado", cancelado: "Cancelado" };
   function pfMon(n) { return "S/ " + (Math.round(Number(n) * 100) / 100).toFixed(2); }
   // La foto del item no se guarda en el pedido: se busca en el catálogo por id (o por nombre si el id ya no existe).
   function pfImgItem(it) {
@@ -2556,6 +2563,12 @@
     if (it.id) b = l.filter(function (x) { return x.id === it.id; })[0];
     if (!b) b = l.filter(function (x) { return sinTildes(x.nombre) === sinTildes(it.name); })[0];
     return b ? b.img : "";
+  }
+  // Foto de un set comprado: la guarda el pedido. Las de LitleJacob son "img/…" (de su web) y las de Rayas "fs:img-…".
+  function pfFotoSet(it, tienda) {
+    var i = String(it.img || "");
+    if (/^img\//.test(i) && tienda !== "rayas") return "https://litlejacob.trade/" + i;
+    return i;
   }
   function pfFilas() {
     var uid = uidSesion(), filas = [];
@@ -2574,8 +2587,8 @@
     });
     (cuenta.compras || []).forEach(function (c) {
       var cdTxt = c.estado === "cooldown" ? "En cooldown · lo recibes el " + cdFechaCorta({ cooldownHasta: c.entregaDesde }) : "";
-      filas.push({ key: "c_" + (c.code || c.t), t: c.t, tipo: "compra", titulo: "Compra de items", code: c.code || "", est: c.estado || "pagado", estTxt: cdTxt || PF_EST[c.estado] || c.estado || "Pagado", monto: c.monto,
-        det: (c.items || []).map(function (i) { return { nombre: i.name, img: pfImgItem(i), qty: i.qty, unit: i.price, sub: i.price * i.qty, unidad: "", estTxt: cdTxt || PF_EST[c.estado] || "", est: c.estado || "pagado" }; }),
+      filas.push({ key: "c_" + (c.code || c.t), t: c.t, tipo: c.sets ? "sets" : "compra", titulo: c.sets ? "Compra de sets" : "Compra de items", code: c.code || "", est: c.estado || "pagado", estTxt: cdTxt || PF_EST[c.estado] || c.estado || "Pagado", monto: c.monto,
+        det: (c.items || []).map(function (i) { return { nombre: i.name, img: c.sets ? pfFotoSet(i, c.tienda) : pfImgItem(i), qty: i.qty, unit: i.price, sub: i.price * i.qty, unidad: "", estTxt: cdTxt || PF_EST[c.estado] || "", est: c.estado || "pagado" }; }),
         tienda: c.tienda === "litlejacob" ? "LitleJacob Store" : (c.tienda === "rayas" ? "Rayas Store" : "") });
     });
     filas.sort(function (a, b) { return String(b.t).localeCompare(String(a.t)); });
@@ -2584,8 +2597,8 @@
   function pfTransHtml() {
     var filas = pfFilas(), ab = cuenta.abiertos || {};
     var tipoSel = cuenta.tTipo || "";
-    var cab = '<div class="pf-tools"><div class="pf-sec-h"><h2>Transacciones</h2><p>Tus compras de items y tickets de rifas. Toca una fila para ver el detalle.</p></div><div class="pf-filtros">' +
-      '<select id="pf-tipo" aria-label="Tipo de transacción"><option value="">Todas</option><option value="compra"' + (tipoSel === "compra" ? " selected" : "") + '>Compras de items</option><option value="rifa"' + (tipoSel === "rifa" ? " selected" : "") + '>Rifas</option></select>' +
+    var cab = '<div class="pf-tools"><div class="pf-sec-h"><h2>Transacciones</h2><p>Tus compras de items, sets y tickets de rifas. Toca una fila para ver el detalle.</p></div><div class="pf-filtros">' +
+      '<select id="pf-tipo" aria-label="Tipo de transacción"><option value="">Todas</option><option value="compra"' + (tipoSel === "compra" ? " selected" : "") + '>Compras de items</option><option value="sets"' + (tipoSel === "sets" ? " selected" : "") + '>Compras de sets</option><option value="rifa"' + (tipoSel === "rifa" ? " selected" : "") + '>Rifas</option></select>' +
       '<input id="pf-buscar" type="search" placeholder="Buscar por ID o nombre del item" autocomplete="off" value="' + esc(cuenta.tBuscar || "") + '"></div></div>';
     if (!filas.length) return cab + '<div class="pf-vacio pf-vacio-t">Todavía no tienes transacciones. Tus compras de items y tus tickets de rifas aparecerán aquí.</div>';
     var tabla = '<div class="pf-tabla" role="table"><div class="pf-th" role="row"><span>Tipo / Fecha</span><span>ID</span><span>Estado</span><span>Sistema de pago</span><span>Importe</span><span class="r">Saldo</span></div>' +
@@ -2938,23 +2951,23 @@
       '<button class="btn btn-ghost btn-sm" type="button" data-a="pedRecargar">Actualizar lista</button></div>';
   }
 
-  var TABS_ADMIN = { config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pedidos: "🛒 Pedidos", pagina: "Textos y contactos" };
-  function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : "inicio"; }
-  function tabsDeSeccion(sc) { return sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios"] : ["config", "usuarios", "pagina"]; }
+  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsPed: "🚚 Pedidos de sets", config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pedidos: "🛒 Pedidos", pagina: "Textos y contactos" };
+  function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : v === "sets" ? "sets" : "inicio"; }
+  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios"] : ["config", "usuarios", "pagina"]; }
   function panelAdmin() {
     var sc = seccionAdmin(), lista = tabsDeSeccion(sc);
     if (lista.indexOf(admin.tab) < 0) admin.tab = lista[0];
-    var nomSc = sc === "rifas" ? "Rifas" : sc === "items" ? "Compra y venta de items" : "General";
+    var nomSc = sc === "rifas" ? "Rifas" : sc === "items" ? "Compra y venta de items" : sc === "sets" ? "Sets Caché" : "General";
     var titulo = admin.editando ? (admin.editando.nuevo ? "Nuevo premio" : "Editar premio") : "Panel admin · " + nomSc;
     var cuerpo;
     if (admin.editando) cuerpo = formPremio();
     else cuerpo = '<div class="tabs" role="tablist">' +
       lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
-      '</div>' + (admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pedidos" ? tabPedidos() : listaPremios()))));
+      '</div>' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pedidos" ? tabPedidos() : listaPremios()))));
     return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" type="button" data-a="salir" title="Cerrar la sesión de administrador" style="color:var(--danger,#ff7a7a)">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
       '<div class="drawer-body">' + cuerpo + '</div>' +
-      (admin.editando ? '' :
+      (admin.editando || sc === "sets" ? '' :
         '<div class="drawer-foot">' +
         '<button class="btn btn-fuchsia" type="button" data-a="publicar"' + (sucio ? '' : ' disabled') + '>Guardar y publicar</button>' +
         '<div class="msg ' + admin.msgTipo + '" role="status">' + esc(admin.msg || (sucio ? "Tienes cambios sin publicar." : "Todo está publicado.")) + '</div>' +
@@ -3349,6 +3362,24 @@
   }
 
   function quitarHash() { if (location.hash === "#admin") history.replaceState(null, "", location.pathname + location.search); }
+
+  // WhatsApp: con un solo contacto abre el chat; con varios deja elegir a quién escribir (mismo flujo que el carrito de items).
+  function waPedir(texto) {
+    var c = contactos();
+    if (c.length > 1) { modal = null; elegirMsg = texto; elegirAbierto = true; render(); return true; }
+    if (c.length === 1) { window.open(waLinkA(c[0].numero, texto), "_blank", "noopener"); return true; }
+    return false;
+  }
+  // Lo que usa sets.js (Sets Caché) de esta página: sesión, Firestore, fotos, saldo y WhatsApp.
+  window.RY = {
+    esc: esc, fmtSol: fmtSol, token: token, fsPedir: fsPedir, BASE: BASE, FB: FB, uid: uidSesion, sesion: leerSesion,
+    admin: function () { return admin.puede; }, perfil: function () { return cuenta.perfil; }, render: render,
+    imgTag: imgTag, hidratar: hidratarImgs, editorFoto: editorFoto, subirImagen: subirImagen, colorRareza: colorRareza,
+    entrar: function (msg) { modal = null; cuenta.modo = "login"; cuenta.msg = msg || ""; cuenta.msgTipo = ""; render(); },
+    recargar: function () { abrirRecarga(); }, recargaOn: recargaOn, recargarPerfil: function () { return cargarPerfil(); },
+    hayWhatsapp: function () { return contactos().length > 0; }, waPedir: waPedir,
+    abrirAdmin: function (tab) { if (!admin.puede) return; admin.abierto = true; admin.editando = null; admin.tab = tab; render(); }
+  };
 
   /* ================= Eventos ================= */
   document.addEventListener("click", function (ev) {

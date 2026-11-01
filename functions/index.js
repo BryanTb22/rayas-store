@@ -170,21 +170,41 @@ exports.cobrar = onRequest(
   }
 );
 
-/* ---------- 1b) Comprar sets caché de LitleJacob Store con créditos ----------
- * POST { items: [{ id, qty, name }] } con la sesión del cliente.
- * Descuenta los créditos y crea el pedido (estado "pagado") en una sola transacción.
+/* ---------- 1b) Comprar sets caché con créditos (LitleJacob Store y Rayas Store) ----------
+ * POST { items: [{ id, qty, name }], tienda?: "rayas" } con la sesión del cliente.
+ * Cada tienda tiene su propio catálogo: LitleJacob en live/catalog (campo sets) y Rayas en live/rayasSets (campo json).
+ * Descuenta los créditos y crea el pedido (estado "pagado", con el campo tienda) en una sola transacción.
  */
+// Catálogo de sets de Rayas Store -> { "<id>": { price, stock, soldOut, img } } (mismo formato que live/catalog.sets)
+async function catalogoSetsRayas() {
+  const s = await db.doc("live/rayasSets").get();
+  let j = {};
+  try { j = s.exists ? JSON.parse(String(s.data().json || "{}")) : {}; } catch (e) { j = {}; }
+  const out = {};
+  (Array.isArray(j.sets) ? j.sets : []).forEach((x) => {
+    if (!x || x.id === undefined || x.id === null) return;
+    out[String(x.id)] = {
+      price: x.price === null || x.price === undefined || x.price === "" || !isFinite(Number(x.price)) ? null : Number(x.price),
+      stock: x.stock === null || x.stock === undefined || x.stock === "" ? null : Number(x.stock),
+      soldOut: !!x.soldOut,
+      img: x.img && !/^data:/i.test(x.img) ? String(x.img).slice(0, 300) : ""
+    };
+  });
+  return out;
+}
 exports.comprarSets = onRequest(
   { region: REGION, cors: ORIGENES, maxInstances: 5, timeoutSeconds: 30 },
   async (req, res) => {
     // Abrir la dirección en el navegador sirve para comprobar qué versión está desplegada.
-    if (req.method === "GET") return res.json({ ok: true, funcion: "comprarItem", version: VERSION_COMPRAR_ITEM });
+    if (req.method === "GET") return res.json({ ok: true, funcion: "comprarSets", version: VERSION_COMPRAR_SETS });
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
     if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con tu saldo." });
 
-    const liveSnap = await db.doc("live/catalog").get();
-    const live = liveSnap.exists ? (liveSnap.data().sets || {}) : {};
+    const tienda = (req.body || {}).tienda === "rayas" ? "rayas" : "litlejacob";
+    let live;
+    if (tienda === "rayas") live = await catalogoSetsRayas();
+    else { const liveSnap = await db.doc("live/catalog").get(); live = liveSnap.exists ? (liveSnap.data().sets || {}) : {}; }
     let q;
     try { q = sets.cotizar((req.body || {}).items, live); }
     catch (e) {
@@ -196,7 +216,7 @@ exports.comprarSets = onRequest(
     }
 
     const uRef = db.doc("rayas_users/" + uid);
-    const code = sets.nuevoCodigo();
+    const code = sets.nuevoCodigo(tienda === "rayas" ? "RY" : "LJ");
     const oRef = db.doc("orders/" + code);
     try {
       const r = await db.runTransaction(async (tx) => {
@@ -209,7 +229,7 @@ exports.comprarSets = onRequest(
           code: code, customerName: String(d.nombre || "Cliente").slice(0, 60), steamId: String(d.steam || "").slice(0, 20),
           items: q.lineas.map((l) => ({ id: l.id, name: l.name, qty: l.qty, price: l.price, img: String((live[l.id] && live[l.id].img) || "").slice(0, 300) })),
           count: q.count, subtotal: q.subtotal, discount: q.discount, total: q.total,
-          status: "pagado", createdAt: FV.serverTimestamp(),
+          status: "pagado", createdAt: FV.serverTimestamp(), tienda: tienda,
           paidWith: "creditos", creditos: q.creditos, uid: uid,
           email: String(d.email || ""), tradelink: String(d.tradelink || "")
         };
@@ -227,6 +247,8 @@ exports.comprarSets = onRequest(
     }
   }
 );
+
+const VERSION_COMPRAR_SETS = "2026-11-01 · sets caché en Rayas Store (catálogo y cupo propios)";
 
 /* ---------- 1b2) Comprar UN item del catálogo (rayas_items) con créditos ----------
  * 1 crédito = S/ 1. Créditos del item = precio redondeado hacia arriba. Todo en una transacción.
@@ -501,16 +523,22 @@ exports.webhookCulqi = onRequest(
 exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "America/Lima", region: REGION, secrets: [RESEND_KEY], timeoutSeconds: 120 }, async () => {
   const hoy = rec.hoyLima();
   // Pagados (por entregar) + los entregados hoy, que ya ocuparon cupo de hoy (máximo 8 sets por día).
-  const [os, hechos, cs, live] = await Promise.all([db.collection("orders").where("status", "==", "pagado").get(), db.collection("orders").where("entregadoDia", "==", hoy).get(), db.collection("customers").get(), db.doc("live/catalog").get()]);
-  const clientes = {}; cs.forEach((d) => { clientes[d.id] = d.data(); });
-  const fotos = {}; const sl = live.exists ? (live.data().sets || {}) : {};
-  Object.keys(sl).forEach((id) => { if (sl[id] && sl[id].img) fotos[id] = sl[id].img; });
-  const lista = rec.resumen(rec.pedidosParaEntregar(os.docs.concat(hechos.docs).map((d) => d.data()), clientes, hoy), fotos);
-  if (!lista.length) return;
-  const para = CORREOS_ADMIN;
-  const c = emails.recordatorioEntregas("litlejacob", { fecha: hoy, cupo: rec.ENTREGA_CAP, pedidos: lista });
-  await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: para, subject: c.subject, html: c.html, text: c.text, clave: "entregas-hoy-" + hoy });
-  console.log("recordatorio enviado", lista.length);
+  const [os, hechos, cs, live, ry] = await Promise.all([db.collection("orders").where("status", "==", "pagado").get(), db.collection("orders").where("entregadoDia", "==", hoy).get(), db.collection("customers").get(), db.doc("live/catalog").get(), catalogoSetsRayas().catch(() => ({}))]);
+  const todos = {}; cs.forEach((d) => { todos[d.id] = d.data(); });
+  const ordenes = os.docs.concat(hechos.docs).map((d) => d.data());
+  const fotosDe = (sl) => { const f = {}; Object.keys(sl || {}).forEach((id) => { if (sl[id] && sl[id].img) f[id] = sl[id].img; }); return f; };
+  // Cada tienda tiene su propio cupo de 8 sets por día y su propio correo.
+  const tiendas = [
+    { id: "litlejacob", fotos: fotosDe(live.exists ? live.data().sets : {}), base: "https://litlejacob.trade", clave: "entregas-hoy-" + hoy },
+    { id: "rayas", fotos: fotosDe(ry), base: "https://rayas.trade", clave: "entregas-hoy-rayas-" + hoy }
+  ];
+  for (const t of tiendas) {
+    const lista = rec.resumen(rec.pedidosParaEntregar(rec.deTienda(ordenes, t.id), rec.clientesDe(todos, t.id), hoy), t.fotos, t.base);
+    if (!lista.length) continue;
+    const c = emails.recordatorioEntregas(t.id, { fecha: hoy, cupo: rec.ENTREGA_CAP, pedidos: lista });
+    try { await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: CORREOS_ADMIN, subject: c.subject, html: c.html, text: c.text, clave: t.clave }); console.log("recordatorio enviado", t.id, lista.length); }
+    catch (e) { console.error("recordatorio " + t.id, e); }
+  }
 });
 
 /* ---------- Items en cooldown: cada hora revisa los pedidos "cooldown" cuya fecha ya pasó, los pasa a
