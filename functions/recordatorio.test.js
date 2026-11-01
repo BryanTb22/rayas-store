@@ -74,3 +74,24 @@ assert.ok(mail.html.includes("https://litlejacob.trade/img/foto11.jpg") && mail.
 assert.ok(mail.html.includes("https://wa.me/51987654321") && mail.html.includes("@jossad") && mail.html.includes("🎁"));
 assert.ok(mail.subject.includes("2 pedidos (4 sets)") && mail.from.includes("litlejacob.trade") && mail.text.includes("Acechadora"));
 console.log("correo con fotos: todo bien");
+
+// Cada tienda con su propio cupo: 8 de LitleJacob y 8 de Rayas el mismo día no se mezclan
+{
+  const { deTienda, clientesDe, urlFoto } = require("./recordatorio");
+  const lj = Array.from({ length: 8 }, (_, i) => ord(400 + i));
+  const ry = Array.from({ length: 8 }, (_, i) => ord(500 + i, { tienda: "rayas" }));
+  const todos = lj.concat(ry);
+  const fichas = {};
+  lj.forEach((o) => { fichas[custKey(o.steamId, o.customerName)] = { friendSince: "2026-09-30" }; });
+  ry.forEach((o) => { fichas["r_" + custKey(o.steamId, o.customerName)] = { friendSince: "2026-09-30" }; });
+  const pl = planEntregas(deTienda(todos, "litlejacob"), clientesDe(fichas, "litlejacob"), hoy);
+  const pr = planEntregas(deTienda(todos, "rayas"), clientesDe(fichas, "rayas"), hoy);
+  assert.deepStrictEqual([pl.entregar.length, pl.cupoHoy, pr.entregar.length, pr.cupoHoy], [8, 8, 8, 8]);
+  assert.ok(pr.entregar.every((o) => o.tienda === "rayas"));
+  // La ficha de Rayas no sirve para LitleJacob (cada tienda tiene su fecha de amistad)
+  assert.strictEqual(planEntregas(deTienda(ry, "litlejacob"), clientesDe(fichas, "litlejacob"), hoy).entregar.length, 0);
+  assert.strictEqual(Object.keys(clientesDe(fichas, "litlejacob")).length, 8);
+  assert.strictEqual(urlFoto("fs:img-abc", "https://rayas.trade"), "");
+  assert.strictEqual(urlFoto("https://x.com/a.jpg", "https://rayas.trade"), "https://x.com/a.jpg");
+}
+console.log("recordatorio por tienda ✔");

@@ -41,11 +41,26 @@ function planEntregas(ordenes, clientes, hoy) {
   });
   return { entregar, programados, cupoHoy: cnt[hoy] || 0 };
 }
+// Cada tienda tiene su propio cupo de 8 y su propia fecha de amistad (cada una entrega desde su cuenta de Steam).
+// Pedidos de sets de Rayas Store: tienda "rayas". Todo lo demás (con "litlejacob" o sin el campo) es de LitleJacob.
+// Fichas de clientes: las de Rayas se guardan en customers/r_<clave>; las de LitleJacob, sin prefijo.
+const PREFIJO_RAYAS = "r_";
+function tiendaDe(o) { return o && o.tienda === "rayas" ? "rayas" : "litlejacob"; }
+function deTienda(ordenes, tienda) { return ordenes.filter((o) => tiendaDe(o) === tienda); }
+function clientesDe(todos, tienda) {
+  const out = {};
+  Object.keys(todos || {}).forEach((id) => {
+    const r = id.indexOf(PREFIJO_RAYAS) === 0;
+    if (tienda === "rayas" && r) out[id.slice(PREFIJO_RAYAS.length)] = todos[id];
+    if (tienda !== "rayas" && !r) out[id] = todos[id];
+  });
+  return out;
+}
 function pedidosParaEntregar(ordenes, clientes, hoy) { return planEntregas(ordenes, clientes, hoy).entregar; }
 // URL completa de la foto de un set ("img/foto06.jpg" -> https://litlejacob.trade/img/foto06.jpg). Vacío si no hay o es una imagen incrustada.
 function urlFoto(img, base) {
   img = String(img || "").trim();
-  if (!img || /^data:/i.test(img)) return "";
+  if (!img || /^(data|fs):/i.test(img)) return "";   // fotos incrustadas o guardadas en Firestore (fs:img-…) no van en el correo
   if (/^https?:\/\//i.test(img)) return img;
   return String(base || "https://litlejacob.trade").replace(/\/$/, "") + "/" + img.replace(/^\.?\//, "");
 }
@@ -60,4 +75,4 @@ function resumen(pedidos, imgPorId, base) {
     sets: (o.items || []).map((it) => (it.qty > 1 ? it.qty + " x " : "") + it.name).join(", ")
   }));
 }
-module.exports = { ENTREGA_CAP, ESPERA_DIAS, custKey, hoyLima, planEntregas, pedidosParaEntregar, resumen, urlFoto };
+module.exports = { PREFIJO_RAYAS, tiendaDe, deTienda, clientesDe, ENTREGA_CAP, ESPERA_DIAS, custKey, hoyLima, planEntregas, pedidosParaEntregar, resumen, urlFoto };
