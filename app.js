@@ -996,7 +996,7 @@
     return { id: d.name.split("/").pop(), nombre: sv("nombre"), img: sv("img"), precio: nv("precio"), stock: f.stock ? nv("stock") : 1,
       tipo: sv("tipo"), heroe: sv("heroe"), ranura: sv("ranura"), rareza: sv("rareza"), calidad: sv("calidad"),
       estilos: nv("estilos"), estOk: sv("estOk"), descripcion: sv("descripcion"), steamUsd: nv("steamUsd"), steamAct: f.steamAct && f.steamAct.timestampValue || "",
-      activo: f.activo ? f.activo.booleanValue !== false : true, creado: f.creado && f.creado.timestampValue || "", cooldownHasta: f.cooldownHasta && f.cooldownHasta.timestampValue || "" };
+      vista: /^fs:img-[\w\-]+$/.test(sv("vista")) ? sv("vista") : "", activo: f.activo ? f.activo.booleanValue !== false : true, creado: f.creado && f.creado.timestampValue || "", cooldownHasta: f.cooldownHasta && f.cooldownHasta.timestampValue || "" };
   }
   function itemAFields(it) {
     var s = function (v) { return { stringValue: String(v || "") }; };
@@ -1005,6 +1005,8 @@
       creado: { timestampValue: it.creado || new Date().toISOString() } };
     // Cooldown de Steam: solo se guarda si hay fecha (sin el campo = sin cooldown).
     if (cdMs(it) > 0) f.cooldownHasta = { timestampValue: new Date(it.cooldownHasta).toISOString() };
+    // Vista previa (cómo se ve el item en el juego con esa gema/estilo): solo si hay foto subida.
+    if (it.vista) f.vista = s(it.vista);
     return { fields: f };
   }
   /* ===== Cooldown de Steam: un item recién recibido no se puede intercambiar hasta cooldownHasta. Se vende igual y se entrega al liberarse. ===== */
@@ -1525,17 +1527,35 @@
     var cur = x.id === curId, ne = Number(x.estilos) || 0, ok = estilosOkLista(x), n = Math.max(1, Math.min(30, x.stock)), agot = x.stock <= 0, cd = !agot && enCooldown(x);
     var est = ne ? [1, 2, 3, 4, 5, 6, 7, 8].slice(0, ne).map(function (k) { return '<span class="est' + (ok.indexOf(k) >= 0 ? '' : ' lock') + '">' + k + '</span>'; }).join("") : '';
     var gem = gemChipsHtml(x) + (cd ? '<span class="ofr-cd">' + cdChipHtml(x, true) + '</span>' : ''), out = "", edit = admin.puede ? '<button type="button" class="btn btn-ghost btn-sm ofr-ed" data-a="itEditar" data-id="' + esc(x.id) + '"' + (x.stock > 1 ? ' data-u="1"' : '') + ' title="Editar esta unidad (gemas, estilos y precio)" aria-label="Editar">✎</button><button type="button" class="btn btn-ghost btn-sm" data-a="itMas1" data-id="' + esc(x.id) + '" title="Sumar una unidad">➕</button>' + (admin.itemDel === x.id ? '<button type="button" class="btn btn-sm itdel" data-a="itQuitarSi" data-id="' + esc(x.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itQuitar1" data-id="' + esc(x.id) + '" title="Quitar una unidad" aria-label="Quitar">🗑</button>') : '';
+    var subV = admin.subiendo === "vista-" + x.id;
+    var ojo = (x.vista ? '<button type="button" class="btn btn-ghost btn-sm ofr-ojo" data-a="ofrVista" data-id="' + esc(x.id) + '" title="Ver cómo se ve" aria-label="Ver vista previa">👁</button>' : '') +
+      (admin.puede ? '<label class="btn btn-ghost btn-sm ofr-vsub" data-a="ofrVistaSubir" title="' + (x.vista ? 'Cambiar la foto de vista previa' : 'Subir foto de vista previa') + '">' + (subV ? '…' : '📷') + '<input type="file" accept="image/*" class="vistafile" data-id="' + esc(x.id) + '" hidden></label>' +
+        (x.vista ? '<button type="button" class="btn btn-ghost btn-sm" data-a="ofrVistaQuitar" data-id="' + esc(x.id) + '" title="Quitar la vista previa" aria-label="Quitar vista previa">✕</button>' : '') : '');
     for (var u = 0; u < n; u++) {
       var enCarro = !agot && u < (Number(carro[x.id]) || 0);
  var best = mejor && u === 0;
       out += '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + (cd ? ' cd' : '') + (enCarro ? ' enc' : '') + (best ? ' best' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + gem + '</span>' +
         '<span class="ofr-e">' + est + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b>' + (best ? '<em class="ofr-best">Mejor precio</em>' : '') + '</span>' +
-        '<span class="ofr-b">' + edit + (agot ? '<span class="ofr-ag">Agotado</span>' : (enCarro
+        '<span class="ofr-b">' + edit + ojo + (agot ? '<span class="ofr-ag">Agotado</span>' : (enCarro
           ? '<button type="button" class="btn btn-ghost btn-sm ofr-in" data-a="carMenos" data-id="' + esc(x.id) + '" title="Quitar del carrito">✔ En el carrito</button>'
           : '<button type="button" class="btn btn-yellow btn-sm" data-a="carAhora" data-id="' + esc(x.id) + '"' + (cd ? ' title="Se entrega el ' + esc(cdFechaLarga(x)) + '"' : '') + '>⚡ ' + (cd ? 'Comprar (entrega el ' + esc(cdFechaCorta(x)) + ')' : 'Comprar ahora') + '</button>' +
             '<button type="button" class="btn btn-ghost btn-sm ofr-cart" data-a="carAdd" data-id="' + esc(x.id) + '" aria-label="Agregar al carrito" title="Agregar al carrito">🛒</button>')) + '</span></div>';
     }
     return out;
+  }
+  // Vista previa de una oferta: se guarda solo el campo "vista" del item, sin tocar lo demás.
+  function guardarVista(id, ref) {
+    var x = itemPorId(id); if (!x) return Promise.resolve();
+    var body = ref ? { fields: { vista: { stringValue: ref } } } : { fields: {} };
+    return fsPedir("rayas_items/" + encodeURIComponent(id) + "?updateMask.fieldPaths=vista", { method: "PATCH", body: JSON.stringify(body) }).then(function (r) {
+      if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? "No se pudo guardar la vista previa: sin permiso (" + r.status + ")." : "No se pudo guardar la vista previa (" + r.status + ").");
+      x.vista = ref || "";
+    });
+  }
+  function verVista(id) {
+    var x = itemPorId(id); if (!x || !x.vista) return;
+    var nom = x.nombre + (gemasDe(x).length ? " · " + gemasDe(x).map(function (g) { return g.v || g.t; }).join(", ") : "");
+    cargarFs(x.vista.slice(3)).then(function (u) { if (u) abrirZoom(u, nom); });
   }
   function ofertasTablaHtml(it) {
     var mn = parseFloat(String(ofe.min).replace(",", ".")), mx = parseFloat(String(ofe.max).replace(",", "."));
@@ -1948,7 +1968,7 @@
       '<div class="cav"><button type="button" class="btn btn-fuchsia btn-sm" data-a="itVersion" data-id="' + esc(l[0].id) + '">➕ Agregar versión nueva (otra gema / estilos / precio)</button></div></div>';
   }
   function abrirVersion(base) {
-    admin.itemForm = Object.assign({}, base, { id: "", desdeId: "", creado: "", precio: "", stock: "1", descripcion: "", estilos: String(base.estilos || 0), estOk: base.estOk || (base.estilos ? "1" : ""), soloCambios: true, activo: true, cooldownHasta: "" });
+    admin.itemForm = Object.assign({}, base, { id: "", desdeId: "", creado: "", precio: "", stock: "1", descripcion: "", estilos: String(base.estilos || 0), estOk: base.estOk || (base.estilos ? "1" : ""), soloCambios: true, activo: true, cooldownHasta: "", vista: "" });
     admin.itemMsg = ""; admin.steamInfo = ""; render(); hidratarImgs(); irAlForm();
   }
   function cambiarStock(id, delta) {
@@ -2025,7 +2045,7 @@
     if (!isFinite(precio) || precio <= 0) { admin.itemMsg = "Pon un precio mayor a 0."; render(); return; }
     if (!isFinite(stock) || stock < 0) stock = 1;
     var it = { id: F.id || ("it-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)), nombre: F.nombre.trim(), img: F.img, precio: Math.round(precio * 100) / 100, stock: stock,
-      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: gemasAString(gemasDe(F).filter(function (g) { return g.v; })).slice(0, 600), steamUsd: Number(F.steamUsd) || 0, steamAct: F.steamAct || "", activo: F.activo, creado: F.creado || new Date().toISOString(),
+      tipo: F.tipo, heroe: F.heroe.trim(), ranura: F.ranura.trim(), rareza: F.rareza, calidad: F.calidad.trim(), estilos: Number(F.estilos) || 0, estOk: Number(F.estilos) > 0 ? estilosOkLista(F).join(",") : "", descripcion: gemasAString(gemasDe(F).filter(function (g) { return g.v; })).slice(0, 600), steamUsd: Number(F.steamUsd) || 0, steamAct: F.steamAct || "", activo: F.activo, vista: F.vista || "", creado: F.creado || new Date().toISOString(),
       cooldownHasta: enCooldown(F) ? new Date(cdMs(F)).toISOString() : "" };
     admin.itemGuardando = true; admin.itemMsg = ""; render();
     fsPedir("rayas_items/" + encodeURIComponent(it.id), { method: "PATCH", body: JSON.stringify(itemAFields(it)) }).then(function (r) {
@@ -3411,14 +3431,17 @@
       case "impTodos": case "impNinguno": var Ie = impEstado(); var onT = t.getAttribute("data-a") === "impTodos"; Ie.sel = {}; Ie.selR = {}; (Ie.lista || []).forEach(function (g, k) { Ie.sel[k] = onT; }); (Ie.repo || []).forEach(function (r, k) { Ie.selR[k] = onT; }); render(); hidratarImgs(); break;
       case "impSubir": impSubir(); break;
       case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; admin.steamInfo = ""; render(); irAlForm(); break;
-      case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { var sep = t.getAttribute("data-u") === "1" && ie.stock > 1; admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: sep ? "1" : String(ie.stock), estilos: String(ie.estilos || 0), estOk: ie.estOk || (ie.estilos ? "1" : "") }, sep ? { id: "", creado: "", desdeId: ie.id } : {}); admin.itemMsg = sep ? "Estás editando solo esta unidad: se guarda aparte con su propio precio y gemas, y las demás unidades no cambian." : ""; render(); hidratarImgs(); irAlForm(); } break;
+      case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { var sep = t.getAttribute("data-u") === "1" && ie.stock > 1; admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: sep ? "1" : String(ie.stock), estilos: String(ie.estilos || 0), estOk: ie.estOk || (ie.estilos ? "1" : "") }, sep ? { id: "", creado: "", desdeId: ie.id, vista: "" } : {}); admin.itemMsg = sep ? "Estás editando solo esta unidad: se guarda aparte con su propio precio y gemas, y las demás unidades no cambian." : ""; render(); hidratarImgs(); irAlForm(); } break;
       case "itCerrarForm": admin.itemForm = null; admin.itemMsg = ""; render(); break;
       case "itGemaMas": if (admin.itemForm) { var gl2 = gemasDe(admin.itemForm); gl2.push({ t: t.getAttribute("data-t") || "", v: "" }); admin.itemForm.descripcion = gemasAString(gl2); render(); hidratarImgs(); } break;
       case "itGemaDel": if (admin.itemForm) { var gl3 = gemasDe(admin.itemForm); gl3.splice(parseInt(t.getAttribute("data-i"), 10), 1); admin.itemForm.descripcion = gemasAString(gl3); render(); hidratarImgs(); } break;
-      case "itVariante": if (admin.itemForm) { var fv = Object.assign({}, admin.itemForm, { id: "", precio: "", stock: "1", descripcion: "", creado: "", cooldownHasta: "", steamAct: admin.itemForm.steamAct }); admin.itemForm = fv; admin.itemMsg = "Versión nueva: pon su gema y su precio."; render(); hidratarImgs(); irAlForm(); } break;
+      case "itVariante": if (admin.itemForm) { var fv = Object.assign({}, admin.itemForm, { id: "", precio: "", stock: "1", descripcion: "", creado: "", cooldownHasta: "", vista: "", steamAct: admin.itemForm.steamAct }); admin.itemForm = fv; admin.itemMsg = "Versión nueva: pon su gema y su precio."; render(); hidratarImgs(); irAlForm(); } break;
       case "itQuitarFoto": if (admin.itemForm) { admin.itemForm.img = ""; render(); } break;
       case "itGuardar": guardarItem(); break;
       case "itSteam": rellenarDesdeSteam(); break;
+      case "ofrVistaSubir": break;
+      case "ofrVista": verVista(t.getAttribute("data-id")); break;
+      case "ofrVistaQuitar": guardarVista(t.getAttribute("data-id"), "").then(render).catch(function (e) { admin.itemMsg = e.message; render(); }); break;
       case "itMas1": cambiarStock(t.getAttribute("data-id"), 1); break;
       case "itVersion": var ib = itemPorId(t.getAttribute("data-id")); if (ib) abrirVersion(ib); break;
       case "itCompleto": if (admin.itemForm) { admin.itemForm.soloCambios = false; render(); hidratarImgs(); } break;
@@ -3624,6 +3647,14 @@
     if (ev.target.id === "it-nombre" && admin.itemForm && !admin.itemForm.id && !admin.itemForm.soloCambios) { admin.itemForm.nombre = ev.target.value; render(); hidratarImgs(); return; }
     if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.id === "sk-file" && ev.target.files && ev.target.files[0]) { stkFoto(ev.target); return; }
+    if (ev.target.classList && ev.target.classList.contains("vistafile") && ev.target.files && ev.target.files[0]) {
+      var vf = ev.target.files[0], vid = ev.target.getAttribute("data-id"); ev.target.value = "";
+      admin.subiendo = "vista-" + vid; admin.itemMsg = ""; render();
+      subirImagen(vf, 1280).then(function (ref) { return guardarVista(vid, ref); })
+        .then(function () { admin.subiendo = null; render(); verVista(vid); })
+        .catch(function (e) { admin.subiendo = null; admin.itemMsg = (e && e.message) || "No se pudo subir la foto."; render(); });
+      return;
+    }
     if (ev.target.classList && ev.target.classList.contains("itfile") && ev.target.files && ev.target.files[0]) {
       var fi = ev.target.files[0]; ev.target.value = "";
       editorFoto(fi).then(function (listo) {
