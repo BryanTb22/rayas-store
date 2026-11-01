@@ -206,7 +206,7 @@ exports.comprarSets = onRequest(
     if (tienda === "rayas") live = await catalogoSetsRayas();
     else { const liveSnap = await db.doc("live/catalog").get(); live = liveSnap.exists ? (liveSnap.data().sets || {}) : {}; }
     let q;
-    try { q = sets.cotizar((req.body || {}).items, live); }
+    try { q = sets.cotizar((req.body || {}).items, live, { sinDescuento: tienda === "rayas" }); }   // Rayas: sin promo por cantidad
     catch (e) {
       const m = String(e && e.message || "");
       const msg = /^AGOTADO|^SIN_STOCK/.test(m) ? "Uno de los sets de tu carrito ya no tiene stock. Actualiza la página y revisa tu carrito."
