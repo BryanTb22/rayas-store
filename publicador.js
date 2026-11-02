@@ -25,6 +25,8 @@
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function num(v) { var n = parseFloat(String(v || "").replace(",", ".").replace(/[^\d.]/g, "")); return isFinite(n) ? n : null; }
   function sol(v) { var n = num(v); return n == null ? "" : "S/ " + (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
+  // El precio de Steam solo se muestra si es mayor que el de la tienda (si no, no conviene compararlo).
+  function steamMayor() { var s = num(st.d.steam), p = num(st.d.precio); return s != null && s > 0 && (p == null || s > p); }
   function stockN() { var n = parseInt(st.d.stock, 10); return isFinite(n) && n > 0 ? n : 1; }
   function slug(s) { return (String(s || "publicacion").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "publicacion"); }
   function cargarImg(src) {
@@ -126,7 +128,7 @@
     }
 
     // precios
-    var py = 1062, hayS = num(d.steam) != null, pw = hayS ? 540 : 960, pcx = 60 + pw / 2;
+    var py = 1062, hayS = steamMayor(), pw = hayS ? 540 : 960, pcx = 60 + pw / 2;
     rr(ctx, 61, py + 1, pw - 2, 148, 20); ctx.fillStyle = C.caja; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = C.borde; ctx.stroke();
     ctx.font = osw(28, 500); ctx.fillStyle = C.steel; espaciado(ctx, pcx, py + 34, "PRECIO", 8);
     var pr = sol(d.precio) || "S/ --"; ctx.font = osw(92, 700); ctx.textAlign = "center";
@@ -258,7 +260,7 @@
   function textos() {
     if (st.ia && st.ia.length) return st.ia;
     var d = st.d, nom = (d.nombre || "Nombre del item").trim(), tipo = (d.tipo || "").trim(), pr = sol(d.precio) || "S/ --";
-    var stl = num(d.steam) != null ? sol(d.steam) : "", n = stockN(), ent = (d.entrega || "Entrega inmediata").trim();
+    var stl = steamMayor() ? sol(d.steam) : "", n = stockN(), ent = (d.entrega || "Entrega inmediata").trim();
     var firma = "🛒 *Rayas Store* · rayas.trade";
     var stockTxt = n === 1 ? "*ÚLTIMA UNIDAD*: solo 1 en stock" : "Stock limitado: *" + n + " unidades*";
     var a = "🔥 *" + (tipo ? tipo.toUpperCase() + " – " : "") + nom.toUpperCase() + "* 🔥\n\n" +
