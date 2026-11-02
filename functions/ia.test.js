@@ -108,9 +108,35 @@ const ia = require("./ia");
   let pedFotos = null;
   const verFotos = async (url, o) => { if (/api\.anthropic/.test(url) && !JSON.parse(o.body).tool_choice) pedFotos = JSON.parse(o.body); return web(url, o); };
   await ia.buscarFotos("k", itE, verFotos);
-  assert(/ESTA variante/.test(pedFotos.messages[0].content) && /Candy Caster/.test(pedFotos.messages[0].content));
+  assert(/SOLO videos de esta variante/.test(pedFotos.messages[0].content) && /Candy Caster/.test(pedFotos.messages[0].content) && /caramelos/.test(pedFotos.messages[0].content));
   // Steam más barato que la tienda: no se le da el precio de Steam a la IA
   assert(!/Steam/.test(ia.armarPedido("rayas", ia.limpiarItem({ nombre: "V", precio: 40, steam: 31.34 })).user));
   assert(/Steam: S\/ 85 \(más caro/.test(ia.armarPedido("rayas", ia.limpiarItem({ nombre: "V", precio: 75, steam: 85 })).user));
+  // efecto obligatorio: 2 rondas de búsqueda si en la 1ª ninguna muestra el efecto; aviso claro si no aparece
+  assert(/nieve/.test(ia.descEfecto("Snowdrift"))); assert(/caramelos/.test(ia.descEfecto("candy caster"))); assert(/variante 'Raro'/.test(ia.descEfecto("Raro")));
+  let busquedas = 0, calif = 0, promptCal = "";
+  const dosRondas = async (url, o) => {
+    if (/api\.anthropic/.test(url)) {
+      const body = JSON.parse(o.body);
+      if (body.tool_choice) { calif++; promptCal = JSON.stringify(body); const notas = calif === 1 ? [{ n: 1, nota: 2 }, { n: 2, nota: 3 }] : [{ n: 1, nota: 9 }]; return { ok: true, status: 200, json: async () => ({ content: [{ type: "tool_use", name: "calificar_fotos", input: { fotos: notas } }] }) }; }
+      busquedas++;
+      const vids = busquedas === 1 ? "https://youtu.be/aaaaaaaaaaa" : "https://youtu.be/bbbbbbbbbbb";
+      assert(busquedas === 1 || /NO mostraban el efecto Snowdrift/.test(body.messages[0].content));
+      return { ok: true, status: 200, json: async () => ({ stop_reason: "end_turn", content: [{ type: "text", text: vids }] }) };
+    }
+    return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array(9000).buffer };
+  };
+  const xE = await ia.buscarFotos("k", { nombre: "Unusual Verna", efecto: "Snowdrift", heroe: "Batrider" }, dosRondas, ref);
+  assert.strictEqual(busquedas, 2); assert.strictEqual(calif, 2); assert.strictEqual(xE.fotos[0].nota, 9); assert.strictEqual(xE.aviso, "");
+  assert(/obligatorio que se vea/.test(promptCal) && /copos de nieve/.test(promptCal));
+  // sin efecto: una sola ronda aunque no haya buenas
+  busquedas = 0; calif = 0;
+  const unaRonda = async (url, o) => { if (/api\.anthropic/.test(url) && JSON.parse(o.body).tool_choice) { calif++; return { ok: true, status: 200, json: async () => ({ content: [{ type: "tool_use", name: "calificar_fotos", input: { fotos: [{ n: 1, nota: 2 }] } }] }) }; } return dosRondas(url, o); };
+  const xS = await ia.buscarFotos("k", { nombre: "Verna" }, unaRonda);
+  assert.strictEqual(busquedas, 1); assert(/de cerca/.test(xS.aviso));
+  // con efecto y 2 rondas malas: aviso del efecto
+  busquedas = 0; calif = 0;
+  const xM = await ia.buscarFotos("k", { nombre: "Verna", efecto: "Snowdrift" }, unaRonda);
+  assert.strictEqual(busquedas, 2); assert(/vea el efecto Snowdrift/.test(xM.aviso));
   console.log("ia.test.js: todo OK");
 })().catch((e) => { console.error(e); process.exit(1); });
