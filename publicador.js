@@ -17,7 +17,7 @@
   var st = {
     raiz: null, abierto: false, slot: "juego", copiado: "",
     cat: { lista: null, cargando: false, err: "", q: "" }, item: null, ia: null, iaEst: "", iaMsg: "",
-    web: null, webEst: "", webMsg: "", auto: leerAuto(),
+    web: null, webEst: "", webMsg: "", auto: leerAuto(), webSel: -1, webUsada: false, fbEnviado: false, fbMsg: "", apEst: "", apMsg: "", lista: null, listaEst: "", listaMsg: "",
     img: { juego: null, oficial: null, logo: null },
     d: { tipo: "", nombre: "", precio: "", steam: "", stock: "1", entrega: "Entrega inmediata", px: 50, py: 50 }
   };
@@ -222,7 +222,7 @@
   }
   function elegirItem(id) {
     var it = (st.cat.lista || []).filter(function (x) { return x.id === id; })[0]; if (!it) return;
-    st.item = it; st.ia = null; st.iaMsg = ""; st.cat.q = ""; st.web = null; st.webMsg = ""; st.webSel = -1;
+    st.item = it; st.ia = null; st.iaMsg = ""; st.cat.q = ""; st.web = null; st.webMsg = ""; st.webSel = -1; st.webUsada = false; st.fbEnviado = false; st.fbMsg = ""; st.apEst = ""; st.apMsg = "";
     st.d.nombre = it.nombre; st.d.tipo = [it.rareza, it.tipo].filter(function (v, i, l) { return v && l.map(norm).indexOf(norm(v)) === i; }).join(" · ");
     st.d.precio = String(it.precio || ""); st.d.steam = it.steamUsd > 0 ? String(Math.round(it.steamUsd * TC * 100) / 100) : "";
     st.d.stock = String(Math.max(1, it.stock)); st.d.entrega = cdTxt(it) || "Entrega inmediata";
@@ -271,7 +271,7 @@
     if (!String(st.d.nombre || "").trim()) { st.webMsg = "Primero pon el nombre del item."; pintarWeb(); return; }
     st.webEst = "busca"; st.webMsg = ""; pintarWeb();
     pedirIa({ accion: "fotos", item: datosIa(), oficial: miniOficial() }).then(function (j) {
-      st.web = j.fotos || []; st.webEst = "";
+      st.web = j.fotos || []; st.webEst = ""; st.fbEnviado = false; st.fbMsg = ""; st.apEst = ""; st.apMsg = "";
       st.webMsg = j.aviso || (st.web.length > 1 ? "La IA eligió las fotos donde el item se ve de cerca (la mejor primero). Toca otra si te gusta más." : "");
       return st.web.length ? usarFotoWeb(0) : null;
     }).catch(function (e) { st.webEst = ""; st.webMsg = String(e.message || e); pintarWeb(); });
@@ -301,17 +301,118 @@
   }
   function usarFotoWeb(i) {
     var x = st.web && st.web[i]; if (!x) return Promise.resolve();
-    return cargarImg(x.data).then(sinBandas).then(function (im) { st.img.juego = im; st.webSel = i; render(); }).catch(function () { st.webMsg = "No se pudo usar esa foto."; pintarWeb(); });
+    return cargarImg(x.data).then(sinBandas).then(function (im) { st.img.juego = im; st.webSel = i; st.webUsada = true; render(); }).catch(function () { st.webMsg = "No se pudo usar esa foto."; pintarWeb(); });
   }
   function pintarWeb() {
     var box = document.getElementById("pb-web"); if (!box) return;
     var thumbs = (st.web || []).map(function (x, i) {
-      return '<button type="button" class="pb-wf' + (st.webSel === i ? ' sel' : '') + '" data-pb="webUsar" data-i="' + i + '" style="background-image:url(' + x.data + ')" aria-label="Usar foto ' + (i + 1) + '"></button>';
+      return '<div class="pb-wfc' + (x.mala ? ' mala' : '') + '"><button type="button" class="pb-wf' + (st.webSel === i ? ' sel' : '') + '" data-pb="webUsar" data-i="' + i + '" style="background-image:url(' + x.data + ')" aria-label="Usar foto ' + (i + 1) + '"></button>' +
+        '<button type="button" class="pb-wno" data-pb="webMala" data-i="' + i + '" title="' + (x.mala ? 'Quitar la marca' : 'Esta foto no sirve (la IA aprende)') + '" aria-label="Marcar como mala">' + (x.mala ? '↩' : '👎') + '</button></div>';
     }).join("");
     box.innerHTML = '<div class="pb-iabar"><button type="button" class="pb-btn" data-pb="webBuscar"' + (st.webEst === "busca" ? " disabled" : "") + '>' +
       (st.webEst === "busca" ? "🔎 Buscando y eligiendo fotos…" : "🔎 Buscar fotos in-game en la web") + '</button></div>' +
       (thumbs ? '<div class="pb-wfs">' + thumbs + '</div>' : '') +
-      (st.webMsg ? '<p class="pb-hint' + (st.web && st.web.length && !/No encontr/.test(st.webMsg) ? '' : ' pb-err') + '">' + esc(st.webMsg) + '</p>' : '');
+      (st.webMsg ? '<p class="pb-hint' + (st.web && st.web.length && !/No encontr/.test(st.webMsg) ? '' : ' pb-err') + '">' + esc(st.webMsg) + '</p>' : '') +
+      (thumbs && !st.fbEnviado ? '<p class="pb-hint">👎 marca las que no sirven. Cuando apruebes la publicación, la IA aprende de tu elección y la foto queda guardada en el item.</p>' : '') +
+      (st.fbMsg ? '<p class="pb-hint pb-ok">' + esc(st.fbMsg) + '</p>' : '');
+  }
+  /* ---------- retroalimentación: lo que eliges enseña a la IA y la foto queda en el item ---------- */
+  function chica(src, max) {
+    return cargarImg(src).then(function (im) {
+      var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height, k = Math.min(1, max / Math.max(w, h));
+      var c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+      c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); return c.toDataURL("image/jpeg", 0.8);
+    }).catch(function () { return ""; });
+  }
+  function marcarMala(i) {
+    var x = st.web && st.web[i]; if (!x) return;
+    x.mala = !x.mala;
+    if (x.mala && st.webSel === i) {
+      var j = st.web.findIndex(function (y, k) { return !y.mala && k !== i; });
+      if (j >= 0) { usarFotoWeb(j); return; }
+    }
+    pintarWeb();
+  }
+  /* ---------- aprobar: solo aquí se guarda algo en la base de datos ---------- */
+  function datosFeedback() {
+    var malas = (st.web || []).filter(function (x) { return x.mala; });
+    var buena = st.webUsada && st.img.juego && st.webSel >= 0 && st.web ? st.web[st.webSel] : null;
+    var it = st.item, guardar = !!(buena && it && !(it.previas && it.previas.length));
+    var src = buena ? (st.img.juego && /^data:/.test(st.img.juego.src) ? st.img.juego.src : buena.data) : "";
+    return Promise.all([buena ? chica(src, 320) : "", Promise.all(malas.map(function (m) { return chica(m.data, 320); }))]).then(function (r) {
+      return { buena: buena ? { id: buena.id, data: r[0] } : null,
+        malas: malas.map(function (m, k) { return { id: m.id, data: r[1][k] }; }).filter(function (m) { return m.data; }),
+        previa: guardar ? src : "" };
+    });
+  }
+  function aprobar() {
+    if (st.apEst === "env") return;
+    if (!String(st.d.nombre || "").trim()) { st.apMsg = "Primero pon el nombre del item."; pintarAprobar(); return; }
+    if (!st.img.juego && !st.img.oficial) { st.apMsg = "Primero pon una foto."; pintarAprobar(); return; }
+    st.apEst = "env"; st.apMsg = ""; pintarAprobar();
+    var cv = document.getElementById("pb-cv"); dibujar(cv);
+    var imagen = "";
+    for (var q = 0.85; q >= 0.5; q -= 0.1) { imagen = cv.toDataURL("image/jpeg", q); if (imagen.length < 900000) break; }
+    var it = st.item;
+    datosFeedback().then(function (fb) {
+      return pedirIa({ accion: "aprobar", imagen: imagen, nombre: st.d.nombre, tipo: st.d.tipo, precio: num(st.d.precio),
+        textos: textos().map(function (t) { return { titulo: t[0], texto: t[1] }; }),
+        itemId: it ? it.id : "", heroe: it ? it.heroe : "", buena: fb.buena, malas: fb.malas, previa: fb.previa });
+    }).then(function (j) {
+      if (j.previa && it) it.previas = [j.previa].concat(it.previas || []);
+      st.apEst = "ok"; st.fbEnviado = true;
+      st.apMsg = "✔ Publicación guardada." + (j.previa ? " La foto quedó en el item como \"Ver en el juego\": la próxima vez sale al instante y sin gastar." : "") + (fb_hubo(st) ? " La IA aprendió de tu elección." : "");
+      st.lista = null; pintarAprobar(); pintarWeb(); cargarLista();
+    }).catch(function (e) { st.apEst = ""; st.apMsg = "No se pudo guardar: " + String(e.message || e); pintarAprobar(); });
+  }
+  function fb_hubo(st) { return !!(st.web && st.web.length && (st.webUsada || st.web.some(function (x) { return x.mala; }))); }
+  function pintarAprobar() {
+    var box = document.getElementById("pb-aprobar"); if (!box) return;
+    box.innerHTML = '<button type="button" class="pb-btn pb-ok-btn" data-pb="aprobar"' + (st.apEst === "env" ? " disabled" : "") + '>' +
+      (st.apEst === "env" ? "Guardando…" : st.apEst === "ok" ? "✔ Aprobada y guardada" : "✅ Aprobar y guardar") + '</button>' +
+      '<p class="pb-hint' + (/^No se pudo|^Primero/.test(st.apMsg) ? ' pb-err' : (st.apMsg ? ' pb-ok' : '')) + '">' +
+      esc(st.apMsg || "Nada se guarda en la base de datos hasta que apruebes. Al aprobar se guarda la publicación (imagen y textos) y la foto queda en el item.") + '</p>';
+  }
+  /* ---------- lista de publicaciones aprobadas ---------- */
+  function cargarLista() {
+    if (st.listaEst === "carga") return;
+    st.listaEst = "carga"; st.listaMsg = ""; pintarLista();
+    pedirIa({ accion: "lista" }).then(function (j) { st.lista = j.lista || []; st.listaEst = ""; })
+      .catch(function (e) { st.listaEst = ""; st.lista = st.lista || []; st.listaMsg = String(e.message || e); }).then(pintarLista);
+  }
+  function fechaCorta(ms) { if (!ms) return ""; var d = new Date(ms); return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); }
+  function pintarLista() {
+    var box = document.getElementById("pb-lista"); if (!box) return;
+    if (st.listaEst === "carga" && !st.lista) { box.innerHTML = '<p class="pb-hint">Cargando…</p>'; return; }
+    var l = st.lista || [];
+    box.innerHTML = (l.length ? l.map(function (x) {
+      return '<div class="pb-pub"><div><b>' + esc(x.nombre) + '</b><small>' + esc(fechaCorta(x.fecha)) + (x.precio != null ? ' · ' + esc(sol(x.precio)) : '') + '</small></div>' +
+        '<div class="pb-pub-b"><button type="button" class="pb-btn" data-pb="pubBajar" data-id="' + esc(x.id) + '">⬇ JPG</button>' +
+        '<button type="button" class="pb-btn" data-pb="pubCopiar" data-id="' + esc(x.id) + '">📋 Texto</button>' +
+        '<button type="button" class="pb-btn" data-pb="pubBorrar" data-id="' + esc(x.id) + '" title="Borrar">🗑</button></div></div>';
+    }).join("") : '<p class="pb-hint">Todavía no has aprobado ninguna publicación.</p>') +
+      (st.listaMsg ? '<p class="pb-hint pb-err">' + esc(st.listaMsg) + '</p>' : '');
+  }
+  function pubBajar(id) {
+    st.listaMsg = "Descargando…"; pintarLista();
+    pedirIa({ accion: "ver", id: id }).then(function (j) {
+      if (!j.imagen) throw new Error("Esa publicación no tiene imagen.");
+      var x = (st.lista || []).filter(function (p) { return p.id === id; })[0];
+      var l = document.createElement("a"); l.href = j.imagen; l.download = (TIENDA === "rayas" ? "rayas-" : "litlejacob-") + slug(x ? x.nombre : "publicacion") + ".jpg";
+      document.body.appendChild(l); l.click(); l.remove(); st.listaMsg = ""; pintarLista();
+    }).catch(function (e) { st.listaMsg = String(e.message || e); pintarLista(); });
+  }
+  function pubCopiar(id) {
+    var x = (st.lista || []).filter(function (p) { return p.id === id; })[0]; if (!x || !x.textos || !x.textos.length) return;
+    var txt = x.textos[0].texto;
+    var fin = function () { st.listaMsg = "✔ Texto copiado."; pintarLista(); setTimeout(function () { st.listaMsg = ""; pintarLista(); }, 2000); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(fin, function () { copiaVieja(txt); fin(); }); else { copiaVieja(txt); fin(); }
+  }
+  function pubBorrar(id) {
+    if (st.pubBorrando !== id) { st.pubBorrando = id; st.listaMsg = "Toca 🗑 otra vez para borrar esa publicación."; pintarLista(); return; }
+    st.pubBorrando = null;
+    pedirIa({ accion: "borrar", id: id }).then(function () { st.lista = (st.lista || []).filter(function (p) { return p.id !== id; }); st.listaMsg = ""; pintarLista(); })
+      .catch(function (e) { st.listaMsg = String(e.message || e); pintarLista(); });
   }
   function automatico(teniaFoto) {
     if (!teniaFoto) buscarFotoWeb();
@@ -376,6 +477,12 @@
     "#rayasPub .pb-auto{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;line-height:1.4;cursor:pointer}#rayasPub .pb-auto input{margin-top:3px;accent-color:#ff2d8f;width:16px;height:16px;flex:none}" +
     "#rayasPub #pb-web{display:grid;gap:8px}#rayasPub .pb-wfs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}" +
     "#rayasPub .pb-wf{aspect-ratio:16/9;border-radius:10px;border:2px solid rgba(255,255,255,.12);background:#000 center/cover no-repeat;cursor:pointer;padding:0}#rayasPub .pb-wf.sel{border-color:#ff2d8f}" +
+    "#rayasPub .pb-wfc{position:relative}#rayasPub .pb-wfc.mala .pb-wf{opacity:.3;filter:grayscale(1)}#rayasPub .pb-wfc .pb-wf{width:100%;display:block}" +
+    "#rayasPub .pb-wno{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:#000c;color:#fff;cursor:pointer;font-size:13px;line-height:26px;padding:0}" +
+    "#rayasPub .pb-aprobar{display:grid;gap:8px;margin-top:12px}#rayasPub .pb-ok-btn{background:linear-gradient(180deg,#5be08f,#22a357);color:#06220f;box-shadow:0 4px 16px rgba(34,163,87,.3)}" +
+    "#rayasPub .pb-lista{display:grid;gap:8px}#rayasPub .pb-pub{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03)}" +
+    "#rayasPub .pb-pub>div:first-child{display:grid;gap:2px;min-width:0}#rayasPub .pb-pub b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#rayasPub .pb-pub small{font-size:12px;opacity:.7}" +
+    "#rayasPub .pb-pub-b{display:flex;gap:6px;flex:none}#rayasPub .pb-pub-b .pb-btn{padding:8px 10px}" +
     "@media(max-width:520px){#rayasPub .pb-2{grid-template-columns:1fr}#rayasPub .pb-foto{font-size:11px}}";
 
   function campo(id, et, tipo, ph) {
@@ -413,7 +520,8 @@
       '</div><div class="pb-prev"><div class="pb-grp"><h3>Vista previa</h3><canvas id="pb-cv" width="' + W + '" height="' + H + '"></canvas>' +
       '<div class="pb-acc"><button type="button" class="pb-btn rojo" data-pb="bajar">⬇ Descargar JPG</button>' +
       '<button type="button" class="pb-btn" data-pb="compartir">📤 Compartir</button></div>' +
-      '<p class="pb-hint" id="pb-msg" role="status"></p></div></div></div></div>';
+      '<p class="pb-hint" id="pb-msg" role="status"></p><div id="pb-aprobar" class="pb-aprobar"></div></div>' +
+      '<div class="pb-grp"><h3>📚 Publicaciones aprobadas</h3><div id="pb-lista" class="pb-lista"></div></div></div></div></div>';
   }
   function pintarTextos() {
     var ib = document.getElementById("pb-ia");
@@ -435,14 +543,14 @@
     });
   }
   function msg(t) { var m = document.getElementById("pb-msg"); if (m) m.textContent = t || ""; }
-  function render() { st.raiz.innerHTML = html(); pintarCat(); pintarWeb(); fuentes().then(refrescar); refrescar(); }
+  function render() { st.raiz.innerHTML = html(); pintarCat(); pintarWeb(); pintarAprobar(); pintarLista(); if (!st.lista) cargarLista(); fuentes().then(refrescar); refrescar(); }
 
   function ponerFoto(k, file) {
     if (!file || !/^image\//.test(file.type)) { msg("Ese archivo no es una imagen."); return; }
     var url = URL.createObjectURL(file);
     cargarImg(url).then(function (im) {
       var viejo = st.img[k]; if (viejo && /^blob:/.test(viejo.src)) URL.revokeObjectURL(viejo.src);
-      st.img[k] = im; st.slot = k === "juego" && !st.img.oficial ? "oficial" : st.slot; msg(""); render();
+      st.img[k] = im; if (k === "juego") st.webUsada = false; st.slot = k === "juego" && !st.img.oficial ? "oficial" : st.slot; msg(""); render();
     }).catch(function () { msg("No se pudo leer la imagen."); });
   }
   function lienzoBlob() {
@@ -460,6 +568,11 @@
     else if (a === "iaEscribir") escribirIa();
     else if (a === "webBuscar") buscarFotoWeb();
     else if (a === "webUsar") usarFotoWeb(parseInt(t.getAttribute("data-i"), 10));
+    else if (a === "webMala") marcarMala(parseInt(t.getAttribute("data-i"), 10));
+    else if (a === "aprobar") aprobar();
+    else if (a === "pubBajar") pubBajar(t.getAttribute("data-id"));
+    else if (a === "pubCopiar") pubCopiar(t.getAttribute("data-id"));
+    else if (a === "pubBorrar") pubBorrar(t.getAttribute("data-id"));
     else if (a === "autoYa") automatico(!!st.img.juego);
     else if (a === "iaQuitar") { st.ia = null; st.iaMsg = ""; pintarTextos(); }
     else if (a === "quitar") { e.preventDefault(); e.stopPropagation(); var k = t.getAttribute("data-slot"); st.img[k] = null; st.slot = k; render(); }
@@ -493,7 +606,7 @@
   function alEscribir(e) {
     if (e.target.id === "pb-buscar") { st.cat.q = e.target.value; cargarCat(); pintarCat(); return; }
     var k = e.target.getAttribute("data-k"); if (!k) return;
-    st.d[k] = e.target.value; refrescar();
+    st.d[k] = e.target.value; if (st.apEst === "ok") { st.apEst = ""; st.apMsg = ""; pintarAprobar(); } refrescar();
   }
   function alCambio(e) {
     if (e.target.hasAttribute && e.target.hasAttribute("data-pb-auto")) { st.auto = e.target.checked; guardarAuto(st.auto); return; }

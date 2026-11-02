@@ -80,5 +80,26 @@ const ia = require("./ia");
   // si calificar falla, igual devuelve fotos
   const falla = async (url, o) => /api\.anthropic/.test(url) && JSON.parse(o.body).tool_choice ? { ok: false, status: 529, json: async () => ({}) } : web(url, o);
   assert.strictEqual((await ia.buscarFotos("k", { nombre: "X" }, falla)).fotos.length, 6);
+  // retroalimentación: los ejemplos van como imágenes antes de las candidatas; mismo héroe primero
+  const docs = [
+    { heroe: "Slark", buena: { data: "data:image/jpeg;base64,U0xB" }, malas: [{ data: "data:image/jpeg;base64,TUFM" }] },
+    { heroe: "Juggernaut", buena: { data: "data:image/jpeg;base64,SlVH" }, malas: [] },
+    { heroe: "Pudge", buena: { data: "data:image/jpeg;base64,UFVE" }, malas: [{ data: "data:image/jpeg;base64,TUFM" }, { data: "data:image/jpeg;base64,TUFM" }, { data: "data:image/jpeg;base64,TUFM" }, { data: "data:image/jpeg;base64,TUFM" }] }
+  ];
+  const ej = ia.elegirEjemplos(docs, "juggernaut");
+  assert.deepStrictEqual(ej.buenas.map((x) => x.slice(-4)), ["SlVH", "U0xB", "UFVE"]); assert.strictEqual(ej.malas.length, 3);
+  let conEj = null;
+  const verEj = async (url, o) => { if (/api\.anthropic/.test(url) && JSON.parse(o.body).tool_choice) conEj = JSON.parse(o.body); return conNotas(url, o); };
+  await ia.buscarFotos("k", { nombre: "Bladeform Legacy", heroe: "Juggernaut" }, verEj, ref, ej);
+  const imgs = conEj.messages[0].content.filter((c) => c.type === "image").map((c) => c.source.data);
+  assert.strictEqual(imgs.length, 1 + 3 + 3 + 9); assert.strictEqual(imgs[1], "SlVH");
+  assert(conEj.messages[0].content.some((c) => c.type === "text" && /NO le gustaron/.test(c.text)));
+  // limpiar feedback: solo data URLs válidas, previa aparte
+  const fb = ia.limpiarFeedback({ itemId: "it-1", nombre: "X", heroe: "Slark", buena: { id: "a-2", data: "data:image/jpeg;base64,QUJD" }, malas: [{ id: "b", data: "javascript:1" }, { id: "c", data: "data:image/png;base64,QUJD" }], previa: "data:image/jpeg;base64,QUJD" });
+  assert.strictEqual(fb.buena.id, "a-2"); assert.strictEqual(fb.malas.length, 1); assert(fb.previa);
+  assert.strictEqual(ia.limpiarFeedback({ buena: { data: "http://x" } }).buena, null);
+  const pub = ia.limpiarPublicacion({ imagen: "data:image/jpeg;base64,QUJD", nombre: "X", precio: "85", textos: [{ titulo: "U", texto: "a" }, { texto: "" }] });
+  assert.strictEqual(pub.imagen.length, 27); assert.strictEqual(pub.precio, 85); assert.strictEqual(pub.textos.length, 1);
+  assert.strictEqual(ia.limpiarPublicacion({ imagen: "http://x" }).imagen, "");
   console.log("ia.test.js: todo OK");
 })().catch((e) => { console.error(e); process.exit(1); });

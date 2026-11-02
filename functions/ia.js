@@ -206,13 +206,27 @@ const HERR_FOTOS = {
 };
 const NOTA_MIN = 6;
 function soloBase64(dataUrl) { const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || "")); return m ? { tipo: m[1], b64: m[2] } : null; }
-async function calificarFotos(clave, it, fotos, oficial, f) {
+// Ejemplos de lo que al dueño le gustó / no le gustó en publicaciones anteriores (retroalimentación).
+function bloquesEjemplos(ej) {
+  const out = [];
+  const meter = function (lista, titulo) {
+    const l = (Array.isArray(lista) ? lista : []).map(soloBase64).filter(function (b) { return b && b.b64.length < 400000; }).slice(0, 3);
+    if (!l.length) return;
+    out.push({ type: "text", text: titulo });
+    l.forEach(function (b) { out.push({ type: "image", source: { type: "base64", media_type: b.tipo, data: b.b64 } }); });
+  };
+  meter(ej && ej.buenas, "Ejemplos de fotos que al dueño de la tienda SÍ le gustaron para sus publicaciones (este es el estilo que busca):");
+  meter(ej && ej.malas, "Ejemplos de fotos que al dueño NO le gustaron (evita este tipo):");
+  return out;
+}
+async function calificarFotos(clave, it, fotos, oficial, f, ejemplos) {
   const contenido = [];
   const ref = soloBase64(oficial);
   if (ref && ref.b64.length < 1500000) {
     contenido.push({ type: "text", text: "Imagen de referencia: así se ve el item." });
     contenido.push({ type: "image", source: { type: "base64", media_type: ref.tipo, data: ref.b64 } });
   }
+  bloquesEjemplos(ejemplos).forEach(function (b) { contenido.push(b); });
   fotos.forEach(function (x, i) {
     const b = soloBase64(x.data); if (!b) return;
     contenido.push({ type: "text", text: "Foto " + (i + 1) + ":" });
@@ -223,7 +237,7 @@ async function calificarFotos(clave, it, fotos, oficial, f) {
     "10 = el héroe o el item se ve GRANDE, de cerca y enfocado, se aprecia bien el item (como un showcase); " +
     "5 = se ve el héroe con el item pero algo chico o tapado; " +
     "0-2 = vista lejana de partida desde arriba con héroes chiquitos, mapa, menús o interfaz, una persona o cara, mucho texto encima, " +
-    "otro héroe u otro item distinto, o pantalla negra. Califica todas las fotos." });
+    "otro héroe u otro item distinto, o pantalla negra. Si hay ejemplos de lo que le gustó y no le gustó al dueño, úsalos como guía del estilo. Califica todas las fotos." });
   const r = await f(API_URL, {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": clave, "anthropic-version": "2023-06-01" },
@@ -237,7 +251,7 @@ async function calificarFotos(clave, it, fotos, oficial, f) {
   ((uso && uso.input && uso.input.fotos) || []).forEach(function (x) { const n = parseInt(x && x.n, 10), v = Number(x && x.nota); if (n >= 1 && isFinite(v)) notas[n - 1] = v; });
   return notas;
 }
-async function buscarFotos(clave, item, fetchFn, oficial) {
+async function buscarFotos(clave, item, fetchFn, oficial, ejemplos) {
   const f = fetchFn || fetch;
   const it = limpiarItem(item);
   if (!it.nombre) throw new Error("Falta el nombre del item.");
@@ -253,7 +267,7 @@ async function buscarFotos(clave, item, fetchFn, oficial) {
   if (!cand.length) throw new Error("Encontré videos pero no pude bajar sus fotos. Intenta otra vez.");
   // La IA mira cada foto: quedan solo las que muestran el item de cerca, la mejor primero.
   let notas = null;
-  try { notas = await calificarFotos(clave, it, cand, oficial, f); } catch (e) { notas = null; }
+  try { notas = await calificarFotos(clave, it, cand, oficial, f, ejemplos); } catch (e) { notas = null; }
   if (!notas || !Object.keys(notas).length) return { fotos: cand.slice(0, 6), aviso: "" };
   cand = cand.map(function (x, i) { return Object.assign({}, x, { nota: notas[i] != null ? notas[i] : 0 }); })
     .sort(function (a, b) { return b.nota - a.nota; });
@@ -262,4 +276,33 @@ async function buscarFotos(clave, item, fetchFn, oficial) {
   return { fotos: cand.slice(0, 3), aviso: "No encontré fotos donde el item se vea de cerca. Estas son las mejores; si no te gustan, sube una tú." };
 }
 
-module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos };
+// Limpia lo que manda el navegador como retroalimentación: fotos chicas (data URL jpeg/png/webp) y datos del item.
+function limpiarFeedback(b) {
+  b = b || {};
+  const img = function (v) { return soloBase64(v) && String(v).length < 400000 ? String(v) : ""; };
+  const buena = b.buena && img(b.buena.data) ? { id: texto(b.buena.id, 40), data: img(b.buena.data) } : null;
+  const malas = (Array.isArray(b.malas) ? b.malas : []).map(function (x) { return x && img(x.data) ? { id: texto(x.id, 40), data: img(x.data) } : null; }).filter(Boolean).slice(0, 8);
+  const previa = b.previa && soloBase64(b.previa) && String(b.previa).length < 950000 ? String(b.previa) : "";
+  return { itemId: texto(b.itemId, 60), nombre: texto(b.nombre, 90), heroe: texto(b.heroe, 40), buena: buena, malas: malas, previa: previa };
+}
+// Elige los ejemplos a mostrar: hasta 3 buenas y 3 malas, primero las del mismo héroe, luego las más recientes.
+function elegirEjemplos(docs, heroe) {
+  const h = String(heroe || "").toLowerCase();
+  const orden = (docs || []).slice().sort(function (a, b) { return ((b.heroe || "").toLowerCase() === h) - ((a.heroe || "").toLowerCase() === h); });
+  const buenas = [], malas = [];
+  orden.forEach(function (d) {
+    if (d.buena && d.buena.data && buenas.length < 3) buenas.push(d.buena.data);
+    (d.malas || []).forEach(function (m) { if (m && m.data && malas.length < 3) malas.push(m.data); });
+  });
+  return { buenas: buenas, malas: malas };
+}
+
+// Publicación aprobada: imagen final (data URL jpeg, < 950 KB por el límite de Firestore) y sus textos.
+function limpiarPublicacion(b) {
+  b = b || {};
+  const im = soloBase64(b.imagen) && String(b.imagen).length < 950000 ? String(b.imagen) : "";
+  const textos = (Array.isArray(b.textos) ? b.textos : []).map(function (x) { return { titulo: texto(x && x.titulo, 40) || "Texto", texto: texto(x && x.texto, 1200) }; }).filter(function (x) { return x.texto; }).slice(0, 3);
+  return { imagen: im, nombre: texto(b.nombre, 90), tipo: texto(b.tipo, 60), precio: numero(b.precio), textos: textos };
+}
+
+module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos, limpiarFeedback, elegirEjemplos, limpiarPublicacion };
