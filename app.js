@@ -2951,9 +2951,9 @@
       '<button class="btn btn-ghost btn-sm" type="button" data-a="pedRecargar">Actualizar lista</button></div>';
   }
 
-  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsPed: "🚚 Pedidos de sets", config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pedidos: "🛒 Pedidos", pagina: "Textos y contactos" };
+  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pedidos: "🛒 Pedidos", pagina: "Textos y contactos" };
   function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : v === "sets" ? "sets" : "inicio"; }
-  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios"] : ["config", "usuarios", "pagina"]; }
+  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios"] : ["config", "usuarios", "pagina"]; }
   function panelAdmin() {
     var sc = seccionAdmin(), lista = tabsDeSeccion(sc);
     if (lista.indexOf(admin.tab) < 0) admin.tab = lista[0];
