@@ -276,9 +276,22 @@
       return st.web.length ? usarFotoWeb(0) : null;
     }).catch(function (e) { st.webEst = ""; st.webMsg = String(e.message || e); pintarWeb(); });
   }
+  // Las fotos 4:3 de YouTube traen franjas negras arriba y abajo: se recortan.
+  function sinBandas(im) {
+    try {
+      var w = im.naturalWidth, h = im.naturalHeight, c = document.createElement("canvas"); c.width = w; c.height = h;
+      var x = c.getContext("2d"); x.drawImage(im, 0, 0); var d = x.getImageData(0, 0, w, h).data;
+      var oscura = function (y) { var s = 0, n = 0; for (var i = 0; i < w; i += 4) { var k = (y * w + i) * 4; s += d[k] + d[k + 1] + d[k + 2]; n++; } return s / (n * 3) < 20; };
+      var t = 0, b = h - 1; while (t < h / 3 && oscura(t)) t++; while (b > h * 2 / 3 && oscura(b)) b--;
+      if (t < 4 && h - 1 - b < 4) return Promise.resolve(im);
+      var c2 = document.createElement("canvas"); c2.width = w; c2.height = b - t + 1;
+      c2.getContext("2d").drawImage(im, 0, t, w, b - t + 1, 0, 0, w, b - t + 1);
+      return cargarImg(c2.toDataURL("image/jpeg", 0.92));
+    } catch (e) { return Promise.resolve(im); }
+  }
   function usarFotoWeb(i) {
     var x = st.web && st.web[i]; if (!x) return Promise.resolve();
-    return cargarImg(x.data).then(function (im) { st.img.juego = im; st.webSel = i; render(); }).catch(function () { st.webMsg = "No se pudo usar esa foto."; pintarWeb(); });
+    return cargarImg(x.data).then(sinBandas).then(function (im) { st.img.juego = im; st.webSel = i; render(); }).catch(function () { st.webMsg = "No se pudo usar esa foto."; pintarWeb(); });
   }
   function pintarWeb() {
     var box = document.getElementById("pb-web"); if (!box) return;
@@ -286,7 +299,7 @@
       return '<button type="button" class="pb-wf' + (st.webSel === i ? ' sel' : '') + '" data-pb="webUsar" data-i="' + i + '" style="background-image:url(' + x.data + ')" aria-label="Usar foto ' + (i + 1) + '"></button>';
     }).join("");
     box.innerHTML = '<div class="pb-iabar"><button type="button" class="pb-btn" data-pb="webBuscar"' + (st.webEst === "busca" ? " disabled" : "") + '>' +
-      (st.webEst === "busca" ? "🔎 Buscando en la web…" : "🔎 Buscar foto in-game en la web") + '</button></div>' +
+      (st.webEst === "busca" ? "🔎 Buscando en la web…" : "🔎 Buscar fotos in-game en la web") + '</button></div>' +
       (thumbs ? '<div class="pb-wfs">' + thumbs + '</div>' : '') +
       (st.webMsg ? '<p class="pb-hint' + (st.web && st.web.length ? '' : ' pb-err') + '">' + esc(st.webMsg) + '</p>' : '');
   }
