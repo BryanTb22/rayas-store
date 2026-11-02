@@ -204,7 +204,8 @@
   // Efecto inusual guardado en las gemas del item ("Inusual: Candy Caster", "Unusual: Smoke", "Efecto: …").
   function efectoDe(it) {
     var l = String(it.descripcion || "").split(/\n|;/).map(function (x) { return x.trim(); });
-    for (var i = 0; i < l.length; i++) { var m = /^(inusual|unusual|efecto( inusual)?|effect)\s*:\s*(.+)$/i.exec(l[i]); if (m) return m[3].trim(); }
+    // Acepta "Inusual: X", "Unusual: X", "Unusual Effect Gem: X", "Efecto inusual: X", "Efecto: X".
+    for (var i = 0; i < l.length; i++) { var m = /^((?:inusual|unusual|efecto|effect)[^:]*)\s*:\s*(.+)$/i.exec(l[i]); if (m && !/prism|et[eé]re|ethereal|kinetic|cin[eé]tic/i.test(m[1])) return m[2].trim(); }
     return "";
   }
   function cdTxt(it) {
@@ -251,7 +252,7 @@
     var it = st.item || {}, d = st.d, ne = Number(it.estilos) || 0;
     return { nombre: d.nombre, efecto: d.efecto, tipo: it.tipo || d.tipo, rareza: it.rareza || "", heroe: it.heroe || "", gemas: st.item ? gemasTxt(it) : "",
       estilos: ne ? (String(it.estOk || "").split(",").filter(Boolean).length || 1) + " de " + ne : "",
-      precio: num(d.precio), steam: num(d.steam), stock: stockN(), entrega: d.entrega };
+      precio: num(d.precio), steam: steamMayor() ? num(d.steam) : null, stock: stockN(), entrega: d.entrega };
   }
   function escribirIa() {
     if (st.iaEst === "esc") return;
