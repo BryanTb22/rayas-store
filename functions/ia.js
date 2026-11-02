@@ -163,7 +163,70 @@ function pedidoFotos(it, intento) {
     user: datos
   };
 }
+/* ---------- Búsqueda directa en YouTube (sin depender de la búsqueda web de Claude) ---------- */
+// Nombre limpio para buscar: sin "Unusual/Inscribed/Genuine…" al inicio ni " - Arms/Weapon/Head" al final.
+function nombreBusqueda(it) {
+  return String(it.nombre || "").replace(/^(unusual|inusual|genuine|exalted|corrupted|cursed|frozen|heroic|elder|inscribed|autographed|auspicious|infused|legacy)\s+/i, "")
+    .replace(/\s+-\s+[\w' ]{2,20}$/, "").replace(/\s+style$/i, "").trim() || String(it.nombre || "");
+}
+function consultasYoutube(it, intento) {
+  const n = nombreBusqueda(it), e = String(it.efecto || "").trim(), h = String(it.heroe || "").trim();
+  if (e) {
+    return intento > 1
+      ? ["unusual " + e + " " + n + " dota 2", e + " " + n + " showcase", "dota 2 " + n + " " + e + " effect", "unusual " + e + " " + (h || "courier") + " dota 2"]
+      : [n + " " + e + " dota 2", "unusual " + e + " " + n, n + " " + e + " in game"];
+  }
+  return intento > 1
+    ? ["dota 2 " + n + " showcase", n + " " + (h || "") + " dota 2 preview", n + " dota 2 gameplay"]
+    : [n + " dota 2 in game", "dota 2 " + n + (h ? " " + h : ""), n + " dota 2 preview"];
+}
+// Lee los videos (id + título) de la página de resultados de YouTube.
+function videosDeHtml(html) {
+  const out = [], re = /"videoRenderer":\{"videoId":"([\w-]{11})"[\s\S]{0,3000}?"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/g;
+  let m;
+  while ((m = re.exec(String(html || ""))) && out.length < 25) {
+    if (!out.some(function (x) { return x.id === m[1]; })) out.push({ id: m[1], titulo: m[2].replace(/\\u0026/g, "&").replace(/\\"/g, '"').replace(/\\\\/g, "\\").slice(0, 120) });
+  }
+  return out;
+}
+async function videosYoutube(consulta, f) {
+  try {
+    const r = await f("https://www.youtube.com/results?search_query=" + encodeURIComponent(consulta) + "&hl=en&gl=US",
+      { headers: { "accept-language": "en-US,en;q=0.9", "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36", "cookie": "CONSENT=YES+1; SOCS=CAI" } });
+    if (!r.ok) return [];
+    return videosDeHtml(await r.text());
+  } catch (e) { return []; }
+}
+// Claude elige, por el título, hasta 4 videos que sean de ESE item (y de ESA variante si tiene efecto).
+const HERR_VIDEOS = { name: "elegir_videos", description: "Elige los videos que muestran el item exacto.", input_schema: { type: "object", properties: { ids: { type: "array", items: { type: "string" } } }, required: ["ids"] } };
+async function elegirVideos(clave, it, lista, f) {
+  if (lista.length <= 4) return lista.map(function (v) { return v.id; });
+  const txt = "Item de Dota 2: " + it.nombre + (it.efecto ? " — variante con efecto inusual '" + it.efecto + "' (" + descEfecto(it.efecto) + ")" : "") + (it.heroe ? " (héroe: " + it.heroe + ")" : "") +
+    ".\nVideos de YouTube encontrados (id · título):\n" + lista.map(function (v) { return v.id + " · " + v.titulo; }).join("\n") +
+    "\n\nElige con la herramienta elegir_videos los ids de hasta 4 videos que muy probablemente muestren ESTE item dentro del juego" +
+    (it.efecto ? " y ESTA variante/efecto (si el título menciona otra variante u otro efecto, descártalo)" : "") +
+    ", el más seguro primero. Prefiere videos dedicados a este item (showcase/preview). Las recopilaciones del mismo cofre o del mismo efecto ('all unusual items', 'todos los inusuales') sirven como segunda opción si incluyen este item. Descarta videos de otros items o héroes, de precios/trading, de parches/noticias y de otros juegos. Si ninguno sirve, devuelve una lista vacía.";
+  try {
+    const r = await f(API_URL, {
+      method: "POST", headers: { "content-type": "application/json", "x-api-key": clave, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: MODELO, max_tokens: 300, messages: [{ role: "user", content: txt }], tools: [HERR_VIDEOS], tool_choice: { type: "tool", name: HERR_VIDEOS.name } })
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(mensajeError(r.status, j));
+    const uso = ((j && j.content) || []).filter(function (c) { return c.type === "tool_use"; })[0];
+    const ids = ((uso && uso.input && uso.input.ids) || []).map(String).filter(function (id) { return lista.some(function (v) { return v.id === id; }); });
+    return ids.slice(0, 4);
+  } catch (e) { return lista.slice(0, 4).map(function (v) { return v.id; }); }
+}
+// Busca en YouTube con varias consultas; si YouTube no responde, usa la búsqueda web de Claude como respaldo.
 async function buscarVideos(clave, it, f, intento) {
+  const listas = await Promise.all(consultasYoutube(it, intento || 1).map(function (q) { return videosYoutube(q, f); }));
+  const vistos = {}, lista = [];
+  listas.forEach(function (l) { l.slice(0, 8).forEach(function (v) { if (!vistos[v.id]) { vistos[v.id] = true; lista.push(v); } }); });
+  if (lista.length) return elegirVideos(clave, it, lista, f);
+  return buscarVideosWeb(clave, it, f, intento);
+}
+async function buscarVideosWeb(clave, it, f, intento) {
   const p = pedidoFotos(it, intento || 1);
   let mensajes = [{ role: "user", content: p.user }], todo = "";
   for (let vuelta = 0; vuelta < 3; vuelta++) {
@@ -291,13 +354,13 @@ async function buscarFotos(clave, item, fetchFn, oficial, ejemplos) {
     const ids = (await buscarVideos(clave, it, f, ronda)).filter(function (id) { return !vistos[id]; });
     if (!ids.length) { if (ronda === 1) throw new Error("No encontré fotos in-game de este item en la web. Súbela tú."); break; }
     ids.forEach(function (id) { vistos[id] = true; });
-    // Candidatas: los cuadros de los 3 mejores videos (en paralelo), hasta 9.
-    const grupos = await Promise.all(ids.slice(0, 3).map(async function (id) {
+    // Candidatas: los cuadros de los 4 mejores videos (en paralelo), hasta 12.
+    const grupos = await Promise.all(ids.slice(0, 4).map(async function (id) {
       const c = await cuadrosDelVideo(id, f);
       if (c.length) return c;
       const x = await bajarMiniatura(id, f); return x ? [x] : [];
     }));
-    let cand = [].concat.apply([], grupos).slice(0, 9);
+    let cand = [].concat.apply([], grupos).slice(0, 12);
     if (!cand.length) { if (ronda === 1 && rondas === 1) throw new Error("Encontré videos pero no pude bajar sus fotos. Intenta otra vez."); continue; }
     // La IA mira cada foto: quedan solo las que muestran el item de cerca (y con su efecto), la mejor primero.
     let notas = null;
@@ -345,4 +408,4 @@ function limpiarPublicacion(b) {
   return { imagen: im, nombre: texto(b.nombre, 90), tipo: texto(b.tipo, 60), precio: numero(b.precio), textos: textos };
 }
 
-module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos, limpiarFeedback, elegirEjemplos, limpiarPublicacion, descEfecto };
+module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos, limpiarFeedback, elegirEjemplos, limpiarPublicacion, descEfecto, nombreBusqueda, consultasYoutube, videosDeHtml };

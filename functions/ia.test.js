@@ -138,5 +138,29 @@ const ia = require("./ia");
   busquedas = 0; calif = 0;
   const xM = await ia.buscarFotos("k", { nombre: "Verna", efecto: "Snowdrift" }, unaRonda);
   assert.strictEqual(busquedas, 2); assert(/vea el efecto Snowdrift/.test(xM.aviso));
+  // búsqueda directa en YouTube
+  assert.strictEqual(ia.nombreBusqueda({ nombre: "Unusual Tome of Infinite Terror - Arms" }), "Tome of Infinite Terror");
+  assert.strictEqual(ia.nombreBusqueda({ nombre: "Inscribed Bladeform Legacy" }), "Bladeform Legacy");
+  assert.strictEqual(ia.nombreBusqueda({ nombre: "Unusual Verna" }), "Verna");
+  assert(/Tome of Infinite Terror ravenblight dota 2/.test(ia.consultasYoutube({ nombre: "Unusual Tome of Infinite Terror - Arms", efecto: "ravenblight" }, 1)[0]));
+  const html = 'xx"videoRenderer":{"videoId":"abcdefghijk","thumbnail":{},"title":{"runs":[{"text":"Unusual Tome of Infinite Terror Ravenblight \\u0026 more"}]}} "videoRenderer":{"videoId":"abcdefghijk","title":{"runs":[{"text":"dup"}]}} "videoRenderer":{"videoId":"zzzzzzzzzz1","x":1,"title":{"runs":[{"text":"Otro"}]}}';
+  const vl = ia.videosDeHtml(html);
+  assert.deepStrictEqual(vl.map((v) => v.id), ["abcdefghijk", "zzzzzzzzzz1"]); assert(/Ravenblight & more/.test(vl[0].titulo));
+  // flujo: YouTube devuelve 6 videos, Claude elige 2 por título, se bajan cuadros de esos
+  const ytHtml = ["v1", "v2", "v3", "v4", "v5", "v6"].map((n, i) => '"videoRenderer":{"videoId":"' + ("vid" + i + "00000000").slice(0, 11) + '","title":{"runs":[{"text":"Video ' + n + '"}]}}').join(" ");
+  const pedidosYt = [];
+  const conYt = async (url, o) => {
+    if (/youtube\.com\/results/.test(url)) { pedidosYt.push(decodeURIComponent(url)); return { ok: true, status: 200, text: async () => ytHtml }; }
+    if (/api\.anthropic/.test(url)) {
+      const body = JSON.parse(o.body);
+      if (body.tool_choice && body.tool_choice.name === "elegir_videos") return { ok: true, status: 200, json: async () => ({ content: [{ type: "tool_use", name: "elegir_videos", input: { ids: ["vid30000000", "vid10000000", "noexiste123"] } }] }) };
+      if (body.tool_choice && body.tool_choice.name === "calificar_fotos") return { ok: true, status: 200, json: async () => ({ content: [{ type: "tool_use", name: "calificar_fotos", input: { fotos: [{ n: 1, nota: 9 }, { n: 4, nota: 7 }] } }] }) };
+      assert.fail("no debe usar la búsqueda web de Claude si YouTube respondió");
+    }
+    return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array(9000).buffer };
+  };
+  const xY = await ia.buscarFotos("k", { nombre: "Unusual Tome of Infinite Terror - Arms", efecto: "ravenblight" }, conYt);
+  assert(pedidosYt.length >= 3 && /Tome of Infinite Terror ravenblight/.test(pedidosYt[0]));
+  assert.strictEqual(xY.fotos[0].id, "vid30000000-2"); assert.strictEqual(xY.fotos[1].id, "vid10000000-2");
   console.log("ia.test.js: todo OK");
 })().catch((e) => { console.error(e); process.exit(1); });
