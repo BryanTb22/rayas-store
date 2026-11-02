@@ -109,5 +109,8 @@ const ia = require("./ia");
   const verFotos = async (url, o) => { if (/api\.anthropic/.test(url) && !JSON.parse(o.body).tool_choice) pedFotos = JSON.parse(o.body); return web(url, o); };
   await ia.buscarFotos("k", itE, verFotos);
   assert(/ESTA variante/.test(pedFotos.messages[0].content) && /Candy Caster/.test(pedFotos.messages[0].content));
+  // Steam más barato que la tienda: no se le da el precio de Steam a la IA
+  assert(!/Steam/.test(ia.armarPedido("rayas", ia.limpiarItem({ nombre: "V", precio: 40, steam: 31.34 })).user));
+  assert(/Steam: S\/ 85 \(más caro/.test(ia.armarPedido("rayas", ia.limpiarItem({ nombre: "V", precio: 75, steam: 85 })).user));
   console.log("ia.test.js: todo OK");
 })().catch((e) => { console.error(e); process.exit(1); });

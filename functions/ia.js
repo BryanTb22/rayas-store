@@ -45,7 +45,7 @@ function armarPedido(tienda, it) {
     it.gemas ? "Gemas / runas: " + it.gemas : "",
     it.estilos ? "Estilos desbloqueados: " + it.estilos : "",
     "Precio de la tienda: " + (it.precio != null ? "S/ " + it.precio : "(sin precio)"),
-    it.steam != null ? "Precio aproximado en el Mercado de Steam: S/ " + it.steam : "",
+    it.steam != null && it.precio != null && it.steam > it.precio ? "Precio aproximado en el Mercado de Steam: S/ " + it.steam + " (más caro que en la tienda)" : "",
     "Unidades disponibles: " + it.stock,
     "Entrega: " + it.entrega
   ].filter(Boolean).join("\n");
@@ -54,7 +54,7 @@ function armarPedido(tienda, it) {
     "con *negritas* de WhatsApp y algunos emojis (sin exagerar). Reglas: " +
     "usa solo los datos que te dan y nunca inventes precios, descuentos, gemas ni plazos; " +
     "los precios siempre en soles con el formato S/ 75 (nunca 'créditos'); " +
-    "si el precio de Steam es mayor que el de la tienda puedes decir que sale más barato que en Steam, si no, no lo menciones; " +
+    "solo si te dan el precio de Steam (y es más caro) puedes decir que sale más barato que en Steam; si no te lo dan, NO menciones Steam ni compares precios; " +
     "si queda 1 unidad, recalca que es la última; " +
     "si el item tiene un efecto inusual (por ejemplo Candy Caster, Smoke, Ethereal Flame), es la variante que lo hace especial: " +
     "nómbralo siempre junto al nombre del item y destácalo como atractivo (los compradores buscan esa variante en específico); " +

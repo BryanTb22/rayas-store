@@ -252,7 +252,7 @@
     var it = st.item || {}, d = st.d, ne = Number(it.estilos) || 0;
     return { nombre: d.nombre, efecto: d.efecto, tipo: it.tipo || d.tipo, rareza: it.rareza || "", heroe: it.heroe || "", gemas: st.item ? gemasTxt(it) : "",
       estilos: ne ? (String(it.estOk || "").split(",").filter(Boolean).length || 1) + " de " + ne : "",
-      precio: num(d.precio), steam: num(d.steam), stock: stockN(), entrega: d.entrega };
+      precio: num(d.precio), steam: steamMayor() ? num(d.steam) : null, stock: stockN(), entrega: d.entrega };
   }
   function escribirIa() {
     if (st.iaEst === "esc") return;
