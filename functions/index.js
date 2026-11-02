@@ -816,8 +816,33 @@ exports.crearPublicacion = onRequest(
     const tienda = b.tienda === "litlejacob" ? "litlejacob" : "rayas";
     try {
       if (b.accion === "fotos") {
-        const x = await ia.buscarFotos(ANTHROPIC_KEY.value(), b.item, null, typeof b.oficial === "string" ? b.oficial : "");
+        // Retroalimentación: las últimas elecciones del admin sirven de ejemplo para elegir mejor.
+        let ejemplos = null;
+        try {
+          const q = await db.collection("pub_feedback").orderBy("fecha", "desc").limit(20).get();
+          ejemplos = ia.elegirEjemplos(q.docs.map((d) => d.data()), b.item && b.item.heroe);
+        } catch (e) { console.warn("pub_feedback", e.message); }
+        const x = await ia.buscarFotos(ANTHROPIC_KEY.value(), b.item, null, typeof b.oficial === "string" ? b.oficial : "", ejemplos);
         return res.json({ ok: true, fotos: x.fotos, aviso: x.aviso });
+      }
+      if (b.accion === "feedback") {
+        // Guarda qué foto eligió el admin (y cuáles descartó) y, si quiere, la foto elegida como "Ver en el juego" del item.
+        const fb = ia.limpiarFeedback(b);
+        if (!fb.buena && !fb.malas.length) return res.status(400).json({ error: "Nada que guardar." });
+        await db.collection("pub_feedback").add({ tienda: tienda, itemId: fb.itemId, nombre: fb.nombre, heroe: fb.heroe, buena: fb.buena, malas: fb.malas, fecha: FV.serverTimestamp() });
+        let previaRef = "";
+        if (fb.previa && fb.itemId) {
+          const id = "img-pv" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          await db.collection("rayas").doc(id).set({ data: fb.previa });
+          const ref = db.collection("rayas_items").doc(fb.itemId);
+          const snap = await ref.get();
+          if (snap.exists) {
+            const act = Array.isArray(snap.data().previas) ? snap.data().previas : [];
+            await ref.update({ previas: ["fs:" + id].concat(act).slice(0, 6) });
+            previaRef = "fs:" + id;
+          }
+        }
+        return res.json({ ok: true, previa: previaRef });
       }
       const textos = await ia.escribirTextos(ANTHROPIC_KEY.value(), tienda, b.item);
       res.json({ ok: true, textos: textos, modelo: ia.MODELO });

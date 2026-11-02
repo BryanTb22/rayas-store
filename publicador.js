@@ -17,7 +17,7 @@
   var st = {
     raiz: null, abierto: false, slot: "juego", copiado: "",
     cat: { lista: null, cargando: false, err: "", q: "" }, item: null, ia: null, iaEst: "", iaMsg: "",
-    web: null, webEst: "", webMsg: "", auto: leerAuto(),
+    web: null, webEst: "", webMsg: "", auto: leerAuto(), webSel: -1, webUsada: false, fbEnviado: false, fbMsg: "",
     img: { juego: null, oficial: null, logo: null },
     d: { tipo: "", nombre: "", precio: "", steam: "", stock: "1", entrega: "Entrega inmediata", px: 50, py: 50 }
   };
@@ -222,7 +222,7 @@
   }
   function elegirItem(id) {
     var it = (st.cat.lista || []).filter(function (x) { return x.id === id; })[0]; if (!it) return;
-    st.item = it; st.ia = null; st.iaMsg = ""; st.cat.q = ""; st.web = null; st.webMsg = ""; st.webSel = -1;
+    st.item = it; st.ia = null; st.iaMsg = ""; st.cat.q = ""; st.web = null; st.webMsg = ""; st.webSel = -1; st.webUsada = false; st.fbEnviado = false; st.fbMsg = "";
     st.d.nombre = it.nombre; st.d.tipo = [it.rareza, it.tipo].filter(function (v, i, l) { return v && l.map(norm).indexOf(norm(v)) === i; }).join(" · ");
     st.d.precio = String(it.precio || ""); st.d.steam = it.steamUsd > 0 ? String(Math.round(it.steamUsd * TC * 100) / 100) : "";
     st.d.stock = String(Math.max(1, it.stock)); st.d.entrega = cdTxt(it) || "Entrega inmediata";
@@ -271,7 +271,7 @@
     if (!String(st.d.nombre || "").trim()) { st.webMsg = "Primero pon el nombre del item."; pintarWeb(); return; }
     st.webEst = "busca"; st.webMsg = ""; pintarWeb();
     pedirIa({ accion: "fotos", item: datosIa(), oficial: miniOficial() }).then(function (j) {
-      st.web = j.fotos || []; st.webEst = "";
+      st.web = j.fotos || []; st.webEst = ""; st.fbEnviado = false; st.fbMsg = "";
       st.webMsg = j.aviso || (st.web.length > 1 ? "La IA eligió las fotos donde el item se ve de cerca (la mejor primero). Toca otra si te gusta más." : "");
       return st.web.length ? usarFotoWeb(0) : null;
     }).catch(function (e) { st.webEst = ""; st.webMsg = String(e.message || e); pintarWeb(); });
@@ -301,17 +301,56 @@
   }
   function usarFotoWeb(i) {
     var x = st.web && st.web[i]; if (!x) return Promise.resolve();
-    return cargarImg(x.data).then(sinBandas).then(function (im) { st.img.juego = im; st.webSel = i; render(); }).catch(function () { st.webMsg = "No se pudo usar esa foto."; pintarWeb(); });
+    return cargarImg(x.data).then(sinBandas).then(function (im) { st.img.juego = im; st.webSel = i; st.webUsada = true; render(); }).catch(function () { st.webMsg = "No se pudo usar esa foto."; pintarWeb(); });
   }
   function pintarWeb() {
     var box = document.getElementById("pb-web"); if (!box) return;
     var thumbs = (st.web || []).map(function (x, i) {
-      return '<button type="button" class="pb-wf' + (st.webSel === i ? ' sel' : '') + '" data-pb="webUsar" data-i="' + i + '" style="background-image:url(' + x.data + ')" aria-label="Usar foto ' + (i + 1) + '"></button>';
+      return '<div class="pb-wfc' + (x.mala ? ' mala' : '') + '"><button type="button" class="pb-wf' + (st.webSel === i ? ' sel' : '') + '" data-pb="webUsar" data-i="' + i + '" style="background-image:url(' + x.data + ')" aria-label="Usar foto ' + (i + 1) + '"></button>' +
+        '<button type="button" class="pb-wno" data-pb="webMala" data-i="' + i + '" title="' + (x.mala ? 'Quitar la marca' : 'Esta foto no sirve (la IA aprende)') + '" aria-label="Marcar como mala">' + (x.mala ? '↩' : '👎') + '</button></div>';
     }).join("");
     box.innerHTML = '<div class="pb-iabar"><button type="button" class="pb-btn" data-pb="webBuscar"' + (st.webEst === "busca" ? " disabled" : "") + '>' +
       (st.webEst === "busca" ? "🔎 Buscando y eligiendo fotos…" : "🔎 Buscar fotos in-game en la web") + '</button></div>' +
       (thumbs ? '<div class="pb-wfs">' + thumbs + '</div>' : '') +
-      (st.webMsg ? '<p class="pb-hint' + (st.web && st.web.length && !/No encontr/.test(st.webMsg) ? '' : ' pb-err') + '">' + esc(st.webMsg) + '</p>' : '');
+      (st.webMsg ? '<p class="pb-hint' + (st.web && st.web.length && !/No encontr/.test(st.webMsg) ? '' : ' pb-err') + '">' + esc(st.webMsg) + '</p>' : '') +
+      (thumbs && !st.fbEnviado ? '<p class="pb-hint">👎 marca las que no sirven. Al descargar o copiar, la IA aprende de tu elección y la foto queda guardada en el item.</p>' : '') +
+      (st.fbMsg ? '<p class="pb-hint pb-ok">' + esc(st.fbMsg) + '</p>' : '');
+  }
+  /* ---------- retroalimentación: lo que eliges enseña a la IA y la foto queda en el item ---------- */
+  function chica(src, max) {
+    return cargarImg(src).then(function (im) {
+      var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height, k = Math.min(1, max / Math.max(w, h));
+      var c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+      c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); return c.toDataURL("image/jpeg", 0.8);
+    }).catch(function () { return ""; });
+  }
+  function marcarMala(i) {
+    var x = st.web && st.web[i]; if (!x) return;
+    x.mala = !x.mala;
+    if (x.mala && st.webSel === i) {
+      var j = st.web.findIndex(function (y, k) { return !y.mala && k !== i; });
+      if (j >= 0) { usarFotoWeb(j); return; }
+    }
+    pintarWeb();
+  }
+  function enviarFeedback() {
+    if (st.fbEnviado || !st.web || !st.web.length) return;
+    var malas = st.web.filter(function (x) { return x.mala; });
+    var buena = st.webUsada && st.img.juego && st.webSel >= 0 ? st.web[st.webSel] : null;
+    if (!buena && !malas.length) return;
+    st.fbEnviado = true; pintarWeb();
+    var it = st.item, guardar = !!(buena && it && !(it.previas && it.previas.length));
+    var src = buena ? (st.img.juego && /^data:/.test(st.img.juego.src) ? st.img.juego.src : buena.data) : "";
+    Promise.all([buena ? chica(src, 320) : "", Promise.all(malas.map(function (m) { return chica(m.data, 320); }))]).then(function (r) {
+      var cuerpo = { accion: "feedback", itemId: it ? it.id : "", nombre: st.d.nombre, heroe: it ? it.heroe : "",
+        buena: buena ? { id: buena.id, data: r[0] } : null, malas: malas.map(function (m, k) { return { id: m.id, data: r[1][k] }; }).filter(function (m) { return m.data; }),
+        previa: guardar ? src : "" };
+      return pedirIa(cuerpo);
+    }).then(function (j) {
+      if (j.previa && it) { it.previas = [j.previa].concat(it.previas || []); }
+      st.fbMsg = (j.previa ? "✔ Foto guardada en el item como \"Ver en el juego\": la próxima vez sale al instante y sin gastar. " : "✔ ") + "La IA aprendió de tu elección.";
+      pintarWeb();
+    }).catch(function (e) { st.fbEnviado = false; st.fbMsg = ""; st.webMsg = "No se pudo guardar tu elección: " + String(e.message || e); pintarWeb(); });
   }
   function automatico(teniaFoto) {
     if (!teniaFoto) buscarFotoWeb();
@@ -376,6 +415,8 @@
     "#rayasPub .pb-auto{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;line-height:1.4;cursor:pointer}#rayasPub .pb-auto input{margin-top:3px;accent-color:#ff2d8f;width:16px;height:16px;flex:none}" +
     "#rayasPub #pb-web{display:grid;gap:8px}#rayasPub .pb-wfs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}" +
     "#rayasPub .pb-wf{aspect-ratio:16/9;border-radius:10px;border:2px solid rgba(255,255,255,.12);background:#000 center/cover no-repeat;cursor:pointer;padding:0}#rayasPub .pb-wf.sel{border-color:#ff2d8f}" +
+    "#rayasPub .pb-wfc{position:relative}#rayasPub .pb-wfc.mala .pb-wf{opacity:.3;filter:grayscale(1)}#rayasPub .pb-wfc .pb-wf{width:100%;display:block}" +
+    "#rayasPub .pb-wno{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:#000c;color:#fff;cursor:pointer;font-size:13px;line-height:26px;padding:0}" +
     "@media(max-width:520px){#rayasPub .pb-2{grid-template-columns:1fr}#rayasPub .pb-foto{font-size:11px}}";
 
   function campo(id, et, tipo, ph) {
@@ -442,7 +483,7 @@
     var url = URL.createObjectURL(file);
     cargarImg(url).then(function (im) {
       var viejo = st.img[k]; if (viejo && /^blob:/.test(viejo.src)) URL.revokeObjectURL(viejo.src);
-      st.img[k] = im; st.slot = k === "juego" && !st.img.oficial ? "oficial" : st.slot; msg(""); render();
+      st.img[k] = im; if (k === "juego") st.webUsada = false; st.slot = k === "juego" && !st.img.oficial ? "oficial" : st.slot; msg(""); render();
     }).catch(function () { msg("No se pudo leer la imagen."); });
   }
   function lienzoBlob() {
@@ -460,16 +501,19 @@
     else if (a === "iaEscribir") escribirIa();
     else if (a === "webBuscar") buscarFotoWeb();
     else if (a === "webUsar") usarFotoWeb(parseInt(t.getAttribute("data-i"), 10));
+    else if (a === "webMala") marcarMala(parseInt(t.getAttribute("data-i"), 10));
     else if (a === "autoYa") automatico(!!st.img.juego);
     else if (a === "iaQuitar") { st.ia = null; st.iaMsg = ""; pintarTextos(); }
     else if (a === "quitar") { e.preventDefault(); e.stopPropagation(); var k = t.getAttribute("data-slot"); st.img[k] = null; st.slot = k; render(); }
     else if (a === "copiar") {
+      enviarFeedback();
       var i = t.getAttribute("data-i"), txt = textos()[i][1];
       var fin = function () { st.copiado = i; pintarTextos(); setTimeout(function () { st.copiado = ""; pintarTextos(); }, 2500); };
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(fin, function () { copiaVieja(txt); fin(); });
       else { copiaVieja(txt); fin(); }
     }
     else if (a === "bajar") {
+      enviarFeedback();
       lienzoBlob().then(function (b) {
         var u = URL.createObjectURL(b), l = document.createElement("a"); l.href = u; l.download = nombreArchivo();
         document.body.appendChild(l); l.click(); l.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
@@ -477,6 +521,7 @@
       }).catch(function () { msg("No se pudo crear la imagen."); });
     }
     else if (a === "compartir") {
+      enviarFeedback();
       lienzoBlob().then(function (b) {
         var f = new File([b], nombreArchivo(), { type: "image/jpeg" }), data = { files: [f], text: textos()[0][1] };
         if (navigator.canShare && navigator.canShare({ files: [f] })) {

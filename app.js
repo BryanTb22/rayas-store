@@ -1848,7 +1848,7 @@
     if (!admin.puede) return;
     var ir = function () { admin.pubMsg = ""; admin.abierto = false; quitarHash(); render(); window.rayasPublicador.abrir(); };
     if (window.rayasPublicador) return ir();
-    var sc = document.createElement("script"); sc.src = "publicador.js?v=6";
+    var sc = document.createElement("script"); sc.src = "publicador.js?v=7";
     sc.onload = function () { if (window.rayasPublicador) ir(); };
     sc.onerror = function () { admin.pubMsg = "No se pudo cargar el generador. Revisa que publicador.js esté subido al repositorio."; render(); };
     document.head.appendChild(sc);
