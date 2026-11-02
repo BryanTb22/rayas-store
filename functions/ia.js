@@ -94,6 +94,7 @@ function mensajeError(status, cuerpo) {
   const m = String((cuerpo && cuerpo.error && cuerpo.error.message) || "");
   if (status === 401) return "La clave de la API de Claude no es válida. Revisa el secreto ANTHROPIC_API_KEY.";
   if (status === 400 && /credit|balance/i.test(m)) return "Se acabó el crédito de la API de Claude. Recarga en console.anthropic.com.";
+  if (status === 400 && /web.?search/i.test(m)) return "La búsqueda web de la IA está desactivada en tu cuenta de Claude Console. Actívala ahí y vuelve a intentar.";
   if (status === 429) return "Demasiados pedidos seguidos. Espera un minuto y vuelve a intentar.";
   if (status === 529 || status >= 500) return "La IA está ocupada en este momento. Intenta de nuevo en un rato.";
   return "La IA no pudo escribir los textos (" + status + ").";
@@ -118,4 +119,74 @@ async function escribirTextos(clave, tienda, item, fetchFn) {
   return leerRespuesta(bloques.filter(function (c) { return c.type === "text"; }).map(function (c) { return c.text; }).join(""));
 }
 
-module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos };
+/* ---------- Foto in-game desde la web ----------
+   Claude busca en la web (herramienta web_search) videos de YouTube que muestran el item dentro del juego,
+   y el servidor baja la miniatura del video (i.ytimg.com) para usarla como foto in-game. */
+const YT_RE = /(?:youtube\.com\/(?:watch\?(?:[^#\s"'<>]*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/g;
+function idsYoutube(txt) {
+  const s = String(txt || ""), out = []; let m; YT_RE.lastIndex = 0;
+  while ((m = YT_RE.exec(s))) if (out.indexOf(m[1]) < 0) out.push(m[1]);
+  return out;
+}
+function pedidoFotos(it) {
+  const datos = ["Item de Dota 2: " + it.nombre, it.heroe ? "Héroe: " + it.heroe : "", it.tipo ? "Tipo: " + it.tipo : "", it.rareza ? "Rareza: " + it.rareza : ""].filter(Boolean).join("\n");
+  return {
+    system: "Buscas en la web videos de YouTube que muestren cómo se ve un item cosmético de Dota 2 DENTRO DEL JUEGO " +
+      "(showcase, preview, in-game, 'Dota 2 <item>'). Usa la búsqueda web. Elige videos de ESE item exacto, no de otros items del mismo héroe. " +
+      "Responde al final solo con las URLs de YouTube de los 3 mejores videos, una por línea, el mejor primero.",
+    user: datos
+  };
+}
+async function buscarVideos(clave, it, f) {
+  const p = pedidoFotos(it);
+  let mensajes = [{ role: "user", content: p.user }], todo = "";
+  for (let vuelta = 0; vuelta < 3; vuelta++) {
+    const r = await f(API_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": clave, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: MODELO, max_tokens: 1024, system: p.system, messages: mensajes,
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }] })
+    });
+    let j = null; try { j = await r.json(); } catch (e) { j = null; }
+    if (!r.ok) throw new Error(mensajeError(r.status, j));
+    const bloques = (j && j.content) || [];
+    // Primero lo que Claude eligió (texto); después todo lo que encontró la búsqueda.
+    const elegidos = bloques.filter(function (c) { return c.type === "text"; }).map(function (c) { return c.text; }).join("\n");
+    const hallados = bloques.filter(function (c) { return c.type === "web_search_tool_result"; }).map(function (c) {
+      return (Array.isArray(c.content) ? c.content : []).map(function (x) { return x && x.url; }).join("\n");
+    }).join("\n");
+    todo = elegidos + "\n" + todo + "\n" + hallados;
+    if (j.stop_reason !== "pause_turn") break;
+    mensajes = mensajes.concat([{ role: "assistant", content: bloques }]);
+  }
+  return idsYoutube(todo).slice(0, 8);
+}
+async function bajarMiniatura(id, f) {
+  for (const q of ["maxresdefault", "sddefault", "hqdefault"]) {
+    try {
+      const r = await f("https://i.ytimg.com/vi/" + id + "/" + q + ".jpg");
+      if (!r.ok) continue;
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length < 4000) continue;   // la imagen gris de "no existe" pesa ~1 KB
+      return { id: id, video: "https://www.youtube.com/watch?v=" + id, data: "data:image/jpeg;base64," + buf.toString("base64") };
+    } catch (e) { /* probar la siguiente calidad */ }
+  }
+  return null;
+}
+async function buscarFotos(clave, item, fetchFn) {
+  const f = fetchFn || fetch;
+  const it = limpiarItem(item);
+  if (!it.nombre) throw new Error("Falta el nombre del item.");
+  const ids = await buscarVideos(clave, it, f);
+  if (!ids.length) throw new Error("No encontré fotos in-game de este item en la web. Súbela tú.");
+  const fotos = [];
+  for (const id of ids) {
+    if (fotos.length >= 3) break;
+    const x = await bajarMiniatura(id, f);
+    if (x) fotos.push(x);
+  }
+  if (!fotos.length) throw new Error("Encontré videos pero no pude bajar sus fotos. Intenta otra vez.");
+  return fotos;
+}
+
+module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos };

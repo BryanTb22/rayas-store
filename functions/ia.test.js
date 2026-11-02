@@ -32,5 +32,24 @@ const ia = require("./ia");
   await assert.rejects(ia.escribirTextos("k", "rayas", { nombre: "A" }, mal(401)), /clave/);
   await assert.rejects(ia.escribirTextos("k", "rayas", { nombre: "A" }, mal(400, "Your credit balance is too low")), /crédito/);
   await assert.rejects(ia.escribirTextos("k", "rayas", { nombre: "" }, ok), /nombre/);
+  // foto in-game desde la web
+  assert.deepStrictEqual(ia.idsYoutube("https://www.youtube.com/watch?v=abcdefghijk&t=3 y https://youtu.be/ABCDEFGHIJK y otra vez https://youtube.com/watch?v=abcdefghijk"), ["abcdefghijk", "ABCDEFGHIJK"]);
+  const pedidos = [];
+  const web = async (url, o) => {
+    pedidos.push(url);
+    if (url.indexOf("api.anthropic.com") >= 0) {
+      const body = JSON.parse(o.body); assert.strictEqual(body.tools[0].type, "web_search_20250305");
+      return { ok: true, status: 200, json: async () => ({ stop_reason: "end_turn", content: [
+        { type: "web_search_tool_result", content: [{ type: "web_search_result", url: "https://www.youtube.com/watch?v=zzzzzzzzzzz" }] },
+        { type: "text", text: "1. https://www.youtube.com/watch?v=aaaaaaaaaaa\n2. https://youtu.be/bbbbbbbbbbb" }] }) };
+    }
+    if (/aaaaaaaaaaa\/maxresdefault/.test(url)) return { ok: false, status: 404 };
+    return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array(9000).buffer };
+  };
+  const fotos = await ia.buscarFotos("k", { nombre: "Sea Rake's Bridle", heroe: "Slark" }, web);
+  assert.deepStrictEqual(fotos.map((x) => x.id), ["aaaaaaaaaaa", "bbbbbbbbbbb", "zzzzzzzzzzz"]);
+  assert(/^data:image\/jpeg;base64,/.test(fotos[0].data)); assert(pedidos.some((u) => /aaaaaaaaaaa\/sddefault/.test(u)));
+  const vacio = async () => ({ ok: true, status: 200, json: async () => ({ content: [{ type: "text", text: "no hay" }] }) });
+  await assert.rejects(ia.buscarFotos("k", { nombre: "X" }, vacio), /No encontré/);
   console.log("ia.test.js: todo OK");
 })().catch((e) => { console.error(e); process.exit(1); });
