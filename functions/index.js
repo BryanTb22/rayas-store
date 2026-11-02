@@ -816,8 +816,8 @@ exports.crearPublicacion = onRequest(
     const tienda = b.tienda === "litlejacob" ? "litlejacob" : "rayas";
     try {
       if (b.accion === "fotos") {
-        const fotos = await ia.buscarFotos(ANTHROPIC_KEY.value(), b.item);
-        return res.json({ ok: true, fotos: fotos });
+        const x = await ia.buscarFotos(ANTHROPIC_KEY.value(), b.item, null, typeof b.oficial === "string" ? b.oficial : "");
+        return res.json({ ok: true, fotos: x.fotos, aviso: x.aviso });
       }
       const textos = await ia.escribirTextos(ANTHROPIC_KEY.value(), tienda, b.item);
       res.json({ ok: true, textos: textos, modelo: ia.MODELO });

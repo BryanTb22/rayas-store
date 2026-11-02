@@ -270,9 +270,9 @@
     if (st.webEst === "busca") return;
     if (!String(st.d.nombre || "").trim()) { st.webMsg = "Primero pon el nombre del item."; pintarWeb(); return; }
     st.webEst = "busca"; st.webMsg = ""; pintarWeb();
-    pedirIa({ accion: "fotos", item: datosIa() }).then(function (j) {
+    pedirIa({ accion: "fotos", item: datosIa(), oficial: miniOficial() }).then(function (j) {
       st.web = j.fotos || []; st.webEst = "";
-      st.webMsg = st.web.length > 1 ? "Elegí la primera. Toca otra si se ve mejor." : "";
+      st.webMsg = j.aviso || (st.web.length > 1 ? "La IA eligió las fotos donde el item se ve de cerca (la mejor primero). Toca otra si te gusta más." : "");
       return st.web.length ? usarFotoWeb(0) : null;
     }).catch(function (e) { st.webEst = ""; st.webMsg = String(e.message || e); pintarWeb(); });
   }
@@ -289,6 +289,16 @@
       return cargarImg(c2.toDataURL("image/jpeg", 0.92));
     } catch (e) { return Promise.resolve(im); }
   }
+  // Foto oficial chiquita (400 px) para que la IA sepa cómo es el item al elegir las fotos.
+  function miniOficial() {
+    var im = st.img.oficial; if (!im) return "";
+    try {
+      var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height, k = Math.min(1, 400 / Math.max(w, h));
+      var c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+      var x = c.getContext("2d"); x.fillStyle = "#808080"; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+      return c.toDataURL("image/jpeg", 0.85);
+    } catch (e) { return ""; }
+  }
   function usarFotoWeb(i) {
     var x = st.web && st.web[i]; if (!x) return Promise.resolve();
     return cargarImg(x.data).then(sinBandas).then(function (im) { st.img.juego = im; st.webSel = i; render(); }).catch(function () { st.webMsg = "No se pudo usar esa foto."; pintarWeb(); });
@@ -299,9 +309,9 @@
       return '<button type="button" class="pb-wf' + (st.webSel === i ? ' sel' : '') + '" data-pb="webUsar" data-i="' + i + '" style="background-image:url(' + x.data + ')" aria-label="Usar foto ' + (i + 1) + '"></button>';
     }).join("");
     box.innerHTML = '<div class="pb-iabar"><button type="button" class="pb-btn" data-pb="webBuscar"' + (st.webEst === "busca" ? " disabled" : "") + '>' +
-      (st.webEst === "busca" ? "🔎 Buscando en la web…" : "🔎 Buscar fotos in-game en la web") + '</button></div>' +
+      (st.webEst === "busca" ? "🔎 Buscando y eligiendo fotos…" : "🔎 Buscar fotos in-game en la web") + '</button></div>' +
       (thumbs ? '<div class="pb-wfs">' + thumbs + '</div>' : '') +
-      (st.webMsg ? '<p class="pb-hint' + (st.web && st.web.length ? '' : ' pb-err') + '">' + esc(st.webMsg) + '</p>' : '');
+      (st.webMsg ? '<p class="pb-hint' + (st.web && st.web.length && !/No encontr/.test(st.webMsg) ? '' : ' pb-err') + '">' + esc(st.webMsg) + '</p>' : '');
   }
   function automatico(teniaFoto) {
     if (!teniaFoto) buscarFotoWeb();
