@@ -17,10 +17,16 @@ const ia = require("./ia");
   assert.throws(() => ia.leerRespuesta("nada"));
   // llamada simulada
   let enviado = null;
-  const ok = async (url, o) => { enviado = { url, o: o, body: JSON.parse(o.body) }; return { ok: true, status: 200, json: async () => ({ content: [{ type: "text", text: '{"textos":[{"titulo":"Urgencia","texto":"🔥 *STRONGBACK* S/ 75"}]}' }] }) }; };
+  const ok = async (url, o) => { enviado = { url, o: o, body: JSON.parse(o.body) }; return { ok: true, status: 200, json: async () => ({ content: [{ type: "tool_use", name: "guardar_textos", input: { textos: [{ titulo: "Urgencia", texto: "🔥 *STRONGBACK* S/ 75\n\"Última\" unidad" }] } }] }) }; };
   const r = await ia.escribirTextos("sk-prueba", "rayas", { nombre: "Strongback", precio: 75 }, ok);
   assert.strictEqual(r[0].titulo, "Urgencia"); assert.strictEqual(enviado.url, "https://api.anthropic.com/v1/messages");
   assert.strictEqual(enviado.o.headers["x-api-key"], "sk-prueba"); assert.strictEqual(enviado.body.model, ia.MODELO);
+  assert.strictEqual(enviado.body.tool_choice.name, "guardar_textos"); assert(/Última/.test(r[0].texto));
+  // JSON roto en texto: error legible, no el de JSON.parse
+  assert.throws(() => ia.leerRespuesta('{"textos":[{"titulo":"a" "texto":"b"}]}'), /mal armados/);
+  // respaldo: texto con JSON sigue sirviendo
+  const vieja = async () => ({ ok: true, status: 200, json: async () => ({ content: [{ type: "text", text: '{"textos":[{"titulo":"U","texto":"x"}]}' }] }) });
+  assert.strictEqual((await ia.escribirTextos("k", "rayas", { nombre: "A" }, vieja))[0].texto, "x");
   // errores legibles
   const mal = (st, msg) => async () => ({ ok: false, status: st, json: async () => ({ error: { message: msg || "" } }) });
   await assert.rejects(ia.escribirTextos("k", "rayas", { nombre: "A" }, mal(401)), /clave/);

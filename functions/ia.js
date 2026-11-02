@@ -55,17 +55,34 @@ function armarPedido(tienda, it) {
     "si el precio de Steam es mayor que el de la tienda puedes decir que sale más barato que en Steam, si no, no lo menciones; " +
     "si queda 1 unidad, recalca que es la última; " +
     "termina cada texto invitando a escribir al privado y con la firma 🛒 *" + t.nombre + "* · " + t.web + ". " +
-    "Responde SOLO con JSON válido, sin nada más: " +
-    '{"textos":[{"titulo":"Urgencia","texto":"..."},{"titulo":"Corto y directo","texto":"..."},{"titulo":"Más vendedor","texto":"..."}]}. ' +
-    "Cada texto de máximo 600 caracteres; el 'Corto y directo' de máximo 3 líneas.";
+    "Entrega exactamente 3 textos con la herramienta guardar_textos, con estos títulos y en este orden: " +
+    "'Urgencia', 'Corto y directo' y 'Más vendedor'. Cada texto de máximo 600 caracteres; el 'Corto y directo' de máximo 3 líneas.";
   return { system: system, user: "Escribe las 3 publicaciones para este item:\n" + datos };
 }
 
-// Saca la lista de textos de la respuesta de Claude (aguanta texto o ``` alrededor del JSON).
-function leerRespuesta(txt) {
-  const s = String(txt || ""), a = s.indexOf("{"), b = s.lastIndexOf("}");
-  if (a < 0 || b <= a) throw new Error("La IA no devolvió textos.");
-  const j = JSON.parse(s.slice(a, b + 1));
+// La IA entrega los textos con una herramienta (tool use): así el JSON siempre llega bien armado.
+const HERRAMIENTA = {
+  name: "guardar_textos",
+  description: "Guarda las 3 publicaciones de venta para WhatsApp.",
+  input_schema: {
+    type: "object",
+    properties: {
+      textos: {
+        type: "array", minItems: 3, maxItems: 3,
+        items: { type: "object", properties: { titulo: { type: "string" }, texto: { type: "string" } }, required: ["titulo", "texto"] }
+      }
+    },
+    required: ["textos"]
+  }
+};
+// Saca la lista de textos: de la herramienta (objeto) o, por si acaso, de un texto con JSON.
+function leerRespuesta(dato) {
+  let j = dato;
+  if (typeof dato !== "object" || dato === null) {
+    const s = String(dato || ""), a = s.indexOf("{"), b = s.lastIndexOf("}");
+    if (a < 0 || b <= a) throw new Error("La IA no devolvió textos.");
+    try { j = JSON.parse(s.slice(a, b + 1)); } catch (e) { throw new Error("La IA devolvió los textos mal armados. Toca ✨ otra vez."); }
+  }
   const l = (j && Array.isArray(j.textos) ? j.textos : []).map(function (x) {
     return { titulo: texto(x && x.titulo, 40) || "Texto", texto: texto(x && x.texto, 1200) };
   }).filter(function (x) { return x.texto; }).slice(0, 3);
@@ -90,12 +107,15 @@ async function escribirTextos(clave, tienda, item, fetchFn) {
   const r = await f(API_URL, {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": clave, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: MODELO, max_tokens: 1200, system: p.system, messages: [{ role: "user", content: p.user }] })
+    body: JSON.stringify({ model: MODELO, max_tokens: 1500, system: p.system, messages: [{ role: "user", content: p.user }],
+      tools: [HERRAMIENTA], tool_choice: { type: "tool", name: HERRAMIENTA.name } })
   });
   let j = null; try { j = await r.json(); } catch (e) { j = null; }
   if (!r.ok) throw new Error(mensajeError(r.status, j));
-  const txt = ((j && j.content) || []).filter(function (c) { return c.type === "text"; }).map(function (c) { return c.text; }).join("");
-  return leerRespuesta(txt);
+  const bloques = (j && j.content) || [];
+  const uso = bloques.filter(function (c) { return c.type === "tool_use" && c.name === HERRAMIENTA.name; })[0];
+  if (uso) return leerRespuesta(uso.input);
+  return leerRespuesta(bloques.filter(function (c) { return c.type === "text"; }).map(function (c) { return c.text; }).join(""));
 }
 
-module.exports = { MODELO, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos };
+module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos };
