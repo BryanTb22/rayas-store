@@ -19,7 +19,7 @@
     cat: { lista: null, cargando: false, err: "", q: "" }, item: null, ia: null, iaEst: "", iaMsg: "",
     web: null, webEst: "", webMsg: "", auto: leerAuto(), webSel: -1, webUsada: false, fbEnviado: false, fbMsg: "", apEst: "", apMsg: "", lista: null, listaEst: "", listaMsg: "",
     img: { juego: null, oficial: null, logo: null },
-    d: { tipo: "", nombre: "", precio: "", steam: "", stock: "1", entrega: "Entrega inmediata", px: 50, py: 50 }
+    d: { tipo: "", nombre: "", efecto: "", precio: "", steam: "", stock: "1", entrega: "Entrega inmediata", px: 50, py: 50 }
   };
 
   /* ---------- utilidades ---------- */
@@ -103,6 +103,13 @@
     var fp = ajustar(ctx, nom, 960, 104, 700);
     ctx.font = osw(fp, 700); ctx.textAlign = "center";
     ctx.fillStyle = acero(ctx, 296 - fp * 0.38, 296 + fp * 0.38); ctx.fillText(nom, W / 2, 296);
+    // efecto inusual (variante del item): pastilla debajo del nombre
+    if (String(d.efecto || "").trim()) {
+      var ef = ("✦ " + d.efecto.trim()).toUpperCase();
+      ctx.font = osw(ajustar(ctx, ef, 820, 34, 600), 600); var ew = ctx.measureText(ef).width + 56;
+      rr(ctx, (W - ew) / 2, 338, ew, 50, 25); ctx.fillStyle = C.caja; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = C.bloodHi; ctx.stroke();
+      ctx.fillStyle = C.bloodHi; ctx.textAlign = "center"; ctx.fillText(ef, W / 2, 364);
+    }
 
     // recuadro con la foto principal
     var ix = 60, iy = 400, iw = 960, ih = 630;
@@ -194,6 +201,12 @@
   function gemasTxt(it) {
     return String(it.descripcion || "").split(/\n|;/).map(function (x) { return x.trim(); }).filter(Boolean).join(", ");
   }
+  // Efecto inusual guardado en las gemas del item ("Inusual: Candy Caster", "Unusual: Smoke", "Efecto: …").
+  function efectoDe(it) {
+    var l = String(it.descripcion || "").split(/\n|;/).map(function (x) { return x.trim(); });
+    for (var i = 0; i < l.length; i++) { var m = /^(inusual|unusual|efecto( inusual)?|effect)\s*:\s*(.+)$/i.exec(l[i]); if (m) return m[3].trim(); }
+    return "";
+  }
   function cdTxt(it) {
     var ms = Date.parse(it.cooldownHasta || ""); if (!(ms > Date.now())) return "";
     var d = new Date(ms); return "Entrega el " + ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2);
@@ -223,6 +236,7 @@
   function elegirItem(id) {
     var it = (st.cat.lista || []).filter(function (x) { return x.id === id; })[0]; if (!it) return;
     st.item = it; st.ia = null; st.iaMsg = ""; st.cat.q = ""; st.web = null; st.webMsg = ""; st.webSel = -1; st.webUsada = false; st.fbEnviado = false; st.fbMsg = ""; st.apEst = ""; st.apMsg = "";
+    st.d.efecto = efectoDe(it);
     st.d.nombre = it.nombre; st.d.tipo = [it.rareza, it.tipo].filter(function (v, i, l) { return v && l.map(norm).indexOf(norm(v)) === i; }).join(" · ");
     st.d.precio = String(it.precio || ""); st.d.steam = it.steamUsd > 0 ? String(Math.round(it.steamUsd * TC * 100) / 100) : "";
     st.d.stock = String(Math.max(1, it.stock)); st.d.entrega = cdTxt(it) || "Entrega inmediata";
@@ -235,7 +249,7 @@
   }
   function datosIa() {
     var it = st.item || {}, d = st.d, ne = Number(it.estilos) || 0;
-    return { nombre: d.nombre, tipo: it.tipo || d.tipo, rareza: it.rareza || "", heroe: it.heroe || "", gemas: st.item ? gemasTxt(it) : "",
+    return { nombre: d.nombre, efecto: d.efecto, tipo: it.tipo || d.tipo, rareza: it.rareza || "", heroe: it.heroe || "", gemas: st.item ? gemasTxt(it) : "",
       estilos: ne ? (String(it.estOk || "").split(",").filter(Boolean).length || 1) + " de " + ne : "",
       precio: num(d.precio), steam: num(d.steam), stock: stockN(), entrega: d.entrega };
   }
@@ -426,14 +440,15 @@
     var stl = steamMayor() ? sol(d.steam) : "", n = stockN(), ent = (d.entrega || "Entrega inmediata").trim();
     var firma = "🛒 *Rayas Store* · rayas.trade";
     var stockTxt = n === 1 ? "*ÚLTIMA UNIDAD*: solo 1 en stock" : "Stock limitado: *" + n + " unidades*";
-    var a = "🔥 *" + (tipo ? tipo.toUpperCase() + " – " : "") + nom.toUpperCase() + "* 🔥\n\n" +
+    var ef = String(d.efecto || "").trim(), efL = ef ? "✦ Efecto inusual: *" + ef + "*\n" : "";
+    var a = "🔥 *" + (tipo ? tipo.toUpperCase() + " – " : "") + nom.toUpperCase() + "* 🔥\n" + efL + "\n" +
       "💰 Solo *" + pr + "*" + (stl ? " (en Steam está a " + stl + ")" : "") + "\n" +
       "⚡ " + ent + "\n⚠️ " + stockTxt + "\n\n" +
       "📩 Escríbeme al privado y es tuyo. ¡El primero que pague se lo lleva!\n" + firma;
-    var b = "⚔️ *" + nom + "*" + (tipo ? " (" + tipo + ")" : "") + " – *" + pr + "*\n" +
+    var b = "⚔️ *" + nom + "*" + (ef ? " · " + ef : "") + (tipo ? " (" + tipo + ")" : "") + " – *" + pr + "*\n" +
       "⚡ " + ent + " | ⚠️ " + (n === 1 ? "Solo 1 en stock" : n + " en stock") + "\n📩 Escríbeme al DM · *Rayas Store*";
     var c = "✨ *¿Buscas " + (tipo ? tipo.toLowerCase() : "algo nuevo para tu Dota") + "?* ✨\n\n" +
-      "Tengo *" + nom + "* a solo *" + pr + "* 💰\n\n" +
+      "Tengo *" + nom + "*" + (ef ? " con efecto *" + ef + "*" : "") + " a solo *" + pr + "* 💰\n\n" +
       (stl ? "✅ Más barato que en Steam (" + stl + ")\n" : "") + "✅ " + ent + "\n" +
       "⚠️ " + (n === 1 ? "*Solo queda 1* – cuando se va, se fue" : "*Solo " + n + " disponibles*") + "\n\n" +
       "📩 Escríbeme al privado para separarlo 👇\n" + firma;
@@ -514,6 +529,7 @@
       '<label>Encuadre vertical<input type="range" min="0" max="100" data-k="py" value="' + st.d.py + '"></label></div></div>' +
       '<div class="pb-grp"><h3>2 · Datos</h3>' +
       campo("tipo", "Tipo / rareza", "text", "Courier mítico") + campo("nombre", "Nombre del item", "text", "Strongback the Swift") +
+      campo("efecto", "Efecto inusual (si tiene: Candy Caster, Smoke, Ethereal Flame…)", "text", "Déjalo vacío si no tiene") +
       '<div class="pb-2">' + campo("precio", "Mi precio (S/)", "number", "75") + campo("steam", "Precio en Steam (opcional)", "number", "85") + '</div>' +
       '<div class="pb-2">' + campo("stock", "Stock", "number", "1") + campo("entrega", "Entrega", "text", "Entrega inmediata") + '</div></div>' +
       '<div class="pb-grp"><h3>3 · Texto para WhatsApp</h3><div id="pb-ia"></div><div id="pb-textos" style="display:grid;gap:10px"></div></div>' +

@@ -101,5 +101,13 @@ const ia = require("./ia");
   const pub = ia.limpiarPublicacion({ imagen: "data:image/jpeg;base64,QUJD", nombre: "X", precio: "85", textos: [{ titulo: "U", texto: "a" }, { texto: "" }] });
   assert.strictEqual(pub.imagen.length, 27); assert.strictEqual(pub.precio, 85); assert.strictEqual(pub.textos.length, 1);
   assert.strictEqual(ia.limpiarPublicacion({ imagen: "http://x" }).imagen, "");
+  // efecto inusual: va en el pedido de textos y en el de fotos
+  const itE = ia.limpiarItem({ nombre: "Candy Caster Courier", efecto: "Candy Caster", precio: 120 });
+  assert.strictEqual(itE.efecto, "Candy Caster");
+  const pE = ia.armarPedido("rayas", itE); assert(/Efecto inusual \(variante de este item\): Candy Caster/.test(pE.user)); assert(/efecto inusual/.test(pE.system));
+  let pedFotos = null;
+  const verFotos = async (url, o) => { if (/api\.anthropic/.test(url) && !JSON.parse(o.body).tool_choice) pedFotos = JSON.parse(o.body); return web(url, o); };
+  await ia.buscarFotos("k", itE, verFotos);
+  assert(/ESTA variante/.test(pedFotos.messages[0].content) && /Candy Caster/.test(pedFotos.messages[0].content));
   console.log("ia.test.js: todo OK");
 })().catch((e) => { console.error(e); process.exit(1); });

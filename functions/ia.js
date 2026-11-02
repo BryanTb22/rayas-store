@@ -20,6 +20,7 @@ function limpiarItem(it) {
   it = it || {};
   return {
     nombre: texto(it.nombre, 90),
+    efecto: texto(it.efecto, 60),
     tipo: texto(it.tipo, 60),
     rareza: texto(it.rareza, 40),
     heroe: texto(it.heroe, 40),
@@ -37,6 +38,7 @@ function armarPedido(tienda, it) {
   const datos = [
     "Tienda: " + t.nombre + " (" + t.web + ")",
     "Item: " + (it.nombre || "(sin nombre)"),
+    it.efecto ? "Efecto inusual (variante de este item): " + it.efecto : "",
     it.tipo ? "Tipo: " + it.tipo : "",
     it.rareza ? "Rareza: " + it.rareza : "",
     it.heroe ? "Héroe: " + it.heroe : "",
@@ -54,6 +56,8 @@ function armarPedido(tienda, it) {
     "los precios siempre en soles con el formato S/ 75 (nunca 'créditos'); " +
     "si el precio de Steam es mayor que el de la tienda puedes decir que sale más barato que en Steam, si no, no lo menciones; " +
     "si queda 1 unidad, recalca que es la última; " +
+    "si el item tiene un efecto inusual (por ejemplo Candy Caster, Smoke, Ethereal Flame), es la variante que lo hace especial: " +
+    "nómbralo siempre junto al nombre del item y destácalo como atractivo (los compradores buscan esa variante en específico); " +
     "termina cada texto invitando a escribir al privado y con la firma 🛒 *" + t.nombre + "* · " + t.web + ". " +
     "Entrega exactamente 3 textos con la herramienta guardar_textos, con estos títulos y en este orden: " +
     "'Urgencia', 'Corto y directo' y 'Más vendedor'. Cada texto de máximo 600 caracteres; el 'Corto y directo' de máximo 3 líneas.";
@@ -129,10 +133,12 @@ function idsYoutube(txt) {
   return out;
 }
 function pedidoFotos(it) {
-  const datos = ["Item de Dota 2: " + it.nombre, it.heroe ? "Héroe: " + it.heroe : "", it.tipo ? "Tipo: " + it.tipo : "", it.rareza ? "Rareza: " + it.rareza : ""].filter(Boolean).join("\n");
+  const datos = ["Item de Dota 2: " + it.nombre, it.efecto ? "Efecto inusual (variante): " + it.efecto + " — busca videos de ESTA variante, por ejemplo '" + it.nombre + " " + it.efecto + "'" : "", it.heroe ? "Héroe: " + it.heroe : "", it.tipo ? "Tipo: " + it.tipo : "", it.rareza ? "Rareza: " + it.rareza : ""].filter(Boolean).join("\n");
   return {
     system: "Buscas en la web videos de YouTube que muestren cómo se ve un item cosmético de Dota 2 DENTRO DEL JUEGO " +
       "(showcase, preview, in-game, 'Dota 2 <item>'). Usa la búsqueda web. Elige videos de ESE item exacto, no de otros items del mismo héroe. " +
+      "Si el item tiene un efecto inusual (couriers y items Unusual tienen variantes: Candy Caster, Smoke, Ethereal Flame, etc.), " +
+      "busca videos que muestren ESA variante y evita los de otras variantes del mismo item. " +
       "Responde al final solo con las URLs de YouTube de los 3 mejores videos, una por línea, el mejor primero.",
     user: datos
   };
@@ -232,7 +238,7 @@ async function calificarFotos(clave, it, fotos, oficial, f, ejemplos) {
     contenido.push({ type: "text", text: "Foto " + (i + 1) + ":" });
     contenido.push({ type: "image", source: { type: "base64", media_type: b.tipo, data: b.b64 } });
   });
-  contenido.push({ type: "text", text: "Item de Dota 2: " + it.nombre + (it.heroe ? " (héroe: " + it.heroe + ")" : "") + ". " +
+  contenido.push({ type: "text", text: "Item de Dota 2: " + it.nombre + (it.efecto ? " con efecto inusual " + it.efecto + " (prefiere las fotos donde se vea ese efecto; otra variante del mismo item vale menos)" : "") + (it.heroe ? " (héroe: " + it.heroe + ")" : "") + ". " +
     "Estas fotos son para una publicación de venta. Califica cada foto del 0 al 10 con la herramienta calificar_fotos: " +
     "10 = el héroe o el item se ve GRANDE, de cerca y enfocado, se aprecia bien el item (como un showcase); " +
     "5 = se ve el héroe con el item pero algo chico o tapado; " +
