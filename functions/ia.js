@@ -189,22 +189,77 @@ async function bajarMiniatura(id, f) {
   }
   return null;
 }
-async function buscarFotos(clave, item, fetchFn) {
+/* ---------- La IA mira las fotos y se queda con las que muestran el item de cerca ---------- */
+const HERR_FOTOS = {
+  name: "calificar_fotos",
+  description: "Califica cada foto candidata del 0 al 10.",
+  input_schema: {
+    type: "object",
+    properties: {
+      fotos: {
+        type: "array",
+        items: { type: "object", properties: { n: { type: "integer", description: "número de la foto" }, nota: { type: "integer", description: "0 a 10" } }, required: ["n", "nota"] }
+      }
+    },
+    required: ["fotos"]
+  }
+};
+const NOTA_MIN = 6;
+function soloBase64(dataUrl) { const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || "")); return m ? { tipo: m[1], b64: m[2] } : null; }
+async function calificarFotos(clave, it, fotos, oficial, f) {
+  const contenido = [];
+  const ref = soloBase64(oficial);
+  if (ref && ref.b64.length < 1500000) {
+    contenido.push({ type: "text", text: "Imagen de referencia: así se ve el item." });
+    contenido.push({ type: "image", source: { type: "base64", media_type: ref.tipo, data: ref.b64 } });
+  }
+  fotos.forEach(function (x, i) {
+    const b = soloBase64(x.data); if (!b) return;
+    contenido.push({ type: "text", text: "Foto " + (i + 1) + ":" });
+    contenido.push({ type: "image", source: { type: "base64", media_type: b.tipo, data: b.b64 } });
+  });
+  contenido.push({ type: "text", text: "Item de Dota 2: " + it.nombre + (it.heroe ? " (héroe: " + it.heroe + ")" : "") + ". " +
+    "Estas fotos son para una publicación de venta. Califica cada foto del 0 al 10 con la herramienta calificar_fotos: " +
+    "10 = el héroe o el item se ve GRANDE, de cerca y enfocado, se aprecia bien el item (como un showcase); " +
+    "5 = se ve el héroe con el item pero algo chico o tapado; " +
+    "0-2 = vista lejana de partida desde arriba con héroes chiquitos, mapa, menús o interfaz, una persona o cara, mucho texto encima, " +
+    "otro héroe u otro item distinto, o pantalla negra. Califica todas las fotos." });
+  const r = await f(API_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": clave, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({ model: MODELO, max_tokens: 800, messages: [{ role: "user", content: contenido }],
+      tools: [HERR_FOTOS], tool_choice: { type: "tool", name: HERR_FOTOS.name } })
+  });
+  let j = null; try { j = await r.json(); } catch (e) { j = null; }
+  if (!r.ok) throw new Error(mensajeError(r.status, j));
+  const uso = ((j && j.content) || []).filter(function (c) { return c.type === "tool_use"; })[0];
+  const notas = {};
+  ((uso && uso.input && uso.input.fotos) || []).forEach(function (x) { const n = parseInt(x && x.n, 10), v = Number(x && x.nota); if (n >= 1 && isFinite(v)) notas[n - 1] = v; });
+  return notas;
+}
+async function buscarFotos(clave, item, fetchFn, oficial) {
   const f = fetchFn || fetch;
   const it = limpiarItem(item);
   if (!it.nombre) throw new Error("Falta el nombre del item.");
   const ids = await buscarVideos(clave, it, f);
   if (!ids.length) throw new Error("No encontré fotos in-game de este item en la web. Súbela tú.");
-  // Hasta 6 fotos: los cuadros de los 2-3 mejores videos (el mejor video primero).
-  const fotos = [];
-  for (const id of ids) {
-    if (fotos.length >= 6) break;
-    let c = await cuadrosDelVideo(id, f);
-    if (!c.length) { const x = await bajarMiniatura(id, f); c = x ? [x] : []; }
-    c.slice(0, 6 - fotos.length).forEach(function (x) { fotos.push(x); });
-  }
-  if (!fotos.length) throw new Error("Encontré videos pero no pude bajar sus fotos. Intenta otra vez.");
-  return fotos;
+  // Candidatas: los cuadros de los 3 mejores videos (en paralelo), hasta 9.
+  const grupos = await Promise.all(ids.slice(0, 3).map(async function (id) {
+    const c = await cuadrosDelVideo(id, f);
+    if (c.length) return c;
+    const x = await bajarMiniatura(id, f); return x ? [x] : [];
+  }));
+  let cand = [].concat.apply([], grupos).slice(0, 9);
+  if (!cand.length) throw new Error("Encontré videos pero no pude bajar sus fotos. Intenta otra vez.");
+  // La IA mira cada foto: quedan solo las que muestran el item de cerca, la mejor primero.
+  let notas = null;
+  try { notas = await calificarFotos(clave, it, cand, oficial, f); } catch (e) { notas = null; }
+  if (!notas || !Object.keys(notas).length) return { fotos: cand.slice(0, 6), aviso: "" };
+  cand = cand.map(function (x, i) { return Object.assign({}, x, { nota: notas[i] != null ? notas[i] : 0 }); })
+    .sort(function (a, b) { return b.nota - a.nota; });
+  const buenas = cand.filter(function (x) { return x.nota >= NOTA_MIN; });
+  if (buenas.length) return { fotos: buenas.slice(0, 6), aviso: "" };
+  return { fotos: cand.slice(0, 3), aviso: "No encontré fotos donde el item se vea de cerca. Estas son las mejores; si no te gustan, sube una tú." };
 }
 
 module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos };

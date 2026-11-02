@@ -45,16 +45,40 @@ const ia = require("./ia");
     }
     return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array(9000).buffer };
   };
-  const fotos = await ia.buscarFotos("k", { nombre: "Sea Rake's Bridle", heroe: "Slark" }, web);
+  const fotos = (await ia.buscarFotos("k", { nombre: "Sea Rake's Bridle", heroe: "Slark" }, web)).fotos;
   // del 1er video salen sus 3 cuadros (2, 1, 3), del 2º otros 3 = 6; nunca la portada si hay cuadros
   assert.deepStrictEqual(fotos.map((x) => x.id), ["aaaaaaaaaaa-2", "aaaaaaaaaaa-1", "aaaaaaaaaaa-3", "bbbbbbbbbbb-2", "bbbbbbbbbbb-1", "bbbbbbbbbbb-3"]);
   assert(/^data:image\/jpeg;base64,/.test(fotos[0].data)); assert(!fotos.some((x) => x.portada));
   assert(pedidos.some((u) => /aaaaaaaaaaa\/maxres2\.jpg/.test(u))); assert(!pedidos.some((u) => /default\.jpg/.test(u)));
   // video sin cuadros: usa la portada
   const sinCuadros = async (url, o) => /api\.anthropic/.test(url) ? web(url, o) : (/default\.jpg/.test(url) ? { ok: true, status: 200, arrayBuffer: async () => new Uint8Array(9000).buffer } : { ok: false, status: 404 });
-  const f2 = await ia.buscarFotos("k", { nombre: "X" }, sinCuadros);
+  const f2 = (await ia.buscarFotos("k", { nombre: "X" }, sinCuadros)).fotos;
   assert(f2.length === 3 && f2.every((x) => x.portada));
   const vacio = async () => ({ ok: true, status: 200, json: async () => ({ content: [{ type: "text", text: "no hay" }] }) });
   await assert.rejects(ia.buscarFotos("k", { nombre: "X" }, vacio), /No encontré/);
+  // la IA califica: quedan solo las de nota >= 6, la mejor primero; recibe la imagen oficial de referencia
+  let califico = null;
+  const conNotas = async (url, o) => {
+    if (/api\.anthropic/.test(url)) {
+      const body = JSON.parse(o.body);
+      if (body.tool_choice && body.tool_choice.name === "calificar_fotos") {
+        califico = body;
+        return { ok: true, status: 200, json: async () => ({ content: [{ type: "tool_use", name: "calificar_fotos", input: { fotos: [{ n: 1, nota: 2 }, { n: 2, nota: 9 }, { n: 3, nota: 7 }, { n: 4, nota: 1 }, { n: 5, nota: 6 }, { n: 6, nota: 3 }] } }] }) };
+      }
+    }
+    return web(url, o);
+  };
+  const ref = "data:image/jpeg;base64,QUJD";
+  const x3 = await ia.buscarFotos("k", { nombre: "Bladeform Legacy", heroe: "Juggernaut" }, conNotas, ref);
+  assert.deepStrictEqual(x3.fotos.map((x) => x.nota), [9, 7, 6]); assert.strictEqual(x3.aviso, "");
+  assert(califico.messages[0].content.some((c) => c.type === "image" && c.source.data === "QUJD"));
+  assert.strictEqual(califico.messages[0].content.filter((c) => c.type === "image").length, 1 + 9);
+  // ninguna buena: devuelve las 3 mejores con aviso
+  const malas = async (url, o) => /api\.anthropic/.test(url) && JSON.parse(o.body).tool_choice ? { ok: true, status: 200, json: async () => ({ content: [{ type: "tool_use", name: "calificar_fotos", input: { fotos: [{ n: 2, nota: 4 }, { n: 1, nota: 1 }] } }] }) } : web(url, o);
+  const x4 = await ia.buscarFotos("k", { nombre: "X" }, malas);
+  assert.strictEqual(x4.fotos.length, 3); assert.strictEqual(x4.fotos[0].nota, 4); assert(/de cerca/.test(x4.aviso));
+  // si calificar falla, igual devuelve fotos
+  const falla = async (url, o) => /api\.anthropic/.test(url) && JSON.parse(o.body).tool_choice ? { ok: false, status: 529, json: async () => ({}) } : web(url, o);
+  assert.strictEqual((await ia.buscarFotos("k", { nombre: "X" }, falla)).fotos.length, 6);
   console.log("ia.test.js: todo OK");
 })().catch((e) => { console.error(e); process.exit(1); });
