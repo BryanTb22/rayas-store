@@ -132,8 +132,28 @@ function idsYoutube(txt) {
   while ((m = YT_RE.exec(s))) if (out.indexOf(m[1]) < 0) out.push(m[1]);
   return out;
 }
-function pedidoFotos(it) {
-  const datos = ["Item de Dota 2: " + it.nombre, it.efecto ? "Efecto inusual (variante): " + it.efecto + " — busca videos de ESTA variante, por ejemplo '" + it.nombre + " " + it.efecto + "'" : "", it.heroe ? "Héroe: " + it.heroe : "", it.tipo ? "Tipo: " + it.tipo : "", it.rareza ? "Rareza: " + it.rareza : ""].filter(Boolean).join("\n");
+// Cómo se ve cada efecto inusual en el juego (partículas alrededor del item/courier). Sirve para buscar y para calificar.
+const EFECTOS = {
+  "candy caster": "caramelos y dulces de colores girando alrededor",
+  snowdrift: "copos de nieve y ventisca blanca-celeste alrededor",
+  smoke: "humo gris/negro saliendo del item", smoky: "humo gris/negro saliendo del item",
+  "ethereal flame": "llamas etéreas azul-verdosas", "ethereal": "aura etérea brillante",
+  rave: "luces de colores parpadeando como discoteca", "ravenblight": "cuervos y plumas negras volando alrededor",
+  "burning": "fuego y brasas", "frostivus": "nieve y hielo", "champion's aura": "aura dorada de campeón",
+  "sunfire": "fuego anaranjado solar", "bubbles": "burbujas flotando", "lightning": "rayos y chispas eléctricas",
+  "felicity's blessing": "estrellas y brillos dorados", "orbital decay": "esferas orbitando",
+  "piercing beams": "rayos de luz que atraviesan", "crystal rift": "cristales flotantes", "resonant energy": "ondas de energía"
+};
+function descEfecto(ef) {
+  const k = String(ef || "").toLowerCase().trim(); if (!k) return "";
+  const hit = Object.keys(EFECTOS).filter(function (x) { return k.indexOf(x) >= 0 || x.indexOf(k) >= 0; })[0];
+  return hit ? EFECTOS[hit] : "partículas o aura especial visible alrededor del item (es la variante '" + ef + "')";
+}
+function pedidoFotos(it, intento) {
+  const datos = ["Item de Dota 2: " + it.nombre,
+    it.efecto ? "Efecto inusual (variante): " + it.efecto + " (se ve como: " + descEfecto(it.efecto) + "). Busca SOLO videos de esta variante, con búsquedas como '" + it.nombre + " " + it.efecto + "', 'unusual " + it.efecto + " " + it.nombre + " dota 2', '" + it.efecto + " effect " + it.nombre + "'." : "",
+    intento > 1 && it.efecto ? "Los videos de la búsqueda anterior NO mostraban el efecto " + it.efecto + ". Usa otras palabras (por ejemplo 'unusual " + it.efecto + " " + (it.heroe || it.tipo || "") + " showcase', '" + it.efecto + " gem " + it.nombre + "') y NO repitas videos." : "",
+    it.heroe ? "Héroe: " + it.heroe : "", it.tipo ? "Tipo: " + it.tipo : "", it.rareza ? "Rareza: " + it.rareza : ""].filter(Boolean).join("\n");
   return {
     system: "Buscas en la web videos de YouTube que muestren cómo se ve un item cosmético de Dota 2 DENTRO DEL JUEGO " +
       "(showcase, preview, in-game, 'Dota 2 <item>'). Usa la búsqueda web. Elige videos de ESE item exacto, no de otros items del mismo héroe. " +
@@ -143,8 +163,8 @@ function pedidoFotos(it) {
     user: datos
   };
 }
-async function buscarVideos(clave, it, f) {
-  const p = pedidoFotos(it);
+async function buscarVideos(clave, it, f, intento) {
+  const p = pedidoFotos(it, intento || 1);
   let mensajes = [{ role: "user", content: p.user }], todo = "";
   for (let vuelta = 0; vuelta < 3; vuelta++) {
     const r = await f(API_URL, {
@@ -242,6 +262,9 @@ async function calificarFotos(clave, it, fotos, oficial, f, ejemplos) {
     "Estas fotos son para una publicación de venta. Califica cada foto del 0 al 10 con la herramienta calificar_fotos: " +
     "10 = el héroe o el item se ve GRANDE, de cerca y enfocado, se aprecia bien el item (como un showcase); " +
     "5 = se ve el héroe con el item pero algo chico o tapado; " +
+    (it.efecto ? "IMPORTANTE: el item es la variante con efecto inusual '" + it.efecto + "' (se ve como: " + descEfecto(it.efecto) + "). " +
+      "Lo que vende es ESE efecto, así que es obligatorio que se vea en la foto: si no se aprecian esas partículas/aura, la foto vale 0-3 aunque el item se vea de cerca (sería otra variante o sin efecto). " +
+      "Para 8-10 el efecto debe verse claramente. La imagen de referencia es el render oficial y NO muestra el efecto; úsala solo para reconocer el item. " : "") +
     "0-2 = vista lejana de partida desde arriba con héroes chiquitos, mapa, menús o interfaz, una persona o cara, mucho texto encima, " +
     "otro héroe u otro item distinto, o pantalla negra. Si hay ejemplos de lo que le gustó y no le gustó al dueño, úsalos como guía del estilo. Califica todas las fotos." });
   const r = await f(API_URL, {
@@ -261,25 +284,36 @@ async function buscarFotos(clave, item, fetchFn, oficial, ejemplos) {
   const f = fetchFn || fetch;
   const it = limpiarItem(item);
   if (!it.nombre) throw new Error("Falta el nombre del item.");
-  const ids = await buscarVideos(clave, it, f);
-  if (!ids.length) throw new Error("No encontré fotos in-game de este item en la web. Súbela tú.");
-  // Candidatas: los cuadros de los 3 mejores videos (en paralelo), hasta 9.
-  const grupos = await Promise.all(ids.slice(0, 3).map(async function (id) {
-    const c = await cuadrosDelVideo(id, f);
-    if (c.length) return c;
-    const x = await bajarMiniatura(id, f); return x ? [x] : [];
-  }));
-  let cand = [].concat.apply([], grupos).slice(0, 9);
-  if (!cand.length) throw new Error("Encontré videos pero no pude bajar sus fotos. Intenta otra vez.");
-  // La IA mira cada foto: quedan solo las que muestran el item de cerca, la mejor primero.
-  let notas = null;
-  try { notas = await calificarFotos(clave, it, cand, oficial, f, ejemplos); } catch (e) { notas = null; }
-  if (!notas || !Object.keys(notas).length) return { fotos: cand.slice(0, 6), aviso: "" };
-  cand = cand.map(function (x, i) { return Object.assign({}, x, { nota: notas[i] != null ? notas[i] : 0 }); })
-    .sort(function (a, b) { return b.nota - a.nota; });
-  const buenas = cand.filter(function (x) { return x.nota >= NOTA_MIN; });
+  // Con efecto inusual se buscan hasta 2 rondas: si en la primera ninguna foto muestra el efecto, se busca con otras palabras.
+  const rondas = it.efecto ? 2 : 1, vistos = {};
+  let todas = [], sinNotas = false;
+  for (let ronda = 1; ronda <= rondas; ronda++) {
+    const ids = (await buscarVideos(clave, it, f, ronda)).filter(function (id) { return !vistos[id]; });
+    if (!ids.length) { if (ronda === 1) throw new Error("No encontré fotos in-game de este item en la web. Súbela tú."); break; }
+    ids.forEach(function (id) { vistos[id] = true; });
+    // Candidatas: los cuadros de los 3 mejores videos (en paralelo), hasta 9.
+    const grupos = await Promise.all(ids.slice(0, 3).map(async function (id) {
+      const c = await cuadrosDelVideo(id, f);
+      if (c.length) return c;
+      const x = await bajarMiniatura(id, f); return x ? [x] : [];
+    }));
+    let cand = [].concat.apply([], grupos).slice(0, 9);
+    if (!cand.length) { if (ronda === 1 && rondas === 1) throw new Error("Encontré videos pero no pude bajar sus fotos. Intenta otra vez."); continue; }
+    // La IA mira cada foto: quedan solo las que muestran el item de cerca (y con su efecto), la mejor primero.
+    let notas = null;
+    try { notas = await calificarFotos(clave, it, cand, oficial, f, ejemplos); } catch (e) { notas = null; }
+    if (!notas || !Object.keys(notas).length) { sinNotas = true; todas = todas.concat(cand); break; }
+    todas = todas.concat(cand.map(function (x, i) { return Object.assign({}, x, { nota: notas[i] != null ? notas[i] : 0 }); }));
+    if (todas.some(function (x) { return x.nota >= NOTA_MIN; })) break;
+  }
+  if (!todas.length) throw new Error("Encontré videos pero no pude bajar sus fotos. Intenta otra vez.");
+  if (sinNotas) return { fotos: todas.slice(0, 6), aviso: "" };
+  todas.sort(function (a, b) { return b.nota - a.nota; });
+  const buenas = todas.filter(function (x) { return x.nota >= NOTA_MIN; });
   if (buenas.length) return { fotos: buenas.slice(0, 6), aviso: "" };
-  return { fotos: cand.slice(0, 3), aviso: "No encontré fotos donde el item se vea de cerca. Estas son las mejores; si no te gustan, sube una tú." };
+  return { fotos: todas.slice(0, 3), aviso: it.efecto
+    ? "No encontré fotos donde se vea el efecto " + it.efecto + " de este item (busqué 2 veces). Estas son las mejores que hallé, pero NO muestran el efecto: mejor sube tú una captura del juego con el efecto."
+    : "No encontré fotos donde el item se vea de cerca. Estas son las mejores; si no te gustan, sube una tú." };
 }
 
 // Limpia lo que manda el navegador como retroalimentación: fotos chicas (data URL jpeg/png/webp) y datos del item.
@@ -311,4 +345,4 @@ function limpiarPublicacion(b) {
   return { imagen: im, nombre: texto(b.nombre, 90), tipo: texto(b.tipo, 60), precio: numero(b.precio), textos: textos };
 }
 
-module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos, limpiarFeedback, elegirEjemplos, limpiarPublicacion };
+module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos, limpiarFeedback, elegirEjemplos, limpiarPublicacion, descEfecto };

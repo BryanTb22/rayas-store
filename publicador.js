@@ -287,7 +287,7 @@
     st.webEst = "busca"; st.webMsg = ""; pintarWeb();
     pedirIa({ accion: "fotos", item: datosIa(), oficial: miniOficial() }).then(function (j) {
       st.web = j.fotos || []; st.webEst = ""; st.fbEnviado = false; st.fbMsg = ""; st.apEst = ""; st.apMsg = "";
-      st.webMsg = j.aviso || (st.web.length > 1 ? "La IA eligió las fotos donde el item se ve de cerca (la mejor primero). Toca otra si te gusta más." : "");
+      st.webMsg = j.aviso || (st.web.length > 1 ? "La IA eligió las fotos donde el item se ve de cerca" + (String(st.d.efecto || "").trim() ? " y se nota el efecto " + st.d.efecto.trim() : "") + " (la mejor primero). Toca otra si te gusta más." : "");
       return st.web.length ? usarFotoWeb(0) : null;
     }).catch(function (e) { st.webEst = ""; st.webMsg = String(e.message || e); pintarWeb(); });
   }
@@ -325,7 +325,7 @@
         '<button type="button" class="pb-wno" data-pb="webMala" data-i="' + i + '" title="' + (x.mala ? 'Quitar la marca' : 'Esta foto no sirve (la IA aprende)') + '" aria-label="Marcar como mala">' + (x.mala ? '↩' : '👎') + '</button></div>';
     }).join("");
     box.innerHTML = '<div class="pb-iabar"><button type="button" class="pb-btn" data-pb="webBuscar"' + (st.webEst === "busca" ? " disabled" : "") + '>' +
-      (st.webEst === "busca" ? "🔎 Buscando y eligiendo fotos…" : "🔎 Buscar fotos in-game en la web") + '</button></div>' +
+      (st.webEst === "busca" ? (String(st.d.efecto || "").trim() ? "🔎 Buscando fotos con el efecto " + st.d.efecto.trim() + "…" : "🔎 Buscando y eligiendo fotos…") : "🔎 Buscar fotos in-game en la web") + '</button></div>' +
       (thumbs ? '<div class="pb-wfs">' + thumbs + '</div>' : '') +
       (st.webMsg ? '<p class="pb-hint' + (st.web && st.web.length && !/No encontr/.test(st.webMsg) ? '' : ' pb-err') + '">' + esc(st.webMsg) + '</p>' : '') +
       (thumbs && !st.fbEnviado ? '<p class="pb-hint">👎 marca las que no sirven. Cuando apruebes la publicación, la IA aprende de tu elección y la foto queda guardada en el item.</p>' : '') +
