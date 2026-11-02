@@ -1837,6 +1837,22 @@
     return false;
   }
   /* --- Admin: pestaña Compras (precios a los que compras) --- */
+  /* Generador de publicaciones (publicador.js se carga solo al usarlo) */
+  function tabPub() {
+    return '<div class="card" style="padding:16px;display:grid;gap:12px"><h3 style="margin:0">🖼 Generador de publicaciones</h3>' +
+      '<p class="hint" style="margin:0">Sube la foto in-game del item (y si quieres la oficial de Steam), pon el nombre y los precios, y te arma la <b>imagen de venta 1080×1350</b> con el estilo de Rayas más <b>3 textos para WhatsApp</b> listos para copiar. Todo se hace en tu navegador; no se guarda ni se publica nada.</p>' +
+      '<div><button type="button" class="btn btn-yellow" data-a="pubAbrir">Abrir generador</button></div>' +
+      (admin.pubMsg ? '<p class="hint" style="margin:0;color:var(--danger)">' + esc(admin.pubMsg) + '</p>' : '') + '</div>';
+  }
+  function abrirPub() {
+    if (!admin.puede) return;
+    var ir = function () { admin.pubMsg = ""; admin.abierto = false; quitarHash(); render(); window.rayasPublicador.abrir(); };
+    if (window.rayasPublicador) return ir();
+    var sc = document.createElement("script"); sc.src = "publicador.js?v=1";
+    sc.onload = function () { if (window.rayasPublicador) ir(); };
+    sc.onerror = function () { admin.pubMsg = "No se pudo cargar el generador. Revisa que publicador.js esté subido al repositorio."; render(); };
+    document.head.appendChild(sc);
+  }
   function tabCompras() {
     if (!ven.pCargado && !ven.pCargando) cargarPrecios();
     var C = admin.cp = admin.cp || {};
@@ -2981,9 +2997,9 @@
       '<button class="btn btn-ghost btn-sm" type="button" data-a="pedRecargar">Actualizar lista</button></div>';
   }
 
-  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pedidos: "🛒 Pedidos", pagina: "Textos y contactos" };
+  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pedidos: "🛒 Pedidos", pagina: "Textos y contactos", pub: "🖼 Publicaciones" };
   function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : v === "sets" ? "sets" : "inicio"; }
-  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios"] : ["config", "usuarios", "pagina"]; }
+  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios", "pub"] : ["config", "usuarios", "pagina", "pub"]; }
   function panelAdmin() {
     var sc = seccionAdmin(), lista = tabsDeSeccion(sc);
     if (lista.indexOf(admin.tab) < 0) admin.tab = lista[0];
@@ -2993,7 +3009,7 @@
     if (admin.editando) cuerpo = formPremio();
     else cuerpo = '<div class="tabs" role="tablist">' +
       lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
-      '</div>' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pedidos" ? tabPedidos() : listaPremios()))));
+      '</div>' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "pedidos" ? tabPedidos() : listaPremios()))));
     return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" type="button" data-a="salir" title="Cerrar la sesión de administrador" style="color:var(--danger,#ff7a7a)">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
       '<div class="drawer-body">' + cuerpo + '</div>' +
@@ -3582,6 +3598,7 @@
       case "recargarU": admin.usuarios = null; render(); break;
       case "cerrar": leerForm(); quitarHash(); admin.abierto = false; admin.editando = null; render(); break;
       case "tab": admin.tab = t.getAttribute("data-t"); render(); break;
+      case "pubAbrir": abrirPub(); break;
       case "uAbrir": var uu = t.getAttribute("data-uid"); admin.uAbierto = admin.uAbierto === uu ? null : uu; render(); break;
       case "nuevo":
         admin.editando = { nuevo: true, p: premioBase() };
