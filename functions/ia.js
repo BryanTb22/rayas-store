@@ -161,15 +161,31 @@ async function buscarVideos(clave, it, f) {
   }
   return idsYoutube(todo).slice(0, 8);
 }
+async function bajarJpg(url, f) {
+  try {
+    const r = await f(url);
+    if (!r.ok) return null;
+    const buf = Buffer.from(await r.arrayBuffer());
+    return buf.length < 4000 ? null : buf;   // la imagen gris de "no existe" pesa ~1 KB
+  } catch (e) { return null; }
+}
+// Fotos sacadas de DENTRO del video (YouTube guarda 3 cuadros: al 25 %, 50 % y 75 %). No son la portada,
+// así que no traen letras ni caras: son el juego. Se prueba la mejor calidad que exista.
+async function cuadrosDelVideo(id, f) {
+  const out = [];
+  for (const n of [2, 1, 3]) {
+    for (const q of ["maxres", "sd", "hq"]) {
+      const buf = await bajarJpg("https://i.ytimg.com/vi/" + id + "/" + q + n + ".jpg", f);
+      if (buf) { out.push({ id: id + "-" + n, video: "https://www.youtube.com/watch?v=" + id, data: "data:image/jpeg;base64," + buf.toString("base64") }); break; }
+    }
+  }
+  return out;
+}
+// Portada del video: solo si el video no tiene cuadros.
 async function bajarMiniatura(id, f) {
   for (const q of ["maxresdefault", "sddefault", "hqdefault"]) {
-    try {
-      const r = await f("https://i.ytimg.com/vi/" + id + "/" + q + ".jpg");
-      if (!r.ok) continue;
-      const buf = Buffer.from(await r.arrayBuffer());
-      if (buf.length < 4000) continue;   // la imagen gris de "no existe" pesa ~1 KB
-      return { id: id, video: "https://www.youtube.com/watch?v=" + id, data: "data:image/jpeg;base64," + buf.toString("base64") };
-    } catch (e) { /* probar la siguiente calidad */ }
+    const buf = await bajarJpg("https://i.ytimg.com/vi/" + id + "/" + q + ".jpg", f);
+    if (buf) return { id: id, video: "https://www.youtube.com/watch?v=" + id, data: "data:image/jpeg;base64," + buf.toString("base64"), portada: true };
   }
   return null;
 }
@@ -179,11 +195,13 @@ async function buscarFotos(clave, item, fetchFn) {
   if (!it.nombre) throw new Error("Falta el nombre del item.");
   const ids = await buscarVideos(clave, it, f);
   if (!ids.length) throw new Error("No encontré fotos in-game de este item en la web. Súbela tú.");
+  // Hasta 6 fotos: los cuadros de los 2-3 mejores videos (el mejor video primero).
   const fotos = [];
   for (const id of ids) {
-    if (fotos.length >= 3) break;
-    const x = await bajarMiniatura(id, f);
-    if (x) fotos.push(x);
+    if (fotos.length >= 6) break;
+    let c = await cuadrosDelVideo(id, f);
+    if (!c.length) { const x = await bajarMiniatura(id, f); c = x ? [x] : []; }
+    c.slice(0, 6 - fotos.length).forEach(function (x) { fotos.push(x); });
   }
   if (!fotos.length) throw new Error("Encontré videos pero no pude bajar sus fotos. Intenta otra vez.");
   return fotos;

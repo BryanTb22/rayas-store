@@ -43,12 +43,17 @@ const ia = require("./ia");
         { type: "web_search_tool_result", content: [{ type: "web_search_result", url: "https://www.youtube.com/watch?v=zzzzzzzzzzz" }] },
         { type: "text", text: "1. https://www.youtube.com/watch?v=aaaaaaaaaaa\n2. https://youtu.be/bbbbbbbbbbb" }] }) };
     }
-    if (/aaaaaaaaaaa\/maxresdefault/.test(url)) return { ok: false, status: 404 };
     return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array(9000).buffer };
   };
   const fotos = await ia.buscarFotos("k", { nombre: "Sea Rake's Bridle", heroe: "Slark" }, web);
-  assert.deepStrictEqual(fotos.map((x) => x.id), ["aaaaaaaaaaa", "bbbbbbbbbbb", "zzzzzzzzzzz"]);
-  assert(/^data:image\/jpeg;base64,/.test(fotos[0].data)); assert(pedidos.some((u) => /aaaaaaaaaaa\/sddefault/.test(u)));
+  // del 1er video salen sus 3 cuadros (2, 1, 3), del 2º otros 3 = 6; nunca la portada si hay cuadros
+  assert.deepStrictEqual(fotos.map((x) => x.id), ["aaaaaaaaaaa-2", "aaaaaaaaaaa-1", "aaaaaaaaaaa-3", "bbbbbbbbbbb-2", "bbbbbbbbbbb-1", "bbbbbbbbbbb-3"]);
+  assert(/^data:image\/jpeg;base64,/.test(fotos[0].data)); assert(!fotos.some((x) => x.portada));
+  assert(pedidos.some((u) => /aaaaaaaaaaa\/maxres2\.jpg/.test(u))); assert(!pedidos.some((u) => /default\.jpg/.test(u)));
+  // video sin cuadros: usa la portada
+  const sinCuadros = async (url, o) => /api\.anthropic/.test(url) ? web(url, o) : (/default\.jpg/.test(url) ? { ok: true, status: 200, arrayBuffer: async () => new Uint8Array(9000).buffer } : { ok: false, status: 404 });
+  const f2 = await ia.buscarFotos("k", { nombre: "X" }, sinCuadros);
+  assert(f2.length === 3 && f2.every((x) => x.portada));
   const vacio = async () => ({ ok: true, status: 200, json: async () => ({ content: [{ type: "text", text: "no hay" }] }) });
   await assert.rejects(ia.buscarFotos("k", { nombre: "X" }, vacio), /No encontré/);
   console.log("ia.test.js: todo OK");
