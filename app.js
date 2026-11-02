@@ -1545,10 +1545,10 @@
  var best = mejor && u === 0;
       out += '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + (cd ? ' cd' : '') + (enCarro ? ' enc' : '') + (best ? ' best' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + gem + '</span>' +
         '<span class="ofr-e">' + est + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b>' + (best ? '<em class="ofr-best">Mejor precio</em>' : '') + '</span>' +
-        '<span class="ofr-b">' + edit + vadm + (agot ? '<span class="ofr-ag">Agotado</span>' : (enCarro
+        '<span class="ofr-b">' + edit + (agot ? '<span class="ofr-ag">Agotado</span>' : (enCarro
           ? '<button type="button" class="btn btn-ghost btn-sm ofr-in" data-a="carMenos" data-id="' + esc(x.id) + '" title="Quitar del carrito">✔ En el carrito</button>'
           : '<button type="button" class="btn btn-yellow btn-sm" data-a="carAhora" data-id="' + esc(x.id) + '"' + (cd ? ' title="Se entrega el ' + esc(cdFechaLarga(x)) + '"' : '') + '>⚡ ' + (cd ? 'Comprar (entrega el ' + esc(cdFechaCorta(x)) + ')' : 'Comprar ahora') + '</button>' +
-            '<button type="button" class="btn btn-ghost btn-sm ofr-cart" data-a="carAdd" data-id="' + esc(x.id) + '" aria-label="Agregar al carrito" title="Agregar al carrito">🛒</button>')) + ojo + '</span></div>';
+            '<button type="button" class="btn btn-ghost btn-sm ofr-cart" data-a="carAdd" data-id="' + esc(x.id) + '" aria-label="Agregar al carrito" title="Agregar al carrito">🛒</button>')) + '</span></div>';
     }
     return out;
   }

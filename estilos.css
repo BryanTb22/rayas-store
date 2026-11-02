@@ -1413,6 +1413,3 @@ html { scroll-padding-top: 84px; }
 .field.cdf { grid-column: 1 / -1; }
 .cdf > .chk { text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 600; }
 
-/* Vista previa de cada oferta (ojito) */
-.ofr-ojo{color:var(--yellow)}
-.ofr-vsub{cursor:pointer}
