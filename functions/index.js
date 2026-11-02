@@ -12,6 +12,7 @@ const inv = require("./inventario");
 const sc = require("./steamcache");
 const { enviarCorreo, CORREOS_ADMIN } = require("./correo");
 const emails = require("./emails");
+const ia = require("./ia");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -20,6 +21,7 @@ const FV = admin.firestore.FieldValue;
 const CULQI_SECRET = defineSecret("CULQI_SECRET_KEY");   // sk_test_... / sk_live_...
 const WEBHOOK_KEY = defineSecret("CULQI_WEBHOOK_KEY");   // clave inventada por ti, va en la URL del webhook
 const RESEND_KEY = defineSecret("RESEND_API_KEY");       // llave de Resend para enviar los correos
+const ANTHROPIC_KEY = defineSecret("ANTHROPIC_API_KEY"); // clave de la API de Claude (textos de venta del generador)
 const REGION = "us-central1";
 
 // Correos: cuánto esperar para el recordatorio del código de pago pendiente (las órdenes de Culqi duran 24 h).
@@ -799,6 +801,25 @@ exports.barridoPagos = onSchedule(
         if (!uSnap.exists || !uSnap.data().email) continue;
         await correoPagoConfirmado(doc.id, p, uSnap.data());
       } catch (e) { console.error("reintento correo de pago", doc.id, e); }
+    }
+  }
+);
+
+/* ---------- Generador de publicaciones: textos de venta escritos por Claude (solo admin) ---------- */
+exports.crearPublicacion = onRequest(
+  { region: REGION, cors: ORIGENES, secrets: [ANTHROPIC_KEY], maxInstances: 2, timeoutSeconds: 60 },
+  async (req, res) => {
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
+    const uid = await uidDeLaPeticion(req);
+    if (uid !== ADMIN_UID) return res.status(403).json({ error: "Solo el administrador puede usar esto." });
+    const b = req.body || {};
+    const tienda = b.tienda === "litlejacob" ? "litlejacob" : "rayas";
+    try {
+      const textos = await ia.escribirTextos(ANTHROPIC_KEY.value(), tienda, b.item);
+      res.json({ ok: true, textos: textos, modelo: ia.MODELO });
+    } catch (e) {
+      console.error("crearPublicacion", e);
+      res.status(502).json({ error: String((e && e.message) || e).slice(0, 300) });
     }
   }
 );
