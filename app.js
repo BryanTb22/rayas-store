@@ -649,7 +649,7 @@
   var rLogo = null;
   function ruletaDibujar(rotDeg, t) {
     var cv = document.getElementById("ruleta-cv"); if (!cv || !ruleta) return;
-    if (!rLogo) { rLogo = new Image(); rLogo.src = "img/logo.webp"; rLogo.onload = function () { ruletaDibujar(ruleta && ruleta.fin ? ruleta.rot : (ruleta ? ruleta.rotAct || 0 : 0), 0); }; }
+    if (!rLogo) { rLogo = new Image(); rLogo.src = "img/logo-v2.webp"; rLogo.onload = function () { ruletaDibujar(ruleta && ruleta.fin ? ruleta.rot : (ruleta ? ruleta.rotAct || 0 : 0), 0); }; }
     var ctx = cv.getContext("2d"), W = cv.width, cx = W / 2, R = W / 2 - 34, rim = R + 22, i, PI = Math.PI;
     t = t || 0; ruleta.rotAct = rotDeg;
     ctx.clearRect(0, 0, W, W);
@@ -881,7 +881,7 @@
     });
     var logos = document.querySelectorAll(".hero-logo, .logo-img");
     if (esFs(F.logo)) cargarFs(F.logo.slice(3)).then(function (u) { if (u) for (var i = 0; i < logos.length; i++) logos[i].src = u; });
-    else for (var i = 0; i < logos.length; i++) if (logos[i].getAttribute("src") !== "img/logo.webp") logos[i].src = "img/logo.webp";
+    else for (var i = 0; i < logos.length; i++) if (logos[i].getAttribute("src") !== "img/logo-v2.webp") logos[i].src = "img/logo-v2.webp";
   }
   var FOTO_TXT = { logo: "Cambiar logo", hero: "Cambiar fondo de portada", lava: "Cambiar fondo (Cómo participar)", sombra: "Cambiar fondo (Ganadores)" };
   function fotoBtn(k) {
@@ -1001,7 +1001,7 @@
       tipo: sv("tipo"), heroe: sv("heroe"), ranura: sv("ranura"), rareza: sv("rareza"), calidad: sv("calidad"),
       estilos: nv("estilos"), estOk: sv("estOk"), descripcion: sv("descripcion"), steamUsd: nv("steamUsd"), steamAct: f.steamAct && f.steamAct.timestampValue || "",
       activo: f.activo ? f.activo.booleanValue !== false : true, creado: f.creado && f.creado.timestampValue || "", cooldownHasta: f.cooldownHasta && f.cooldownHasta.timestampValue || "",
-      previas: pvDeCampo(f.previas) };
+      previas: pvDeCampo(f.previas).length ? pvDeCampo(f.previas) : pvLista([sv("vista")]) };
   }
   /* ===== Previsualización en el juego: campo "previas" = lista de fotos "fs:img-…" (hasta 6) de esa versión. Sin el campo = sin previsualización. ===== */
   var PV_MAX = 6;
@@ -1545,10 +1545,10 @@
  var best = mejor && u === 0;
       out += '<div class="ofr-r' + (cur ? ' cur' : '') + (agot ? ' agot' : '') + (cd ? ' cd' : '') + (enCarro ? ' enc' : '') + (best ? ' best' : '') + '" data-a="itVer" data-id="' + esc(x.id) + '" role="button" tabindex="0"><span class="ofr-g">' + gem + '</span>' +
         '<span class="ofr-e">' + est + '</span><span class="ofr-p"><b>' + fmtPrecio(x.precio) + '</b>' + (best ? '<em class="ofr-best">Mejor precio</em>' : '') + '</span>' +
-        '<span class="ofr-b">' + edit + (agot ? '<span class="ofr-ag">Agotado</span>' : (enCarro
+        '<span class="ofr-b">' + edit + vadm + (agot ? '<span class="ofr-ag">Agotado</span>' : (enCarro
           ? '<button type="button" class="btn btn-ghost btn-sm ofr-in" data-a="carMenos" data-id="' + esc(x.id) + '" title="Quitar del carrito">✔ En el carrito</button>'
           : '<button type="button" class="btn btn-yellow btn-sm" data-a="carAhora" data-id="' + esc(x.id) + '"' + (cd ? ' title="Se entrega el ' + esc(cdFechaLarga(x)) + '"' : '') + '>⚡ ' + (cd ? 'Comprar (entrega el ' + esc(cdFechaCorta(x)) + ')' : 'Comprar ahora') + '</button>' +
-            '<button type="button" class="btn btn-ghost btn-sm ofr-cart" data-a="carAdd" data-id="' + esc(x.id) + '" aria-label="Agregar al carrito" title="Agregar al carrito">🛒</button>')) + '</span></div>';
+            '<button type="button" class="btn btn-ghost btn-sm ofr-cart" data-a="carAdd" data-id="' + esc(x.id) + '" aria-label="Agregar al carrito" title="Agregar al carrito">🛒</button>')) + ojo + '</span></div>';
     }
     return out;
   }
@@ -2343,7 +2343,7 @@
       (sub ? '<p>' + sub + '</p>' : '') + '<div class="orn">◆</div></div>';
   }
 
-  var VISTA_HASH = { inicio: "inicio", rifas: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender", perfil: "perfil", "perfil/transacciones": "perfil", "perfil/seguridad": "perfil" };
+  var VISTA_HASH = { sets: "sets", inicio: "inicio", rifas: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender", perfil: "perfil", "perfil/transacciones": "perfil", "perfil/seguridad": "perfil" };
   var vistaActual = "inicio";
   function switchItems() {
     if (!admin.puede) return "";
@@ -2363,6 +2363,9 @@
       }).join("") + '</div><p class="ult-mas"><a class="btn btn-ghost btn-sm" href="#ganadores">Ver todos los ganadores</a></p></div></section>';
   }
   function itemsVisible() { return !!(admin.puede || (estado.secciones && estado.secciones.items)); }
+  // Sets Caché (sets.js): su catálogo y su interruptor de "visible" están en live/rayasSets.
+  function setsVisible() { return !!(admin.puede || (window.setsCache && window.setsCache.visible())); }
+  function setsOn() { return !!(window.setsCache && window.setsCache.visible()); }
   function vistaDeHash() {
     var h = String(location.hash || "").replace("#", "");
     if (VISTA_HASH[h]) vistaActual = VISTA_HASH[h];
@@ -2414,7 +2417,7 @@
     }
     var html = '' +
       '<header class="topbar gutter"><div class="wrap">' +
-      '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
+      '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo-v2.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
       '<nav class="nav"><a class="navlink' + (vista === "inicio" ? ' on' : '') + '" href="#inicio">Inicio</a>' + (rifasVisible() ? '<a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' : '') +
       (admin.puede ? '<button class="lock" type="button" data-a="admin">Panel admin</button><button class="lock" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button>'
         : (cuenta.perfil ? '<button class="lock hot misrifas" type="button" data-a="misRifas">🎟️ Mis rifas</button>' + menuUsuarioHtml(vista)
@@ -2423,6 +2426,7 @@
       '</nav></div></header>' +
       '<div class="svcbar gutter"><div class="wrap">' +
       (itemsVisible() ? '<a class="svc-tab comprar' + (vista === "comprar" ? ' on' : '') + '" href="#comprar"><span>🛒</span>Comprar items' + (estado.secciones.items ? '' : ' 🔒') + '</a><a class="svc-tab vender' + (vista === "vender" ? ' on' : '') + '" href="#vender"><span>💰</span>Vender items' + (estado.secciones.items ? '' : ' 🔒') + '</a>' : '') +
+      (setsVisible() ? '<a class="svc-tab sets' + (vista === "sets" ? ' on' : '') + '" href="#sets"><span>🎁</span>Sets Caché' + (setsOn() ? '' : ' 🔒') + '</a>' : '') +
       (itemsVisible() ? '<button type="button" class="svc-tab carrito" data-a="carAbrir"><span>🛒</span>Carrito' + (carroN() ? ' (' + carroN() + ')' : '') + '</button>' : '') +
       (rifasVisible() ? '<a class="svc-tab' + (vista === "rifas" ? ' on' : '') + '" href="#rifas"><span>🎟️</span>Rifas' + (rifasOn() ? '' : ' 🔒') + '</a>' : '') +
       (linkCreditos || V || recargaOn() ? btnRecargar("svc-tab recargar", "btnRecargarNav", linkCreditos) : '') +
@@ -2430,7 +2434,7 @@
 
       '@@VISTA@@' +
       '<section class="hero gutter" id="rifas-top">' + fotoBtn("hero") + '<div class="wrap">' +
-      '<img class="hero-logo" src="img/logo.webp" alt="Rayas Store" width="132" height="132">' + fotoBtn("logo") +
+      '<img class="hero-logo" src="img/logo-v2.webp" alt="Rayas Store" width="132" height="132">' + fotoBtn("logo") +
       tx("div", "kicker", 'class="kicker"') +
       (V ? '<h1' + ed("t:titulo", "Título") + '>' + esc(T.titulo) + '</h1>' : '<h1>' + tituloHtml(T.titulo) + '</h1>') +
       tx("p", "subtitulo") +
@@ -2479,10 +2483,10 @@
       '</div></section>' +
 
       '@@FIN@@' + '<footer class="footer gutter"><div class="wrap">' +
-      '<span class="logo"><img class="logo-img" src="img/logo.webp" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
+      '<span class="logo"><img class="logo-img" src="img/logo-v2.webp" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
       '<nav class="fnav" aria-label="Enlaces rápidos"><a href="#inicio">Inicio</a>' +
         (rifasVisible() ? '<a href="#rifas">Rifas</a><a href="#como">Cómo participar</a><a href="#ganadores">Ganadores</a><a href="#reglas">Reglas</a>' : '') +
-        (itemsVisible() ? '<a href="#comprar">Comprar items</a><a href="#vender">Vender items</a>' : '') + '</nav>' +
+        (itemsVisible() ? '<a href="#comprar">Comprar items</a><a href="#vender">Vender items</a>' : '') + (setsVisible() ? '<a href="#sets">Sets Caché</a>' : '') + '</nav>' +
       (V ? '<button type="button" class="btn btn-ghost btn-sm" data-a="editContactos">✎ Editar contactos de WhatsApp</button>'
          : (contactos().length ? '<span>WhatsApp: ' + contactos().map(function (c) { return esc(c.nombre) + ' <span class="wa">' + esc(waBonito(c.numero)) + '</span>'; }).join(' · ') + '</span>' : '')) +
       tx("span", "pie") +
@@ -2491,7 +2495,7 @@
     (function () {
       var a = html.split("@@VISTA@@"), b = a[1].split("@@FIN@@");
       var inicioHtml = '<section class="hero gutter" id="inicio">' + fotoBtn("hero") + '<div class="wrap">' +
-        '<img class="hero-logo" src="img/logo.webp" alt="Rayas Store" width="132" height="132">' +
+        '<img class="hero-logo" src="img/logo-v2.webp" alt="Rayas Store" width="132" height="132">' +
         tx("div", "inicioKicker", 'class="kicker"') +
         (V ? '<h1' + ed("t:inicioTitulo", "Título") + '>' + esc(T.inicioTitulo) + '</h1>' : '<h1>' + tituloHtml(T.inicioTitulo) + '</h1>') +
         tx("p", "inicioSub") +
@@ -2507,6 +2511,7 @@
           var c = v === "comprar";
           return '<a class="svc frame' + (estado.secciones.items ? ' gold' : '') + '" href="#' + v + '"><div class="in">' + (estado.secciones.items ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">' + (c ? '🛒' : '💰') + '</span><h3>' + (c ? 'Comprar items' : 'Vender items') + '</h3><p>' + (c ? 'Compra items de Dota 2 de forma segura.' : 'Vende tus items de Dota 2 de forma segura.') + '</p><span class="btn btn-fuchsia">' + (c ? 'Ver items' : 'Vender') + '</span></div></a>';
         }).join("") : '') +
+        (setsVisible() ? '<a class="svc frame' + (setsOn() ? ' gold' : '') + '" href="#sets"><div class="in">' + (setsOn() ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">🎁</span><h3>Sets Caché</h3><p>Sets de cofres de Dota 2 a buen precio, con entrega por Steam.</p><span class="btn btn-yellow">Ver sets</span></div></a>' : '') +
         '</div></div></section>' + ultimosGanadoresHtml(cerradas);
       if (vista === "comprar") cargarItems();
       if (vista === "vender") cargarPrecios();
@@ -2515,7 +2520,8 @@
         (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → Configuraciones principales.</p>') +
         '<div class="empty frame"><div class="in"><strong>Estamos preparando esta sección</strong><span>Muy pronto podrás ' + (vista === "vender" ? 'vender' : 'comprar') + ' items de Dota 2 aquí.</span></div></div>' +
         '</div></section>';
-      html = a[0] + (vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : vista === "perfil" ? perfilPaginaHtml() : inicioHtml) + b[1];
+      var setsHtml = '<section class="section gutter" id="sets"><div class="wrap"><div id="setsSlot"></div></div></section>';
+      html = a[0] + (vista === "sets" ? setsHtml : vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : vista === "perfil" ? perfilPaginaHtml() : inicioHtml) + b[1];
     })();
     if (ruleta) html += modalRuleta();
     else if (modal && modal.tipo === "stock") html += stkPanelHtml();
@@ -2539,6 +2545,7 @@
     hidratarImgs();
     aplicarFotos();
     if (vista === "perfil" && cuenta.tab === "trans") pfFiltrar();
+    if (window.setsCache) window.setsCache.montar(vista);
     var nd = document.querySelector(".drawer-body");
     if (nd && top) nd.scrollTop = top;
   }
@@ -2568,17 +2575,17 @@
         var its = ((f.items && f.items.arrayValue && f.items.arrayValue.values) || []).map(function (v) {
           var g = (v.mapValue && v.mapValue.fields) || {};
           var num = function (k) { return Number(g[k] && (g[k].integerValue || g[k].doubleValue) || 0); };
-          return { id: g.id && g.id.stringValue || "", name: g.name && g.name.stringValue || "Item", qty: num("qty") || 1, price: num("price") };
+          return { id: g.id && g.id.stringValue || "", name: g.name && g.name.stringValue || "Item", qty: num("qty") || 1, price: num("price"), img: g.img && g.img.stringValue || "" };
         });
         var nUni = its.reduce(function (a, i) { return a + i.qty; }, 0);
-        return { code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0) || nUni, monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "", items: its, estado: f.status && f.status.stringValue || "", tienda: f.tienda && f.tienda.stringValue || "", entregaDesde: f.entregaDesde && f.entregaDesde.timestampValue || "" };
+        return { sets: !(f.origen && f.origen.stringValue === "items"), code: f.code && f.code.stringValue || "", n: Number(f.count && f.count.integerValue || 0) || nUni, monto: Number(f.creditos && (f.creditos.integerValue || f.creditos.doubleValue) || 0), t: f.createdAt && f.createdAt.timestampValue || "", items: its, estado: f.status && f.status.stringValue || "", tienda: f.tienda && f.tienda.stringValue || "", entregaDesde: f.entregaDesde && f.entregaDesde.timestampValue || "" };
       }).filter(function (c) { return c.monto > 0; });
       if (vistaActual === "perfil") { render(); pfFiltrar(); }
     }).catch(function () { /* sin historial de compras */ });
   }
   /* ================= Perfil: Información personal · Transacciones · Seguridad ================= */
   var PF_TABS = [["info", "👤", "Información personal"], ["trans", "🔁", "Transacciones"], ["seg", "🔒", "Seguridad"]];
-  var PF_EST = { cooldown: "En cooldown", pagado: "Por entregar", entregado: "Entregado", cancelado: "Cancelado" };
+  var PF_EST = { cooldown: "En cooldown", pendiente: "Pendiente", pagado: "Por entregar", entregado: "Entregado", cancelado: "Cancelado" };
   function pfMon(n) { return "S/ " + (Math.round(Number(n) * 100) / 100).toFixed(2); }
   // La foto del item no se guarda en el pedido: se busca en el catálogo por id (o por nombre si el id ya no existe).
   function pfImgItem(it) {
@@ -2586,6 +2593,12 @@
     if (it.id) b = l.filter(function (x) { return x.id === it.id; })[0];
     if (!b) b = l.filter(function (x) { return sinTildes(x.nombre) === sinTildes(it.name); })[0];
     return b ? b.img : "";
+  }
+  // Foto de un set comprado: la guarda el pedido. Las de LitleJacob son "img/…" (de su web) y las de Rayas "fs:img-…".
+  function pfFotoSet(it, tienda) {
+    var i = String(it.img || "");
+    if (/^img\//.test(i) && tienda !== "rayas") return "https://litlejacob.trade/" + i;
+    return i;
   }
   function pfFilas() {
     var uid = uidSesion(), filas = [];
@@ -2604,8 +2617,8 @@
     });
     (cuenta.compras || []).forEach(function (c) {
       var cdTxt = c.estado === "cooldown" ? "En cooldown · lo recibes el " + cdFechaCorta({ cooldownHasta: c.entregaDesde }) : "";
-      filas.push({ key: "c_" + (c.code || c.t), t: c.t, tipo: "compra", titulo: "Compra de items", code: c.code || "", est: c.estado || "pagado", estTxt: cdTxt || PF_EST[c.estado] || c.estado || "Pagado", monto: c.monto,
-        det: (c.items || []).map(function (i) { return { nombre: i.name, img: pfImgItem(i), qty: i.qty, unit: i.price, sub: i.price * i.qty, unidad: "", estTxt: cdTxt || PF_EST[c.estado] || "", est: c.estado || "pagado" }; }),
+      filas.push({ key: "c_" + (c.code || c.t), t: c.t, tipo: c.sets ? "sets" : "compra", titulo: c.sets ? "Compra de sets" : "Compra de items", code: c.code || "", est: c.estado || "pagado", estTxt: cdTxt || PF_EST[c.estado] || c.estado || "Pagado", monto: c.monto,
+        det: (c.items || []).map(function (i) { return { nombre: i.name, img: c.sets ? pfFotoSet(i, c.tienda) : pfImgItem(i), qty: i.qty, unit: i.price, sub: i.price * i.qty, unidad: "", estTxt: cdTxt || PF_EST[c.estado] || "", est: c.estado || "pagado" }; }),
         tienda: c.tienda === "litlejacob" ? "LitleJacob Store" : (c.tienda === "rayas" ? "Rayas Store" : "") });
     });
     filas.sort(function (a, b) { return String(b.t).localeCompare(String(a.t)); });
@@ -2614,8 +2627,8 @@
   function pfTransHtml() {
     var filas = pfFilas(), ab = cuenta.abiertos || {};
     var tipoSel = cuenta.tTipo || "";
-    var cab = '<div class="pf-tools"><div class="pf-sec-h"><h2>Transacciones</h2><p>Tus compras de items y tickets de rifas. Toca una fila para ver el detalle.</p></div><div class="pf-filtros">' +
-      '<select id="pf-tipo" aria-label="Tipo de transacción"><option value="">Todas</option><option value="compra"' + (tipoSel === "compra" ? " selected" : "") + '>Compras de items</option><option value="rifa"' + (tipoSel === "rifa" ? " selected" : "") + '>Rifas</option></select>' +
+    var cab = '<div class="pf-tools"><div class="pf-sec-h"><h2>Transacciones</h2><p>Tus compras de items, sets y tickets de rifas. Toca una fila para ver el detalle.</p></div><div class="pf-filtros">' +
+      '<select id="pf-tipo" aria-label="Tipo de transacción"><option value="">Todas</option><option value="compra"' + (tipoSel === "compra" ? " selected" : "") + '>Compras de items</option><option value="sets"' + (tipoSel === "sets" ? " selected" : "") + '>Compras de sets</option><option value="rifa"' + (tipoSel === "rifa" ? " selected" : "") + '>Rifas</option></select>' +
       '<input id="pf-buscar" type="search" placeholder="Buscar por ID o nombre del item" autocomplete="off" value="' + esc(cuenta.tBuscar || "") + '"></div></div>';
     if (!filas.length) return cab + '<div class="pf-vacio pf-vacio-t">Todavía no tienes transacciones. Tus compras de items y tus tickets de rifas aparecerán aquí.</div>';
     var tabla = '<div class="pf-tabla" role="table"><div class="pf-th" role="row"><span>Tipo / Fecha</span><span>ID</span><span>Estado</span><span>Sistema de pago</span><span>Importe</span><span class="r">Saldo</span></div>' +
@@ -2968,23 +2981,23 @@
       '<button class="btn btn-ghost btn-sm" type="button" data-a="pedRecargar">Actualizar lista</button></div>';
   }
 
-  var TABS_ADMIN = { config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pedidos: "🛒 Pedidos", pagina: "Textos y contactos" };
-  function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : "inicio"; }
-  function tabsDeSeccion(sc) { return sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios"] : ["config", "usuarios", "pagina"]; }
+  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pedidos: "🛒 Pedidos", pagina: "Textos y contactos" };
+  function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : v === "sets" ? "sets" : "inicio"; }
+  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios"] : ["config", "usuarios", "pagina"]; }
   function panelAdmin() {
     var sc = seccionAdmin(), lista = tabsDeSeccion(sc);
     if (lista.indexOf(admin.tab) < 0) admin.tab = lista[0];
-    var nomSc = sc === "rifas" ? "Rifas" : sc === "items" ? "Compra y venta de items" : "General";
+    var nomSc = sc === "rifas" ? "Rifas" : sc === "items" ? "Compra y venta de items" : sc === "sets" ? "Sets Caché" : "General";
     var titulo = admin.editando ? (admin.editando.nuevo ? "Nuevo premio" : "Editar premio") : "Panel admin · " + nomSc;
     var cuerpo;
     if (admin.editando) cuerpo = formPremio();
     else cuerpo = '<div class="tabs" role="tablist">' +
       lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
-      '</div>' + (admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pedidos" ? tabPedidos() : listaPremios()))));
+      '</div>' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pedidos" ? tabPedidos() : listaPremios()))));
     return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" type="button" data-a="salir" title="Cerrar la sesión de administrador" style="color:var(--danger,#ff7a7a)">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
       '<div class="drawer-body">' + cuerpo + '</div>' +
-      (admin.editando ? '' :
+      (admin.editando || sc === "sets" ? '' :
         '<div class="drawer-foot">' +
         '<button class="btn btn-fuchsia" type="button" data-a="publicar"' + (sucio ? '' : ' disabled') + '>Guardar y publicar</button>' +
         '<div class="msg ' + admin.msgTipo + '" role="status">' + esc(admin.msg || (sucio ? "Tienes cambios sin publicar." : "Todo está publicado.")) + '</div>' +
@@ -3380,6 +3393,24 @@
 
   function quitarHash() { if (location.hash === "#admin") history.replaceState(null, "", location.pathname + location.search); }
 
+  // WhatsApp: con un solo contacto abre el chat; con varios deja elegir a quién escribir (mismo flujo que el carrito de items).
+  function waPedir(texto) {
+    var c = contactos();
+    if (c.length > 1) { modal = null; elegirMsg = texto; elegirAbierto = true; render(); return true; }
+    if (c.length === 1) { window.open(waLinkA(c[0].numero, texto), "_blank", "noopener"); return true; }
+    return false;
+  }
+  // Lo que usa sets.js (Sets Caché) de esta página: sesión, Firestore, fotos, saldo y WhatsApp.
+  window.RY = {
+    esc: esc, fmtSol: fmtSol, token: token, fsPedir: fsPedir, BASE: BASE, FB: FB, uid: uidSesion, sesion: leerSesion,
+    admin: function () { return admin.puede; }, perfil: function () { return cuenta.perfil; }, render: render,
+    imgTag: imgTag, hidratar: hidratarImgs, editorFoto: editorFoto, subirImagen: subirImagen, colorRareza: colorRareza,
+    entrar: function (msg) { modal = null; cuenta.modo = "login"; cuenta.msg = msg || ""; cuenta.msgTipo = ""; render(); },
+    recargar: function () { abrirRecarga(); }, recargaOn: recargaOn, recargarPerfil: function () { return cargarPerfil(); },
+    hayWhatsapp: function () { return contactos().length > 0; }, waPedir: waPedir,
+    abrirAdmin: function (tab) { if (!admin.puede) return; admin.abierto = true; admin.editando = null; admin.tab = tab; render(); }
+  };
+
   /* ================= Eventos ================= */
   document.addEventListener("click", function (ev) {
     var t = ev.target.closest("[data-a]");
@@ -3461,7 +3492,7 @@
       case "impTodos": case "impNinguno": var Ie = impEstado(); var onT = t.getAttribute("data-a") === "impTodos"; Ie.sel = {}; Ie.selR = {}; (Ie.lista || []).forEach(function (g, k) { Ie.sel[k] = onT; }); (Ie.repo || []).forEach(function (r, k) { Ie.selR[k] = onT; }); render(); hidratarImgs(); break;
       case "impSubir": impSubir(); break;
       case "itNuevo": admin.itemForm = nuevoItemForm(); admin.itemMsg = ""; admin.steamInfo = ""; render(); irAlForm(); break;
-      case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { var sep = t.getAttribute("data-u") === "1" && ie.stock > 1; admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: sep ? "1" : String(ie.stock), estilos: String(ie.estilos || 0), estOk: ie.estOk || (ie.estilos ? "1" : "") }, sep ? { id: "", creado: "", desdeId: ie.id } : {}); admin.itemMsg = sep ? "Estás editando solo esta unidad: se guarda aparte con su propio precio y gemas, y las demás unidades no cambian." : ""; render(); hidratarImgs(); irAlForm(); } break;
+      case "itEditar": var ie = itemPorId(t.getAttribute("data-id")); if (ie) { var sep = t.getAttribute("data-u") === "1" && ie.stock > 1; admin.itemForm = Object.assign({}, ie, { precio: String(ie.precio), stock: sep ? "1" : String(ie.stock), estilos: String(ie.estilos || 0), estOk: ie.estOk || (ie.estilos ? "1" : "") }, sep ? { id: "", creado: "", desdeId: ie.id, vista: "" } : {}); admin.itemMsg = sep ? "Estás editando solo esta unidad: se guarda aparte con su propio precio y gemas, y las demás unidades no cambian." : ""; render(); hidratarImgs(); irAlForm(); } break;
       case "itCerrarForm": admin.itemForm = null; admin.itemMsg = ""; render(); break;
       case "itGemaMas": if (admin.itemForm) { var gl2 = gemasDe(admin.itemForm); gl2.push({ t: t.getAttribute("data-t") || "", v: "" }); admin.itemForm.descripcion = gemasAString(gl2); render(); hidratarImgs(); } break;
       case "itGemaDel": if (admin.itemForm) { var gl3 = gemasDe(admin.itemForm); gl3.splice(parseInt(t.getAttribute("data-i"), 10), 1); admin.itemForm.descripcion = gemasAString(gl3); render(); hidratarImgs(); } break;
@@ -3971,7 +4002,7 @@
       var d = document.createElement("div");
       d.id = "promoPop"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Promoción de primera recarga");
       d.innerHTML = '<div class="promo-box"><button type="button" class="promo-x" aria-label="Cerrar">✕</button>' +
-        '<div class="promo-card" style="--promo-bg:url(img/art-sombra.jpg)"><div class="promo-brand"><img src="img/logo.webp" alt="" width="46" height="46"><span>RAYAS <i>STORE</i></span></div>' +
+        '<div class="promo-card" style="--promo-bg:url(img/art-sombra.jpg)"><div class="promo-brand"><img src="img/logo-v2.webp" alt="" width="46" height="46"><span>RAYAS <i>STORE</i></span></div>' +
         '<div class="promo-kick">Promo de bienvenida</div><div class="promo-tit">Primera<br>recarga</div>' +
         '<div class="promo-pk"><div class="promo-p"><small>Recarga</small><b>S/ 50</b><u>▼</u><strong>S/ 55</strong><em>de saldo</em></div><div class="promo-p"><small>Recarga</small><b>S/ 100</b><u>▼</u><strong>S/ 110</strong><em>de saldo</em></div></div>' +
         '<div class="promo-pill">+10% de saldo extra</div><div class="promo-url">rayas.trade</div></div>' +

@@ -10,7 +10,7 @@ const culqi = require("./culqi");
 const sets = require("./sets");
 const inv = require("./inventario");
 const sc = require("./steamcache");
-const { enviarCorreo } = require("./correo");
+const { enviarCorreo, CORREOS_ADMIN } = require("./correo");
 const emails = require("./emails");
 
 admin.initializeApp();
@@ -170,23 +170,43 @@ exports.cobrar = onRequest(
   }
 );
 
-/* ---------- 1b) Comprar sets caché de LitleJacob Store con créditos ----------
- * POST { items: [{ id, qty, name }] } con la sesión del cliente.
- * Descuenta los créditos y crea el pedido (estado "pagado") en una sola transacción.
+/* ---------- 1b) Comprar sets caché con créditos (LitleJacob Store y Rayas Store) ----------
+ * POST { items: [{ id, qty, name }], tienda?: "rayas" } con la sesión del cliente.
+ * Cada tienda tiene su propio catálogo: LitleJacob en live/catalog (campo sets) y Rayas en live/rayasSets (campo json).
+ * Descuenta los créditos y crea el pedido (estado "pagado", con el campo tienda) en una sola transacción.
  */
+// Catálogo de sets de Rayas Store -> { "<id>": { price, stock, soldOut, img } } (mismo formato que live/catalog.sets)
+async function catalogoSetsRayas() {
+  const s = await db.doc("live/rayasSets").get();
+  let j = {};
+  try { j = s.exists ? JSON.parse(String(s.data().json || "{}")) : {}; } catch (e) { j = {}; }
+  const out = {};
+  (Array.isArray(j.sets) ? j.sets : []).forEach((x) => {
+    if (!x || x.id === undefined || x.id === null) return;
+    out[String(x.id)] = {
+      price: x.price === null || x.price === undefined || x.price === "" || !isFinite(Number(x.price)) ? null : Number(x.price),
+      stock: x.stock === null || x.stock === undefined || x.stock === "" ? null : Number(x.stock),
+      soldOut: !!x.soldOut,
+      img: x.img && !/^data:/i.test(x.img) ? String(x.img).slice(0, 300) : ""
+    };
+  });
+  return out;
+}
 exports.comprarSets = onRequest(
   { region: REGION, cors: ORIGENES, maxInstances: 5, timeoutSeconds: 30 },
   async (req, res) => {
     // Abrir la dirección en el navegador sirve para comprobar qué versión está desplegada.
-    if (req.method === "GET") return res.json({ ok: true, funcion: "comprarItem", version: VERSION_COMPRAR_ITEM });
+    if (req.method === "GET") return res.json({ ok: true, funcion: "comprarSets", version: VERSION_COMPRAR_SETS });
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
     if (!uid) return res.status(401).json({ error: "Inicia sesión para pagar con tu saldo." });
 
-    const liveSnap = await db.doc("live/catalog").get();
-    const live = liveSnap.exists ? (liveSnap.data().sets || {}) : {};
+    const tienda = (req.body || {}).tienda === "rayas" ? "rayas" : "litlejacob";
+    let live;
+    if (tienda === "rayas") live = await catalogoSetsRayas();
+    else { const liveSnap = await db.doc("live/catalog").get(); live = liveSnap.exists ? (liveSnap.data().sets || {}) : {}; }
     let q;
-    try { q = sets.cotizar((req.body || {}).items, live); }
+    try { q = sets.cotizar((req.body || {}).items, live, { sinDescuento: tienda === "rayas" }); }   // Rayas: sin promo por cantidad
     catch (e) {
       const m = String(e && e.message || "");
       const msg = /^AGOTADO|^SIN_STOCK/.test(m) ? "Uno de los sets de tu carrito ya no tiene stock. Actualiza la página y revisa tu carrito."
@@ -196,7 +216,7 @@ exports.comprarSets = onRequest(
     }
 
     const uRef = db.doc("rayas_users/" + uid);
-    const code = sets.nuevoCodigo();
+    const code = sets.nuevoCodigo(tienda === "rayas" ? "RY" : "LJ");
     const oRef = db.doc("orders/" + code);
     try {
       const r = await db.runTransaction(async (tx) => {
@@ -209,7 +229,7 @@ exports.comprarSets = onRequest(
           code: code, customerName: String(d.nombre || "Cliente").slice(0, 60), steamId: String(d.steam || "").slice(0, 20),
           items: q.lineas.map((l) => ({ id: l.id, name: l.name, qty: l.qty, price: l.price, img: String((live[l.id] && live[l.id].img) || "").slice(0, 300) })),
           count: q.count, subtotal: q.subtotal, discount: q.discount, total: q.total,
-          status: "pagado", createdAt: FV.serverTimestamp(),
+          status: "pagado", createdAt: FV.serverTimestamp(), tienda: tienda,
           paidWith: "creditos", creditos: q.creditos, uid: uid,
           email: String(d.email || ""), tradelink: String(d.tradelink || "")
         };
@@ -227,6 +247,8 @@ exports.comprarSets = onRequest(
     }
   }
 );
+
+const VERSION_COMPRAR_SETS = "2026-11-01 · sets caché en Rayas Store (catálogo y cupo propios)";
 
 /* ---------- 1b2) Comprar UN item del catálogo (rayas_items) con créditos ----------
  * 1 crédito = S/ 1. Créditos del item = precio redondeado hacia arriba. Todo en una transacción.
@@ -307,8 +329,7 @@ exports.comprarItem = onRequest(
       // si fallan, el pedido igual queda en el panel y se anota el motivo en el pedido (correoError).
       const p = r.pedido, datos = { code: code, nombre: p.customerName, steamId: p.steamId, email: p.email, whatsapp: p.phone, tradelink: p.tradelink, items: p.items, total: p.total, creditos: p.creditos, saldo: r.saldo, creadoEn: new Date(), entrega: r.entrega };
       const estado = { correoAdmin: false, correoCliente: false }, fallos = [];
-      let correoAdmin = "";
-      try { correoAdmin = String((await admin.auth().getUser(ADMIN_UID)).email || ""); } catch (e) { fallos.push("admin sin correo: " + (e && e.message)); }
+      const correoAdmin = CORREOS_ADMIN;
       const mandar = async (para, c, clave, campo) => {
         if (!para) { fallos.push(campo + ": sin destinatario"); return; }
         try { await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: para, subject: c.subject, html: c.html, text: c.text, clave: clave }); estado[campo] = true; }
@@ -502,17 +523,22 @@ exports.webhookCulqi = onRequest(
 exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "America/Lima", region: REGION, secrets: [RESEND_KEY], timeoutSeconds: 120 }, async () => {
   const hoy = rec.hoyLima();
   // Pagados (por entregar) + los entregados hoy, que ya ocuparon cupo de hoy (máximo 8 sets por día).
-  const [os, hechos, cs, live] = await Promise.all([db.collection("orders").where("status", "==", "pagado").get(), db.collection("orders").where("entregadoDia", "==", hoy).get(), db.collection("customers").get(), db.doc("live/catalog").get()]);
-  const clientes = {}; cs.forEach((d) => { clientes[d.id] = d.data(); });
-  const fotos = {}; const sl = live.exists ? (live.data().sets || {}) : {};
-  Object.keys(sl).forEach((id) => { if (sl[id] && sl[id].img) fotos[id] = sl[id].img; });
-  const lista = rec.resumen(rec.pedidosParaEntregar(os.docs.concat(hechos.docs).map((d) => d.data()), clientes, hoy), fotos);
-  if (!lista.length) return;
-  let para = "";
-  try { para = String((await admin.auth().getUser(ADMIN_UID)).email || ""); } catch (e) { console.error("recordatorioEntregas: admin sin correo", e); return; }
-  const c = emails.recordatorioEntregas("litlejacob", { fecha: hoy, cupo: rec.ENTREGA_CAP, pedidos: lista });
-  await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: para, subject: c.subject, html: c.html, text: c.text, clave: "entregas-hoy-" + hoy });
-  console.log("recordatorio enviado", lista.length);
+  const [os, hechos, cs, live, ry] = await Promise.all([db.collection("orders").where("status", "==", "pagado").get(), db.collection("orders").where("entregadoDia", "==", hoy).get(), db.collection("customers").get(), db.doc("live/catalog").get(), catalogoSetsRayas().catch(() => ({}))]);
+  const todos = {}; cs.forEach((d) => { todos[d.id] = d.data(); });
+  const ordenes = os.docs.concat(hechos.docs).map((d) => d.data());
+  const fotosDe = (sl) => { const f = {}; Object.keys(sl || {}).forEach((id) => { if (sl[id] && sl[id].img) f[id] = sl[id].img; }); return f; };
+  // Cada tienda tiene su propio cupo de 8 sets por día y su propio correo.
+  const tiendas = [
+    { id: "litlejacob", fotos: fotosDe(live.exists ? live.data().sets : {}), base: "https://litlejacob.trade", clave: "entregas-hoy-" + hoy },
+    { id: "rayas", fotos: fotosDe(ry), base: "https://rayas.trade", clave: "entregas-hoy-rayas-" + hoy }
+  ];
+  for (const t of tiendas) {
+    const lista = rec.resumen(rec.pedidosParaEntregar(rec.deTienda(ordenes, t.id), rec.clientesDe(todos, t.id), hoy), t.fotos, t.base);
+    if (!lista.length) continue;
+    const c = emails.recordatorioEntregas(t.id, { fecha: hoy, cupo: rec.ENTREGA_CAP, pedidos: lista });
+    try { await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: CORREOS_ADMIN, subject: c.subject, html: c.html, text: c.text, clave: t.clave }); console.log("recordatorio enviado", t.id, lista.length); }
+    catch (e) { console.error("recordatorio " + t.id, e); }
+  }
 });
 
 /* ---------- Items en cooldown: cada hora revisa los pedidos "cooldown" cuya fecha ya pasó, los pasa a
@@ -520,8 +546,7 @@ exports.recordatorioEntregas = onSchedule({ schedule: "0 8 * * *", timeZone: "Am
 async function liberarPedidosEnCooldown(ahora) {
   ahora = ahora || new Date();
   const qs = await db.collection("orders").where("status", "==", "cooldown").get();
-  let adminMail = "";
-  try { adminMail = String((await admin.auth().getUser(ADMIN_UID)).email || ""); } catch (e) { console.error("liberarCooldown: admin sin correo", e); }
+  const adminMail = CORREOS_ADMIN;
   let liberados = 0;
   for (const doc of qs.docs) {
     const p = doc.data();
@@ -556,16 +581,14 @@ exports.liberarCooldown = onSchedule({ schedule: "every 1 hours", timeZone: "Ame
   console.log("liberarCooldown", r);
 });
 
-/* ---- Admin: manda 4 correos de EJEMPLO (confirmación y pendiente, de cada tienda) al correo del administrador. No cobra ni toca saldos. ---- */
+/* ---- Admin: manda 8 correos de EJEMPLO (de cada tienda) a los correos de CORREOS_ADMIN. No cobra ni toca saldos. ---- */
 exports.probarCorreos = onRequest(
   { region: REGION, cors: ORIGENES, secrets: [RESEND_KEY], maxInstances: 1, timeoutSeconds: 60 },
   async (req, res) => {
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
     if (uid !== ADMIN_UID) return res.status(403).json({ error: "Solo el administrador puede usar esto." });
-    let a;
-    try { a = String((await admin.auth().getUser(uid)).email || ""); } catch (e) { a = ""; }
-    if (!a) return res.status(400).json({ error: "La cuenta de administrador no tiene correo." });
+    const a = CORREOS_ADMIN;
     const ahora = new Date(), venc = new Date(ahora.getTime() + 22 * 3600 * 1000), enCd = new Date(ahora.getTime() + 7 * 86400 * 1000), tanda = String(Date.now());
     let enviados = 0, fallaron = 0, error = "";
     for (const tienda of ["rayas", "litlejacob"]) {
@@ -583,7 +606,7 @@ exports.probarCorreos = onRequest(
       }
     }
     if (!enviados) return res.status(502).json({ error: "No se pudo enviar ningún correo. " + error });
-    res.json({ ok: true, a: a, enviados: enviados, fallaron: fallaron, error: error });
+    res.json({ ok: true, a: a.join(", "), enviados: enviados, fallaron: fallaron, error: error });
   }
 );
 
