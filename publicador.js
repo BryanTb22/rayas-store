@@ -17,6 +17,7 @@
   var st = {
     raiz: null, abierto: false, slot: "juego", copiado: "",
     cat: { lista: null, cargando: false, err: "", q: "" }, item: null, ia: null, iaEst: "", iaMsg: "",
+    web: null, webEst: "", webMsg: "", auto: leerAuto(),
     img: { juego: null, oficial: null, logo: null },
     d: { tipo: "", nombre: "", precio: "", steam: "", stock: "1", entrega: "Entrega inmediata", px: 50, py: 50 }
   };
@@ -221,14 +222,15 @@
   }
   function elegirItem(id) {
     var it = (st.cat.lista || []).filter(function (x) { return x.id === id; })[0]; if (!it) return;
-    st.item = it; st.ia = null; st.iaMsg = ""; st.cat.q = "";
+    st.item = it; st.ia = null; st.iaMsg = ""; st.cat.q = ""; st.web = null; st.webMsg = ""; st.webSel = -1;
     st.d.nombre = it.nombre; st.d.tipo = [it.rareza, it.tipo].filter(function (v, i, l) { return v && l.map(norm).indexOf(norm(v)) === i; }).join(" · ");
     st.d.precio = String(it.precio || ""); st.d.steam = it.steamUsd > 0 ? String(Math.round(it.steamUsd * TC * 100) / 100) : "";
     st.d.stock = String(Math.max(1, it.stock)); st.d.entrega = cdTxt(it) || "Entrega inmediata";
     msg("Cargando fotos…"); render();
     Promise.all([fotoDe(it.previas[0]), fotoDe(it.img)]).then(function (f) {
       st.img.juego = f[0]; st.img.oficial = f[1]; st.slot = f[0] ? "oficial" : "juego";
-      render(); msg(f[0] || f[1] ? "" : "Este item no tiene fotos guardadas: súbelas tú.");
+      render(); msg(f[0] || f[1] || st.auto ? "" : "Este item no tiene fotos guardadas: súbelas tú.");
+      if (st.auto) automatico(!!f[0]);
     });
   }
   function datosIa() {
@@ -241,19 +243,56 @@
     if (st.iaEst === "esc") return;
     if (!String(st.d.nombre || "").trim()) { st.iaMsg = "Primero pon el nombre del item."; pintarTextos(); return; }
     st.iaEst = "esc"; st.iaMsg = ""; pintarTextos();
-    tokenAdmin().then(function (tk) {
-      return fetch(IA_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
-        body: JSON.stringify({ tienda: TIENDA, item: datosIa() }) });
-    }).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (j) {
-        if (!r.ok || !j.textos) throw new Error(j.error || (r.status === 404 ? "La función de IA todavía no está desplegada." : "No se pudo (" + r.status + ")."));
-        return j.textos;
-      });
-    }).then(function (l) {
+    pedirIa({ item: datosIa() }).then(function (j) { return j.textos || []; }).then(function (l) {
       st.ia = l.map(function (x) { return [x.titulo, x.texto]; }); st.iaEst = ""; st.iaMsg = "";
     }).catch(function (e) {
-      st.iaEst = ""; st.iaMsg = e && e.message === "NO_SESSION" ? "Tu sesión venció: vuelve a entrar como admin." : String((e && e.message) || e);
+      st.iaEst = ""; st.iaMsg = String((e && e.message) || e);
     }).then(pintarTextos);
+  }
+
+  /* ---------- automático: foto in-game desde la web + textos con IA ---------- */
+  function leerAuto() { try { return localStorage.getItem("pubAuto") !== "0"; } catch (e) { return true; } }
+  function guardarAuto(v) { try { localStorage.setItem("pubAuto", v ? "1" : "0"); } catch (e) { /* nada */ } }
+  function pedirIa(cuerpo) {
+    return tokenAdmin().then(function (tk) {
+      return fetch(IA_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
+        body: JSON.stringify(Object.assign({ tienda: TIENDA }, cuerpo)) });
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok || !j.ok) throw new Error(j.error || (r.status === 404 ? "La función de IA todavía no está desplegada." : "No se pudo (" + r.status + ")."));
+        return j;
+      });
+    }).catch(function (e) {
+      throw new Error(e && e.message === "NO_SESSION" ? "Tu sesión venció: vuelve a entrar como admin." : (e && e.message === "Failed to fetch" ? "Sin conexión con la IA. Revisa tu internet o vuelve a desplegar la función." : String((e && e.message) || e)));
+    });
+  }
+  function buscarFotoWeb() {
+    if (st.webEst === "busca") return;
+    if (!String(st.d.nombre || "").trim()) { st.webMsg = "Primero pon el nombre del item."; pintarWeb(); return; }
+    st.webEst = "busca"; st.webMsg = ""; pintarWeb();
+    pedirIa({ accion: "fotos", item: datosIa() }).then(function (j) {
+      st.web = j.fotos || []; st.webEst = "";
+      st.webMsg = st.web.length > 1 ? "Elegí la primera. Toca otra si se ve mejor." : "";
+      return st.web.length ? usarFotoWeb(0) : null;
+    }).catch(function (e) { st.webEst = ""; st.webMsg = String(e.message || e); pintarWeb(); });
+  }
+  function usarFotoWeb(i) {
+    var x = st.web && st.web[i]; if (!x) return Promise.resolve();
+    return cargarImg(x.data).then(function (im) { st.img.juego = im; st.webSel = i; render(); }).catch(function () { st.webMsg = "No se pudo usar esa foto."; pintarWeb(); });
+  }
+  function pintarWeb() {
+    var box = document.getElementById("pb-web"); if (!box) return;
+    var thumbs = (st.web || []).map(function (x, i) {
+      return '<button type="button" class="pb-wf' + (st.webSel === i ? ' sel' : '') + '" data-pb="webUsar" data-i="' + i + '" style="background-image:url(' + x.data + ')" aria-label="Usar foto ' + (i + 1) + '"></button>';
+    }).join("");
+    box.innerHTML = '<div class="pb-iabar"><button type="button" class="pb-btn" data-pb="webBuscar"' + (st.webEst === "busca" ? " disabled" : "") + '>' +
+      (st.webEst === "busca" ? "🔎 Buscando en la web…" : "🔎 Buscar foto in-game en la web") + '</button></div>' +
+      (thumbs ? '<div class="pb-wfs">' + thumbs + '</div>' : '') +
+      (st.webMsg ? '<p class="pb-hint' + (st.web && st.web.length ? '' : ' pb-err') + '">' + esc(st.webMsg) + '</p>' : '');
+  }
+  function automatico(teniaFoto) {
+    if (!teniaFoto) buscarFotoWeb();
+    escribirIa();
   }
 
   /* ---------- textos de WhatsApp ---------- */
@@ -311,6 +350,9 @@
     "#rayasPub .pb-res:hover{border-color:#ff2d8f}#rayasPub .pb-res span{display:grid;gap:2px;min-width:0}#rayasPub .pb-res b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
     "#rayasPub .pb-res small{font-size:12px;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#rayasPub .pb-res em{font-style:normal;font-weight:800;white-space:nowrap}" +
     "#rayasPub .pb-iabar{display:flex;flex-wrap:wrap;gap:8px}#rayasPub .pb-btn[disabled]{opacity:.6;cursor:wait}#rayasPub .pb-err{color:#ff8a8a}" +
+    "#rayasPub .pb-auto{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;line-height:1.4;cursor:pointer}#rayasPub .pb-auto input{margin-top:3px;accent-color:#ff2d8f;width:16px;height:16px;flex:none}" +
+    "#rayasPub #pb-web{display:grid;gap:8px}#rayasPub .pb-wfs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}" +
+    "#rayasPub .pb-wf{aspect-ratio:16/9;border-radius:10px;border:2px solid rgba(255,255,255,.12);background:#000 center/cover no-repeat;cursor:pointer;padding:0}#rayasPub .pb-wf.sel{border-color:#ff2d8f}" +
     "@media(max-width:520px){#rayasPub .pb-2{grid-template-columns:1fr}#rayasPub .pb-foto{font-size:11px}}";
 
   function campo(id, et, tipo, ph) {
@@ -330,10 +372,13 @@
       '<div class="pb-grid"><div style="display:grid;gap:18px">' +
       '<div class="pb-grp"><h3>0 · Elegir del catálogo (opcional)</h3>' +
       '<label for="pb-buscar">Busca el item y se llenan solos la foto, el nombre y los precios<input id="pb-buscar" type="text" autocomplete="off" placeholder="Ej: arcana juggernaut" value="' + esc(st.cat.q) + '"></label>' +
-      '<div id="pb-cat" class="pb-cat"></div></div>' +
+      '<div id="pb-cat" class="pb-cat"></div>' +
+      '<label class="pb-auto"><input type="checkbox" data-pb-auto' + (st.auto ? ' checked' : '') + '> <span>⚡ Automático: al elegir un item, la IA busca en la web la foto in-game (si no la tienes guardada) y escribe los textos</span></label>' +
+      '<button type="button" class="pb-btn rojo" data-pb="autoYa">⚡ Hacerlo ahora con lo que escribí</button></div>' +
       '<div class="pb-grp"><h3>1 · Fotos</h3><div class="pb-fotos">' +
       cajaFoto("juego", "Foto in-game", "Toca para subir o pega con Ctrl+V") +
       cajaFoto("oficial", "Foto oficial (opcional)", "Render de Steam") + '</div>' +
+      '<div id="pb-web"></div>' +
       '<p class="pb-hint">Ctrl+V pega en el recuadro marcado en fucsia. Si solo subes la oficial, se usa como foto principal.</p>' +
       '<div class="pb-2"><label>Encuadre horizontal<input type="range" min="0" max="100" data-k="px" value="' + st.d.px + '"></label>' +
       '<label>Encuadre vertical<input type="range" min="0" max="100" data-k="py" value="' + st.d.py + '"></label></div></div>' +
@@ -367,7 +412,7 @@
     });
   }
   function msg(t) { var m = document.getElementById("pb-msg"); if (m) m.textContent = t || ""; }
-  function render() { st.raiz.innerHTML = html(); pintarCat(); fuentes().then(refrescar); refrescar(); }
+  function render() { st.raiz.innerHTML = html(); pintarCat(); pintarWeb(); fuentes().then(refrescar); refrescar(); }
 
   function ponerFoto(k, file) {
     if (!file || !/^image\//.test(file.type)) { msg("Ese archivo no es una imagen."); return; }
@@ -390,6 +435,9 @@
     if (a === "cerrar") cerrar();
     else if (a === "catElegir") elegirItem(t.getAttribute("data-id"));
     else if (a === "iaEscribir") escribirIa();
+    else if (a === "webBuscar") buscarFotoWeb();
+    else if (a === "webUsar") usarFotoWeb(parseInt(t.getAttribute("data-i"), 10));
+    else if (a === "autoYa") automatico(!!st.img.juego);
     else if (a === "iaQuitar") { st.ia = null; st.iaMsg = ""; pintarTextos(); }
     else if (a === "quitar") { e.preventDefault(); e.stopPropagation(); var k = t.getAttribute("data-slot"); st.img[k] = null; st.slot = k; render(); }
     else if (a === "copiar") {
@@ -425,6 +473,7 @@
     st.d[k] = e.target.value; refrescar();
   }
   function alCambio(e) {
+    if (e.target.hasAttribute && e.target.hasAttribute("data-pb-auto")) { st.auto = e.target.checked; guardarAuto(st.auto); return; }
     var t = e.target; if (t.type === "file" && t.files && t.files[0]) ponerFoto(t.getAttribute("data-slot"), t.files[0]);
   }
   function alPegar(e) {

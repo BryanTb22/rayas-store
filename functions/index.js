@@ -807,7 +807,7 @@ exports.barridoPagos = onSchedule(
 
 /* ---------- Generador de publicaciones: textos de venta escritos por Claude (solo admin) ---------- */
 exports.crearPublicacion = onRequest(
-  { region: REGION, cors: ORIGENES, secrets: [ANTHROPIC_KEY], maxInstances: 2, timeoutSeconds: 60 },
+  { region: REGION, cors: ORIGENES, secrets: [ANTHROPIC_KEY], maxInstances: 2, timeoutSeconds: 120, memory: "512MiB" },
   async (req, res) => {
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
@@ -815,6 +815,10 @@ exports.crearPublicacion = onRequest(
     const b = req.body || {};
     const tienda = b.tienda === "litlejacob" ? "litlejacob" : "rayas";
     try {
+      if (b.accion === "fotos") {
+        const fotos = await ia.buscarFotos(ANTHROPIC_KEY.value(), b.item);
+        return res.json({ ok: true, fotos: fotos });
+      }
       const textos = await ia.escribirTextos(ANTHROPIC_KEY.value(), tienda, b.item);
       res.json({ ok: true, textos: textos, modelo: ia.MODELO });
     } catch (e) {
