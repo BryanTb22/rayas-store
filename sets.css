@@ -178,3 +178,85 @@
 }
 .sc-elegir .cartot-r > :last-child { white-space: nowrap; }
 .sc-row input[data-m=qty] { flex: 0 0 76px; }
+
+/* pedidos y clientes (igual que el panel de LitleJacob) */
+.sc-ptabs { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.sc-ptabs .subtabs { flex: 1 1 auto; }
+.sc-pstats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sc-pstats span, .sc-sstats span { font-size: 10px; letter-spacing: .03em; overflow-wrap: anywhere; }
+.sc-chn { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: rgba(255,255,255,.12); font-size: 10px; }
+.sc-chips[hidden] { display: none; }
+.sc-pbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sc-pbar input, .sc-pbar select { flex: 1 1 200px; min-width: 0; padding: 9px 12px; border: 1px solid var(--line); background: #070c20; color: var(--fg); font: inherit; }
+.sc-pbar select { flex: 0 1 190px; }
+.sc-crow { grid-template-columns: minmax(0, 1fr) auto 14px; grid-template-areas: "who amt chev" "sub sub sub"; }
+.sc-cacc { color: var(--ok, #4ade80); }
+.sc-cacc a { color: var(--yellow); }
+.sc-cst { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sc-f3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.sc-oe { display: grid; gap: 10px; border-color: var(--yellow); }
+.sc-oe-t { color: var(--yellow); }
+.sc-oe .sc-row .field { flex: 1 1 180px; margin: 0; }
+.sc-man { display: grid; gap: 10px; }
+.sc-man h3 { margin: 0; }
+.sc-man[data-modo="nuevo"] .sc-me, .sc-man[data-modo="existente"] .sc-mn { display: none; }
+.sc-busy { opacity: .6; pointer-events: none; }
+.sc-lbl { display: block; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.sc-pick { display: grid; gap: 8px; }
+.sc-pick input[type=date] { color-scheme: dark; }
+.sc-pick-q { position: relative; flex: 1 1 220px; min-width: 0; }
+.sc-pick-q input { width: 100%; padding: 9px 12px; border: 1px solid var(--line); background: #070c20; color: var(--fg); font: inherit; }
+.sc-pick-res { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); max-height: 260px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--yellow); background: #0a1230; box-shadow: 0 12px 30px rgba(0,0,0,.5); }
+.sc-pick-o { display: flex; width: 100%; justify-content: space-between; gap: 10px; padding: 9px 12px; border: 0; border-bottom: 1px solid rgba(255,255,255,.06); background: transparent; color: var(--fg); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.sc-pick-o b { color: var(--yellow); white-space: nowrap; }
+.sc-pick-o:hover, .sc-pick-o.hi { background: color-mix(in srgb, var(--yellow) 14%, transparent); }
+.sc-pick-no { padding: 10px 12px; color: var(--muted); font-size: 14px; }
+.sc-pick-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sc-pick-l:empty { display: none; }
+.sc-pick-l li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,.04); font-size: 14px; }
+.sc-pick-b { display: flex; gap: 4px; flex: 0 0 auto; }
+.sc-pick-b .btn { padding: 4px 10px; }
+.sc-pick-tot { font-size: 13px; color: var(--yellow); font-weight: 700; }
+.sc-pick-tot:empty { display: none; }
+
+/* stock de sets */
+.sc-sstats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.sc-sstats > div { padding: 10px 4px; }
+.sc-s3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sc-slist, .sc-svl { display: grid; gap: 6px; }
+.sc-srow, .sc-svr { display: grid; grid-template-columns: 60px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.03); }
+.sc-svr { grid-template-columns: 60px minmax(0, 1fr) auto; }
+.sc-sst { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; background: rgba(255,255,255,.08); color: var(--muted); }
+.sc-sst.ok { background: color-mix(in srgb, var(--ok, #4ade80) 18%, transparent); color: var(--ok, #4ade80); }
+.sc-sst.low { background: color-mix(in srgb, var(--yellow) 20%, transparent); color: var(--yellow); }
+.sc-sst.zero { background: color-mix(in srgb, var(--fuchsia) 20%, transparent); color: var(--fuchsia); }
+.sc-sqty { display: flex; align-items: center; gap: 4px; }
+.sc-sqty .btn { padding: 6px 11px; }
+.sc-sqty input { width: 64px; padding: 7px 6px; text-align: center; border: 1px solid var(--line); background: #070c20; color: var(--fg); font: inherit; font-weight: 700; -moz-appearance: textfield; }
+.sc-sqty input::-webkit-outer-spin-button, .sc-sqty input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.sc-smsg:empty { display: none; }
+.sc-sh { margin: 6px 0 0; font-size: 15px; }
+.sc-stop { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.sc-stopi { display: grid; gap: 4px; padding: 8px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.03); font-size: 13px; }
+.sc-stopi .sc-ath { width: 100%; height: auto; aspect-ratio: 3 / 2; }
+.sc-stopi small { color: var(--muted); }
+.sc-svp { display: grid; gap: 4px; justify-items: end; }
+.sc-svp b { color: var(--yellow); }
+.sc-svp .sc-obadge { font-style: normal; }
+@media (max-width: 900px) {
+  .sc-sstats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sc-stop { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sc-f3 { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .sc-sstats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sc-s3, .sc-cst { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sc-s3 b, .sc-cst b { font-size: 15px; }
+  .sc-stop { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sc-srow { grid-template-columns: 48px minmax(0, 1fr) auto; }
+  .sc-srow .sc-sqty { grid-column: 2 / -1; justify-content: flex-end; }
+  .sc-srow .sc-ath, .sc-svr .sc-ath { width: 48px; height: 32px; }
+  .sc-svr { grid-template-columns: 48px minmax(0, 1fr) auto; }
+  .sc-crow { grid-template-columns: minmax(0, 1fr) auto 14px; grid-template-areas: "who amt chev" "sub sub sub"; }
+  .sc-pbar select { flex: 1 1 100%; }
+}
