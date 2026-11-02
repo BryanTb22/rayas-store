@@ -16,6 +16,7 @@
 
   var st = {
     raiz: null, abierto: false, slot: "juego", copiado: "",
+    cat: { lista: null, cargando: false, err: "", q: "" }, item: null, ia: null, iaEst: "", iaMsg: "",
     img: { juego: null, oficial: null, logo: null },
     d: { tipo: "", nombre: "", precio: "", steam: "", stock: "1", entrega: "Entrega inmediata", px: 50, py: 50 }
   };
@@ -150,8 +151,112 @@
     ctx.font = "700 26px Barlow, system-ui, sans-serif"; ctx.fillStyle = C.steelHi; espaciado(ctx, W / 2, 1323, "rayas.trade", 4);
   }
 
+  /* ---------- catálogo (Firestore público) e IA (función crearPublicacion, solo admin) ---------- */
+  var TIENDA = "rayas";
+  var IA_URL = "https://us-central1-litlejacob-store.cloudfunctions.net/crearPublicacion";
+  var CAT_URL = "https://firestore.googleapis.com/v1/projects/litlejacob-store/databases/(default)/documents/rayas_items?pageSize=300";
+  var TC = 3.85;   // soles por dólar (igual que la página)
+  function tokenAdmin() { return window.RY && window.RY.token ? window.RY.token() : Promise.reject(new Error("NO_SESSION")); }
+  function itemDoc(d) {
+    var f = (d && d.fields) || {};
+    var sv = function (k) { return (f[k] && f[k].stringValue) || ""; };
+    var nv = function (k) { return f[k] ? Number(f[k].doubleValue !== undefined ? f[k].doubleValue : (f[k].integerValue || 0)) : 0; };
+    var pv = f.previas && f.previas.arrayValue && f.previas.arrayValue.values;
+    var previas = Array.isArray(pv) ? pv.map(function (o) { return o && o.stringValue; }).filter(Boolean) : [];
+    if (!previas.length && sv("vista")) previas = [sv("vista")];
+    return { id: d.name.split("/").pop(), nombre: sv("nombre"), img: sv("img"), precio: nv("precio"), stock: f.stock ? nv("stock") : 1,
+      tipo: sv("tipo"), heroe: sv("heroe"), rareza: sv("rareza"), descripcion: sv("descripcion"), estilos: nv("estilos"), estOk: sv("estOk"),
+      steamUsd: nv("steamUsd"), activo: f.activo ? f.activo.booleanValue !== false : true,
+      cooldownHasta: (f.cooldownHasta && f.cooldownHasta.timestampValue) || "", previas: previas };
+  }
+  function cargarCat() {
+    if (st.cat.lista || st.cat.cargando) return;
+    st.cat.cargando = true; st.cat.err = ""; pintarCat();
+    var todos = [];
+    var pag = function (tk) {
+      return fetch(CAT_URL + (tk ? "&pageToken=" + encodeURIComponent(tk) : ""), { cache: "no-store" }).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      }).then(function (j) {
+        todos = todos.concat((j.documents || []).map(itemDoc));
+        return j.nextPageToken ? pag(j.nextPageToken) : todos;
+      });
+    };
+    pag("").then(function (l) {
+      st.cat.lista = l.filter(function (x) { return x.activo && x.stock > 0 && x.nombre; });
+    }).catch(function () { st.cat.err = "No se pudo cargar el catálogo. Revisa tu internet."; })
+      .then(function () { st.cat.cargando = false; pintarCat(); });
+  }
+  function norm(t) { return String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+  function gemasTxt(it) {
+    return String(it.descripcion || "").split(/\n|;/).map(function (x) { return x.trim(); }).filter(Boolean).join(", ");
+  }
+  function cdTxt(it) {
+    var ms = Date.parse(it.cooldownHasta || ""); if (!(ms > Date.now())) return "";
+    var d = new Date(ms); return "Entrega el " + ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2);
+  }
+  function resultados() {
+    var q = norm(st.cat.q).trim(); if (!q || !st.cat.lista) return [];
+    var ps = q.split(/\s+/);
+    return st.cat.lista.filter(function (x) { var n = norm(x.nombre + " " + x.heroe + " " + x.descripcion); return ps.every(function (p) { return n.indexOf(p) >= 0; }); })
+      .sort(function (a, b) { return b.precio - a.precio; }).slice(0, 8);
+  }
+  function pintarCat() {
+    var box = document.getElementById("pb-cat"); if (!box) return;
+    if (st.cat.cargando) { box.innerHTML = '<p class="pb-hint">Cargando catálogo…</p>'; return; }
+    if (st.cat.err) { box.innerHTML = '<p class="pb-hint pb-err">' + esc(st.cat.err) + '</p>'; return; }
+    if (!st.cat.q.trim()) { box.innerHTML = st.item ? '<p class="pb-hint">Elegido: <b>' + esc(st.item.nombre) + '</b>' + (gemasTxt(st.item) ? ' · ' + esc(gemasTxt(st.item)) : '') + '</p>' : ""; return; }
+    var l = resultados();
+    box.innerHTML = l.length ? l.map(function (x, i) {
+      var g = gemasTxt(x);
+      return '<button type="button" class="pb-res" data-pb="catElegir" data-id="' + esc(x.id) + '"><span><b>' + esc(x.nombre) + '</b>' +
+        (g ? '<small>' + esc(g) + '</small>' : '') + '</span><em>' + esc(sol(x.precio)) + (x.stock > 1 ? ' · ' + x.stock + ' u.' : '') + '</em></button>';
+    }).join("") : '<p class="pb-hint">No hay items con stock que coincidan.</p>';
+  }
+  function fotoDe(ref) {
+    if (!/^fs:img-[\w\-]+$/.test(ref || "") || !window.fotoFs) return Promise.resolve(null);
+    return window.fotoFs(ref.slice(3)).then(function (u) { return u ? cargarImg(u) : null; }).catch(function () { return null; });
+  }
+  function elegirItem(id) {
+    var it = (st.cat.lista || []).filter(function (x) { return x.id === id; })[0]; if (!it) return;
+    st.item = it; st.ia = null; st.iaMsg = ""; st.cat.q = "";
+    st.d.nombre = it.nombre; st.d.tipo = [it.rareza, it.tipo].filter(function (v, i, l) { return v && l.map(norm).indexOf(norm(v)) === i; }).join(" · ");
+    st.d.precio = String(it.precio || ""); st.d.steam = it.steamUsd > 0 ? String(Math.round(it.steamUsd * TC * 100) / 100) : "";
+    st.d.stock = String(Math.max(1, it.stock)); st.d.entrega = cdTxt(it) || "Entrega inmediata";
+    msg("Cargando fotos…"); render();
+    Promise.all([fotoDe(it.previas[0]), fotoDe(it.img)]).then(function (f) {
+      st.img.juego = f[0]; st.img.oficial = f[1]; st.slot = f[0] ? "oficial" : "juego";
+      render(); msg(f[0] || f[1] ? "" : "Este item no tiene fotos guardadas: súbelas tú.");
+    });
+  }
+  function datosIa() {
+    var it = st.item || {}, d = st.d, ne = Number(it.estilos) || 0;
+    return { nombre: d.nombre, tipo: it.tipo || d.tipo, rareza: it.rareza || "", heroe: it.heroe || "", gemas: st.item ? gemasTxt(it) : "",
+      estilos: ne ? (String(it.estOk || "").split(",").filter(Boolean).length || 1) + " de " + ne : "",
+      precio: num(d.precio), steam: num(d.steam), stock: stockN(), entrega: d.entrega };
+  }
+  function escribirIa() {
+    if (st.iaEst === "esc") return;
+    if (!String(st.d.nombre || "").trim()) { st.iaMsg = "Primero pon el nombre del item."; pintarTextos(); return; }
+    st.iaEst = "esc"; st.iaMsg = ""; pintarTextos();
+    tokenAdmin().then(function (tk) {
+      return fetch(IA_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
+        body: JSON.stringify({ tienda: TIENDA, item: datosIa() }) });
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok || !j.textos) throw new Error(j.error || (r.status === 404 ? "La función de IA todavía no está desplegada." : "No se pudo (" + r.status + ")."));
+        return j.textos;
+      });
+    }).then(function (l) {
+      st.ia = l.map(function (x) { return [x.titulo, x.texto]; }); st.iaEst = ""; st.iaMsg = "";
+    }).catch(function (e) {
+      st.iaEst = ""; st.iaMsg = e && e.message === "NO_SESSION" ? "Tu sesión venció: vuelve a entrar como admin." : String((e && e.message) || e);
+    }).then(pintarTextos);
+  }
+
   /* ---------- textos de WhatsApp ---------- */
   function textos() {
+    if (st.ia && st.ia.length) return st.ia;
     var d = st.d, nom = (d.nombre || "Nombre del item").trim(), tipo = (d.tipo || "").trim(), pr = sol(d.precio) || "S/ --";
     var stl = num(d.steam) != null ? sol(d.steam) : "", n = stockN(), ent = (d.entrega || "Entrega inmediata").trim();
     var firma = "🛒 *Rayas Store* · rayas.trade";
@@ -199,6 +304,11 @@
     "#rayasPub .pb-txt-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font:600 15px Teko,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#ffe08a}" +
     "#rayasPub pre{margin:0;white-space:pre-wrap;word-break:break-word;font:14px/1.5 Barlow,system-ui,sans-serif;color:#dfe4ff}" +
     "#rayasPub .pb-ok{color:#6fd08c}" +
+    "#rayasPub .pb-cat{display:grid;gap:6px}" +
+    "#rayasPub .pb-res{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:inherit;font:inherit;text-align:left;cursor:pointer}" +
+    "#rayasPub .pb-res:hover{border-color:#ff2d8f}#rayasPub .pb-res span{display:grid;gap:2px;min-width:0}#rayasPub .pb-res b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+    "#rayasPub .pb-res small{font-size:12px;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#rayasPub .pb-res em{font-style:normal;font-weight:800;white-space:nowrap}" +
+    "#rayasPub .pb-iabar{display:flex;flex-wrap:wrap;gap:8px}#rayasPub .pb-btn[disabled]{opacity:.6;cursor:wait}#rayasPub .pb-err{color:#ff8a8a}" +
     "@media(max-width:520px){#rayasPub .pb-2{grid-template-columns:1fr}#rayasPub .pb-foto{font-size:11px}}";
 
   function campo(id, et, tipo, ph) {
@@ -216,6 +326,9 @@
     return '<div class="pb-box"><div class="pb-head"><h2>Generador de <b>publicaciones</b></h2>' +
       '<button type="button" class="pb-btn" data-pb="cerrar">Cerrar</button></div>' +
       '<div class="pb-grid"><div style="display:grid;gap:18px">' +
+      '<div class="pb-grp"><h3>0 · Elegir del catálogo (opcional)</h3>' +
+      '<label for="pb-buscar">Busca el item y se llenan solos la foto, el nombre y los precios<input id="pb-buscar" type="text" autocomplete="off" placeholder="Ej: arcana juggernaut" value="' + esc(st.cat.q) + '"></label>' +
+      '<div id="pb-cat" class="pb-cat"></div></div>' +
       '<div class="pb-grp"><h3>1 · Fotos</h3><div class="pb-fotos">' +
       cajaFoto("juego", "Foto in-game", "Toca para subir o pega con Ctrl+V") +
       cajaFoto("oficial", "Foto oficial (opcional)", "Render de Steam") + '</div>' +
@@ -226,13 +339,18 @@
       campo("tipo", "Tipo / rareza", "text", "Courier mítico") + campo("nombre", "Nombre del item", "text", "Strongback the Swift") +
       '<div class="pb-2">' + campo("precio", "Mi precio (S/)", "number", "75") + campo("steam", "Precio en Steam (opcional)", "number", "85") + '</div>' +
       '<div class="pb-2">' + campo("stock", "Stock", "number", "1") + campo("entrega", "Entrega", "text", "Entrega inmediata") + '</div></div>' +
-      '<div class="pb-grp"><h3>3 · Texto para WhatsApp</h3><div id="pb-textos" style="display:grid;gap:10px"></div></div>' +
+      '<div class="pb-grp"><h3>3 · Texto para WhatsApp</h3><div id="pb-ia"></div><div id="pb-textos" style="display:grid;gap:10px"></div></div>' +
       '</div><div class="pb-prev"><div class="pb-grp"><h3>Vista previa</h3><canvas id="pb-cv" width="' + W + '" height="' + H + '"></canvas>' +
       '<div class="pb-acc"><button type="button" class="pb-btn rojo" data-pb="bajar">⬇ Descargar JPG</button>' +
       '<button type="button" class="pb-btn" data-pb="compartir">📤 Compartir</button></div>' +
       '<p class="pb-hint" id="pb-msg" role="status"></p></div></div></div></div>';
   }
   function pintarTextos() {
+    var ib = document.getElementById("pb-ia");
+    if (ib) ib.innerHTML = '<div class="pb-iabar"><button type="button" class="pb-btn rojo" data-pb="iaEscribir"' + (st.iaEst === "esc" ? " disabled" : "") + '>' +
+      (st.iaEst === "esc" ? "✨ Escribiendo…" : st.ia ? "✨ Escribir otra vez" : "✨ Escribir con IA") + '</button>' +
+      (st.ia ? '<button type="button" class="pb-btn" data-pb="iaQuitar">Usar textos fijos</button>' : '') + '</div>' +
+      '<p class="pb-hint' + (st.iaMsg ? ' pb-err' : '') + '">' + esc(st.iaMsg || (st.ia ? "Textos escritos por Claude para este item. Si cambias los datos, vuelve a tocar ✨." : "Claude escribe 3 textos pensados para este item (rareza, gemas, precio vs Steam, stock).")) + '</p>';
     var box = document.getElementById("pb-textos"); if (!box) return;
     box.innerHTML = textos().map(function (t, i) {
       return '<div class="pb-txt"><div class="pb-txt-h">' + t[0] + '<button type="button" class="pb-btn" style="padding:8px 14px" data-pb="copiar" data-i="' + i + '">' +
@@ -247,7 +365,7 @@
     });
   }
   function msg(t) { var m = document.getElementById("pb-msg"); if (m) m.textContent = t || ""; }
-  function render() { st.raiz.innerHTML = html(); fuentes().then(refrescar); refrescar(); }
+  function render() { st.raiz.innerHTML = html(); pintarCat(); fuentes().then(refrescar); refrescar(); }
 
   function ponerFoto(k, file) {
     if (!file || !/^image\//.test(file.type)) { msg("Ese archivo no es una imagen."); return; }
@@ -268,6 +386,9 @@
     var a = t.getAttribute("data-pb");
     if (!a) { if (t.classList.contains("pb-foto") && st.slot !== t.getAttribute("data-slot")) { st.slot = t.getAttribute("data-slot"); st.raiz.querySelectorAll(".pb-foto").forEach(function (x) { x.classList.toggle("sel", x === t); }); } return; }
     if (a === "cerrar") cerrar();
+    else if (a === "catElegir") elegirItem(t.getAttribute("data-id"));
+    else if (a === "iaEscribir") escribirIa();
+    else if (a === "iaQuitar") { st.ia = null; st.iaMsg = ""; pintarTextos(); }
     else if (a === "quitar") { e.preventDefault(); e.stopPropagation(); var k = t.getAttribute("data-slot"); st.img[k] = null; st.slot = k; render(); }
     else if (a === "copiar") {
       var i = t.getAttribute("data-i"), txt = textos()[i][1];
@@ -297,6 +418,7 @@
     document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (e) { /* nada */ } ta.remove();
   }
   function alEscribir(e) {
+    if (e.target.id === "pb-buscar") { st.cat.q = e.target.value; cargarCat(); pintarCat(); return; }
     var k = e.target.getAttribute("data-k"); if (!k) return;
     st.d[k] = e.target.value; refrescar();
   }
