@@ -297,4 +297,12 @@ function elegirEjemplos(docs, heroe) {
   return { buenas: buenas, malas: malas };
 }
 
-module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos, limpiarFeedback, elegirEjemplos };
+// Publicación aprobada: imagen final (data URL jpeg, < 950 KB por el límite de Firestore) y sus textos.
+function limpiarPublicacion(b) {
+  b = b || {};
+  const im = soloBase64(b.imagen) && String(b.imagen).length < 950000 ? String(b.imagen) : "";
+  const textos = (Array.isArray(b.textos) ? b.textos : []).map(function (x) { return { titulo: texto(x && x.titulo, 40) || "Texto", texto: texto(x && x.texto, 1200) }; }).filter(function (x) { return x.texto; }).slice(0, 3);
+  return { imagen: im, nombre: texto(b.nombre, 90), tipo: texto(b.tipo, 60), precio: numero(b.precio), textos: textos };
+}
+
+module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos, limpiarFeedback, elegirEjemplos, limpiarPublicacion };

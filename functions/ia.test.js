@@ -98,5 +98,8 @@ const ia = require("./ia");
   const fb = ia.limpiarFeedback({ itemId: "it-1", nombre: "X", heroe: "Slark", buena: { id: "a-2", data: "data:image/jpeg;base64,QUJD" }, malas: [{ id: "b", data: "javascript:1" }, { id: "c", data: "data:image/png;base64,QUJD" }], previa: "data:image/jpeg;base64,QUJD" });
   assert.strictEqual(fb.buena.id, "a-2"); assert.strictEqual(fb.malas.length, 1); assert(fb.previa);
   assert.strictEqual(ia.limpiarFeedback({ buena: { data: "http://x" } }).buena, null);
+  const pub = ia.limpiarPublicacion({ imagen: "data:image/jpeg;base64,QUJD", nombre: "X", precio: "85", textos: [{ titulo: "U", texto: "a" }, { texto: "" }] });
+  assert.strictEqual(pub.imagen.length, 27); assert.strictEqual(pub.precio, 85); assert.strictEqual(pub.textos.length, 1);
+  assert.strictEqual(ia.limpiarPublicacion({ imagen: "http://x" }).imagen, "");
   console.log("ia.test.js: todo OK");
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -825,11 +825,32 @@ exports.crearPublicacion = onRequest(
         const x = await ia.buscarFotos(ANTHROPIC_KEY.value(), b.item, null, typeof b.oficial === "string" ? b.oficial : "", ejemplos);
         return res.json({ ok: true, fotos: x.fotos, aviso: x.aviso });
       }
-      if (b.accion === "feedback") {
-        // Guarda qué foto eligió el admin (y cuáles descartó) y, si quiere, la foto elegida como "Ver en el juego" del item.
+      if (b.accion === "lista") {
+        // Últimas publicaciones aprobadas de esta tienda (sin la imagen, que pesa).
+        // (se filtra por tienda en código para no necesitar un índice compuesto en Firestore)
+        const q = await db.collection("publicaciones").orderBy("fecha", "desc").limit(40).get();
+        return res.json({ ok: true, lista: q.docs.filter((d) => d.data().tienda === tienda).slice(0, 12).map((d) => { const x = d.data(); return { id: d.id, nombre: x.nombre, precio: x.precio, tipo: x.tipo, textos: x.textos, fecha: x.fecha && x.fecha.toMillis ? x.fecha.toMillis() : 0 }; }) });
+      }
+      if (b.accion === "ver") {
+        const d = await db.collection("publicaciones").doc(String(b.id || "")).get();
+        if (!d.exists) return res.status(404).json({ error: "No existe esa publicación." });
+        const im = d.data().imagen ? await db.collection("rayas").doc(String(d.data().imagen).replace(/^fs:/, "")).get() : null;
+        return res.json({ ok: true, imagen: im && im.exists ? im.data().data : "", textos: d.data().textos || [] });
+      }
+      if (b.accion === "borrar") {
+        const ref = db.collection("publicaciones").doc(String(b.id || "")), d = await ref.get();
+        if (d.exists) { if (d.data().imagen) await db.collection("rayas").doc(String(d.data().imagen).replace(/^fs:/, "")).delete().catch(() => {}); await ref.delete(); }
+        return res.json({ ok: true });
+      }
+      if (b.accion === "aprobar") {
+        // Solo cuando el admin aprueba: guarda la publicación (imagen + textos), la foto elegida en el item y lo que la IA aprende.
+        const pub = ia.limpiarPublicacion(b);
+        if (!pub.imagen) return res.status(400).json({ error: "Falta la imagen de la publicación." });
         const fb = ia.limpiarFeedback(b);
-        if (!fb.buena && !fb.malas.length) return res.status(400).json({ error: "Nada que guardar." });
-        await db.collection("pub_feedback").add({ tienda: tienda, itemId: fb.itemId, nombre: fb.nombre, heroe: fb.heroe, buena: fb.buena, malas: fb.malas, fecha: FV.serverTimestamp() });
+        const imgId = "img-pub" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        await db.collection("rayas").doc(imgId).set({ data: pub.imagen });
+        const doc = await db.collection("publicaciones").add({ tienda: tienda, itemId: fb.itemId, nombre: pub.nombre, heroe: fb.heroe, tipo: pub.tipo, precio: pub.precio, textos: pub.textos, imagen: "fs:" + imgId, fecha: FV.serverTimestamp() });
+        if (fb.buena || fb.malas.length) await db.collection("pub_feedback").add({ tienda: tienda, itemId: fb.itemId, nombre: fb.nombre, heroe: fb.heroe, buena: fb.buena, malas: fb.malas, fecha: FV.serverTimestamp() });
         let previaRef = "";
         if (fb.previa && fb.itemId) {
           const id = "img-pv" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -842,7 +863,7 @@ exports.crearPublicacion = onRequest(
             previaRef = "fs:" + id;
           }
         }
-        return res.json({ ok: true, previa: previaRef });
+        return res.json({ ok: true, id: doc.id, previa: previaRef });
       }
       const textos = await ia.escribirTextos(ANTHROPIC_KEY.value(), tienda, b.item);
       res.json({ ok: true, textos: textos, modelo: ia.MODELO });
