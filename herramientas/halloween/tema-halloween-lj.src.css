@@ -1,0 +1,146 @@
+/* =====================================================================
+   TEMA HALLOWEEN de LitleJacob Store · "Noche de Diretide"
+   Solo actúa con html.hw (lo pone temporada.js en temporada de Halloween).
+   LitleJacob mantiene sus colores (negro, rojo sangre y plata): aquí solo se agregan
+   la decoración de Halloween, la luna de sangre, el cementerio y las letras de terror.
+   Todos los dibujos son genéricos (calabazas, murciélagos, telarañas, lápidas).
+   ===================================================================== */
+html.hw {
+  --hw-sangre: #d11a2a;
+  --hw-sangre-2: #ff4a55;
+  --hw-calabaza: #ff7a1a;
+  --hw-calabaza-2: #ffa94d;
+  --hw-plata: #d9dde4;
+  --hw-gotico: "Cinzel Decorative", "Cinzel", Georgia, "Times New Roman", serif;
+  --hw-terror: "Creepster", "Cinzel Decorative", Georgia, fantasy;
+  --hw-ui: "Oswald", "Barlow Condensed", "Arial Narrow", sans-serif;
+}
+
+/* ---------- Cielo: estrellas y fuegos fatuos ---------- */
+#hwAmbiente { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; background: {{estrellas}} 0 0 / 520px 520px repeat; }
+
+/* ---------- Cinta del evento ---------- */
+#hwCinta { position: relative; z-index: 20; overflow: hidden; height: 34px; display: flex; align-items: center; color: #ffe2c4;
+  background: repeating-linear-gradient(-45deg, #6d0b12 0 22px, #7f0e16 22px 44px); border-bottom: 1px solid rgba(255, 122, 26, .45); box-shadow: 0 4px 14px rgba(0, 0, 0, .45); font: 600 13px/1 var(--hw-ui); letter-spacing: .16em; text-transform: uppercase; }
+#hwCinta .hw-cinta-in { display: flex; width: max-content; gap: 46px; padding-right: 46px; white-space: nowrap; animation: hwCinta 48s linear infinite; }
+#hwCinta .hw-cinta-in span { display: inline-flex; align-items: center; gap: 10px; }
+#hwCinta b { font: 400 18px/1 var(--hw-terror); letter-spacing: .08em; color: var(--hw-calabaza-2); text-shadow: 0 0 10px rgba(255, 122, 26, .6); }
+#hwCinta i { display: inline-block; width: 26px; height: 11px; background: {{murciNaranja}} center / contain no-repeat; }
+
+/* ---------- Sombrero de bruja en los logos ---------- */
+html.hw .site-nav .nav-brand { position: relative; }
+html.hw .site-nav .nav-brand::before { content: ""; position: absolute; left: -12px; top: -16px; width: 34px; height: 26px; background: {{sombrero}} center / contain no-repeat; transform: rotate(-18deg); pointer-events: none; z-index: 2; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6)); }
+.hw-logo { position: relative; }
+span.hw-logo { display: block; width: max-content; max-width: 100%; }
+html.hw body .lj-h2-in > .logo-slot.left.hw-logo::before, .hw-logo::before { content: ""; display: block; position: absolute; right: auto; bottom: auto; margin: 0; padding: 0; border: 0; border-radius: 0; outline: 0; box-shadow: none; opacity: 1; clip-path: none; -webkit-mask: none; mask: none; left: -22px; top: -30px; width: 74px; height: 56px; background: {{sombrero}} center / contain no-repeat; transform: rotate(-16deg); z-index: 5; pointer-events: none; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .6)); }
+
+/* ---------- Portada: luna de sangre, murciélagos, cementerio, calabazas y niebla ---------- */
+.hw-cielo, .hw-suelo { position: absolute; inset: 0; pointer-events: none; }
+.hw-cielo { z-index: -1; }
+.hw-suelo { z-index: 1; }
+html.hw .home-hero > .hw-cielo { z-index: 0; }
+html.hw .home-hero.lj-h2 { padding-bottom: clamp(120px, 12vw, 190px) !important; }
+html.hw .home-hero .hero-art img.art-main { filter: saturate(1.05) contrast(1.05); }
+html.hw .hero > .wrap { position: relative; z-index: 2; padding-bottom: calc(76px + clamp(60px, 8vw, 120px)); }
+.hw-luna { position: absolute; right: 3%; top: 6%; width: clamp(170px, 24vw, 430px); aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, rgba(255, 230, 210, .45), transparent 28%), radial-gradient(circle at 62% 66%, rgba(120, 10, 10, .35) 0 9%, transparent 10%), radial-gradient(circle at 30% 64%, rgba(120, 10, 10, .3) 0 6%, transparent 7%), radial-gradient(circle at 70% 30%, rgba(120, 10, 10, .25) 0 5%, transparent 6%), radial-gradient(circle at 46% 46%, #ffd6b8 0%, #ff8a5c 40%, #d9352b 76%, #8e1016 100%);
+  box-shadow: 0 0 80px 24px rgba(220, 40, 30, .35), 0 0 220px 90px rgba(200, 20, 20, .18); opacity: .9; }
+.hw-nube { position: absolute; height: clamp(40px, 5vw, 80px); border-radius: 50%; background: radial-gradient(closest-side, rgba(12, 6, 8, .95), rgba(12, 6, 8, 0)); filter: blur(4px); }
+.hw-nube.n1 { width: clamp(220px, 30vw, 520px); right: 2%; top: 30%; animation: hwNube 44s ease-in-out infinite alternate; }
+.hw-nube.n2 { width: clamp(160px, 22vw, 380px); right: 18%; top: 12%; opacity: .75; animation: hwNube 58s ease-in-out infinite alternate-reverse; }
+.hw-bandada { position: absolute; right: calc(3% + clamp(85px, 12vw, 215px)); top: calc(6% + clamp(85px, 12vw, 215px)); width: 0; height: 0; }
+.hw-bandada i { position: absolute; left: 0; top: 0; width: 40px; height: 16px; background: {{murci}} center / contain no-repeat; opacity: 0; filter: drop-shadow(0 0 1px rgba(255, 190, 170, .9)); animation: hwSale 9s linear infinite; }
+.hw-bandada i:nth-child(2) { animation-delay: 1.8s; --dx: -520px; --dy: -140px; }
+.hw-bandada i:nth-child(3) { animation-delay: 3.6s; --dx: -260px; --dy: -260px; }
+.hw-bandada i:nth-child(4) { animation-delay: 5.4s; --dx: 160px; --dy: -230px; }
+.hw-bandada i:nth-child(5) { animation-delay: 7.2s; --dx: -640px; --dy: 40px; }
+.hw-cementerio { position: absolute; left: 0; right: 0; bottom: 0; height: clamp(84px, 11vw, 160px); background: {{cementerioLJ}} 0 100% / auto 100% repeat-x; filter: drop-shadow(0 -2px 10px rgba(220, 40, 30, .16)); }
+.hw-niebla { position: absolute; left: -10%; right: -10%; bottom: -6px; height: clamp(70px, 9vw, 130px); }
+.hw-niebla i { position: absolute; inset: 0; background: radial-gradient(40% 70% at 20% 70%, rgba(230, 210, 210, .16), transparent 70%), radial-gradient(35% 60% at 60% 80%, rgba(220, 190, 190, .13), transparent 70%), radial-gradient(30% 60% at 90% 70%, rgba(230, 210, 210, .15), transparent 70%); filter: blur(6px); animation: hwNiebla 26s ease-in-out infinite alternate; }
+.hw-niebla i + i { opacity: .7; animation-duration: 34s; animation-direction: alternate-reverse; transform: translateX(6%); }
+.hw-calabazas { position: absolute; left: 0; right: 0; bottom: clamp(6px, 1vw, 14px); height: 0; }
+.hw-calabazas span { position: absolute; bottom: 0; width: clamp(38px, 4.4vw, 70px); aspect-ratio: 64 / 56; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 14px rgba(255, 140, 40, .75)); animation: hwVela 2.6s ease-in-out infinite; }
+.hw-calabazas span:nth-child(1) { left: 4%; }
+.hw-calabazas span:nth-child(2) { left: 46%; width: clamp(30px, 3.2vw, 52px); animation-delay: .7s; }
+.hw-calabazas span:nth-child(3) { right: 5%; width: clamp(44px, 5vw, 80px); animation-delay: 1.3s; }
+.hw-calabazas span:nth-child(4) { left: 71%; width: clamp(26px, 2.6vw, 42px); animation-delay: 1.9s; }
+
+/* ---------- Franja "Esta noche rondan" ---------- */
+.hw-heroes { position: relative; z-index: 2; overflow: hidden; margin-block: 14px; border-block: 1px solid rgba(209, 26, 42, .45); background: linear-gradient(90deg, rgba(10, 8, 10, .95), rgba(60, 8, 14, .9), rgba(10, 8, 10, .95)); }
+.hw-heroes-in { display: flex; width: max-content; gap: 34px; padding: 13px 0; animation: hwCinta 60s linear infinite; }
+.hw-heroes span { display: inline-flex; align-items: center; gap: 34px; font: 700 15px/1 var(--hw-gotico); letter-spacing: .14em; text-transform: uppercase; color: var(--hw-plata); white-space: nowrap; }
+.hw-heroes span::after { content: ""; width: 22px; height: 19px; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 6px rgba(255, 140, 40, .7)); }
+.hw-heroes span.t { font: 400 18px/1 var(--hw-terror); letter-spacing: .08em; color: var(--hw-sangre-2); text-transform: none; }
+.hw-heroes span.t::after { display: none; }
+
+/* ---------- Títulos ---------- */
+html.hw body .lj-h2-title, html.hw .hero h1 { font-family: var(--hw-gotico) !important; font-weight: 900 !important; letter-spacing: .005em; line-height: 1.06 !important; }
+html.hw body .lj-h2-title { font-size: clamp(38px, 5.4vw, 82px) !important; }
+html.hw body .lj-h2-title em, html.hw .hero h1 em { font-family: var(--hw-terror); font-weight: 400; font-size: 1.14em; letter-spacing: .05em;
+  background: linear-gradient(180deg, #ff8a7a 0%, #e01b2b 50%, #7e0b12 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 16px rgba(220, 30, 40, .5)); }
+html.hw .home-block-title, html.hw .section-name, html.hw .buy-mini-title { font-family: var(--hw-gotico) !important; font-weight: 900 !important; letter-spacing: .01em !important; }
+html.hw .sec-title h2 { font-family: var(--hw-gotico) !important; font-weight: 900; letter-spacing: .01em; }
+html.hw .sec-title h2 span:not(.t1) { margin-left: .1em; font-family: var(--hw-terror); font-weight: 400; font-size: 1.12em; letter-spacing: .06em; background: linear-gradient(180deg, #ff8a7a, #e01b2b 50%, #7e0b12); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.hw body .lj-h2-kicker::before { content: ""; display: inline-block; vertical-align: -6px; width: 26px; height: 22px; margin-right: 8px; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 8px rgba(255, 140, 40, .7)); }
+
+/* ---------- Adornos: calabaza en vez del rombo ---------- */
+html.hw .ornamental-diamond { width: 34px !important; height: 30px !important; margin-top: -12px; transform: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: {{calabaza}} center / contain no-repeat !important; filter: drop-shadow(0 0 10px rgba(255, 140, 40, .7)); animation: hwVela 3s ease-in-out infinite; }
+html.hw .orn { width: 46px; height: 40px; margin-inline: auto; font-size: 0; color: transparent; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 12px rgba(255, 140, 40, .7)); animation: hwVela 3s ease-in-out infinite; }
+
+/* ---------- Telarañas en las tarjetas ---------- */
+html.hw .lj-card3, html.hw .section-card { position: relative; }
+html.hw .lj-card3::after, html.hw .section-card::after { content: ""; position: absolute; right: 0; top: 0; width: 76px; height: 76px; transform: scaleX(-1); pointer-events: none; z-index: 3; background: {{telarana}} 0 0 / contain no-repeat; opacity: .3; }
+html.hw .empty .in::before { content: ""; display: block; width: 62px; height: 70px; margin: 0 auto 12px; background: {{fantasma}} center / contain no-repeat; filter: drop-shadow(0 0 16px rgba(220, 210, 210, .45)); animation: hwFlota 3.2s ease-in-out infinite; }
+
+/* ---------- Pie con cementerio ---------- */
+html.hw #ljPie, html.hw #legalPie { position: relative; margin-top: clamp(70px, 9vw, 130px); }
+html.hw #ljPie::before, html.hw #legalPie::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: clamp(70px, 9vw, 130px); pointer-events: none; background: {{cementerioLJ}} 0 100% / auto 100% repeat-x; }
+
+/* ---------- Anuncio de promo ---------- */
+html.hw #promoPop .promo-card { position: relative; overflow: hidden; box-shadow: 0 0 60px rgba(0, 0, 0, .7), 0 0 50px rgba(209, 26, 42, .35); }
+html.hw #promoPop .promo-card::before { content: ""; position: absolute; left: 0; top: 0; width: 110px; height: 110px; background: {{telarana}} 0 0 / contain no-repeat; opacity: .4; pointer-events: none; }
+html.hw #promoPop .promo-card::after { content: ""; position: absolute; right: 10px; bottom: 8px; width: 54px; height: 47px; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 12px rgba(255, 140, 40, .8)); animation: hwVela 2.4s ease-in-out infinite; pointer-events: none; }
+html.hw #promoPop .pc-kick::before, html.hw #promoPop .promo-kick::before { content: "Especial Diretide"; display: block; margin-bottom: 8px; font: 400 24px/1 var(--hw-terror); letter-spacing: .08em; text-transform: none; color: var(--hw-calabaza-2); text-shadow: 0 0 14px rgba(255, 122, 26, .6); }
+
+/* ---------- Capas fijas: murciélagos y araña ---------- */
+#hwMurcis { position: fixed; inset: 0; z-index: 30; pointer-events: none; overflow: hidden; }
+#hwMurcis i { position: absolute; left: -80px; width: 54px; height: 22px; background: {{murci}} center / contain no-repeat; filter: drop-shadow(0 0 1.2px rgba(255, 190, 170, .95)) drop-shadow(0 0 10px rgba(220, 40, 30, .45)); animation: hwVuela 22s linear infinite; }
+#hwMurcis i:nth-child(1) { top: 22vh; animation-delay: 2s; }
+#hwMurcis i:nth-child(2) { top: 48vh; width: 38px; height: 16px; animation-duration: 28s; animation-delay: 11s; }
+#hwMurcis i:nth-child(3) { top: 68vh; width: 46px; height: 19px; animation-duration: 25s; animation-delay: 19s; }
+#hwArana { position: fixed; top: 0; right: max(18px, 4vw); z-index: 30; pointer-events: none; width: 2px; height: 0; animation: hwBaja 12s ease-in-out infinite; transform-origin: top center; }
+#hwArana::before { content: ""; position: absolute; left: 0; top: 0; width: 1px; height: 100%; background: linear-gradient(180deg, rgba(230, 220, 220, .15), rgba(230, 220, 220, .55)); }
+#hwArana::after { content: ""; position: absolute; left: -21px; bottom: -34px; width: 44px; height: 38px; background: {{arana}} center / contain no-repeat; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .6)); }
+
+/* ---------- Animaciones ---------- */
+@keyframes hwCinta { to { transform: translateX(-50%); } }
+@keyframes hwNube { from { transform: translateX(-6%); } to { transform: translateX(10%); } }
+@keyframes hwNiebla { from { transform: translateX(-4%); } to { transform: translateX(4%); } }
+@keyframes hwVela { 0%, 100% { filter: drop-shadow(0 0 12px rgba(255, 140, 40, .75)) brightness(1); } 45% { filter: drop-shadow(0 0 20px rgba(255, 170, 60, .95)) brightness(1.12); } 60% { filter: drop-shadow(0 0 9px rgba(255, 120, 30, .6)) brightness(.95); } }
+@keyframes hwFlota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes hwSale { 0% { opacity: 0; transform: translate(0, 0) scale(.15); } 8% { opacity: .95; } 80% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx, -420px), var(--dy, -60px)) scale(1.3); } }
+@keyframes hwVuela { 0% { transform: translate(0, 0) scaleY(1); } 10% { transform: translate(14vw, -26px) scaleY(.55); } 20% { transform: translate(28vw, 10px) scaleY(1); } 30% { transform: translate(42vw, -18px) scaleY(.55); } 40% { transform: translate(56vw, 8px) scaleY(1); } 50% { transform: translate(70vw, -22px) scaleY(.55); } 60% { transform: translate(86vw, 6px) scaleY(1); } 70%, 100% { transform: translate(112vw, -30px) scaleY(.6); } }
+@keyframes hwBaja { 0%, 100% { height: 0; } 15%, 70% { height: clamp(90px, 16vh, 150px); } 40% { height: clamp(110px, 19vh, 175px); } 85% { height: 0; } }
+
+/* ---------- Celular ---------- */
+@media (max-width: 760px) {
+  #hwCinta { height: 30px; font-size: 11.5px; }
+  #hwCinta b { font-size: 15px; }
+  html.hw body .lj-h2-title { font-size: clamp(30px, 9.4vw, 44px) !important; }
+  html.hw .hero > .wrap { padding-bottom: calc(52px + 64px); }
+  .hw-luna { right: -40px; top: 70px; width: 170px; opacity: .55; }
+  .hw-nube.n2 { display: none; }
+  .hw-bandada { right: 45px; top: 155px; }
+  .hw-bandada i { width: 30px; height: 12px; }
+  .hw-calabazas span:nth-child(2), .hw-calabazas span:nth-child(4) { display: none; }
+  .hw-logo::before { left: -14px; top: -20px; width: 52px; height: 40px; }
+  #hwMurcis i:nth-child(3) { display: none; }
+  #hwArana { right: 10px; }
+  #hwArana::after { width: 26px; height: 23px; left: -12px; bottom: -20px; }
+  .hw-heroes span { font-size: 13px; gap: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #hwCinta .hw-cinta-in, .hw-heroes-in, .hw-nube, .hw-niebla i, .hw-calabazas span, .hw-bandada i, #hwMurcis i, #hwArana, html.hw .orn, html.hw .ornamental-diamond, .empty .in::before, #promoPop .promo-card::after { animation: none !important; }
+  .hw-bandada, #hwMurcis { display: none; }
+  #hwArana { height: 110px; }
+}

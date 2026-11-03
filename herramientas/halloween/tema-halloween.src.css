@@ -1,0 +1,243 @@
+/* =====================================================================
+   TEMA HALLOWEEN de Rayas Store · "Noche de Diretide"
+   Va ENCIMA del tema nuevo (html.tn) y solo actúa con la clase html.hw.
+   Los colores base (calabaza, morado bruja, azul medianoche) vienen de las
+   copias de estilos con paleta Halloween; aquí va la forma y la decoración.
+   Todos los dibujos son genéricos (calabazas, murciélagos, telarañas, lápidas).
+   ===================================================================== */
+html.hw {
+  --hw-noche: #050817;
+  --hw-panel: #0b1030;
+  --hw-panel-2: #121842;
+  --hw-calabaza: #ff7a1a;
+  --hw-calabaza-2: #ffa94d;
+  --hw-vela: #ffd78f;
+  --hw-bruja: #8f4dff;
+  --hw-bruja-2: #c19bff;
+  --hw-ecto: #7dffb2;
+  --hw-niebla: #c8cdf4;
+  --hw-borde: rgba(255, 138, 52, .32);
+  --hw-gotico: "Cinzel Decorative", "Cinzel", Georgia, "Times New Roman", serif;
+  --hw-terror: "Creepster", "Cinzel Decorative", Georgia, fantasy;
+  --hw-ui: "Barlow Condensed", "Barlow", "Arial Narrow", sans-serif;
+  --hw-corte: 11px;
+  --hw-corte-g: 18px;
+}
+
+/* ---------- Cielo de noche ---------- */
+html.hw body { background: var(--hw-noche); }
+html.hw #tnFondo { background: radial-gradient(900px 600px at 82% -6%, rgba(255, 150, 60, .16), transparent 64%), radial-gradient(1200px 800px at 8% 40%, rgba(110, 50, 220, .18), transparent 70%), linear-gradient(180deg, #060a20, #04061a 55%, #070826); }
+html.hw #tnFondo::before { content: ""; position: absolute; inset: -10% 0 0; background: {{estrellas}} 0 0 / 400px 400px repeat; opacity: .55; animation: hwTitila 7s ease-in-out infinite alternate; }
+html.hw #tnFondo::after { content: ""; position: absolute; inset: 0; background: {{estrellas}} 130px 90px / 620px 620px repeat; opacity: .3; animation: hwTitila 11s ease-in-out infinite alternate-reverse; }
+html.hw #tnParticulas { display: none; }
+#hwAmbiente { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+
+/* ---------- Cinta del evento ---------- */
+#hwCinta { position: relative; z-index: 2; overflow: hidden; height: 34px; display: flex; align-items: center; color: #1b0900;
+  background: repeating-linear-gradient(-45deg, #ff8a24 0 22px, #ff7414 22px 44px); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .25); font: 800 13px/1 var(--hw-ui); letter-spacing: .16em; text-transform: uppercase; }
+#hwCinta .hw-cinta-in { display: flex; width: max-content; gap: 46px; padding-right: 46px; white-space: nowrap; animation: hwCinta 48s linear infinite; }
+#hwCinta .hw-cinta-in span { display: inline-flex; align-items: center; gap: 10px; }
+#hwCinta b { font: 400 18px/1 var(--hw-terror); letter-spacing: .08em; color: #2a0a55; }
+#hwCinta i { display: inline-block; width: 26px; height: 11px; background: {{murci}} center / contain no-repeat; }
+
+/* ---------- Barra superior ---------- */
+html.tn.hw .topbar { background: linear-gradient(180deg, rgba(8, 7, 26, .92), rgba(10, 9, 32, .82)); border-bottom: 1px solid rgba(143, 77, 255, .45); }
+html.tn.hw .topbar::after { height: 2px; opacity: 1; background: linear-gradient(90deg, transparent, var(--hw-calabaza) 25%, var(--hw-bruja) 75%, transparent); }
+html.tn.hw .topbar::before { content: ""; position: absolute; left: 0; right: 0; top: calc(100% + 1px); height: 14px; pointer-events: none; background: {{goteo}} 0 0 / 240px 14px repeat-x; filter: drop-shadow(0 4px 6px rgba(80, 30, 200, .45)); opacity: .95; }
+html.tn.hw .topbar .logo { position: relative; }
+html.tn.hw .topbar .logo::before { content: ""; position: absolute; left: -10px; top: -14px; width: 34px; height: 26px; background: {{sombrero}} center / contain no-repeat; transform: rotate(-18deg); pointer-events: none; z-index: 2; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6)); }
+html.tn.hw .nav .navlink { font-family: var(--hw-ui); }
+html.tn.hw .nav .navlink.on { color: var(--hw-calabaza-2); }
+html.tn.hw .nav .navlink.on::after, html.tn.hw .nav .navlink:hover::after { background: linear-gradient(90deg, var(--hw-calabaza), var(--hw-bruja)); }
+
+/* ---------- Botones con esquinas cortadas (estilo Dota) ---------- */
+html.tn.hw .btn, html.tn.hw .nav .lock, html.tn.hw .svc-tab {
+  border-radius: 0; clip-path: polygon(var(--hw-corte) 0, 100% 0, 100% calc(100% - var(--hw-corte)), calc(100% - var(--hw-corte)) 100%, 0 100%, 0 var(--hw-corte)); }
+html.tn.hw .btn-sm, html.tn.hw .svc-tab { --hw-corte: 8px; }
+html.tn.hw .btn-yellow { background: linear-gradient(180deg, #ffbe6a 0%, #ff8a24 48%, #e85a08 100%); color: #1d0900; box-shadow: inset 0 1px 0 rgba(255, 240, 200, .6), inset 0 -3px 0 rgba(120, 30, 0, .35); text-shadow: 0 1px 0 rgba(255, 220, 160, .45); }
+html.tn.hw .btn-yellow:hover { filter: brightness(1.1) saturate(1.1); box-shadow: inset 0 1px 0 rgba(255, 240, 200, .7), inset 0 -3px 0 rgba(120, 30, 0, .35), inset 0 0 22px rgba(255, 230, 150, .45); }
+html.tn.hw .btn-fuchsia { background: linear-gradient(180deg, #b386ff 0%, #8a45ff 50%, #5d1fd0 100%); color: #fff; box-shadow: inset 0 1px 0 rgba(235, 220, 255, .5), inset 0 -3px 0 rgba(30, 0, 80, .4); }
+html.tn.hw .btn-fuchsia:hover { filter: brightness(1.12); box-shadow: inset 0 1px 0 rgba(235, 220, 255, .6), inset 0 -3px 0 rgba(30, 0, 80, .4), inset 0 0 22px rgba(200, 160, 255, .5); }
+html.tn.hw .btn-ghost, html.tn.hw .nav .lock { background: linear-gradient(180deg, rgba(30, 24, 70, .85), rgba(14, 12, 40, .85)); color: var(--hw-vela); box-shadow: inset 0 0 0 1px rgba(255, 138, 52, .5); }
+html.tn.hw .btn-ghost:hover, html.tn.hw .nav .lock:hover { box-shadow: inset 0 0 0 1px var(--hw-calabaza), inset 0 0 18px rgba(255, 122, 26, .35); color: #fff; }
+html.tn.hw .nav .lock.hot { background: linear-gradient(180deg, #ffbe6a, #ff8a24 48%, #e85a08); color: #1d0900; box-shadow: inset 0 1px 0 rgba(255, 240, 200, .6); }
+html.tn.hw .btn:disabled { filter: grayscale(.5) brightness(.75); }
+
+/* ---------- Barra de secciones ---------- */
+html.tn.hw .svcbar { background: linear-gradient(180deg, rgba(14, 10, 40, .82), rgba(8, 7, 26, .7)); border-bottom: 1px solid rgba(255, 138, 52, .22); }
+html.tn.hw .svc-tab { background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px rgba(200, 190, 255, .16); border-color: transparent; }
+html.tn.hw .svc-tab:hover { box-shadow: inset 0 0 0 1px rgba(255, 138, 52, .6); }
+html.tn.hw .svc-tab.on, html.tn.hw .svc-tab.comprar.on, html.tn.hw .svc-tab.vender.on { background: linear-gradient(180deg, #ffbe6a, #ff8a24 50%, #e85a08); color: #1d0900; box-shadow: none; }
+html.tn.hw .svc-tab.recargar { background: linear-gradient(180deg, #b386ff, #8a45ff 50%, #5d1fd0); color: #fff; box-shadow: none; }
+
+/* ---------- Portada ---------- */
+html.tn.hw .hero { border-bottom: 0; }
+html.tn.hw .hero > .wrap { position: relative; z-index: 2; padding-bottom: calc(76px + clamp(60px, 8vw, 120px)); }
+html.tn.hw .hero::before { background: linear-gradient(90deg, var(--hw-noche) 0%, rgba(5, 8, 23, .86) 34%, rgba(5, 8, 23, .12) 72%, rgba(5, 8, 23, .4) 100%), linear-gradient(0deg, var(--hw-noche) 0%, transparent 30%), radial-gradient(55% 70% at 78% 38%, rgba(143, 77, 255, .22), transparent 70%); }
+html.tn.hw .hero::after { opacity: .62; filter: saturate(1.08) contrast(1.06) brightness(.92); }
+html.tn.hw .hero .kicker, html.tn.hw #inicio .kicker { color: var(--hw-calabaza-2); flex-wrap: wrap; row-gap: 8px; }
+html.tn.hw .hero .kicker::before { width: 30px; height: 26px; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 8px rgba(255, 140, 40, .7)); }
+html.tn.hw .hero .kicker::after { content: "Noche de Diretide"; margin-left: 4px; padding: 6px 12px 5px; font: 400 15px/1 var(--hw-terror); letter-spacing: .1em; text-transform: none; color: #e9dcff;
+  background: rgba(143, 77, 255, .22); box-shadow: inset 0 0 0 1px rgba(193, 155, 255, .55); clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }
+html.tn.hw .hero h1 { font-family: var(--hw-gotico); font-weight: 900; text-transform: uppercase; letter-spacing: .005em; max-width: 15ch;
+  background: linear-gradient(180deg, #fffaf0 0%, #ffe6bd 55%, #ffb76b 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 6px 22px rgba(0, 0, 0, .65)) drop-shadow(0 0 30px rgba(255, 120, 30, .18)); }
+html.tn.hw .hero#inicio h1, html.tn.hw #inicio .wrap > h1 { font-size: clamp(40px, 5.5vw, 84px); line-height: 1.06; }
+html.tn.hw .hero h1 em { font-family: var(--hw-terror); font-weight: 400; font-size: 1.14em; letter-spacing: .05em; line-height: .9;
+  background: linear-gradient(180deg, #ffe08a 0%, #ff8a24 46%, #d8420a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.tn.hw .hero p { color: #dad9f3; }
+html.tn.hw .hero-logo { filter: drop-shadow(0 0 28px rgba(255, 122, 26, .45)) drop-shadow(0 14px 30px rgba(0, 0, 0, .55)); }
+.hw-logo { position: relative; display: block; width: max-content; max-width: 100%; }
+.hw-logo::before { content: ""; position: absolute; left: -22px; top: -30px; width: 74px; height: 56px; background: {{sombrero}} center / contain no-repeat; transform: rotate(-16deg); z-index: 2; pointer-events: none; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .6)); }
+
+/* escena: cielo (detrás del arte de héroes) y cementerio (delante) */
+.hw-cielo, .hw-suelo { position: absolute; inset: 0; pointer-events: none; }
+.hw-cielo { z-index: -1; }
+.hw-suelo { z-index: 1; }
+.hw-luna { position: absolute; right: 2.5%; top: 5%; width: clamp(180px, 25vw, 450px); aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, .55), transparent 28%), radial-gradient(circle at 62% 66%, rgba(196, 120, 40, .32) 0 9%, transparent 10%), radial-gradient(circle at 30% 64%, rgba(196, 120, 40, .26) 0 6%, transparent 7%), radial-gradient(circle at 70% 30%, rgba(196, 120, 40, .22) 0 5%, transparent 6%), radial-gradient(circle at 46% 46%, #fff3d6 0%, #ffd79a 48%, #f5a64b 82%, #d9792a 100%);
+  box-shadow: 0 0 80px 24px rgba(255, 170, 70, .32), 0 0 220px 90px rgba(255, 120, 30, .16); opacity: .92; }
+.hw-nube { position: absolute; height: clamp(40px, 5vw, 80px); border-radius: 50%; background: radial-gradient(closest-side, rgba(30, 18, 60, .95), rgba(30, 18, 60, 0)); filter: blur(4px); }
+.hw-nube.n1 { width: clamp(220px, 30vw, 520px); right: 2%; top: 30%; animation: hwNube 44s ease-in-out infinite alternate; }
+.hw-nube.n2 { width: clamp(160px, 22vw, 380px); right: 18%; top: 12%; opacity: .75; animation: hwNube 58s ease-in-out infinite alternate-reverse; }
+.hw-bandada { position: absolute; right: calc(2.5% + clamp(90px, 12.5vw, 225px)); top: calc(5% + clamp(90px, 12.5vw, 225px)); width: 0; height: 0; }
+.hw-bandada i { position: absolute; left: 0; top: 0; width: 40px; height: 16px; background: {{murci}} center / contain no-repeat; opacity: 0; filter: drop-shadow(0 0 1px rgba(255, 200, 140, .9)); animation: hwSale 9s linear infinite; }
+.hw-bandada i:nth-child(2) { animation-delay: 1.8s; --dx: -520px; --dy: -140px; }
+.hw-bandada i:nth-child(3) { animation-delay: 3.6s; --dx: -260px; --dy: -260px; }
+.hw-bandada i:nth-child(4) { animation-delay: 5.4s; --dx: 160px; --dy: -230px; }
+.hw-bandada i:nth-child(5) { animation-delay: 7.2s; --dx: -640px; --dy: 40px; }
+.hw-cementerio { position: absolute; left: 0; right: 0; bottom: 0; height: clamp(84px, 11vw, 160px); background: {{cementerio}} 0 100% / auto 100% repeat-x; filter: drop-shadow(0 -2px 10px rgba(255, 120, 30, .12)); }
+.hw-niebla { position: absolute; left: -10%; right: -10%; bottom: -6px; height: clamp(70px, 9vw, 130px); }
+.hw-niebla i { position: absolute; inset: 0; background: radial-gradient(40% 70% at 20% 70%, rgba(200, 200, 255, .2), transparent 70%), radial-gradient(35% 60% at 60% 80%, rgba(180, 170, 255, .16), transparent 70%), radial-gradient(30% 60% at 90% 70%, rgba(200, 200, 255, .18), transparent 70%); filter: blur(6px); animation: hwNiebla 26s ease-in-out infinite alternate; }
+.hw-niebla i + i { opacity: .7; animation-duration: 34s; animation-direction: alternate-reverse; transform: translateX(6%); }
+.hw-calabazas { position: absolute; left: 0; right: 0; bottom: clamp(6px, 1vw, 14px); height: 0; }
+.hw-calabazas span { position: absolute; bottom: 0; width: clamp(38px, 4.4vw, 70px); aspect-ratio: 64 / 56; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 14px rgba(255, 140, 40, .75)); animation: hwVela 2.6s ease-in-out infinite; }
+.hw-calabazas span:nth-child(1) { left: 4%; }
+.hw-calabazas span:nth-child(2) { left: 46%; width: clamp(30px, 3.2vw, 52px); animation-delay: .7s; }
+.hw-calabazas span:nth-child(3) { right: 5%; width: clamp(44px, 5vw, 80px); animation-delay: 1.3s; }
+.hw-calabazas span:nth-child(4) { left: 71%; width: clamp(26px, 2.6vw, 42px); animation-delay: 1.9s; }
+
+/* ---------- Héroes de la noche (franja de nombres) ---------- */
+.hw-heroes { position: relative; z-index: 2; overflow: hidden; border-block: 1px solid rgba(143, 77, 255, .35); background: linear-gradient(90deg, rgba(10, 8, 32, .95), rgba(26, 14, 60, .9), rgba(10, 8, 32, .95)); }
+.hw-heroes-in { display: flex; width: max-content; gap: 34px; padding: 13px 0; animation: hwCinta 60s linear infinite; }
+.hw-heroes span { display: inline-flex; align-items: center; gap: 34px; font: 700 15px/1 var(--hw-gotico); letter-spacing: .14em; text-transform: uppercase; color: #e7dcff; white-space: nowrap; }
+.hw-heroes span::after { content: ""; width: 22px; height: 19px; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 6px rgba(255, 140, 40, .7)); }
+.hw-heroes span.t { font: 400 18px/1 var(--hw-terror); letter-spacing: .08em; color: var(--hw-calabaza-2); text-transform: none; }
+.hw-heroes span.t::after { display: none; }
+
+/* ---------- Títulos de sección ---------- */
+html.tn.hw .sec-title .kicker { color: var(--hw-calabaza-2); font-family: var(--hw-ui); }
+html.tn.hw .kicker::before { background: linear-gradient(90deg, transparent, var(--hw-calabaza)); }
+html.tn.hw .sec-title .kicker::before, html.tn.hw .sec-title .kicker::after { content: ""; width: 34px; height: 14px; background: {{murciNaranja}} center / contain no-repeat; opacity: .9; }
+html.tn.hw .sec-title .kicker::after { transform: scaleX(-1); }
+html.tn.hw .sec-title h2 { font-family: var(--hw-gotico); font-weight: 900; letter-spacing: .01em; color: #fff4e3; filter: drop-shadow(0 6px 24px rgba(0, 0, 0, .55)); }
+html.tn.hw .sec-title h2 span:not(.t1) { margin-left: .1em; font-family: var(--hw-terror); font-weight: 400; font-size: 1.12em; letter-spacing: .06em; background: linear-gradient(180deg, #ffe08a, #ff8a24 46%, #d8420a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.tn.hw .orn { width: 46px; height: 40px; margin-inline: auto; font-size: 0; color: transparent; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 12px rgba(255, 140, 40, .7)); animation: hwVela 3s ease-in-out infinite; }
+
+/* ---------- Marcos (rifas, servicios, pasos, ganadores, reglas) ---------- */
+html.tn.hw .frame { border-radius: 0; --hw-b1: rgba(255, 150, 60, .75); --hw-b2: rgba(143, 77, 255, .55); }
+html.tn.hw .frame::before { border-radius: 0; padding: 0; z-index: 0; -webkit-mask: none; mask: none; background: linear-gradient(150deg, var(--hw-b1), rgba(255, 150, 60, .12) 40%, var(--hw-b2));
+  clip-path: polygon(var(--hw-corte-g) 0, 100% 0, 100% calc(100% - var(--hw-corte-g)), calc(100% - var(--hw-corte-g)) 100%, 0 100%, 0 var(--hw-corte-g)); }
+html.tn.hw .frame > .in { position: relative; z-index: 1; border-radius: 0; backdrop-filter: none; -webkit-backdrop-filter: none; background: linear-gradient(180deg, rgba(20, 22, 62, .97), rgba(9, 11, 34, .98));
+  clip-path: polygon(calc(var(--hw-corte-g) + .5px) 1.5px, calc(100% - 1.5px) 1.5px, calc(100% - 1.5px) calc(100% - var(--hw-corte-g) - .5px), calc(100% - var(--hw-corte-g) - .5px) calc(100% - 1.5px), 1.5px calc(100% - 1.5px), 1.5px calc(var(--hw-corte-g) + .5px)) !important; }
+html.tn.hw .card.frame { --hw-b1: color-mix(in srgb, var(--r) 85%, transparent); --hw-b2: rgba(143, 77, 255, .5); }
+html.tn.hw .card.frame.editing::before, html.tn.hw .card.frame.editing > .in { clip-path: none !important; }
+html.tn.hw .card:hover { filter: drop-shadow(0 18px 34px color-mix(in srgb, var(--r) 30%, transparent)) drop-shadow(0 0 24px rgba(255, 122, 26, .22)); }
+/* telarañas en las esquinas */
+html.tn.hw .svc.frame > .in::after, html.tn.hw .step.frame > .in::after, html.tn.hw .rules.frame > .in::after, html.tn.hw #ganadores .winner .in::after, html.tn.hw #ultimos .winner .in::after {
+  content: ""; position: absolute; right: 0; top: 0; left: auto; bottom: auto; inset-inline-start: auto; width: 74px; height: 74px; z-index: 0; pointer-events: none; transform: scaleX(-1); animation: none;
+  background: {{telarana}} 0 0 / contain no-repeat; opacity: .32; display: block; }
+html.tn.hw .step.frame > .in > *, html.tn.hw .svc.frame > .in > *, html.tn.hw .rules.frame > .in > * { position: relative; z-index: 1; }
+html.tn.hw .svc .ico { border-radius: 0; clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px); background: radial-gradient(circle at 30% 20%, rgba(255, 150, 60, .3), rgba(30, 20, 70, .9)); box-shadow: none; }
+/* rifas */
+html.tn.hw .card .pic { background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--r) 28%, transparent), transparent 70%), #070a22; }
+html.tn.hw .card h3 { color: #fff1dc; }
+html.tn.hw .card .cost b { color: var(--hw-calabaza-2); text-shadow: 0 0 18px rgba(255, 122, 26, .45); }
+html.tn.hw .cbar { background: rgba(255, 255, 255, .07); }
+html.tn.hw .cbar i { background: linear-gradient(90deg, var(--hw-bruja), var(--hw-calabaza)); box-shadow: 0 0 12px rgba(255, 122, 26, .55); }
+html.tn.hw .status.activa { background: linear-gradient(180deg, #ffbe6a, #ff8a24); color: #1d0900; }
+html.tn.hw .timer { color: var(--hw-vela); }
+html.tn.hw .empty .in::before { content: ""; display: block; width: 62px; height: 70px; margin: 0 auto 12px; background: {{fantasma}} center / contain no-repeat; filter: drop-shadow(0 0 16px rgba(200, 210, 255, .45)); animation: hwFlota 3.2s ease-in-out infinite; }
+
+/* ---------- Catálogo de items y Sets Caché ---------- */
+html.tn.hw .icard, html.tn.hw .sc-card { border-radius: 0; border: 1px solid transparent; border-image: linear-gradient(160deg, rgba(255, 150, 60, .6), rgba(255, 150, 60, .08) 45%, rgba(143, 77, 255, .5)) 1;
+  background: linear-gradient(180deg, rgba(20, 22, 62, .95), rgba(9, 11, 34, .96)); backdrop-filter: none;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }
+html.tn.hw .icard:hover, html.tn.hw .sc-card:hover { box-shadow: inset 0 0 0 1px rgba(255, 138, 52, .55), inset 0 0 34px rgba(255, 122, 26, .16); }
+html.tn.hw .ithumb { background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--rar, #888) 30%, transparent), transparent 70%), #060920; }
+html.tn.hw .iprice, html.tn.hw .ipg-precio b { color: var(--hw-calabaza-2); }
+html.tn.hw .itabs { border-radius: 0; clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px); background: rgba(16, 14, 46, .8); }
+html.tn.hw .itab.on { background: linear-gradient(180deg, #ffbe6a, #ff8a24 50%, #e85a08); color: #1d0900; }
+html.tn.hw .ifilt { border-radius: 0; background: rgba(14, 14, 44, .9); border-color: rgba(255, 138, 52, .25); clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px); }
+
+/* ---------- Confianza (portada) ---------- */
+html.tn.hw .trust li { border-radius: 0; background: linear-gradient(180deg, rgba(22, 20, 62, .82), rgba(10, 10, 34, .82)); border-color: rgba(255, 138, 52, .3);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+html.tn.hw .trust .t-ico { border-radius: 0; color: var(--hw-calabaza-2); clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+
+/* ---------- Pie con cementerio ---------- */
+html.hw #legalPie { margin-top: clamp(70px, 9vw, 130px); }
+html.hw #legalPie::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: clamp(70px, 9vw, 130px); pointer-events: none; background: {{cementerio}} 0 100% / auto 100% repeat-x; }
+
+/* ---------- Anuncio de promo ---------- */
+html.hw #promoPop .promo-card { border-color: rgba(255, 138, 52, .75); box-shadow: 0 0 60px rgba(0, 0, 0, .7), 0 0 50px rgba(255, 110, 20, .3), 0 0 90px rgba(143, 77, 255, .25); }
+html.hw #promoPop .promo-card::before { content: ""; position: absolute; left: 0; top: 0; width: 120px; height: 120px; background: {{telarana}} 0 0 / contain no-repeat; opacity: .4; pointer-events: none; }
+html.hw #promoPop .promo-card::after { content: ""; position: absolute; right: 10px; bottom: 8px; width: 58px; height: 51px; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 12px rgba(255, 140, 40, .8)); animation: hwVela 2.4s ease-in-out infinite; pointer-events: none; }
+html.hw #promoPop .promo-kick::before { content: "Especial Diretide"; display: block; margin-bottom: 8px; font: 400 24px/1 var(--hw-terror); letter-spacing: .08em; text-transform: none; color: var(--hw-calabaza-2); text-shadow: 0 0 14px rgba(255, 122, 26, .6); }
+html.hw #promoPop .promo-tit { font-family: var(--hw-gotico); font-weight: 900; }
+html.hw #promoPop .promo-p { border-radius: 0; background: rgba(10, 9, 32, .92); border-color: rgba(255, 138, 52, .6); }
+html.hw #promoPop .promo-pill { border-radius: 0; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+
+
+/* ---------- Ventanas (participar, recargar, elegir contacto) ---------- */
+html.tn.hw .elegir:not(.stkp):not(.ruleta) { border-radius: 0; border: 1px solid rgba(255, 138, 52, .55); background: linear-gradient(180deg, rgba(22, 22, 64, .98), rgba(9, 11, 34, .98));
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+html.tn.hw .elegir:not(.stkp):not(.ruleta)::before { content: ""; position: absolute; right: 0; top: 0; width: 86px; height: 86px; transform: scaleX(-1); pointer-events: none; background: {{telarana}} 0 0 / contain no-repeat; opacity: .28; }
+html.tn.hw .elegir h3 { font-family: var(--hw-gotico); font-weight: 900; color: var(--hw-calabaza-2); }
+html.tn.hw .elegir .btn, html.tn.hw .elegir .mbtns .btn { border-radius: 0; }
+
+/* ---------- Capas fijas: murciélagos y araña ---------- */
+#hwMurcis { position: fixed; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+#hwMurcis i { position: absolute; left: -80px; width: 54px; height: 22px; background: {{murci}} center / contain no-repeat; filter: drop-shadow(0 0 1.2px rgba(255, 200, 140, .95)) drop-shadow(0 0 10px rgba(255, 130, 50, .45)); animation: hwVuela 22s linear infinite; }
+#hwMurcis i:nth-child(1) { top: 22vh; animation-delay: 2s; }
+#hwMurcis i:nth-child(2) { top: 48vh; width: 38px; height: 16px; animation-duration: 28s; animation-delay: 11s; }
+#hwMurcis i:nth-child(3) { top: 68vh; width: 46px; height: 19px; animation-duration: 25s; animation-delay: 19s; }
+#hwArana { position: fixed; top: 0; right: max(18px, 4vw); z-index: 3; pointer-events: none; width: 2px; height: 0; animation: hwBaja 12s ease-in-out infinite; transform-origin: top center; }
+#hwArana::before { content: ""; position: absolute; left: 0; top: 0; width: 1px; height: 100%; background: linear-gradient(180deg, rgba(220, 220, 255, .15), rgba(220, 220, 255, .55)); }
+#hwArana::after { content: ""; position: absolute; left: -21px; bottom: -34px; width: 44px; height: 38px; background: {{arana}} center / contain no-repeat; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .6)); }
+
+/* ---------- Animaciones ---------- */
+@keyframes hwTitila { from { opacity: .25; } to { opacity: .6; } }
+@keyframes hwCinta { to { transform: translateX(-50%); } }
+@keyframes hwNube { from { transform: translateX(-6%); } to { transform: translateX(10%); } }
+@keyframes hwNiebla { from { transform: translateX(-4%); } to { transform: translateX(4%); } }
+@keyframes hwVela { 0%, 100% { filter: drop-shadow(0 0 12px rgba(255, 140, 40, .75)) brightness(1); } 45% { filter: drop-shadow(0 0 20px rgba(255, 170, 60, .95)) brightness(1.12); } 60% { filter: drop-shadow(0 0 9px rgba(255, 120, 30, .6)) brightness(.95); } }
+@keyframes hwFlota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes hwSale { 0% { opacity: 0; transform: translate(0, 0) scale(.15); } 8% { opacity: .95; } 80% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx, -420px), var(--dy, -60px)) scale(1.3); } }
+@keyframes hwVuela { 0% { transform: translate(0, 0) scaleY(1); } 10% { transform: translate(14vw, -26px) scaleY(.55); } 20% { transform: translate(28vw, 10px) scaleY(1); } 30% { transform: translate(42vw, -18px) scaleY(.55); } 40% { transform: translate(56vw, 8px) scaleY(1); } 50% { transform: translate(70vw, -22px) scaleY(.55); } 60% { transform: translate(86vw, 6px) scaleY(1); } 70%, 100% { transform: translate(112vw, -30px) scaleY(.6); } }
+@keyframes hwBaja { 0%, 100% { height: 0; } 15%, 70% { height: clamp(90px, 16vh, 150px); } 40% { height: clamp(110px, 19vh, 175px); } 85% { height: 0; } }
+
+/* ---------- Celular ---------- */
+@media (max-width: 760px) {
+  #hwCinta { height: 30px; font-size: 11.5px; }
+  #hwCinta b { font-size: 15px; }
+  html.tn.hw .hero#inicio h1, html.tn.hw #inicio .wrap > h1 { font-size: clamp(30px, 9.4vw, 44px); }
+  html.tn.hw .hero > .wrap { padding-bottom: calc(52px + 64px); }
+  html.tn.hw .hero::after { opacity: .3; }
+  .hw-luna { right: -40px; top: 70px; width: 170px; opacity: .55; }
+  .hw-nube.n2 { display: none; }
+  .hw-bandada { right: 45px; top: 155px; }
+  .hw-bandada i { width: 30px; height: 12px; }
+  .hw-calabazas span:nth-child(2), .hw-calabazas span:nth-child(4) { display: none; }
+  .hw-logo::before { left: -14px; top: -20px; width: 52px; height: 40px; }
+  #hwMurcis i:nth-child(3) { display: none; }
+  #hwArana { right: 10px; }
+  #hwArana::after { width: 26px; height: 23px; left: -12px; bottom: -20px; }
+  .hw-heroes span { font-size: 13px; gap: 26px; }
+  html.tn.hw .sec-title .kicker::before, html.tn.hw .sec-title .kicker::after { width: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #hwCinta .hw-cinta-in, .hw-heroes-in, .hw-nube, .hw-niebla i, .hw-calabazas span, .hw-bandada i, #hwMurcis i, #hwArana, html.tn.hw .orn, html.hw #tnFondo::before, html.hw #tnFondo::after, .empty .in::before, #promoPop .promo-card::after { animation: none !important; }
+  .hw-bandada, #hwMurcis { display: none; }
+  #hwArana { height: 110px; }
+}
