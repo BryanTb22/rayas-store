@@ -807,7 +807,7 @@ exports.barridoPagos = onSchedule(
 
 /* ---------- Generador de publicaciones: textos de venta escritos por Claude (solo admin) ---------- */
 exports.crearPublicacion = onRequest(
-  { region: REGION, cors: ORIGENES, secrets: [ANTHROPIC_KEY], maxInstances: 2, timeoutSeconds: 120, memory: "512MiB" },
+  { region: REGION, cors: ORIGENES, secrets: [ANTHROPIC_KEY], maxInstances: 2, timeoutSeconds: 300, memory: "512MiB" },
   async (req, res) => {
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
     const uid = await uidDeLaPeticion(req);
@@ -824,6 +824,11 @@ exports.crearPublicacion = onRequest(
         } catch (e) { console.warn("pub_feedback", e.message); }
         const x = await ia.buscarFotos(ANTHROPIC_KEY.value(), b.item, null, typeof b.oficial === "string" ? b.oficial : "", ejemplos);
         return res.json({ ok: true, fotos: x.fotos, aviso: x.aviso });
+      }
+      if (b.accion === "comparar") {
+        // Prueba: las mismas fotos candidatas calificadas por Haiku, Sonnet y Opus, para ver cuál elige mejor.
+        const x = await ia.compararModelos(ANTHROPIC_KEY.value(), b.item, null, typeof b.oficial === "string" ? b.oficial : "", null);
+        return res.json({ ok: true, fotos: x.fotos, notas: x.notas });
       }
       if (b.accion === "lista") {
         // Últimas publicaciones aprobadas de esta tienda (sin la imagen, que pesa).
