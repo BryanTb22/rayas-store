@@ -2,7 +2,8 @@
 # uso: python3 recortar.py <entrada.jpg> <salida.png> [ancho_final]
 import sys, numpy as np, onnxruntime as ort
 from PIL import Image, ImageFilter
-MODELO = "/home/claude/modelos/u2net.onnx"
+import os
+MODELO = os.environ.get("U2NET", "u2net.onnx")  # descargar de https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx
 ses = ort.InferenceSession(MODELO, providers=["CPUExecutionProvider"])
 def mascara(im):
     w, h = im.size
