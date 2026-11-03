@@ -6,6 +6,8 @@
    ===================================================================== */
 
 const MODELO = "claude-haiku-5-5";
+// Modelos que se pueden probar para revisar las fotos (los textos siempre van con Haiku).
+const MODELOS_FOTOS = { haiku: "claude-haiku-5-5", sonnet: "claude-sonnet-5-5", opus: "claude-opus-5-5" };
 const API_URL = "https://api.anthropic.com/v1/messages";
 const TIENDAS = {
   rayas: { nombre: "Rayas Store", web: "rayas.trade" },
@@ -347,7 +349,7 @@ function bloquesEjemplos(ej) {
   meter(ej && ej.malas, "Ejemplos de fotos que al dueño NO le gustaron (evita este tipo):");
   return out;
 }
-async function calificarFotos(clave, it, fotos, oficial, f, ejemplos) {
+async function calificarFotos(clave, it, fotos, oficial, f, ejemplos, modelo) {
   const contenido = [];
   const ref = soloBase64(oficial);
   if (ref && ref.b64.length < 1500000) {
@@ -372,7 +374,7 @@ async function calificarFotos(clave, it, fotos, oficial, f, ejemplos) {
   const r = await f(API_URL, {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": clave, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: MODELO, max_tokens: 800, messages: [{ role: "user", content: contenido }],
+    body: JSON.stringify({ model: modelo || MODELO, max_tokens: 800, messages: [{ role: "user", content: contenido }],
       tools: [HERR_FOTOS], tool_choice: { type: "tool", name: HERR_FOTOS.name } })
   });
   let j = null; try { j = await r.json(); } catch (e) { j = null; }
@@ -420,6 +422,30 @@ async function buscarFotos(clave, item, fetchFn, oficial, ejemplos) {
     : "No encontré fotos donde el item se vea de cerca. Estas son las mejores; si no te gustan, sube una tú." };
 }
 
+// Prueba: busca las candidatas UNA vez y las hace calificar por los 3 modelos (Haiku, Sonnet, Opus) para comparar.
+async function compararModelos(clave, item, fetchFn, oficial, ejemplos) {
+  const f = fetchFn || fetch;
+  const it = limpiarItem(item);
+  if (!it.nombre) throw new Error("Falta el nombre del item.");
+  const [steam, ids] = await Promise.all([fotosSteam(it, f), buscarVideos(clave, it, f, 1)]);
+  const grupos = await Promise.all(ids.slice(0, 4).map(async function (id) {
+    const c = await cuadrosDelVideo(id, f);
+    if (c.length) return c;
+    const x = await bajarMiniatura(id, f); return x ? [x] : [];
+  }));
+  const cand = steam.concat([].concat.apply([], grupos)).slice(0, 14);
+  if (!cand.length) throw new Error("No encontré fotos in-game de este item en la web.");
+  const claves = Object.keys(MODELOS_FOTOS);
+  const res = await Promise.all(claves.map(async function (k) {
+    const t0 = Date.now();
+    try { return { notas: await calificarFotos(clave, it, cand, oficial, f, ejemplos, MODELOS_FOTOS[k]), seg: Math.round((Date.now() - t0) / 1000) }; }
+    catch (e) { return { error: String(e.message || e), seg: Math.round((Date.now() - t0) / 1000) }; }
+  }));
+  const notas = {};
+  claves.forEach(function (k, i) { notas[k] = res[i]; });
+  return { fotos: cand, notas: notas };
+}
+
 // Limpia lo que manda el navegador como retroalimentación: fotos chicas (data URL jpeg/png/webp) y datos del item.
 function limpiarFeedback(b) {
   b = b || {};
@@ -449,4 +475,4 @@ function limpiarPublicacion(b) {
   return { imagen: im, nombre: texto(b.nombre, 90), tipo: texto(b.tipo, 60), precio: numero(b.precio), textos: textos };
 }
 
-module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos, limpiarFeedback, elegirEjemplos, limpiarPublicacion, descEfecto, nombreBusqueda, consultasYoutube, videosDeHtml, capturasDeHtml };
+module.exports = { MODELO, MODELOS_FOTOS, compararModelos, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos, limpiarFeedback, elegirEjemplos, limpiarPublicacion, descEfecto, nombreBusqueda, consultasYoutube, videosDeHtml, capturasDeHtml };
