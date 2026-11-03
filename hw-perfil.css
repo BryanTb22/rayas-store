@@ -1,0 +1,132 @@
+/* Copia con paleta Halloween (generada). Original: perfil.css */
+/* Página de perfil (#perfil, #perfil/transacciones, #perfil/seguridad)
+   Diseño simple: cabecera con usuario y saldo, pestañas de texto subrayadas y una sola tarjeta de contenido. */
+.pf-page { padding-top: 28px; padding-bottom: 72px; min-height: 70vh; }
+.pf-wrap { max-width: 1040px; display: grid; gap: 22px; }
+.pf-mig { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.pf-mig a { color: var(--muted); text-decoration: none; }
+.pf-mig a:hover { color: var(--yellow); }
+
+/* usuario + saldo */
+.pf-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pf-user { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.pf-av { width: 56px; height: 56px; flex: none; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--yellow); color: var(--on-yellow); font-weight: 800; font-size: 24px; }
+.pf-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pf-user h1 { margin: 0; font-size: 26px; line-height: 1.15; font-weight: 700; color: var(--fg); letter-spacing: 0; text-transform: none; overflow-wrap: anywhere; }
+.pf-user small { display: block; margin-top: 2px; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.pf-saldo { display: flex; align-items: center; gap: 14px; padding: 10px 10px 10px 18px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .1); }
+.pf-saldo small { display: block; font-size: 12px; color: var(--muted); }
+.pf-saldo b { display: block; font-size: 22px; font-weight: 800; color: var(--yellow); line-height: 1.1; }
+
+/* pestañas: texto simple con subrayado */
+.pf-nav { display: flex; gap: 28px; border-bottom: 1px solid rgba(255, 255, 255, .1); overflow-x: auto; scrollbar-width: none; }
+.pf-nav::-webkit-scrollbar { display: none; }
+.pf-nav a { flex: none; padding: 12px 0; color: var(--muted); text-decoration: none; font-size: 15px; font-weight: 600; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s; }
+.pf-nav a:hover { color: var(--fg); }
+.pf-nav a.on { color: var(--fg); border-bottom-color: var(--yellow); }
+
+.pf-msg { margin: 0; padding: 10px 14px; border-radius: 10px; font-size: 14px; background: rgba(60, 200, 120, .12); color: #7fe3ab; }
+.pf-msg.err { background: rgba(255, 90, 90, .12); color: #ff9a9a; }
+
+/* tarjeta de contenido */
+.pf-card { background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .08); border-radius: 16px; padding: 28px; display: grid; gap: 22px; }
+.pf-sec-h h2 { margin: 0; font-size: 20px; font-weight: 700; color: var(--fg); letter-spacing: 0; text-transform: none; line-height: 1.2; }
+.pf-sec-h p { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+.pf-form { display: grid; gap: 20px; }
+.pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 18px; align-items: start; }
+.pf-ancho { grid-column: 1 / -1; }
+.pf-page .field label, html.tn .pf-page .field label { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.pf-page .field input, .pf-page .field select { border-radius: 10px; background: rgba(0, 0, 0, .25); border: 1px solid rgba(255, 255, 255, .12); padding: 11px 13px; color: var(--fg); }
+.pf-page .field input:focus { border-color: var(--yellow); outline: none; }
+.pf-page .field input:disabled { opacity: .6; }
+.pf-aviso { margin: 0; font-size: 13px; color: #c8a2f9; }
+.pf-acciones { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.pf-acciones .btn { margin: 0; }
+.pf-vacio { text-align: center; color: var(--muted); justify-items: center; }
+.pf-vacio b { color: var(--fg); font-weight: 600; }
+
+/* filtros + tabla de transacciones */
+.pf-tools { display: grid; gap: 16px; }
+.pf-filtros { display: flex; gap: 10px; flex-wrap: wrap; }
+.pf-filtros select, .pf-filtros input { height: 42px; padding: 0 12px; border-radius: 10px; background: rgba(0, 0, 0, .25); border: 1px solid rgba(255, 255, 255, .12); color: var(--fg); font: inherit; font-size: 14px; min-width: 0; }
+.pf-filtros select { flex: 0 1 180px; }
+.pf-filtros input { flex: 1 1 260px; }
+.pf-filtros select:focus, .pf-filtros input:focus { outline: none; border-color: var(--yellow); }
+.pf-tabla { display: grid; }
+.pf-th, .pf-row { display: grid; grid-template-columns: minmax(190px, 2fr) 1.1fr 1.3fr 1fr 1fr 1fr; align-items: center; gap: 12px; padding: 0 12px; }
+.pf-th { min-height: 38px; font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 1px solid rgba(255, 255, 255, .1); }
+.pf-tx { border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.pf-tx[hidden] { display: none; }
+.pf-row { width: 100%; min-height: 64px; background: transparent; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 10px; }
+.pf-row:hover { background: rgba(255, 255, 255, .03); }
+.pf-tx.open .pf-row { background: rgba(255, 255, 255, .04); }
+.c-tipo { display: grid; gap: 3px; min-width: 0; }
+.c-tipo b { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--fg); }
+.c-tipo small { color: var(--muted); font-size: 13px; }
+.pf-fl { font-style: normal; font-size: 12px; opacity: .6; transition: transform .2s; }
+.pf-tx.open .pf-fl { transform: rotate(180deg); }
+.c-id { font-size: 13px; font-weight: 600; color: var(--fg); overflow-wrap: anywhere; }
+.c-est, .pf-dr [data-l="Estado"] { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+.pf-dot { width: 7px; height: 7px; border-radius: 50%; background: #9aa3b8; flex: none; }
+.pf-dot.est-pagado, .pf-dot.est-curso { background: #ff9d33; }
+.pf-dot.est-entregado { background: #38d98a; }
+.pf-dot.est-cancelado { background: #ff6b6b; }
+.c-pago { font-size: 14px; color: var(--muted); }
+.c-imp { font-weight: 700; font-size: 14px; }
+.pf-page .r { text-align: right; justify-self: end; }
+.c-sal.neg { color: #b787f7; font-weight: 600; font-size: 14px; }
+.pf-det { display: none; padding: 4px 12px 14px; }
+.pf-tx.open .pf-det { display: block; }
+.pf-dh, .pf-dr { display: grid; grid-template-columns: minmax(220px, 2.6fr) 1fr 1.3fr 1.2fr 1fr; align-items: center; gap: 12px; padding: 0 12px; }
+.pf-dh { min-height: 34px; font-size: 12px; color: var(--muted); }
+.pf-dr { min-height: 72px; border-radius: 10px; background: rgba(0, 0, 0, .18); font-size: 14px; }
+.pf-dr + .pf-dr { margin-top: 6px; }
+.pf-it { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.pf-it b { font-weight: 600; font-size: 14px; line-height: 1.3; }
+.pf-foto { width: 78px; aspect-ratio: 3 / 2; flex: none; border-radius: 8px; overflow: hidden; background: rgba(255, 255, 255, .06); display: grid; place-items: center; }
+.pf-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pf-foto i { font-style: normal; font-size: 22px; opacity: .6; }
+.pf-pie { padding: 10px 12px 0; font-size: 13px; color: var(--muted); }
+.pf-vacio-t, .pf-nada { padding: 28px 12px; text-align: center; color: var(--muted); margin: 0; }
+
+/* seguridad: lista de ajustes */
+.pf-lista { display: grid; }
+.pf-fila { display: flex; align-items: center; justify-content: space-between; gap: 14px 18px; flex-wrap: wrap; padding: 18px 0; border-bottom: 1px solid rgba(255, 255, 255, .07); }
+.pf-fila:first-child { padding-top: 0; }
+.pf-fila:last-child { border-bottom: 0; padding-bottom: 0; }
+.pf-fila-tx { display: grid; gap: 3px; min-width: 0; flex: 1 1 260px; }
+.pf-fila-tx b { font-size: 15px; font-weight: 600; color: var(--fg); }
+.pf-fila-tx span { font-size: 14px; color: var(--muted); }
+.pf-fila .btn { margin: 0; }
+.pf-clave { flex: 1 1 100%; max-width: 620px; }
+.pf-ayuda { margin-top: -6px; }
+
+@media (max-width: 760px) {
+  .pf-page { padding-top: 18px; }
+  .pf-user h1 { font-size: 22px; }
+  .pf-av { width: 48px; height: 48px; font-size: 20px; }
+  .pf-saldo { width: 100%; justify-content: space-between; }
+  .pf-nav { gap: 0; }
+  .pf-nav a { flex: 1 1 0; text-align: center; font-size: 14px; }
+  .pf-largo { display: none; }
+  .pf-card { padding: 18px 14px; border-radius: 14px; }
+  .pf-grid { grid-template-columns: 1fr; }
+  .pf-filtros select, .pf-filtros input { flex: 1 1 100%; }
+  .pf-th, .pf-dh { display: none; }
+  .pf-row { grid-template-columns: 1fr auto; grid-template-areas: "tipo imp" "est sal" "id id"; padding: 12px 8px; row-gap: 6px; min-height: 0; }
+  .c-tipo { grid-area: tipo; } .c-imp { grid-area: imp; justify-self: end; }
+  .c-est { grid-area: est; } .c-sal { grid-area: sal; }
+  .c-id { grid-area: id; font-size: 12px; color: var(--muted); font-weight: 500; } .c-pago { display: none; }
+  .c-id::before { content: "ID: "; }
+  .pf-det { padding: 4px 0 12px; }
+  .pf-dr { grid-template-columns: 1fr 1fr; padding: 12px; row-gap: 8px; }
+  .pf-dr .pf-it { grid-column: 1 / -1; }
+  .pf-dr > span[data-l]::before { content: attr(data-l) ": "; color: var(--muted); font-size: 12px; }
+  .pf-dr > .r { justify-self: start; text-align: left; }
+}
+
+/* Cabecera: que los enlaces y botones no se partan en dos líneas */
+.topbar .nav a.navlink, .topbar .nav .lock { white-space: nowrap; }
+/* en pantallas medianas no caben los enlaces de la rifa (Cómo participar, Ganadores, Reglas): quedan en la página de Rifas */
+@media (max-width: 1360px) and (min-width: 761px) { .topbar .nav a.navlink ~ a.navlink { display: none; } }
+.pf-dot.est-cooldown { background: #ffa740; }

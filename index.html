@@ -42,9 +42,29 @@
     if (localStorage.getItem("rayas_tema") === "clasico") return;
   } catch (e) { /* sin almacenamiento: se queda el tema nuevo */ }
   document.documentElement.className += " tn";
-  var f = document.createElement("link"); f.rel = "stylesheet"; f.href = "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap"; document.head.appendChild(f);
-  var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "tema-nuevo.css?v=27"; document.head.appendChild(l);
-  document.addEventListener("DOMContentLoaded", function () { var s = document.createElement("script"); s.src = "tema-nuevo.js?v=6"; document.body.appendChild(s); });
+  /* TEMPORADA HALLOWEEN ("Noche de Diretide"): se prende sola del 1 de octubre al 10 de noviembre y luego vuelve
+     el diseño normal (sus archivos no se tocan; Halloween usa copias hw-*.css + tema-halloween.css/js).
+     Forzar en este navegador:  ?temporada=halloween  ·  ?temporada=normal  ·  ?temporada=auto (volver a la fecha) */
+  var HW_DESDE = 1001, HW_HASTA = 1110, hoy = new Date(), md = (hoy.getMonth() + 1) * 100 + hoy.getDate(), hw = md >= HW_DESDE && md <= HW_HASTA;
+  try {
+    var tq = (location.search.match(/[?&]temporada=([a-z]+)/) || [])[1];
+    if (tq === "halloween" || tq === "normal") localStorage.setItem("rayas_temporada", tq); else if (tq === "auto") localStorage.removeItem("rayas_temporada");
+    var tf = localStorage.getItem("rayas_temporada"); if (tf) hw = tf === "halloween";
+  } catch (e) { /* sin almacenamiento: manda la fecha */ }
+  var f = document.createElement("link"); f.rel = "stylesheet"; f.href = "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap" + (hw ? "&family=Cinzel+Decorative:wght@700;900&family=Creepster" : ""); document.head.appendChild(f);
+  if (hw) {
+    document.documentElement.className += " hw";
+    var hojas = document.querySelectorAll('link[rel="stylesheet"]');
+    for (var i = 0; i < hojas.length; i++) { var m = /^(estilos|perfil|sets|previa)\.css/.exec(hojas[i].getAttribute("href") || ""); if (m) hojas[i].setAttribute("href", "hw-" + m[1] + ".css?v=1"); }
+  }
+  var l = document.createElement("link"); l.rel = "stylesheet"; l.href = hw ? "hw-tema-nuevo.css?v=1" : "tema-nuevo.css?v=27"; document.head.appendChild(l);
+  if (hw) { var th = document.createElement("link"); th.rel = "stylesheet"; th.href = "tema-halloween.css?v=1"; document.head.appendChild(th); }
+  document.addEventListener("DOMContentLoaded", function () {
+    var s = document.createElement("script"); s.src = "tema-nuevo.js?v=6"; document.body.appendChild(s);
+    if (!hw) return;
+    var lg = document.createElement("link"); lg.rel = "stylesheet"; lg.href = "hw-legal.css?v=1"; document.head.appendChild(lg);
+    var h = document.createElement("script"); h.src = "tema-halloween.js?v=1"; document.body.appendChild(h);
+  });
 })();
 </script>
 </head>
