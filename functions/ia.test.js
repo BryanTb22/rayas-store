@@ -162,5 +162,24 @@ const ia = require("./ia");
   const xY = await ia.buscarFotos("k", { nombre: "Unusual Tome of Infinite Terror - Arms", efecto: "ravenblight" }, conYt);
   assert(pedidosYt.length >= 3 && /Tome of Infinite Terror ravenblight/.test(pedidosYt[0]));
   assert.strictEqual(xY.fotos[0].id, "vid30000000-2"); assert.strictEqual(xY.fotos[1].id, "vid10000000-2");
+  // capturas de Steam: lector del HTML y orden (título con item/efecto primero); van antes que YouTube
+  const stHtml = ['3793301824|For the crown.|https://images.steamusercontent.com/ugc/1/A/', '3780192228|Puck - Unusual Crown of Curious Coldspell | Frostbloom Effect|https://images.steamusercontent.com/ugc/2/B/', '3756230248|Crown of the Condor rave showcase|https://images.steamusercontent.com/ugc/3/C/']
+    .map((x) => { const [id, tit, url] = x.split("|").length > 3 ? [x.split("|")[0], x.split("|").slice(1, -1).join("|"), x.split("|").slice(-1)[0]] : x.split("|"); return '<div class="apphub_Card" data-publishedfileid="' + id + '"><div class="apphub_CardContentMain"><img class="apphub_CardContentPreviewImage" src="' + url + '?imw=200"></div><div class="apphub_CardMetaData"><div class="apphub_CardContentTitle ellipsis">' + tit + '</div></div></div>'; }).join("");
+  const caps = ia.capturasDeHtml(stHtml);
+  assert.strictEqual(caps.length, 3); assert.strictEqual(caps[0].url, "https://images.steamusercontent.com/ugc/1/A/"); assert(/Frostbloom/.test(caps[1].titulo));
+  const pedidosSt = [];
+  const conSteam = async (url, o) => {
+    if (/steamcommunity\.com\/app\/570\/screenshots/.test(url)) { pedidosSt.push(decodeURIComponent(url)); return { ok: true, status: 200, text: async () => stHtml }; }
+    if (/steamusercontent/.test(url)) { assert(/imw=1280/.test(url)); return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array(9000).buffer }; }
+    if (/api\.anthropic/.test(url) && JSON.parse(o.body).tool_choice && JSON.parse(o.body).tool_choice.name === "calificar_fotos") {
+      const body = JSON.parse(o.body); const nImg = body.messages[0].content.filter((c) => c.type === "image").length;
+      return { ok: true, status: 200, json: async () => ({ content: [{ type: "tool_use", name: "calificar_fotos", input: { fotos: [{ n: 1, nota: 9 }, { n: 2, nota: 4 }, { n: 4, nota: 7 }] } }] }) };
+    }
+    return conYt(url, o);
+  };
+  const xSt = await ia.buscarFotos("k", { nombre: "Unusual Crown of the Condor - Weapon", efecto: "rave" }, conSteam);
+  assert(pedidosSt.some((u) => /searchText=Crown of the Condor rave/.test(u)) && pedidosSt.some((u) => /searchText=unusual Crown of the Condor/.test(u)));
+  // la 1ª candidata es la captura de Steam cuyo título menciona el item y el efecto (3756230248)
+  assert.strictEqual(xSt.fotos[0].id, "st-3756230248"); assert(/sharedfiles/.test(xSt.fotos[0].pagina)); assert.strictEqual(xSt.fotos[1].id, "vid30000000-2");
   console.log("ia.test.js: todo OK");
 })().catch((e) => { console.error(e); process.exit(1); });
