@@ -218,6 +218,45 @@ async function elegirVideos(clave, it, lista, f) {
     return ids.slice(0, 4);
   } catch (e) { return lista.slice(0, 4).map(function (v) { return v.id; }); }
 }
+/* ---------- Capturas de la comunidad de Steam (suelen ser de cerca y con el efecto) ---------- */
+function capturasDeHtml(html) {
+  const partes = String(html || "").split('data-publishedfileid="').slice(1), out = [];
+  partes.forEach(function (p) {
+    p = p.slice(0, 8000);
+    const id = /^(\d+)/.exec(p), img = /apphub_CardContentPreviewImage"[^>]*?src="(https:\/\/[^"?]+)/.exec(p), tit = /apphub_CardContentTitle[^"]*">([^<]*)</.exec(p);
+    if (id && img && !out.some(function (x) { return x.id === id[1]; })) out.push({ id: id[1], url: img[1], titulo: (tit ? tit[1] : "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim().slice(0, 140) });
+  });
+  return out;
+}
+async function capturasSteam(consulta, f) {
+  try {
+    const r = await f("https://steamcommunity.com/app/570/screenshots/?p=1&browsefilter=mostrecent&l=english&searchText=" + encodeURIComponent(consulta),
+      { headers: { "accept-language": "en-US,en;q=0.9", "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" } });
+    if (!r.ok) return [];
+    return capturasDeHtml(await r.text());
+  } catch (e) { return []; }
+}
+function consultasSteam(it) {
+  const n = nombreBusqueda(it), e = String(it.efecto || "").trim();
+  return e ? [n + " " + e, "unusual " + n] : [n];
+}
+// Baja una captura de Steam reducida a 1280 px (si no, la original).
+async function bajarCaptura(c, f) {
+  const buf = (await bajarJpg(c.url + "?imw=1280&imh=720&ima=fit&impolicy=Letterbox&letterbox=false", f)) || (await bajarJpg(c.url, f));
+  return buf && buf.length < 1500000 ? { id: "st-" + c.id, pagina: "https://steamcommunity.com/sharedfiles/filedetails/?id=" + c.id, titulo: c.titulo, data: "data:image/jpeg;base64," + buf.toString("base64") } : null;
+}
+async function fotosSteam(it, f) {
+  const listas = await Promise.all(consultasSteam(it).map(function (q) { return capturasSteam(q, f); }));
+  const vistos = {}, lista = [];
+  listas.forEach(function (l) { l.forEach(function (c) { if (!vistos[c.id]) { vistos[c.id] = true; lista.push(c); } }); });
+  // Primero las capturas cuyo título menciona el item o el efecto.
+  const n = nombreBusqueda(it).toLowerCase(), e = String(it.efecto || "").toLowerCase().trim();
+  const puntos = function (c) { const t = c.titulo.toLowerCase(); return (t.indexOf(n) >= 0 ? 2 : 0) + (e && t.indexOf(e) >= 0 ? 2 : 0) + (/unusual|inusual/.test(t) ? 1 : 0); };
+  lista.sort(function (a, b) { return puntos(b) - puntos(a); });
+  const fotos = await Promise.all(lista.slice(0, 6).map(function (c) { return bajarCaptura(c, f); }));
+  return fotos.filter(Boolean);
+}
+
 // Busca en YouTube con varias consultas; si YouTube no responde, usa la búsqueda web de Claude como respaldo.
 async function buscarVideos(clave, it, f, intento) {
   const listas = await Promise.all(consultasYoutube(it, intento || 1).map(function (q) { return videosYoutube(q, f); }));
@@ -351,16 +390,18 @@ async function buscarFotos(clave, item, fetchFn, oficial, ejemplos) {
   const rondas = it.efecto ? 2 : 1, vistos = {};
   let todas = [], sinNotas = false;
   for (let ronda = 1; ronda <= rondas; ronda++) {
-    const ids = (await buscarVideos(clave, it, f, ronda)).filter(function (id) { return !vistos[id]; });
-    if (!ids.length) { if (ronda === 1) throw new Error("No encontré fotos in-game de este item en la web. Súbela tú."); break; }
+    // Ronda 1: capturas de la comunidad de Steam + cuadros de videos de YouTube (en paralelo). Ronda 2: solo YouTube con otras palabras.
+    const [steam, idsTodos] = await Promise.all([ronda === 1 ? fotosSteam(it, f) : Promise.resolve([]), buscarVideos(clave, it, f, ronda)]);
+    const ids = idsTodos.filter(function (id) { return !vistos[id]; });
+    if (!ids.length && !steam.length) { if (ronda === 1) throw new Error("No encontré fotos in-game de este item en la web. Súbela tú."); break; }
     ids.forEach(function (id) { vistos[id] = true; });
-    // Candidatas: los cuadros de los 4 mejores videos (en paralelo), hasta 12.
+    // Candidatas: las capturas de Steam y los cuadros de los 4 mejores videos, hasta 14.
     const grupos = await Promise.all(ids.slice(0, 4).map(async function (id) {
       const c = await cuadrosDelVideo(id, f);
       if (c.length) return c;
       const x = await bajarMiniatura(id, f); return x ? [x] : [];
     }));
-    let cand = [].concat.apply([], grupos).slice(0, 12);
+    let cand = steam.concat([].concat.apply([], grupos)).slice(0, 14);
     if (!cand.length) { if (ronda === 1 && rondas === 1) throw new Error("Encontré videos pero no pude bajar sus fotos. Intenta otra vez."); continue; }
     // La IA mira cada foto: quedan solo las que muestran el item de cerca (y con su efecto), la mejor primero.
     let notas = null;
@@ -408,4 +449,4 @@ function limpiarPublicacion(b) {
   return { imagen: im, nombre: texto(b.nombre, 90), tipo: texto(b.tipo, 60), precio: numero(b.precio), textos: textos };
 }
 
-module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos, limpiarFeedback, elegirEjemplos, limpiarPublicacion, descEfecto, nombreBusqueda, consultasYoutube, videosDeHtml };
+module.exports = { MODELO, HERRAMIENTA, limpiarItem, armarPedido, leerRespuesta, mensajeError, escribirTextos, idsYoutube, buscarFotos, limpiarFeedback, elegirEjemplos, limpiarPublicacion, descEfecto, nombreBusqueda, consultasYoutube, videosDeHtml, capturasDeHtml };
