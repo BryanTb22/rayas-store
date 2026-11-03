@@ -1,108 +1,238 @@
 /* =====================================================================
-   TEMA HALLOWEEN de LitleJacob Store · "Noche de Diretide"
+   TEMA HALLOWEEN de LitleJacob Store · "Noche de Diretide" (v3)
    Solo actúa con html.hw (lo pone temporada.js en temporada de Halloween).
-   LitleJacob mantiene sus colores (negro, rojo sangre y plata): aquí solo se agregan
-   la decoración de Halloween, la luna de sangre, el cementerio y las letras de terror.
-   Todos los dibujos son genéricos (calabazas, murciélagos, telarañas, lápidas).
+   Mantiene la esencia de LitleJacob: sus letras (Oswald / Cinzel), negro, rojo sangre y plata.
+   Lo temático de Dota lo ponen los héroes: arte oficial de los sets que ya tiene la web, recortado
+   (img/hw-*.webp): Broodmother colgando, Treant "Calabaza Rastrera", Necrophos, Wraith King, Pudge, Night Stalker.
+   Dibujos propios solo para lo ambiental: luna de sangre, lápidas, niebla, sangre, telarañas, murciélagos.
    ===================================================================== */
 html.hw {
+  --hw-negro: #070506;
   --hw-sangre: #d11a2a;
   --hw-sangre-2: #ff4a55;
+  --hw-sangre-osc: #6d0b12;
+  --hw-plata: #d9dde4;
+  --hw-plata-2: #9aa0aa;
   --hw-calabaza: #ff7a1a;
   --hw-calabaza-2: #ffa94d;
-  --hw-plata: #d9dde4;
-  --hw-gotico: "Cinzel Decorative", "Cinzel", Georgia, "Times New Roman", serif;
-  --hw-terror: "Creepster", "Cinzel Decorative", Georgia, fantasy;
+  --hw-brasa: 0 0 0 1px rgba(255, 110, 80, .45), 0 0 20px rgba(209, 26, 42, .42), 0 0 46px rgba(255, 70, 20, .16);
   --hw-ui: "Oswald", "Barlow Condensed", "Arial Narrow", sans-serif;
 }
 
-/* ---------- Cielo: estrellas y fuegos fatuos ---------- */
-#hwAmbiente { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; background: {{estrellas}} 0 0 / 520px 520px repeat; }
+/* =================== Fondo: estrellas, fuegos fatuos y niebla roja =================== */
+#hwAmbiente { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; background: {{estrellas}} 0 0 / 520px 520px repeat; opacity: .9; }
+#hwNieblaFija { position: fixed; left: 0; right: 0; bottom: 0; height: 26vh; z-index: 1; pointer-events: none; overflow: hidden; }
+#hwNieblaFija i { position: absolute; left: -20%; right: -20%; bottom: -30px; height: 100%; background: radial-gradient(45% 60% at 25% 100%, rgba(150, 20, 28, .16), transparent 70%), radial-gradient(40% 55% at 75% 100%, rgba(200, 200, 210, .07), transparent 70%); filter: blur(10px); animation: hwNiebla 30s ease-in-out infinite alternate; }
+#hwNieblaFija i + i { animation-duration: 42s; animation-direction: alternate-reverse; opacity: .8; }
 
-/* ---------- Cinta del evento ---------- */
-#hwCinta { position: relative; z-index: 20; overflow: hidden; height: 34px; display: flex; align-items: center; color: #ffe2c4;
-  background: repeating-linear-gradient(-45deg, #6d0b12 0 22px, #7f0e16 22px 44px); border-bottom: 1px solid rgba(255, 122, 26, .45); box-shadow: 0 4px 14px rgba(0, 0, 0, .45); font: 600 13px/1 var(--hw-ui); letter-spacing: .16em; text-transform: uppercase; }
+/* =================== Cinta del evento =================== */
+#hwCinta { position: relative; z-index: 20; overflow: hidden; height: 34px; display: flex; align-items: center; color: #f1e3e3;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .05), transparent), repeating-linear-gradient(-45deg, #5e070d 0 22px, #74090f 22px 44px);
+  border-bottom: 1px solid rgba(255, 90, 70, .4); box-shadow: 0 4px 16px rgba(0, 0, 0, .5); font: 600 13px/1 var(--hw-ui); letter-spacing: .16em; text-transform: uppercase; }
 #hwCinta .hw-cinta-in { display: flex; width: max-content; gap: 46px; padding-right: 46px; white-space: nowrap; animation: hwCinta 48s linear infinite; }
 #hwCinta .hw-cinta-in span { display: inline-flex; align-items: center; gap: 10px; }
-#hwCinta b { font: 400 18px/1 var(--hw-terror); letter-spacing: .08em; color: var(--hw-calabaza-2); text-shadow: 0 0 10px rgba(255, 122, 26, .6); }
-#hwCinta i { display: inline-block; width: 26px; height: 11px; background: {{murciNaranja}} center / contain no-repeat; }
+#hwCinta b { font: 700 14px/1 var(--hw-ui); letter-spacing: .18em; color: #ff5a63; text-shadow: 0 0 10px rgba(255, 60, 60, .7); }
+#hwCinta i.d { font-style: normal; font-size: 9px; color: #ff5a63; text-shadow: 0 0 8px rgba(255, 60, 60, .8); }
 
-/* ---------- Sombrero de bruja en los logos ---------- */
-html.hw .site-nav .nav-brand { position: relative; }
-html.hw .site-nav .nav-brand::before { content: ""; position: absolute; left: -12px; top: -16px; width: 34px; height: 26px; background: {{sombrero}} center / contain no-repeat; transform: rotate(-18deg); pointer-events: none; z-index: 2; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6)); }
-.hw-logo { position: relative; }
-span.hw-logo { display: block; width: max-content; max-width: 100%; }
-html.hw body .lj-h2-in > .logo-slot.left.hw-logo::before, .hw-logo::before { content: ""; display: block; position: absolute; right: auto; bottom: auto; margin: 0; padding: 0; border: 0; border-radius: 0; outline: 0; box-shadow: none; opacity: 1; clip-path: none; -webkit-mask: none; mask: none; left: -22px; top: -30px; width: 74px; height: 56px; background: {{sombrero}} center / contain no-repeat; transform: rotate(-16deg); z-index: 5; pointer-events: none; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .6)); }
+/* =================== Barra superior: sangre que gotea y sombrero =================== */
+html.hw .site-nav { position: relative; }
+html.hw .site-nav::after { content: ""; position: absolute; left: 0; right: 0; top: calc(100% - 1px); height: 13px; pointer-events: none; background: {{goteoRojo}} 0 0 / 240px 13px repeat-x; filter: drop-shadow(0 3px 5px rgba(150, 10, 20, .55)); }
+html.hw .site-nav .nav-link { transition: box-shadow .25s, color .2s, border-color .2s; }
+html.hw .site-nav .nav-link:hover { box-shadow: 0 0 0 1px rgba(255, 90, 70, .45), 0 0 18px rgba(209, 26, 42, .3); }
+html.hw .site-nav .nav-link.active, html.hw .site-nav .nav-link-recargar { box-shadow: var(--hw-brasa) !important; }
 
-/* ---------- Portada: luna de sangre, murciélagos, cementerio, calabazas y niebla ---------- */
-.hw-cielo, .hw-suelo { position: absolute; inset: 0; pointer-events: none; }
+/* =================== Botones: misma forma, brillo de brasa =================== */
+html.hw .lj-h2-btn.rojo, html.hw .m-btn-red, html.hw .ljc-btn.red, html.hw .lj-btn-red, html.hw .btn-yellow, html.hw .itx-btn.fucsia, html.hw .itx-buy {
+  box-shadow: var(--hw-brasa), inset 0 1px 0 rgba(255, 215, 200, .35) !important; text-shadow: 0 0 10px rgba(255, 200, 180, .25); }
+html.hw .lj-h2-btn.rojo:hover, html.hw .m-btn-red:hover, html.hw .ljc-btn.red:hover, html.hw .lj-btn-red:hover, html.hw .btn-yellow:hover, html.hw .itx-btn.fucsia:hover, html.hw .itx-card:hover .itx-buy, html.hw .site-nav .nav-link-recargar:hover { animation: hwBrasa 1.6s ease-in-out infinite; }
+html.hw .lj-h2-btn.plata, html.hw .m-btn-silver, html.hw .ljc-btn.silver, html.hw .btn-fuchsia, html.hw .lj-btn-gold, html.hw .itx-btn.ghost, html.hw .filter-btn {
+  box-shadow: 0 0 0 1px rgba(209, 26, 42, .32), 0 0 16px rgba(220, 224, 235, .1), inset 0 1px 0 rgba(255, 255, 255, .18) !important; }
+html.hw .lj-h2-btn.plata:hover, html.hw .m-btn-silver:hover, html.hw .ljc-btn.silver:hover, html.hw .btn-fuchsia:hover, html.hw .lj-btn-gold:hover, html.hw .itx-btn.ghost:hover, html.hw .filter-btn:hover, html.hw .itx-tab:hover:not(.on) {
+  box-shadow: 0 0 0 1px rgba(255, 90, 70, .6), 0 0 22px rgba(209, 26, 42, .32), inset 0 1px 0 rgba(255, 255, 255, .22) !important; }
+html.hw .filter-btn.active, html.hw .itx-tab.on { box-shadow: var(--hw-brasa) !important; }
+/* Comprar/Vender items: el dorado pasa a rojo sangre y plata (paleta de LitleJacob) solo en Halloween */
+html.hw .itx { --itx-gold: #c9cdd4; --itx-gold-l: #eef0f4; --itx-line: rgba(209, 26, 42, .32); }
+html.hw .itx-buy, html.hw .itx-tab.on { background: linear-gradient(180deg, #e0343d, #c8161f 55%, #8e0f16) !important; color: #fff !important; }
+html.hw .itx-btn.gold { background: linear-gradient(180deg, #f6f7f9, #c4c8cf 55%, #8f959e) !important; color: #140b0c !important; box-shadow: 0 0 0 1px rgba(209, 26, 42, .4), 0 0 18px rgba(220, 224, 235, .14) !important; text-shadow: none !important; }
+html.hw .itx-btn.gold:hover { animation: none !important; box-shadow: 0 0 0 1px rgba(255, 90, 70, .7), 0 0 24px rgba(209, 26, 42, .35) !important; }
+html.hw .itx-card.agot .itx-buy { background: #2a1416 !important; color: #b9a9ab !important; box-shadow: none !important; animation: none !important; }
+html.hw .itx-cartbtn { border-color: rgba(217, 221, 228, .55) !important; color: var(--hw-plata) !important; }
+html.hw .itx-cartbtn:hover, html.hw .itx-cartbtn.ok { background: linear-gradient(180deg, #f3f5f8, #aab0ba) !important; color: #120a0a !important; }
+html.hw .itx-pg-precio { background: linear-gradient(90deg, rgba(209, 26, 42, .16), rgba(24, 8, 8, .8)) !important; border-color: var(--hw-sangre) !important; }
+
+/* =================== Títulos: las letras de LitleJacob; la palabra destacada en rojo sangre con brillo y goteo =================== */
+html.hw .hw-t { position: relative; display: inline-block; padding-inline: .02em; margin-left: .12em; font-style: normal;
+  background: linear-gradient(180deg, #ff6b73 0%, #d41a26 55%, #8e0f16 100%) !important; -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 12px rgba(220, 30, 40, .45)); }
+html.hw .hw-t::after { content: ""; position: absolute; left: 4%; right: 4%; top: 92%; height: .34em; pointer-events: none; background: {{goteoRojo}} 0 0 / 1.6em .34em repeat-x; opacity: .9; }
+html.hw body .lj-h2-title em, html.hw .hero h1 em, html.hw .sets-hero-title span { filter: drop-shadow(0 0 14px rgba(220, 30, 40, .4)); }
+html.hw .sec-title h2 span:not(.t1) { filter: drop-shadow(0 0 12px rgba(220, 30, 40, .45)); }
+html.hw .m-kicker, html.hw .hero-kicker, html.hw .section-kicker, html.hw .lj-sec-k, html.hw .lj-h2-kicker { text-shadow: 0 0 12px rgba(209, 26, 42, .45); }
+
+/* encabezados de Compro / Comprar / Vender / Carrito: luna de sangre detrás y murciélagos */
+html.hw [id^="view-"] header.text-center { position: relative; isolation: isolate; padding-top: 18px; }
+html.hw [id^="view-"] header.text-center::before { content: ""; position: absolute; left: 50%; top: -34px; width: 210px; height: 210px; transform: translateX(-50%); z-index: -1; pointer-events: none; border-radius: 50%;
+  background: radial-gradient(circle at 46% 46%, rgba(255, 140, 110, .3), rgba(209, 26, 42, .18) 45%, transparent 70%); }
+html.hw [id^="view-"] header.text-center::after { content: ""; position: absolute; left: 50%; top: -6px; width: min(520px, 92%); height: 40px; transform: translateX(-50%); z-index: -1; pointer-events: none;
+  background: {{murci}} 8% 30% / 34px 14px no-repeat, {{murci}} 92% 10% / 26px 11px no-repeat, {{murci}} 78% 70% / 20px 8px no-repeat; opacity: .85; }
+
+/* adornos: el rombo de LitleJacob en rojo brasa */
+html.hw .ornamental-diamond { background: linear-gradient(135deg, #ff6b73, #8e0f16) !important; border-color: rgba(255, 120, 110, .7) !important; box-shadow: 0 0 14px rgba(255, 60, 60, .7) !important; animation: hwBrasaRombo 3s ease-in-out infinite; }
+html.hw .ornamental-dot { background: var(--hw-sangre-2) !important; box-shadow: 0 0 10px rgba(255, 60, 60, .8) !important; }
+html.hw .ornamental-line-left, html.hw .ornamental-line-right { background: linear-gradient(90deg, transparent, rgba(209, 26, 42, .8), rgba(217, 221, 228, .5)) !important; }
+html.hw .ornamental-line-right { background: linear-gradient(270deg, transparent, rgba(209, 26, 42, .8), rgba(217, 221, 228, .5)) !important; }
+html.hw .m-orn, html.hw .orn { color: #ff5a63 !important; text-shadow: 0 0 14px rgba(255, 60, 60, .8); animation: hwBrasaTexto 3s ease-in-out infinite; }
+
+/* =================== Marcos estilo Dota con telaraña (tarjetas) =================== */
+html.hw .hw-mr { position: relative; }
+.hw-marco { position: absolute; inset: 0; z-index: 15; pointer-events: none; border-radius: inherit;
+  --hw-esq: rgba(225, 229, 236, .7);
+  background:
+    {{telaranaLJDer}} right 0 top 0 / 56px 56px no-repeat,
+    linear-gradient(var(--hw-esq), var(--hw-esq)) left 7px top 7px / 18px 2px no-repeat, linear-gradient(var(--hw-esq), var(--hw-esq)) left 7px top 7px / 2px 18px no-repeat,
+    linear-gradient(var(--hw-esq), var(--hw-esq)) right 7px bottom 7px / 18px 2px no-repeat, linear-gradient(var(--hw-esq), var(--hw-esq)) right 7px bottom 7px / 2px 18px no-repeat,
+    linear-gradient(var(--hw-sangre), var(--hw-sangre)) left 7px bottom 7px / 10px 2px no-repeat, linear-gradient(var(--hw-sangre), var(--hw-sangre)) left 7px bottom 7px / 2px 10px no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(209, 26, 42, .34); transition: box-shadow .3s; }
+html.hw .hw-m:hover > .hw-marco { box-shadow: inset 0 0 0 1px rgba(255, 90, 100, .85), inset 0 -60px 70px -40px rgba(209, 26, 42, .28); --hw-esq: #fff; }
+html.hw .hw-m:hover { box-shadow: 0 0 30px rgba(209, 26, 42, .28), 0 18px 40px rgba(0, 0, 0, .55) !important; }
+/* tarjetas chicas: solo esquinas, sin telaraña */
+html.hw .lj-trust-i > .hw-marco, html.hw .buy-option > .hw-marco, html.hw .cofre-tile > .hw-marco, html.hw .howto-step > .hw-marco, html.hw .step > .hw-marco {
+  background:
+    linear-gradient(var(--hw-esq), var(--hw-esq)) left 5px top 5px / 12px 2px no-repeat, linear-gradient(var(--hw-esq), var(--hw-esq)) left 5px top 5px / 2px 12px no-repeat,
+    linear-gradient(var(--hw-esq), var(--hw-esq)) right 5px bottom 5px / 12px 2px no-repeat, linear-gradient(var(--hw-esq), var(--hw-esq)) right 5px bottom 5px / 2px 12px no-repeat; }
+/* items y sets: telaraña más chica en la esquina para que la foto se vea clara */
+html.hw .itx-card > .hw-marco, html.hw .dota-card > .hw-marco { background-size: 44px 44px, 16px 2px, 2px 16px, 16px 2px, 2px 16px, 10px 2px, 2px 10px; }
+html.hw .dota-card > .hw-marco { background:
+    {{telaranaLJDer}} right 0 top 0 / 44px 44px no-repeat,
+    linear-gradient(var(--hw-esq), var(--hw-esq)) left 7px top 7px / 16px 2px no-repeat, linear-gradient(var(--hw-esq), var(--hw-esq)) left 7px top 7px / 2px 16px no-repeat,
+    linear-gradient(var(--hw-sangre), var(--hw-sangre)) left 7px bottom 7px / 10px 2px no-repeat, linear-gradient(var(--hw-sangre), var(--hw-sangre)) left 7px bottom 7px / 2px 10px no-repeat; }
+html.hw .dota-card .set-image { filter: none !important; }
+html.hw .dota-card .price-badge { box-shadow: 0 0 0 1px rgba(255, 110, 80, .35), 0 0 16px rgba(209, 26, 42, .3); }
+html.hw .itx-card .itx-precio, html.hw .itx-card [class*="price"] { text-shadow: 0 0 12px rgba(255, 70, 60, .35); }
+html.hw .cofre-tile.active { box-shadow: var(--hw-brasa) !important; }
+html.hw .promo-card.best { box-shadow: var(--hw-brasa), 0 18px 40px rgba(0, 0, 0, .55) !important; }
+
+/* =================== Vacíos: fantasma flotando =================== */
+html.hw .empty .in::before, html.hw .itx-empty::before { content: ""; display: block; width: 96px; height: 118px; margin: 0 auto 10px; background: url("img/hw-dp.webp") center bottom / contain no-repeat; filter: drop-shadow(0 0 18px rgba(209, 26, 42, .5)); animation: hwFlota 3.2s ease-in-out infinite; }
+
+/* =================== Portadas: luna de sangre, murciélagos, cementerio, ojos y niebla =================== */
+.hw-cielo, .hw-suelo { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: inherit; }
 .hw-cielo { z-index: -1; }
 .hw-suelo { z-index: 1; }
-html.hw .home-hero > .hw-cielo { z-index: 0; }
-html.hw .home-hero.lj-h2 { padding-bottom: clamp(120px, 12vw, 190px) !important; }
-html.hw .home-hero .hero-art img.art-main { filter: saturate(1.05) contrast(1.05); }
+html.hw .home-hero > .hw-cielo, html.hw .sets-hero > .hw-cielo { z-index: 1; }
+html.hw .home-hero.lj-h2 { padding-bottom: clamp(130px, 13vw, 200px) !important; }
+html.hw .home-hero .hero-art img.art-main { filter: saturate(1.06) contrast(1.06); }
+html.hw .sets-hero { position: relative; isolation: isolate; overflow: hidden; }
+html.hw .sets-hero > .sets-hero-in { position: relative; z-index: 2; padding-bottom: clamp(110px, 12vw, 180px) !important; }
 html.hw .hero > .wrap { position: relative; z-index: 2; padding-bottom: calc(76px + clamp(60px, 8vw, 120px)); }
-.hw-luna { position: absolute; right: 3%; top: 6%; width: clamp(170px, 24vw, 430px); aspect-ratio: 1; border-radius: 50%;
-  background: radial-gradient(circle at 34% 30%, rgba(255, 230, 210, .45), transparent 28%), radial-gradient(circle at 62% 66%, rgba(120, 10, 10, .35) 0 9%, transparent 10%), radial-gradient(circle at 30% 64%, rgba(120, 10, 10, .3) 0 6%, transparent 7%), radial-gradient(circle at 70% 30%, rgba(120, 10, 10, .25) 0 5%, transparent 6%), radial-gradient(circle at 46% 46%, #ffd6b8 0%, #ff8a5c 40%, #d9352b 76%, #8e1016 100%);
-  box-shadow: 0 0 80px 24px rgba(220, 40, 30, .35), 0 0 220px 90px rgba(200, 20, 20, .18); opacity: .9; }
-.hw-nube { position: absolute; height: clamp(40px, 5vw, 80px); border-radius: 50%; background: radial-gradient(closest-side, rgba(12, 6, 8, .95), rgba(12, 6, 8, 0)); filter: blur(4px); }
-.hw-nube.n1 { width: clamp(220px, 30vw, 520px); right: 2%; top: 30%; animation: hwNube 44s ease-in-out infinite alternate; }
-.hw-nube.n2 { width: clamp(160px, 22vw, 380px); right: 18%; top: 12%; opacity: .75; animation: hwNube 58s ease-in-out infinite alternate-reverse; }
-.hw-bandada { position: absolute; right: calc(3% + clamp(85px, 12vw, 215px)); top: calc(6% + clamp(85px, 12vw, 215px)); width: 0; height: 0; }
+.hw-cielo { --hw-lm: clamp(150px, 14vw, 270px); --hw-lr: 4%; --hw-lt: 7%; }
+html.hw .sets-hero > .hw-cielo { --hw-lm: clamp(130px, 11vw, 220px); --hw-lr: 3%; --hw-lt: 9%; }
+.hw-luna { position: absolute; right: var(--hw-lr); top: var(--hw-lt); width: var(--hw-lm); aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle at 33% 30%, rgba(255, 236, 220, .55), transparent 30%), radial-gradient(circle at 64% 64%, rgba(110, 8, 10, .42) 0 8%, transparent 9%), radial-gradient(circle at 30% 66%, rgba(110, 8, 10, .34) 0 6%, transparent 7%), radial-gradient(circle at 72% 32%, rgba(110, 8, 10, .3) 0 5%, transparent 6%), radial-gradient(circle at 46% 46%, #ffd2b4 0%, #ff8257 38%, #d72f26 72%, #7e0d12 100%);
+  box-shadow: 0 0 40px 8px rgba(230, 50, 35, .45), 0 0 120px 40px rgba(200, 20, 20, .22); animation: hwLuna 9s ease-in-out infinite alternate; }
+.hw-nube { position: absolute; --nb: rgba(8, 3, 5, .95); filter: blur(1.5px);
+  background: radial-gradient(closest-side, var(--nb), transparent) 0 75% / 34% 62% no-repeat, radial-gradient(closest-side, var(--nb), transparent) 22% 20% / 38% 100% no-repeat,
+    radial-gradient(closest-side, var(--nb), transparent) 52% 55% / 40% 86% no-repeat, radial-gradient(closest-side, var(--nb), transparent) 78% 30% / 34% 80% no-repeat, radial-gradient(closest-side, var(--nb), transparent) 100% 70% / 30% 56% no-repeat; }
+.hw-nube.n1 { width: calc(var(--hw-lm) * 1.5); height: calc(var(--hw-lm) * .2); right: calc(var(--hw-lr) - var(--hw-lm) * .32); top: calc(var(--hw-lt) + var(--hw-lm) * .56); animation: hwNube 26s ease-in-out infinite alternate; }
+.hw-nube.n2 { width: calc(var(--hw-lm) * 1.05); height: calc(var(--hw-lm) * .13); right: calc(var(--hw-lr) + var(--hw-lm) * .3); top: calc(var(--hw-lt) + var(--hw-lm) * .22); opacity: .8; animation: hwNube 34s ease-in-out infinite alternate-reverse; }
+.hw-bandada { position: absolute; right: calc(var(--hw-lr) + var(--hw-lm) / 2); top: calc(var(--hw-lt) + var(--hw-lm) / 2); width: 0; height: 0; }
 .hw-bandada i { position: absolute; left: 0; top: 0; width: 40px; height: 16px; background: {{murci}} center / contain no-repeat; opacity: 0; filter: drop-shadow(0 0 1px rgba(255, 190, 170, .9)); animation: hwSale 9s linear infinite; }
 .hw-bandada i:nth-child(2) { animation-delay: 1.8s; --dx: -520px; --dy: -140px; }
 .hw-bandada i:nth-child(3) { animation-delay: 3.6s; --dx: -260px; --dy: -260px; }
 .hw-bandada i:nth-child(4) { animation-delay: 5.4s; --dx: 160px; --dy: -230px; }
 .hw-bandada i:nth-child(5) { animation-delay: 7.2s; --dx: -640px; --dy: 40px; }
-.hw-cementerio { position: absolute; left: 0; right: 0; bottom: 0; height: clamp(84px, 11vw, 160px); background: {{cementerioLJ}} 0 100% / auto 100% repeat-x; filter: drop-shadow(0 -2px 10px rgba(220, 40, 30, .16)); }
-.hw-niebla { position: absolute; left: -10%; right: -10%; bottom: -6px; height: clamp(70px, 9vw, 130px); }
-.hw-niebla i { position: absolute; inset: 0; background: radial-gradient(40% 70% at 20% 70%, rgba(230, 210, 210, .16), transparent 70%), radial-gradient(35% 60% at 60% 80%, rgba(220, 190, 190, .13), transparent 70%), radial-gradient(30% 60% at 90% 70%, rgba(230, 210, 210, .15), transparent 70%); filter: blur(6px); animation: hwNiebla 26s ease-in-out infinite alternate; }
+.hw-cementerio { position: absolute; left: 0; right: 0; bottom: 0; height: clamp(84px, 11vw, 160px); background: {{cementerioLJ}} 0 100% / auto 100% repeat-x; filter: drop-shadow(0 -2px 10px rgba(220, 40, 30, .18)); }
+.hw-cementerio.lejos { bottom: clamp(18px, 2.4vw, 34px); height: clamp(60px, 7.5vw, 112px); background-position: 340px 100%; opacity: .45; filter: blur(.6px) brightness(1.6) saturate(.6); }
+.hw-niebla { position: absolute; left: -10%; right: -10%; bottom: -6px; height: clamp(80px, 10vw, 150px); }
+.hw-niebla i { position: absolute; inset: 0; background: radial-gradient(40% 70% at 20% 70%, rgba(230, 210, 210, .17), transparent 70%), radial-gradient(35% 60% at 60% 80%, rgba(209, 26, 42, .16), transparent 70%), radial-gradient(30% 60% at 90% 70%, rgba(230, 210, 210, .15), transparent 70%); filter: blur(6px); animation: hwNiebla 26s ease-in-out infinite alternate; }
 .hw-niebla i + i { opacity: .7; animation-duration: 34s; animation-direction: alternate-reverse; transform: translateX(6%); }
-.hw-calabazas { position: absolute; left: 0; right: 0; bottom: clamp(6px, 1vw, 14px); height: 0; }
-.hw-calabazas span { position: absolute; bottom: 0; width: clamp(38px, 4.4vw, 70px); aspect-ratio: 64 / 56; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 14px rgba(255, 140, 40, .75)); animation: hwVela 2.6s ease-in-out infinite; }
-.hw-calabazas span:nth-child(1) { left: 4%; }
-.hw-calabazas span:nth-child(2) { left: 46%; width: clamp(30px, 3.2vw, 52px); animation-delay: .7s; }
-.hw-calabazas span:nth-child(3) { right: 5%; width: clamp(44px, 5vw, 80px); animation-delay: 1.3s; }
-.hw-calabazas span:nth-child(4) { left: 71%; width: clamp(26px, 2.6vw, 42px); animation-delay: 1.9s; }
+.hw-ojos { position: absolute; left: 0; right: 0; bottom: clamp(30px, 4vw, 58px); height: 0; }
+.hw-ojos i { position: absolute; bottom: 0; width: 22px; height: 7px; background: radial-gradient(circle at 25% 50%, #ff3b3b 0 2.2px, transparent 3px), radial-gradient(circle at 75% 50%, #ff3b3b 0 2.2px, transparent 3px); filter: drop-shadow(0 0 4px rgba(255, 40, 40, .95)); animation: hwParpadeo 7s infinite; }
+.hw-ojos i:nth-child(1) { left: 22%; }
+.hw-ojos i:nth-child(2) { left: 61%; animation-delay: 2.4s; transform: scale(.8); }
+.hw-ojos i:nth-child(3) { left: 86%; animation-delay: 4.7s; transform: scale(.7); }
+/* héroes de Dota (arte oficial de los sets, recortado) sobre el cementerio */
+.hw-fig { position: absolute; bottom: 0; width: auto; height: auto; max-width: none; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .75)) drop-shadow(0 0 22px rgba(209, 26, 42, .28)); }
+.hw-fig.treant { right: 17%; bottom: -2px; width: clamp(120px, 13vw, 230px); animation: hwRespira 5s ease-in-out infinite; transform-origin: 50% 100%; }
+.hw-fig.necro { right: 2%; bottom: 0; width: clamp(130px, 14vw, 250px); }
+.hw-fig.wk { right: 19%; bottom: 0; width: clamp(80px, 9vw, 160px); }
+.hw-fig.pudge { right: 2%; bottom: -4px; width: clamp(120px, 13vw, 230px); }
+.hw-fig.lifestealer { right: 4%; bottom: 0; width: clamp(130px, 15vw, 250px); }
+.hw-fig.nightstalker { right: calc(4% + clamp(150px, 14vw, 270px) * .55); top: calc(7% + clamp(150px, 14vw, 270px) * .35); bottom: auto; width: clamp(90px, 9vw, 170px); filter: drop-shadow(0 0 16px rgba(0, 0, 0, .8)) brightness(.6) contrast(1.1); animation: hwPlanea 7s ease-in-out infinite; }
 
-/* ---------- Franja "Esta noche rondan" ---------- */
-.hw-heroes { position: relative; z-index: 2; overflow: hidden; margin-block: 14px; border-block: 1px solid rgba(209, 26, 42, .45); background: linear-gradient(90deg, rgba(10, 8, 10, .95), rgba(60, 8, 14, .9), rgba(10, 8, 10, .95)); }
+/* banda de noche (Perfil): misma escena en chico */
+.hw-banda { position: relative; height: clamp(120px, 14vw, 170px); margin: 0 0 18px; border-radius: 18px; overflow: hidden; isolation: isolate;
+  background: radial-gradient(70% 120% at 80% 0%, rgba(140, 18, 26, .45), transparent 70%), linear-gradient(180deg, #120709, #070506); border: 1px solid rgba(209, 26, 42, .35); }
+.hw-banda .hw-cielo { z-index: 0; }
+.hw-banda .hw-cielo { --hw-lm: clamp(72px, 8vw, 110px); --hw-lr: 6%; --hw-lt: 12%; }
+.hw-banda .hw-cementerio { height: clamp(60px, 7vw, 90px); }
+.hw-banda .hw-cementerio.lejos { height: clamp(42px, 5vw, 64px); bottom: 14px; }
+.hw-banda .hw-fig.treant { width: clamp(70px, 8vw, 120px); right: 12%; }
+.hw-banda .hw-fig.wk { width: clamp(50px, 6vw, 96px); right: 3%; }
+
+/* =================== Franja "Esta noche rondan" =================== */
+.hw-heroes { position: relative; z-index: 2; overflow: hidden; margin-block: 14px; border-block: 1px solid rgba(209, 26, 42, .45); border-radius: 12px; background: linear-gradient(90deg, rgba(10, 8, 10, .95), rgba(60, 8, 14, .9), rgba(10, 8, 10, .95)); }
 .hw-heroes-in { display: flex; width: max-content; gap: 34px; padding: 13px 0; animation: hwCinta 60s linear infinite; }
-.hw-heroes span { display: inline-flex; align-items: center; gap: 34px; font: 700 15px/1 var(--hw-gotico); letter-spacing: .14em; text-transform: uppercase; color: var(--hw-plata); white-space: nowrap; }
-.hw-heroes span::after { content: ""; width: 22px; height: 19px; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 6px rgba(255, 140, 40, .7)); }
-.hw-heroes span.t { font: 400 18px/1 var(--hw-terror); letter-spacing: .08em; color: var(--hw-sangre-2); text-transform: none; }
+.hw-heroes span { display: inline-flex; align-items: center; gap: 34px; font: 700 15px/1 var(--hw-ui); letter-spacing: .18em; text-transform: uppercase; color: var(--hw-plata); white-space: nowrap; }
+.hw-heroes span::after { content: "◆"; font-size: 9px; color: #ff5a63; text-shadow: 0 0 8px rgba(255, 60, 60, .8); }
+.hw-heroes span.t { color: var(--hw-sangre-2); }
 .hw-heroes span.t::after { display: none; }
 
-/* ---------- Títulos ---------- */
-html.hw body .lj-h2-title, html.hw .hero h1 { font-family: var(--hw-gotico) !important; font-weight: 900 !important; letter-spacing: .005em; line-height: 1.06 !important; }
-html.hw body .lj-h2-title { font-size: clamp(38px, 5.4vw, 82px) !important; }
-html.hw body .lj-h2-title em, html.hw .hero h1 em { font-family: var(--hw-terror); font-weight: 400; font-size: 1.14em; letter-spacing: .05em;
-  background: linear-gradient(180deg, #ff8a7a 0%, #e01b2b 50%, #7e0b12 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 16px rgba(220, 30, 40, .5)); }
-html.hw .home-block-title, html.hw .section-name, html.hw .buy-mini-title { font-family: var(--hw-gotico) !important; font-weight: 900 !important; letter-spacing: .01em !important; }
-html.hw .sec-title h2 { font-family: var(--hw-gotico) !important; font-weight: 900; letter-spacing: .01em; }
-html.hw .sec-title h2 span:not(.t1) { margin-left: .1em; font-family: var(--hw-terror); font-weight: 400; font-size: 1.12em; letter-spacing: .06em; background: linear-gradient(180deg, #ff8a7a, #e01b2b 50%, #7e0b12); -webkit-background-clip: text; background-clip: text; color: transparent; }
-html.hw body .lj-h2-kicker::before { content: ""; display: inline-block; vertical-align: -6px; width: 26px; height: 22px; margin-right: 8px; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 8px rgba(255, 140, 40, .7)); }
+/* =================== Especial Diretide: el cofre de Halloween que ya tiene la web (Sets Caché) =================== */
+.hw-vitrina { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(250px, 330px) 1fr; gap: 14px; align-items: stretch; margin: 14px 0 6px; padding: 12px; border-radius: 18px; overflow: hidden;
+  border: 1px solid rgba(209, 26, 42, .45); background: radial-gradient(60% 120% at 0% 50%, rgba(140, 18, 26, .45), transparent 70%), linear-gradient(180deg, #120709, #070506); box-shadow: 0 18px 50px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .03); }
+.hw-vitrina::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: {{telaranaLJ}} 0 0 / 120px 120px no-repeat, {{telaranaLJDer}} right 0 top 0 / 120px 120px no-repeat; opacity: .35; }
+.hw-vit-cofre { position: relative; display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 14px; text-decoration: none; color: #fff; background: rgba(0, 0, 0, .35); border: 1px solid rgba(209, 26, 42, .4); transition: box-shadow .25s, border-color .25s; }
+.hw-vit-cofre:hover { border-color: rgba(255, 90, 100, .85); box-shadow: var(--hw-brasa); }
+.hw-vit-cofre img { width: 96px; height: 72px; object-fit: cover; border-radius: 10px; flex: none; box-shadow: 0 0 22px rgba(209, 26, 42, .5); }
+.hw-vit-cofre span { display: grid; gap: 4px; min-width: 0; }
+.hw-vit-cofre small { font: 700 11px/1 var(--hw-ui); letter-spacing: .22em; text-transform: uppercase; color: #ff5a63; text-shadow: 0 0 10px rgba(255, 60, 60, .6); }
+.hw-vit-cofre b { font: 700 clamp(18px, 1.6vw, 24px)/1.05 var(--hw-ui); letter-spacing: .03em; text-transform: uppercase; background: linear-gradient(180deg, #fff 0%, #d9dce1 45%, #8b9097 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hw-vit-cofre em { font: 500 12.5px/1.3 "Inter", system-ui, sans-serif; font-style: normal; color: #c9ccd3; }
+.hw-vit-pista { position: relative; overflow: hidden; min-width: 0; -webkit-mask: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
+.hw-vit-in { display: flex; gap: 10px; width: max-content; height: 100%; animation: hwCinta 70s linear infinite; }
+.hw-vit-pista:hover .hw-vit-in { animation-play-state: paused; }
+.hw-vit-set { position: relative; display: grid; grid-template-rows: 1fr auto auto; width: 132px; padding: 6px 6px 8px; gap: 3px; border-radius: 12px; text-decoration: none; color: #fff; background: rgba(0, 0, 0, .4); border: 1px solid rgba(217, 221, 228, .14); transition: border-color .2s, box-shadow .2s, transform .2s; }
+.hw-vit-set:hover { border-color: rgba(255, 90, 100, .8); box-shadow: 0 0 20px rgba(209, 26, 42, .4); transform: translateY(-2px); }
+.hw-vit-set img { width: 100%; aspect-ratio: 64 / 56; object-fit: cover; object-position: 50% 30%; border-radius: 8px; }
+.hw-vit-set b { font: 700 11px/1.15 var(--hw-ui); letter-spacing: .05em; text-transform: uppercase; color: #eef0f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hw-vit-set i { font: 700 12px/1 var(--hw-ui); font-style: normal; color: #ff5a63; }
+/* Sets Caché: el cofre de Halloween resaltado y sus sets con etiqueta */
+html.hw .cofre-tile.hw-diretide > .hw-marco { box-shadow: inset 0 0 0 1px rgba(255, 90, 100, .7), 0 0 18px rgba(209, 26, 42, .35); }
+html.hw .cofre-tile.hw-diretide > .hw-marco::after, html.hw .cofre-section.hw-diretide .dota-card > .hw-marco::after { content: "Diretide"; position: absolute; left: 50%; top: 6px; transform: translateX(-50%); padding: 3px 9px; border-radius: 999px; font: 700 9.5px/1 var(--hw-ui); letter-spacing: .2em; text-transform: uppercase; color: #fff; background: linear-gradient(180deg, #e0343d, #8e0f16); box-shadow: 0 0 12px rgba(209, 26, 42, .7), 0 1px 0 rgba(0, 0, 0, .5); white-space: nowrap; }
+html.hw .cofre-section.hw-diretide .dota-card > .hw-marco::after { top: 10px; padding: 4px 11px; font-size: 10.5px; }
+html.hw .cofre-section.hw-diretide .dota-card > .hw-marco { box-shadow: inset 0 0 0 1px rgba(255, 90, 100, .55), inset 0 -70px 80px -50px rgba(209, 26, 42, .25); }
+html.hw .cofre-section.hw-diretide .cofre-header { box-shadow: 0 0 0 1px rgba(209, 26, 42, .5), 0 0 30px rgba(209, 26, 42, .25); }
+html.hw .cofre-section.hw-diretide .cofre-header-sub::before { content: "Especial Diretide · "; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #ff5a63; }
 
-/* ---------- Adornos: calabaza en vez del rombo ---------- */
-html.hw .ornamental-diamond { width: 34px !important; height: 30px !important; margin-top: -12px; transform: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: {{calabaza}} center / contain no-repeat !important; filter: drop-shadow(0 0 10px rgba(255, 140, 40, .7)); animation: hwVela 3s ease-in-out infinite; }
-html.hw .orn { width: 46px; height: 40px; margin-inline: auto; font-size: 0; color: transparent; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 12px rgba(255, 140, 40, .7)); animation: hwVela 3s ease-in-out infinite; }
+/* =================== Rifas (rifas.html): barra de tickets y reloj =================== */
+html.hw .cbar i { background: linear-gradient(90deg, #7e0b12, #e01b2b 60%, #ff7a4a) !important; box-shadow: 0 0 12px rgba(255, 70, 40, .55); }
+html.hw .timer { text-shadow: 0 0 12px rgba(255, 70, 60, .5); }
+html.hw .status.activa { box-shadow: 0 0 14px rgba(209, 26, 42, .5); }
 
-/* ---------- Telarañas en las tarjetas ---------- */
-html.hw .lj-card3, html.hw .section-card { position: relative; }
-html.hw .lj-card3::after, html.hw .section-card::after { content: ""; position: absolute; right: 0; top: 0; width: 76px; height: 76px; transform: scaleX(-1); pointer-events: none; z-index: 3; background: {{telarana}} 0 0 / contain no-repeat; opacity: .3; }
-html.hw .empty .in::before { content: ""; display: block; width: 62px; height: 70px; margin: 0 auto 12px; background: {{fantasma}} center / contain no-repeat; filter: drop-shadow(0 0 16px rgba(220, 210, 210, .45)); animation: hwFlota 3.2s ease-in-out infinite; }
+/* =================== Ventanas: sangre arriba y telaraña =================== */
+html.hw .itx-dialog, html.hw .ljc-panel, html.hw .pa-drawer { box-shadow: 0 0 0 1px rgba(209, 26, 42, .45), 0 24px 70px rgba(0, 0, 0, .75), 0 0 60px rgba(209, 26, 42, .18) !important; }
+html.hw .itx-dialog::before, html.hw .ljc-panel::before, html.hw .pa-drawer::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 12px; pointer-events: none; z-index: 3; background: {{goteoRojo}} 0 0 / 240px 12px repeat-x; border-radius: inherit; }
+html.hw .itx-dialog::after, html.hw .ljc-panel::after { content: ""; position: absolute; right: 0; top: 0; width: 76px; height: 76px; pointer-events: none; z-index: 2; background: {{telaranaLJDer}} 0 0 / contain no-repeat; opacity: .35; }
+html.hw .rc-box { position: relative; box-shadow: 0 0 0 1px rgba(209, 26, 42, .45), 0 24px 70px rgba(0, 0, 0, .7), 0 0 50px rgba(209, 26, 42, .2) !important; }
+html.hw .rc-box::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 12px; pointer-events: none; z-index: 3; background: {{goteoRojo}} 0 0 / 240px 12px repeat-x; border-radius: 22px 22px 0 0; }
+html.hw .rc-box::after { content: ""; position: absolute; right: 0; top: 0; width: 70px; height: 70px; pointer-events: none; z-index: 2; background: {{telaranaLJDer}} 0 0 / contain no-repeat; opacity: .35; border-top-right-radius: 22px; }
 
-/* ---------- Pie con cementerio ---------- */
-html.hw #ljPie, html.hw #legalPie { position: relative; margin-top: clamp(70px, 9vw, 130px); }
-html.hw #ljPie::before, html.hw #legalPie::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: clamp(70px, 9vw, 130px); pointer-events: none; background: {{cementerioLJ}} 0 100% / auto 100% repeat-x; }
-
-/* ---------- Anuncio de promo ---------- */
+/* =================== Anuncio de promo =================== */
 html.hw #promoPop .promo-card { position: relative; overflow: hidden; box-shadow: 0 0 60px rgba(0, 0, 0, .7), 0 0 50px rgba(209, 26, 42, .35); }
-html.hw #promoPop .promo-card::before { content: ""; position: absolute; left: 0; top: 0; width: 110px; height: 110px; background: {{telarana}} 0 0 / contain no-repeat; opacity: .4; pointer-events: none; }
-html.hw #promoPop .promo-card::after { content: ""; position: absolute; right: 10px; bottom: 8px; width: 54px; height: 47px; background: {{calabaza}} center / contain no-repeat; filter: drop-shadow(0 0 12px rgba(255, 140, 40, .8)); animation: hwVela 2.4s ease-in-out infinite; pointer-events: none; }
-html.hw #promoPop .pc-kick::before, html.hw #promoPop .promo-kick::before { content: "Especial Diretide"; display: block; margin-bottom: 8px; font: 400 24px/1 var(--hw-terror); letter-spacing: .08em; text-transform: none; color: var(--hw-calabaza-2); text-shadow: 0 0 14px rgba(255, 122, 26, .6); }
+html.hw #promoPop .promo-card::before { content: ""; position: absolute; left: 0; top: 0; width: 110px; height: 110px; background: {{telaranaLJ}} 0 0 / contain no-repeat; opacity: .45; pointer-events: none; }
+html.hw #promoPop .promo-card::after { content: ""; position: absolute; right: -6px; bottom: -4px; width: 86px; height: 88px; background: url("img/hw-treant.webp") center bottom / contain no-repeat; filter: drop-shadow(0 0 12px rgba(209, 26, 42, .6)); pointer-events: none; }
+html.hw #promoPop .pc-kick::before, html.hw #promoPop .promo-kick::before { content: "Especial Diretide"; display: block; margin-bottom: 8px; font: 700 15px/1 var(--hw-ui); letter-spacing: .22em; text-transform: uppercase; color: #ff5a63; text-shadow: 0 0 12px rgba(255, 60, 60, .7); }
 
-/* ---------- Capas fijas: murciélagos y araña ---------- */
+/* =================== Pie con cementerio =================== */
+html.hw #ljPie, html.hw #legalPie { position: relative; margin-top: clamp(70px, 9vw, 130px); }
+html.hw #ljPie::before, html.hw #legalPie::before, html.hw footer.footer::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: clamp(70px, 9vw, 130px); pointer-events: none; background: {{cementerioLJ}} 0 100% / auto 100% repeat-x; }
+/* Rifas: el cementerio va sobre su pie (y no otra vez entre sus dos pies) */
+html.hw footer.footer { position: relative; margin-top: clamp(110px, 12vw, 170px); }
+html.hw body:has(footer.footer) #legalPie { margin-top: 0; }
+html.hw body:has(footer.footer) #legalPie::before { display: none; }
+
+/* =================== Capas fijas: murciélagos y araña =================== */
 #hwMurcis { position: fixed; inset: 0; z-index: 30; pointer-events: none; overflow: hidden; }
 #hwMurcis i { position: absolute; left: -80px; width: 54px; height: 22px; background: {{murci}} center / contain no-repeat; filter: drop-shadow(0 0 1.2px rgba(255, 190, 170, .95)) drop-shadow(0 0 10px rgba(220, 40, 30, .45)); animation: hwVuela 22s linear infinite; }
 #hwMurcis i:nth-child(1) { top: 22vh; animation-delay: 2s; }
@@ -110,37 +240,64 @@ html.hw #promoPop .pc-kick::before, html.hw #promoPop .promo-kick::before { cont
 #hwMurcis i:nth-child(3) { top: 68vh; width: 46px; height: 19px; animation-duration: 25s; animation-delay: 19s; }
 #hwArana { position: fixed; top: 0; right: max(18px, 4vw); z-index: 30; pointer-events: none; width: 2px; height: 0; animation: hwBaja 12s ease-in-out infinite; transform-origin: top center; }
 #hwArana::before { content: ""; position: absolute; left: 0; top: 0; width: 1px; height: 100%; background: linear-gradient(180deg, rgba(230, 220, 220, .15), rgba(230, 220, 220, .55)); }
-#hwArana::after { content: ""; position: absolute; left: -21px; bottom: -34px; width: 44px; height: 38px; background: {{arana}} center / contain no-repeat; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .6)); }
+#hwArana::after { content: ""; position: absolute; left: -21px; bottom: -34px; width: 44px; height: 38px; background: {{aranaLJ}} center / contain no-repeat; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .6)); }
+/* con figura: Broodmother (arte oficial del set "Anatema Arácnido") baja por el hilo */
+#hwArana.con-figura { right: max(30px, 6vw); animation: hwBajaFig 16s ease-in-out infinite, hwBalancea 6s ease-in-out infinite; }
+#hwArana.con-figura::after { display: none; }
+#hwArana.con-figura img { position: absolute; left: 50%; top: 100%; width: clamp(96px, 10vw, 190px); max-width: none; transform: translate(-50%, -22%); filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .7)) drop-shadow(0 0 14px rgba(120, 255, 120, .18)); }
 
-/* ---------- Animaciones ---------- */
+/* =================== Animaciones =================== */
 @keyframes hwCinta { to { transform: translateX(-50%); } }
-@keyframes hwNube { from { transform: translateX(-6%); } to { transform: translateX(10%); } }
+@keyframes hwNube { from { transform: translateX(-5%); } to { transform: translateX(7%); } }
 @keyframes hwNiebla { from { transform: translateX(-4%); } to { transform: translateX(4%); } }
+@keyframes hwLuna { from { box-shadow: 0 0 40px 8px rgba(230, 50, 35, .4), 0 0 120px 40px rgba(200, 20, 20, .2); } to { box-shadow: 0 0 56px 12px rgba(245, 70, 45, .55), 0 0 160px 60px rgba(200, 20, 20, .28); } }
 @keyframes hwVela { 0%, 100% { filter: drop-shadow(0 0 12px rgba(255, 140, 40, .75)) brightness(1); } 45% { filter: drop-shadow(0 0 20px rgba(255, 170, 60, .95)) brightness(1.12); } 60% { filter: drop-shadow(0 0 9px rgba(255, 120, 30, .6)) brightness(.95); } }
+@keyframes hwBrasa { 0%, 100% { box-shadow: var(--hw-brasa), inset 0 1px 0 rgba(255, 215, 200, .35); } 50% { box-shadow: 0 0 0 1px rgba(255, 140, 90, .7), 0 0 30px rgba(230, 40, 40, .6), 0 0 60px rgba(255, 90, 20, .25), inset 0 1px 0 rgba(255, 215, 200, .45); } }
 @keyframes hwFlota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes hwParpadeo { 0%, 38%, 46%, 100% { opacity: .95; } 40%, 44% { opacity: 0; } 70% { opacity: .6; } }
 @keyframes hwSale { 0% { opacity: 0; transform: translate(0, 0) scale(.15); } 8% { opacity: .95; } 80% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx, -420px), var(--dy, -60px)) scale(1.3); } }
 @keyframes hwVuela { 0% { transform: translate(0, 0) scaleY(1); } 10% { transform: translate(14vw, -26px) scaleY(.55); } 20% { transform: translate(28vw, 10px) scaleY(1); } 30% { transform: translate(42vw, -18px) scaleY(.55); } 40% { transform: translate(56vw, 8px) scaleY(1); } 50% { transform: translate(70vw, -22px) scaleY(.55); } 60% { transform: translate(86vw, 6px) scaleY(1); } 70%, 100% { transform: translate(112vw, -30px) scaleY(.6); } }
+@keyframes hwBalancea { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes hwRespira { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.025); } }
+@keyframes hwPlanea { 0%, 100% { transform: translate(0, 0) rotate(-2deg); } 50% { transform: translate(-14px, 12px) rotate(2deg); } }
+@keyframes hwBrasaRombo { 0%, 100% { box-shadow: 0 0 14px rgba(255, 60, 60, .7); } 50% { box-shadow: 0 0 24px rgba(255, 90, 90, 1); } }
+@keyframes hwBrasaTexto { 0%, 100% { text-shadow: 0 0 14px rgba(255, 60, 60, .8); } 50% { text-shadow: 0 0 24px rgba(255, 90, 90, 1); } }
 @keyframes hwBaja { 0%, 100% { height: 0; } 15%, 70% { height: clamp(90px, 16vh, 150px); } 40% { height: clamp(110px, 19vh, 175px); } 85% { height: 0; } }
+@keyframes hwBajaFig { 0%, 100% { height: clamp(210px, 24vh, 260px); } 20%, 70% { height: clamp(230px, 26vh, 300px); } 45% { height: clamp(260px, 30vh, 340px); } }
 
-/* ---------- Celular ---------- */
+/* =================== Celular =================== */
 @media (max-width: 760px) {
   #hwCinta { height: 30px; font-size: 11.5px; }
   #hwCinta b { font-size: 15px; }
-  html.hw body .lj-h2-title { font-size: clamp(30px, 9.4vw, 44px) !important; }
   html.hw .hero > .wrap { padding-bottom: calc(52px + 64px); }
-  .hw-luna { right: -40px; top: 70px; width: 170px; opacity: .55; }
+  html.hw .home-hero.lj-h2 { padding-bottom: 120px !important; }
+  .hw-cielo, html.hw .sets-hero > .hw-cielo { --hw-lm: 128px; --hw-lr: -34px; --hw-lt: 56px; }
+  .hw-banda .hw-cielo { --hw-lm: 70px; --hw-lr: 5%; --hw-lt: 12%; }
+  .hw-luna { opacity: .6; }
   .hw-nube.n2 { display: none; }
-  .hw-bandada { right: 45px; top: 155px; }
   .hw-bandada i { width: 30px; height: 12px; }
-  .hw-calabazas span:nth-child(2), .hw-calabazas span:nth-child(4) { display: none; }
-  .hw-logo::before { left: -14px; top: -20px; width: 52px; height: 40px; }
+  .hw-ojos i:nth-child(2) { display: none; }
+  .hw-fig.nightstalker, .hw-fig.necro, .hw-fig.pudge, .hw-fig.lifestealer { display: none; }
+  .hw-fig.treant { width: 112px; right: 2%; }
+  .hw-fig.wk { width: 78px; right: 4%; }
+  .hw-banda .hw-fig.treant { width: 72px; right: 4%; }
+  .hw-banda .hw-fig.wk { display: none; }
   #hwMurcis i:nth-child(3) { display: none; }
   #hwArana { right: 10px; }
   #hwArana::after { width: 26px; height: 23px; left: -12px; bottom: -20px; }
+  #hwArana.con-figura { right: 26px; }
+  #hwArana.con-figura img { width: 86px; }
   .hw-heroes span { font-size: 13px; gap: 26px; }
+  .hw-marco { background-size: 40px 40px, 14px 2px, 2px 14px, 14px 2px, 2px 14px, 8px 2px, 2px 8px; }
+  #hwNieblaFija { height: 18vh; }
+  .hw-vitrina { grid-template-columns: 1fr; margin-inline: 0; }
+  .hw-vit-cofre img { width: 76px; height: 58px; }
+  .hw-vit-set { width: 112px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #hwCinta .hw-cinta-in, .hw-heroes-in, .hw-nube, .hw-niebla i, .hw-calabazas span, .hw-bandada i, #hwMurcis i, #hwArana, html.hw .orn, html.hw .ornamental-diamond, .empty .in::before, #promoPop .promo-card::after { animation: none !important; }
+  #hwCinta .hw-cinta-in, .hw-heroes-in, .hw-nube, .hw-niebla i, .hw-vit-in, .hw-fig, .hw-bandada i, #hwMurcis i, #hwArana, .hw-luna, .hw-ojos i, #hwNieblaFija i, html.hw .orn, html.hw .m-orn, html.hw .ornamental-diamond, .empty .in::before, .itx-empty::before { animation: none !important; }
+  html.hw .lj-h2-btn.rojo:hover, html.hw .m-btn-red:hover, html.hw .ljc-btn.red:hover, html.hw .btn-yellow:hover, html.hw .itx-btn:hover, html.hw .site-nav .nav-link-recargar:hover { animation: none !important; }
   .hw-bandada, #hwMurcis { display: none; }
   #hwArana { height: 110px; }
+  #hwArana.con-figura { height: 230px; }
 }
