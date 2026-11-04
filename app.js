@@ -2079,7 +2079,7 @@
       '<button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button>' +
       '<p class="hint">Los cambios se guardan al instante (no hace falta "Guardar y publicar"). Cuando vendas uno por WhatsApp, baja su stock aquí.</p></div>' + form +
       '<div class="grp">' + (items.err ? '<p class="hint" style="color:var(--danger)">' + esc(items.err) + '</p>' : '') + (!items.cargado ? '<p class="hint">Cargando…</p>' : lista.map(function (it) {
-        return '<div class="itrow"><a class="itrow-t" href="#item/' + encodeURIComponent(it.id) + '" target="_blank" rel="noopener" title="Ver la página del item ↗">' + (it.img ? imgTag(it.img, "", ' width="44" height="44"') : '<span class="sinfoto">—</span>') + '<span><b>' + esc(it.nombre) + '</b><small>' + fmtPrecio(it.precio) + ' · stock ' + it.stock + (it.activo ? '' : ' · OCULTO') + '</small></span></a>' +
+        return '<div class="itrow' + (it.stock > 0 ? '' : ' agot') + '"><a class="itrow-t" href="#item/' + encodeURIComponent(it.id) + '" target="_blank" rel="noopener" title="Ver la página del item ↗">' + (it.img ? imgTag(it.img, "", ' width="44" height="44"') : '<span class="sinfoto">—</span>') + '<span><b>' + esc(it.nombre) + '</b><small>' + fmtPrecio(it.precio) + ' · stock ' + it.stock + (it.activo ? '' : ' · OCULTO') + '</small></span></a>' +
           '<div class="itrow-b"><button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(it.id) + '">✎</button>' +
           (admin.itemDel === it.id ? '<button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger)" data-a="itBorrarSi" data-id="' + esc(it.id) + '">¿Borrar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itBorrar" data-id="' + esc(it.id) + '">🗑</button>') + '</div></div>';
       }).join("")) + '</div>';
@@ -2976,6 +2976,16 @@
     }
     return it;
   }
+  // Enlace de WhatsApp (agrega 51 si es un celular peruano de 9 dígitos).
+  function waLink(tel) {
+    var d = String(tel || "").replace(/\D/g, "");
+    if (d.length === 9 && d.charAt(0) === "9") d = "51" + d;
+    return d.length >= 10 && d.length <= 15 ? "https://wa.me/" + d : "";
+  }
+  function waHtml(tel) {
+    var u = waLink(tel);
+    return u ? '<a href="' + u + '" target="_blank" rel="noopener" title="Escribirle por WhatsApp">' + esc(tel) + ' ↗</a>' : esc(tel || "—");
+  }
   // Línea de item del pedido: foto + nombre con enlace a su página (como se vende).
   function pedItemHtml(i, mini) {
     var it = itemDePedido(i), foto = it ? (imgTag(it.img, it.nombre, ' loading="lazy"') || "") : "";
@@ -3000,15 +3010,19 @@
     var chips = [["pagado", "💰 Por entregar"], ["cooldown", "🔒 En cooldown"], ["entregado", "✅ Entregados"], ["cancelado", "✖ Cancelados"], ["todos", "Todos"]].map(function (c) {
       return '<button class="subtab" type="button" role="tab" data-a="pedFiltro" data-f="' + c[0] + '" aria-selected="' + (fl === c[0]) + '">' + c[1] + ' (' + cuenta(c[0]) + ')</button>'; }).join("");
     var lista = todos.filter(function (p) { return fl === "todos" || p.estado === fl; });
+    var fb = (admin.pedBusca || "").trim().toLowerCase();
+    if (fb) lista = lista.filter(function (p) { return ((p.cliente || "") + " " + p.code + " " + (p.steam || "") + " " + (p.whatsapp || "") + " " + p.items.map(function (i) { return i.nombre; }).join(" ")).toLowerCase().indexOf(fb) >= 0; });
     return '<div class="subtabs" role="tablist">' + chips + '</div><div class="grp"><h3>Pedidos de items (' + lista.length + ')</h3>' +
+      '<div class="field"><label for="ped-buscar">Buscar</label><input id="ped-buscar" placeholder="Cliente, código, item, Steam o WhatsApp" value="' + esc(admin.pedBusca || "") + '" autocomplete="off"></div>' +
       (admin.pedMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.pedMsg) + '</p>' : '') +
       '<div class="ulist">' + (lista.length ? lista.map(function (p) {
         var ab = admin.pedAbierto === p.id, n = p.items.reduce(function (a, i) { return a + i.qty; }, 0);
-        var cab = '<button type="button" class="urow-h" data-a="pedAbrir" data-id="' + esc(p.id) + '" aria-expanded="' + ab + '"><b>' + esc(p.cliente || "Sin nombre") + ' · ' + n + (n === 1 ? ' item' : ' items') + (p.estado === "cooldown" ? ' <small class="pedcd">🔒 entregar el ' + esc(cdFechaCorta({ cooldownHasta: p.entregaDesde })) + '</small>' : '') + '</b><span class="usal">' + fmtPrecio(p.total) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
+        var estTx = (PED_ESTADOS.filter(function (e) { return e[0] === p.estado; })[0] || [0, p.estado])[1];
+        var cab = '<button type="button" class="urow-h" data-a="pedAbrir" data-id="' + esc(p.id) + '" aria-expanded="' + ab + '"><b>' + esc(p.cliente || "Sin nombre") + ' · ' + n + (n === 1 ? ' item' : ' items') + (p.estado === "cooldown" ? ' <small class="pedcd">🔒 entregar el ' + esc(cdFechaCorta({ cooldownHasta: p.entregaDesde })) + '</small>' : '') + '</b><small class="ped-est e-' + esc(p.estado) + '">' + esc(estTx) + '</small><span class="usal">' + fmtPrecio(p.total) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
         if (!ab) return '<div class="urow compact">' + cab + '</div>';
         return '<div class="urow open">' + cab + '<div class="t"><span>Pedido <b style="display:inline">' + esc(p.code) + '</b> · ' + (p.fecha ? esc(p.fecha.toLocaleString("es-PE")) : "") + '</span>' +
           p.items.map(function (i) { return '<span class="ped-row">' + pedItemHtml(i) + '<b class="ped-pr">' + fmtPrecio(i.precio * i.qty) + '</b></span>'; }).join("") +
-          '<span>ID de Steam: ' + esc(p.steam || "—") + '</span><span>WhatsApp: ' + esc(p.whatsapp || "—") + '</span><span>' + esc(p.email) + '</span>' +
+          '<span>ID de Steam: ' + esc(p.steam || "—") + '</span><span>WhatsApp: ' + waHtml(p.whatsapp) + '</span><span>' + esc(p.email) + '</span>' +
           (tradeValido(p.tradelink) ? '<span><a href="' + esc(p.tradelink) + '" target="_blank" rel="noopener">Abrir trade link ↗</a></span>' : '<span style="color:var(--fuchsia)">Sin trade link</span>') +
           '<span>Pagado con saldo: ' + fmtPrecio(p.creditos) + '</span>' +
           (p.entregaDesde ? '<span class="pedcd-l">🔒 ' + (p.estado === "cooldown" ? 'En cooldown de Steam: <b style="display:inline">no lo entregues todavía</b>. Se libera el <b style="display:inline">' + esc(fechaEntrega(p.entregaDesde)) + '</b>' + (enCooldown({ cooldownHasta: p.entregaDesde }) ? ' (faltan ' + esc(cdRestante({ cooldownHasta: p.entregaDesde })) + ')' : ' (ya pasó: en la próxima hora pasa solo a Por entregar)') : 'Estuvo en cooldown hasta el ' + esc(fechaEntrega(p.entregaDesde)) + (p.liberadoEn ? ' · liberado y avisado por correo' : '')) + '</span>' : '') +
@@ -3723,6 +3737,12 @@
     if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.closest && ev.target.closest("[data-edit]")) { aplicarEdicion(ev.target.closest("[data-edit]")); return; }
     if (ev.target.id === "pf-buscar") { cuenta.tBuscar = ev.target.value; pfFiltrar(); return; }
+    if (ev.target.id === "ped-buscar") {
+      admin.pedBusca = ev.target.value;
+      var posP = ev.target.selectionStart; render();
+      var nbP = document.getElementById("ped-buscar"); if (nbP) { nbP.focus(); try { nbP.setSelectionRange(posP, posP); } catch (e3) { /* nada */ } }
+      return;
+    }
     if (ev.target.id === "u-buscar") {
       admin.uFiltro = ev.target.value;
       var pos = ev.target.selectionStart; render();
