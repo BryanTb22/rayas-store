@@ -67,6 +67,35 @@ const marca = (tienda) => MARCAS[tienda] || MARCAS.rayas;
 const fechaCorta = (d) => new Date(d).toLocaleString("es-PE", { timeZone: "America/Lima", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const lineaItem = (it) => `${it.qty} × ${it.name}` + (it.cooldownHasta ? ` 🔒 (cooldown hasta ${fechaCorta(it.cooldownHasta)})` : "");
 
+// Foto de un item como dirección que un correo sí puede mostrar: las "fs:img-…" (guardadas en Firestore)
+// salen por la función fotoCorreo; las URL normales se usan tal cual; base64 y demás no van en correo.
+const FOTO_FS = "https://us-central1-litlejacob-store.cloudfunctions.net/fotoCorreo?id=";
+const fotoDe = (img) => {
+  const s = String(img || "");
+  if (/^https?:\/\//i.test(s)) return s;
+  const m = /^fs:(img-[\w\-]+)$/.exec(s);
+  return m ? FOTO_FS + m[1] : "";
+};
+// Bloque de items con foto (96×64), nombre, candado de cooldown si toca y precio a la derecha.
+function bloqueItems(m, items) {
+  const lista = items || [];
+  if (!lista.length) return "";
+  const filas = lista.map((it, i) => {
+    const url = fotoDe(it.img);
+    const foto = url
+      ? `<img src="${esc(url)}" width="96" height="64" alt="" style="display:block;width:96px;height:64px;object-fit:cover;border:1px solid ${m.borde};border-radius:3px">`
+      : `<div style="width:96px;height:64px;line-height:64px;text-align:center;background:${m.fondo};border:1px solid ${m.borde};border-radius:3px;font-size:24px">🎁</div>`;
+    const cd = it.cooldownHasta ? `<br><span style="color:${m.aviso};font-size:12px">🔒 En cooldown hasta ${esc(fechaCorta(it.cooldownHasta))}</span>` : "";
+    const borde = i === lista.length - 1 ? "none" : `1px solid ${m.borde}`;
+    return `<tr>
+      <td width="108" valign="middle" style="padding:8px 12px 8px 0;border-bottom:${borde}">${foto}</td>
+      <td valign="middle" style="padding:8px 0;font-family:${CUERPO};font-size:14px;line-height:1.4;color:${m.texto};border-bottom:${borde}"><b>${it.qty > 1 ? esc(it.qty) + " × " : ""}${esc(it.name)}</b>${cd}</td>
+      <td valign="middle" align="right" style="padding:8px 0 8px 10px;font-family:${CUERPO};font-size:14px;font-weight:700;white-space:nowrap;color:${m.texto};border-bottom:${borde}">${esc(soles(it.price * it.qty))}</td>
+    </tr>`;
+  }).join("");
+  return `<tr><td style="padding:16px 0 4px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${filas}</table></td></tr>`;
+}
+
 // Tipografías: las web fonts casi no cargan en correo; estas pilas dan el mismo aire condensado de Dota en la mayoría de equipos.
 const TITULO = "Oswald,'Barlow Condensed','Arial Narrow','Helvetica Neue',Arial,sans-serif";
 const CUERPO = "'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
@@ -277,9 +306,7 @@ function recordatorio(tienda, p) {
 function pedidoNuevo(tienda, p) {
   const m = marca(tienda);
   const cd = !!p.entrega;   // pedido con items en cooldown: se entrega recién en p.entrega
-  const lineas = (p.items || []).map((it) => [lineaItem(it), soles(it.price * it.qty)]);
   const filas = [
-    ...lineas,
     ...(cd ? [["Entregar a partir de", fecha(p.entrega)]] : []),
     ["Cliente", p.nombre || "—"],
     ["ID de Steam", p.steamId || "—"],
@@ -305,12 +332,13 @@ function pedidoNuevo(tienda, p) {
       ? `Entró un pedido en <b>${esc(m.nombre)}</b> con un item que todavía está en <b>cooldown de Steam</b>. Ya está pagado; <b>no lo envíes aún</b>: te mandaremos otro correo el <b>${esc(fechaCorta(p.entrega))}</b>, cuando ya se pueda entregar.`
       : `Entró un pedido de items en <b>${esc(m.nombre)}</b>. Envíalo y márcalo como entregado en el panel de pedidos.`,
     stats,
+    bloque: bloqueItems(m, p.items),
     filas,
     boton,
     aviso: `Pedido <b>${esc(p.code)}</b>. Ya se descontó el saldo y el stock.` + (cd ? ` En el panel aparece en la pestaña <b>En cooldown</b> y pasará solo a <b>Por entregar</b> cuando se libere.` : ""),
     pie: `Aviso automático de pedidos de ${esc(m.nombre)}.`,
   });
-  const text = aTexto(m, titulo + " " + p.code, [...(cd ? [`Item en cooldown: entregar a partir del ${fecha(p.entrega)}. No lo envíes aún; te avisaremos.`, ""] : []), ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], boton);
+  const text = aTexto(m, titulo + " " + p.code, [...(cd ? [`Item en cooldown: entregar a partir del ${fecha(p.entrega)}. No lo envíes aún; te avisaremos.`, ""] : []), ...(p.items || []).map((it) => `${lineaItem(it)}: ${soles(it.price * it.qty)}`), ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], boton);
   return { from: m.remitente, subject, html, text };
 }
 
@@ -321,7 +349,6 @@ function pedidoNuevo(tienda, p) {
 function pedidoLiberado(tienda, p) {
   const m = marca(tienda);
   const filas = [
-    ...(p.items || []).map((it) => [`${it.qty} × ${it.name}`, soles(it.price * it.qty)]),
     ["Cliente", p.nombre || "—"],
     ["ID de Steam", p.steamId || "—"],
     ["WhatsApp", p.whatsapp || "—"],
@@ -340,12 +367,13 @@ function pedidoLiberado(tienda, p) {
     chip: { texto: "🔓 Cooldown terminado", color: m.ok },
     intro: `El item del pedido <b>${esc(p.code)}</b> en <b>${esc(m.nombre)}</b> ya salió del cooldown de Steam. Envíaselo al cliente y márcalo como <b>entregado</b> en el panel de pedidos. El pedido ya pasó solo a <b>Por entregar</b>.`,
     stats,
+    bloque: bloqueItems(m, (p.items || []).map((it) => Object.assign({}, it, { cooldownHasta: null }))),
     filas,
     boton,
     aviso: `El cliente también recibió un correo avisándole que su item ya se liberó.`,
     pie: `Aviso automático de pedidos de ${esc(m.nombre)}.`,
   });
-  const text = aTexto(m, titulo + " " + p.code, [...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], boton);
+  const text = aTexto(m, titulo + " " + p.code, [...(p.items || []).map((it) => `${it.qty} × ${it.name}: ${soles(it.price * it.qty)}`), ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], boton);
   return { from: m.remitente, subject, html, text };
 }
 
@@ -357,7 +385,6 @@ function itemLiberado(tienda, p) {
   const m = marca(tienda);
   const saludo = p.nombre ? `Hola ${esc(p.nombre)},` : "Hola,";
   const filas = [
-    ...(p.items || []).map((it) => [`${it.qty} × ${it.name}`, soles(it.price * it.qty)]),
     ["Pedido", p.code],
     ["Comprado el", fecha(p.creadoEn)],
     ["Liberado el", fecha(p.entrega)],
@@ -371,11 +398,12 @@ function itemLiberado(tienda, p) {
     chip: { texto: "🔓 Listo para entregar", color: m.ok },
     intro: `${saludo}<br>el item que compraste en <b>${esc(m.nombre)}</b> ya salió del cooldown de Steam. En las próximas horas te escribiremos por WhatsApp para <b>entregártelo por Steam</b>.`,
     stats,
+    bloque: bloqueItems(m, (p.items || []).map((it) => Object.assign({}, it, { cooldownHasta: null }))),
     filas,
     boton: { texto: "Ver mis transacciones", url: m.url + (tienda === "litlejacob" ? "/perfil.html#transacciones" : "/#perfil/transacciones") },
     aviso: `Revisa que tu <b>trade link</b> esté en tu cuenta y que tu inventario de Dota 2 sea público. Si no reconoces esta compra, escríbenos por WhatsApp cuanto antes.`,
   });
-  const text = aTexto(m, titulo + " " + p.code, [p.nombre ? `Hola ${p.nombre},` : "Hola,", "tu item ya salió del cooldown de Steam. Te escribiremos por WhatsApp para entregártelo.", "", ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], { texto: "Ir a la tienda", url: m.url });
+  const text = aTexto(m, titulo + " " + p.code, [p.nombre ? `Hola ${p.nombre},` : "Hola,", "tu item ya salió del cooldown de Steam. Te escribiremos por WhatsApp para entregártelo.", "", ...(p.items || []).map((it) => `${it.qty} × ${it.name}: ${soles(it.price * it.qty)}`), ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], { texto: "Ir a la tienda", url: m.url });
   return { from: m.remitente, subject, html, text };
 }
 
@@ -388,7 +416,6 @@ function compraCliente(tienda, p) {
   const cd = !!p.entrega;   // compra con items en cooldown: se entrega recién en p.entrega
   const saludo = p.nombre ? `Hola ${esc(p.nombre)},` : "Hola,";
   const filas = [
-    ...(p.items || []).map((it) => [lineaItem(it), soles(it.price * it.qty)]),
     ...(cd ? [["Lo recibes a partir del", fecha(p.entrega)]] : []),
     ["Pedido", p.code],
     ["Pagado con saldo", soles(p.creditos)],
@@ -406,11 +433,12 @@ function compraCliente(tienda, p) {
       ? `${saludo}<br>tu compra quedó registrada y pagada. Tu item todavía está en <b>cooldown de Steam</b>, así que te lo entregaremos a partir del <b>${esc(fechaCorta(p.entrega))}</b>. Ese día te avisaremos por correo y te escribiremos por WhatsApp para <b>entregártelo por Steam</b>. Este es tu resumen:`
       : `${saludo}<br>tu compra quedó registrada. Te escribiremos por WhatsApp para <b>entregártela por Steam</b>. Este es tu resumen:`,
     stats,
+    bloque: bloqueItems(m, p.items),
     filas,
     boton: { texto: "Ir a la tienda", url: m.url },
     aviso: `Guarda este correo como comprobante. Para que podamos entregarte, revisa que tu <b>trade link</b> y tu inventario de Dota 2 (público) estén listos. Si no reconoces esta compra, escríbenos por WhatsApp cuanto antes.`,
   });
-  const text = aTexto(m, titulo + " " + p.code, [p.nombre ? `Hola ${p.nombre},` : "Hola,", cd ? `tu compra quedó registrada. Tu item está en cooldown de Steam: lo recibes a partir del ${fecha(p.entrega)}. Ese día te avisaremos.` : "tu compra quedó registrada. Te escribiremos por WhatsApp para entregártela por Steam.", "", ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], { texto: "Ir a la tienda", url: m.url });
+  const text = aTexto(m, titulo + " " + p.code, [p.nombre ? `Hola ${p.nombre},` : "Hola,", cd ? `tu compra quedó registrada. Tu item está en cooldown de Steam: lo recibes a partir del ${fecha(p.entrega)}. Ese día te avisaremos.` : "tu compra quedó registrada. Te escribiremos por WhatsApp para entregártela por Steam.", "", ...(p.items || []).map((it) => `${lineaItem(it)}: ${soles(it.price * it.qty)}`), ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], { texto: "Ir a la tienda", url: m.url });
   return { from: m.remitente, subject, html, text };
 }
 
