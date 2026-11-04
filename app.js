@@ -2079,7 +2079,7 @@
       '<button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button>' +
       '<p class="hint">Los cambios se guardan al instante (no hace falta "Guardar y publicar"). Cuando vendas uno por WhatsApp, baja su stock aquí.</p></div>' + form +
       '<div class="grp">' + (items.err ? '<p class="hint" style="color:var(--danger)">' + esc(items.err) + '</p>' : '') + (!items.cargado ? '<p class="hint">Cargando…</p>' : lista.map(function (it) {
-        return '<div class="itrow"><div class="itrow-t">' + (it.img ? imgTag(it.img, "", ' width="44" height="44"') : '<span class="sinfoto">—</span>') + '<span><b>' + esc(it.nombre) + '</b><small>' + fmtPrecio(it.precio) + ' · stock ' + it.stock + (it.activo ? '' : ' · OCULTO') + '</small></span></div>' +
+        return '<div class="itrow"><a class="itrow-t" href="#item/' + encodeURIComponent(it.id) + '" target="_blank" rel="noopener" title="Ver la página del item ↗">' + (it.img ? imgTag(it.img, "", ' width="44" height="44"') : '<span class="sinfoto">—</span>') + '<span><b>' + esc(it.nombre) + '</b><small>' + fmtPrecio(it.precio) + ' · stock ' + it.stock + (it.activo ? '' : ' · OCULTO') + '</small></span></a>' +
           '<div class="itrow-b"><button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(it.id) + '">✎</button>' +
           (admin.itemDel === it.id ? '<button type="button" class="btn btn-ghost btn-sm" style="color:var(--danger)" data-a="itBorrarSi" data-id="' + esc(it.id) + '">¿Borrar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itBorrar" data-id="' + esc(it.id) + '">🗑</button>') + '</div></div>';
       }).join("")) + '</div>';
@@ -2938,7 +2938,7 @@
     var f = d.fields || {}, sv = function (k) { return f[k] && f[k].stringValue || ""; }, nv = function (k) { var x = f[k]; return x ? Number(x.doubleValue !== undefined ? x.doubleValue : x.integerValue || 0) : 0; };
     var its = ((f.items && f.items.arrayValue && f.items.arrayValue.values) || []).map(function (v) {
       var m = (v.mapValue && v.mapValue.fields) || {};
-      return { nombre: m.name && m.name.stringValue || "Item", qty: Number(m.qty && (m.qty.integerValue || m.qty.doubleValue) || 1), precio: Number(m.price && (m.price.doubleValue !== undefined ? m.price.doubleValue : m.price.integerValue) || 0) };
+      return { id: m.id && m.id.stringValue || "", nombre: m.name && m.name.stringValue || "Item", qty: Number(m.qty && (m.qty.integerValue || m.qty.doubleValue) || 1), precio: Number(m.price && (m.price.doubleValue !== undefined ? m.price.doubleValue : m.price.integerValue) || 0) };
     });
     return { id: d.name.split("/").pop(), code: sv("code") || d.name.split("/").pop(), cliente: sv("customerName"), steam: sv("steamId"), email: sv("email"), tradelink: sv("tradelink"),
       whatsapp: sv("phone"), uid: sv("uid"), correoAdmin: !!(f.correoAdmin && f.correoAdmin.booleanValue), correoCliente: !!(f.correoCliente && f.correoCliente.booleanValue), correoError: sv("correoError"), estado: sv("status") || "pagado", tienda: sv("tienda"), total: nv("total"), creditos: nv("creditos"), items: its,
@@ -2967,16 +2967,33 @@
       .catch(function (e) { p.estado = antes; admin.pedMsg = "No se guardó: " + e.message; render(); });
   }
   function pedClave(p) { return p.uid || p.steam || (p.cliente || "").toLowerCase(); }
+  // Busca en el catálogo el item de una línea del pedido (por id; si no, por nombre).
+  function itemDePedido(i) {
+    var it = i.id ? itemPorId(i.id) : null;
+    if (!it && i.nombre) {
+      var k = sinTildes(i.nombre), cand = items.lista.filter(function (x) { return sinTildes(x.nombre) === k; });
+      it = cand.filter(function (x) { return x.stock > 0; })[0] || cand[0] || null;
+    }
+    return it;
+  }
+  // Línea de item del pedido: foto + nombre con enlace a su página (como se vende).
+  function pedItemHtml(i, mini) {
+    var it = itemDePedido(i), foto = it ? (imgTag(it.img, it.nombre, ' loading="lazy"') || "") : "";
+    var tn = esc(i.qty + " × " + i.nombre);
+    return '<span class="ped-it' + (mini ? ' mini' : '') + '"><span class="ped-fo">' + (foto || "🎁") + '</span>' +
+      (it ? '<a class="ped-ln" href="#item/' + encodeURIComponent(it.id) + '" target="_blank" rel="noopener" title="Ver el item como se vende ↗">' + tn + ' ↗</a>' : '<span class="ped-ln">' + tn + '</span>') + '</span>';
+  }
   function historialPedidosHtml(p) {
     var k = pedClave(p), todos = (admin.pedidos || []).filter(function (x) { return pedClave(x) === k; }), vivos = todos.filter(function (x) { return x.estado !== "cancelado"; });
     var gastado = vivos.reduce(function (a, x) { return a + x.total; }, 0);
     return '<div class="hist"><b>📜 Historial de compras de este cliente</b><small class="hint">' + vivos.length + (vivos.length === 1 ? ' compra' : ' compras') + ' · ' + fmtPrecio(gastado) + ' en total</small>' +
       todos.map(function (x) {
-        var est = (PED_ESTADOS.filter(function (e) { return e[0] === x.estado; })[0] || [0, x.estado])[1], n = x.items.map(function (i) { return i.qty + ' × ' + i.nombre; }).join(", ");
-        return '<div class="histr' + (x.id === p.id ? ' cur' : '') + '"><span>' + esc(x.fecha ? x.fecha.toLocaleDateString("es-PE") : "") + ' · <b>' + esc(x.code) + '</b></span><span>' + esc(n) + '</span><span>' + fmtPrecio(x.total) + ' · ' + esc(est) + '</span></div>';
+        var est = (PED_ESTADOS.filter(function (e) { return e[0] === x.estado; })[0] || [0, x.estado])[1], its = x.items.map(function (i) { return pedItemHtml(i, true); }).join("");
+        return '<div class="histr' + (x.id === p.id ? ' cur' : '') + '"><span>' + esc(x.fecha ? x.fecha.toLocaleDateString("es-PE") : "") + ' · <b>' + esc(x.code) + '</b></span><span class="hist-its">' + its + '</span><span>' + fmtPrecio(x.total) + ' · ' + esc(est) + '</span></div>';
       }).join("") + '</div>';
   }
   function tabPedidos() {
+    if (!items.cargado && !items.cargando) cargarItems();
     if (admin.pedidos === null) { cargarPedidos(); return '<p class="hint">Cargando pedidos…</p>'; }
     var fl = admin.pedFiltro || "pagado", todos = admin.pedidos;
     var cuenta = function (k) { return todos.filter(function (p) { return k === "todos" || p.estado === k; }).length; };
@@ -2990,7 +3007,7 @@
         var cab = '<button type="button" class="urow-h" data-a="pedAbrir" data-id="' + esc(p.id) + '" aria-expanded="' + ab + '"><b>' + esc(p.cliente || "Sin nombre") + ' · ' + n + (n === 1 ? ' item' : ' items') + (p.estado === "cooldown" ? ' <small class="pedcd">🔒 entregar el ' + esc(cdFechaCorta({ cooldownHasta: p.entregaDesde })) + '</small>' : '') + '</b><span class="usal">' + fmtPrecio(p.total) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
         if (!ab) return '<div class="urow compact">' + cab + '</div>';
         return '<div class="urow open">' + cab + '<div class="t"><span>Pedido <b style="display:inline">' + esc(p.code) + '</b> · ' + (p.fecha ? esc(p.fecha.toLocaleString("es-PE")) : "") + '</span>' +
-          p.items.map(function (i) { return '<span>' + i.qty + ' × ' + esc(i.nombre) + ' — ' + fmtPrecio(i.precio * i.qty) + '</span>'; }).join("") +
+          p.items.map(function (i) { return '<span class="ped-row">' + pedItemHtml(i) + '<b class="ped-pr">' + fmtPrecio(i.precio * i.qty) + '</b></span>'; }).join("") +
           '<span>ID de Steam: ' + esc(p.steam || "—") + '</span><span>WhatsApp: ' + esc(p.whatsapp || "—") + '</span><span>' + esc(p.email) + '</span>' +
           (tradeValido(p.tradelink) ? '<span><a href="' + esc(p.tradelink) + '" target="_blank" rel="noopener">Abrir trade link ↗</a></span>' : '<span style="color:var(--fuchsia)">Sin trade link</span>') +
           '<span>Pagado con saldo: ' + fmtPrecio(p.creditos) + '</span>' +
