@@ -282,3 +282,17 @@
 /* Pestaña Items: toda la fila (foto + nombre) abre la página del item */
 #app .drawer.adm a.itrow-t { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; color: inherit; text-decoration: none; }
 #app .drawer.adm a.itrow-t:hover b { color: var(--pp-acc); text-decoration: underline; }
+
+/* ============ Pedidos: chip de estado y buscador ============ */
+#app .drawer.adm .ped-est { flex: none; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .02em; white-space: nowrap; border: 1px solid var(--pp-line2); color: var(--pp-dim); background: rgba(255, 255, 255, .05); }
+#app .drawer.adm .ped-est.e-pagado { color: var(--pp-acc); border-color: rgba(255, 211, 77, .45); background: rgba(255, 211, 77, .1); }
+#app .drawer.adm .ped-est.e-cooldown { color: #7fb8ff; border-color: rgba(127, 184, 255, .45); background: rgba(127, 184, 255, .1); }
+#app .drawer.adm .ped-est.e-entregado { color: var(--pp-ok); border-color: rgba(61, 214, 140, .4); background: rgba(61, 214, 140, .1); }
+#app .drawer.adm .ped-est.e-cancelado { text-decoration: line-through; }
+#app .drawer.adm .urow-h .ped-est { margin-left: auto; }
+#app .drawer.adm .urow-h .ped-est + .usal { margin-left: 0; }
+@media (max-width: 560px) { #app .drawer.adm .ped-est { display: none; } }
+#app .drawer.adm .t a { color: var(--pp-acc); }
+/* Item agotado en la lista: foto apagada y aviso */
+#app .drawer.adm .itrow.agot img { filter: grayscale(1); opacity: .55; }
+#app .drawer.adm .itrow.agot small { color: var(--pp-bad); }
