@@ -2969,7 +2969,7 @@
   }
   function botPedidoHtml(p) {
     if (p.estado !== "pagado" && !(p.bot && p.bot.estado)) return "";
-    var b = p.bot || {}, est = b.estado || "", h = '<div class="field"><label>🤖 Bot de Steam</label>';
+    var b = p.bot || {}, est = b.estado || "", h = '<div class="field" style="margin:12px 14px">' + '<label>🤖 Bot de Steam</label>';
     if (est) h += '<p class="hint"><b style="display:inline">' + esc(BOT_EST[est] || est) + '</b>' + (b.ofertaId ? ' · oferta #' + esc(b.ofertaId) : '') + (b.motivo ? '<br>' + esc(b.motivo) : '') + '</p>';
     var puedeEnviar = p.estado === "pagado" && (!est || est === "fallida" || est === "cancelada");
     if (puedeEnviar) h += tradeValido(p.tradelink) ? '<button type="button" class="btn btn-yellow btn-sm" data-a="botEnviar" data-id="' + esc(p.id) + '">' + (est ? "🔁 Reintentar con el bot" : "🤖 Enviar con el bot") + '</button><p class="hint">El bot le manda la oferta a su trade link y, cuando acepte, el pedido pasa solo a Entregado.</p>' : '<p class="hint" style="color:var(--fuchsia)">Para usar el bot, el cliente necesita un trade link válido.</p>';
