@@ -298,6 +298,9 @@ exports.comprarItem = onRequest(
           const precio = Number(it.precio);
           if (!(precio > 0)) throw new Error("SIN_PRECIO");
           const line = { id: ids[k], name: String(it.nombre || "Item").slice(0, 90), qty: qty, price: precio };
+          // Foto del item para el panel y los correos (solo referencias cortas: "fs:img-…" o una URL; nunca base64).
+          const img = String(it.img || "");
+          if (/^fs:img-[\w\-]+$/.test(img) || /^https?:\/\//i.test(img)) line.img = img.slice(0, 300);
           // Item en cooldown de Steam: se vende igual, pero se entrega cuando se libere. El pedido espera hasta la fecha más lejana.
           const cd = cooldownDe(it, ahora);
           if (cd) { line.cooldownHasta = cd.toISOString(); if (!entrega || cd > entrega) entrega = cd; }
@@ -583,6 +586,30 @@ exports.liberarCooldown = onSchedule({ schedule: "every 1 hours", timeZone: "Ame
   console.log("liberarCooldown", r);
 });
 
+/* ---------- Foto de un item como imagen normal (para los correos) ----------
+ * Las fotos del catálogo viven en Firestore como documentos rayas/img-… con un data URL dentro
+ * ("fs:img-…" en el catálogo). Los correos no pueden leer Firestore, así que esta función
+ * devuelve esa misma foto como una imagen común: GET ?id=img-…
+ * Son las mismas fotos públicas que ya ve cualquier visitante de la web; no expone nada nuevo. */
+exports.fotoCorreo = onRequest({ region: REGION, maxInstances: 3, timeoutSeconds: 10 }, async (req, res) => {
+  const id = String(req.query.id || "");
+  if (req.method !== "GET" || !/^img-[\w\-]{1,80}$/.test(id)) return res.status(400).send("Foto no válida.");
+  try {
+    const doc = await db.collection("rayas").doc(id).get();
+    const u = doc.exists && doc.data().data;
+    const m = /^data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/.exec(String(u || ""));
+    if (!m) return res.status(404).send("No existe esa foto.");
+    const bytes = Buffer.from(m[2], "base64");
+    if (!bytes.length || bytes.length > 2 * 1024 * 1024) return res.status(404).send("No existe esa foto.");
+    res.set("Content-Type", m[1]);
+    res.set("Cache-Control", "public, max-age=86400, s-maxage=604800"); // 1 día en el navegador, 7 en el CDN
+    return res.status(200).send(bytes);
+  } catch (e) {
+    console.error("fotoCorreo", e);
+    return res.status(500).send("No se pudo leer la foto.");
+  }
+});
+
 /* ---- Admin: manda 8 correos de EJEMPLO (de cada tienda) a los correos de CORREOS_ADMIN. No cobra ni toca saldos. ---- */
 exports.probarCorreos = onRequest(
   { region: REGION, cors: ORIGENES, secrets: [RESEND_KEY], maxInstances: 1, timeoutSeconds: 60 },
@@ -594,11 +621,13 @@ exports.probarCorreos = onRequest(
     const ahora = new Date(), venc = new Date(ahora.getTime() + 22 * 3600 * 1000), enCd = new Date(ahora.getTime() + 7 * 86400 * 1000), tanda = String(Date.now());
     let enviados = 0, fallaron = 0, error = "";
     for (const tienda of ["rayas", "litlejacob"]) {
+      // Foto de ejemplo para que se vea cómo queda el correo con imagen (la promo que ya existe en cada web).
+      const fotoPrueba = (tienda === "rayas" ? "https://rayas.trade" : "https://litlejacob.trade") + "/img/promo-rifas.jpg";
       const lista = [
         ["confirmacion", emails.confirmacion(tienda, { id: "prueba" + tienda, nombre: "Bryan", soles: 10, creditos: 12, tipo: "tarjeta", pagadoEn: ahora, saldo: 15 })],
         ["pendiente", emails.recordatorio(tienda, { id: "prueba" + tienda, nombre: "Bryan", soles: 10, creditos: 12, expiraEn: venc })],
-        ["cooldown", emails.compraCliente(tienda, { code: "PRUEBA-CD", nombre: "Bryan", items: [{ name: "Dragonclaw Hook", qty: 1, price: 1050, cooldownHasta: enCd.toISOString() }], total: 1050, creditos: 1050, saldo: 20, creadoEn: ahora, entrega: enCd })],
-        ["liberado", emails.itemLiberado(tienda, { code: "PRUEBA-CD", nombre: "Bryan", items: [{ name: "Dragonclaw Hook", qty: 1, price: 1050 }], total: 1050, creditos: 1050, creadoEn: ahora, entrega: ahora })]
+        ["cooldown", emails.compraCliente(tienda, { code: "PRUEBA-CD", nombre: "Bryan", items: [{ name: "Dragonclaw Hook", qty: 1, price: 1050, cooldownHasta: enCd.toISOString(), img: fotoPrueba }], total: 1050, creditos: 1050, saldo: 20, creadoEn: ahora, entrega: enCd })],
+        ["liberado", emails.itemLiberado(tienda, { code: "PRUEBA-CD", nombre: "Bryan", items: [{ name: "Dragonclaw Hook", qty: 1, price: 1050, img: fotoPrueba }], total: 1050, creditos: 1050, creadoEn: ahora, entrega: ahora })]
       ];
       for (const [nombre, c] of lista) {
         try {
