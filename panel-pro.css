@@ -296,3 +296,7 @@
 /* Item agotado en la lista: foto apagada y aviso */
 #app .drawer.adm .itrow.agot img { filter: grayscale(1); opacity: .55; }
 #app .drawer.adm .itrow.agot small { color: var(--pp-bad); }
+
+/* ============ Informe y vendido ============ */
+#app .drawer.adm .hist .iconbtn.wide, #app .drawer.adm .frow .iconbtn.wide { height: 30px; padding: 0 12px; font-size: 12px; margin-left: 8px; }
+#app .drawer.adm .itrow.agot small { font-weight: 700; }
