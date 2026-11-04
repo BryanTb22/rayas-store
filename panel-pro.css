@@ -1,0 +1,268 @@
+/* ============================================================
+   Panel admin "pro" — Rayas Store
+   Mejora visual del panel de administración (.drawer.adm).
+   Se carga después de los temas; solo toca el panel admin
+   (el panel de cuenta del cliente usa .drawer sin .adm).
+   ============================================================ */
+
+#app .drawer.adm {
+  --pp-acc: var(--yellow, #ffd34d);
+  --pp-acc2: var(--fuchsia, #ff3fa4);
+  --pp-dim: #9aa3b5;
+  --pp-tx: #eef1f8;
+  --pp-line: rgba(255, 255, 255, .11);
+  --pp-line2: rgba(255, 255, 255, .18);
+  --pp-card: rgba(255, 255, 255, .035);
+  --pp-card2: rgba(255, 255, 255, .06);
+  --pp-bg: #0b0e1c;
+  --pp-ok: var(--ok, #3dd68c);
+  --pp-bad: var(--danger, #ff7a7a);
+  --pp-acc-soft: rgba(255, 211, 77, .14);
+  width: min(100%, 560px);
+}
+
+/* Más ancho en pantallas grandes (el contenido respira) */
+@media (min-width: 1280px) {
+  #app .drawer.adm { width: min(90vw, 780px); }
+}
+
+/* ---------- Cabecera ---------- */
+#app .drawer.adm .drawer-head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 16px 20px; border-bottom: 1px solid var(--pp-line);
+}
+#app .drawer.adm .drawer-head h2 { margin: 0; flex: 1 1 auto; min-width: 0; }
+#app .drawer.adm .drawer-acts { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#app .drawer.adm .btn.peligro { color: var(--pp-bad); }
+#app .drawer.adm .btn.peligro:hover { border-color: var(--pp-bad); }
+
+/* ---------- Cuerpo ---------- */
+#app .drawer.adm .drawer-body { padding: 0 20px 24px; scrollbar-width: thin; scrollbar-color: var(--pp-line2) transparent; }
+#app .drawer.adm .drawer-body::-webkit-scrollbar { width: 8px; }
+#app .drawer.adm .drawer-body::-webkit-scrollbar-thumb { background: var(--pp-line2); border-radius: 8px; }
+#app .drawer.adm .drawer-cnt { min-width: 0; }
+
+/* ---------- Pestañas: celular = fila deslizable y pegada arriba ---------- */
+#app .drawer.adm .tabs {
+  display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain;
+  position: sticky; top: 0; z-index: 6;
+  margin: 0 -20px 14px; padding: 12px 20px;
+  background: var(--pp-bg);
+  border-bottom: 1px solid var(--pp-line);
+  scrollbar-width: none;
+}
+#app .drawer.adm .tabs::-webkit-scrollbar { display: none; }
+#app .drawer.adm .tab {
+  flex: 0 0 auto; white-space: nowrap;
+  border: 1px solid var(--pp-line); border-radius: 999px;
+  background: var(--pp-card); color: var(--pp-dim);
+  padding: 9px 14px; font-weight: 700; font-size: 13px; letter-spacing: .02em;
+  transition: background .15s, color .15s, border-color .15s;
+}
+#app .drawer.adm .tab:hover { color: var(--pp-tx); border-color: var(--pp-line2); }
+#app .drawer.adm .tab[aria-selected="true"] {
+  background: var(--pp-acc-soft); border-color: var(--pp-acc);
+  color: var(--pp-acc); box-shadow: none;
+}
+
+/* ---------- Pestañas: PC = menú lateral tipo Shopify ---------- */
+@media (min-width: 1280px) {
+  #app .drawer.adm .drawer-body.rail { padding-top: 16px; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 18px; align-items: start; }
+  #app .drawer.adm .rail .tabs {
+    position: sticky; top: 0; z-index: 2;
+    flex-direction: column; overflow: visible; gap: 4px;
+    margin: 0; padding: 8px; border-bottom: 0;
+    background: var(--pp-card); border: 1px solid var(--pp-line); border-radius: 14px;
+  }
+  #app .drawer.adm .rail .tab {
+    width: 100%; text-align: left; border-radius: 10px;
+    border: 1px solid transparent; background: transparent;
+    padding: 10px 12px 10px 16px; position: relative; font-size: 13.5px;
+  }
+  #app .drawer.adm .rail .tab::before {
+    content: ""; position: absolute; left: 5px; top: 9px; bottom: 9px; width: 3px;
+    border-radius: 3px; background: transparent; transition: background .15s;
+  }
+  #app .drawer.adm .rail .tab:hover { background: rgba(255, 255, 255, .05); }
+  #app .drawer.adm .rail .tab[aria-selected="true"] { background: var(--pp-acc-soft); border-color: transparent; color: var(--pp-acc); }
+  #app .drawer.adm .rail .tab[aria-selected="true"]::before { background: var(--pp-acc); }
+}
+
+/* ---------- Tarjetas de resumen (Usuarios) ---------- */
+#app .drawer.adm .adm-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 0 14px; }
+#app .drawer.adm .adm-stat {
+  border: 1px solid var(--pp-line); border-radius: 13px; padding: 11px 13px;
+  background: linear-gradient(180deg, var(--pp-card2), var(--pp-card));
+  display: grid; gap: 3px; min-width: 0;
+}
+#app .drawer.adm .adm-stat small {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--pp-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#app .drawer.adm .adm-stat b { font-size: 20px; line-height: 1.1; color: var(--pp-tx); font-variant-numeric: tabular-nums; }
+#app .drawer.adm .adm-stat.acc b { color: var(--pp-acc); }
+
+/* ---------- Grupos (tarjetas de sección) ---------- */
+#app .drawer.adm .grp {
+  background: var(--pp-card); border: 1px solid var(--pp-line);
+  border-radius: 14px; padding: 16px; margin: 0 0 14px;
+}
+#app .drawer.adm .grp > h3 {
+  margin: 0 0 12px; font-size: 12px; font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--pp-dim);
+  padding-bottom: 10px; border-bottom: 1px solid var(--pp-line);
+}
+#app .drawer.adm .hint { color: var(--pp-dim); }
+
+/* ---------- Campos ---------- */
+#app .drawer.adm .field { margin: 0 0 12px; }
+#app .drawer.adm .field label {
+  display: block; margin: 0 0 6px; font-size: 11px; font-weight: 800;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--pp-dim);
+}
+#app .drawer.adm .field input,
+#app .drawer.adm .field select,
+#app .drawer.adm .field textarea {
+  width: 100%; background: rgba(0, 0, 0, .28); color: var(--pp-tx);
+  border: 1px solid var(--pp-line2); border-radius: 10px;
+  padding: 10px 12px; font-size: 14px; transition: border-color .15s, box-shadow .15s;
+}
+#app .drawer.adm .field input:focus,
+#app .drawer.adm .field select:focus,
+#app .drawer.adm .field textarea:focus {
+  outline: none; border-color: var(--pp-acc);
+  box-shadow: 0 0 0 3px var(--pp-acc-soft);
+}
+
+/* ---------- Subpestañas / filtros como control segmentado ---------- */
+#app .drawer.adm .subtabs {
+  display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px;
+  padding: 5px; background: var(--pp-card); border: 1px solid var(--pp-line); border-radius: 12px;
+}
+#app .drawer.adm .subtab {
+  flex: 1 1 auto; border: 1px solid transparent; border-radius: 9px;
+  background: transparent; color: var(--pp-dim);
+  padding: 8px 12px; font-weight: 700; font-size: 12.5px; white-space: nowrap;
+}
+#app .drawer.adm .subtab:hover { color: var(--pp-tx); }
+#app .drawer.adm .subtab[aria-selected="true"] { background: var(--pp-acc-soft); color: var(--pp-acc); }
+
+/* ---------- Lista de usuarios ---------- */
+#app .drawer.adm .ulist { display: grid; gap: 8px; }
+#app .drawer.adm .urow {
+  border: 1px solid var(--pp-line); border-radius: 12px; overflow: hidden;
+  background: rgba(0, 0, 0, .18); transition: border-color .15s;
+}
+#app .drawer.adm .urow:hover { border-color: var(--pp-line2); }
+#app .drawer.adm .urow.open { border-color: var(--pp-acc); background: rgba(0, 0, 0, .28); }
+#app .drawer.adm .urow-h {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 13px; background: transparent; border: 0; color: var(--pp-tx);
+  cursor: pointer; text-align: left;
+}
+#app .drawer.adm .urow-h b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#app .drawer.adm .urow-h i { font-style: normal; color: var(--pp-dim); transition: transform .15s; }
+#app .drawer.adm .urow.open .urow-h i { color: var(--pp-acc); }
+#app .drawer.adm .usal {
+  flex: 0 0 auto; padding: 4px 10px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: var(--pp-ok); background: rgba(61, 214, 140, .12); border: 1px solid rgba(61, 214, 140, .35);
+}
+#app .drawer.adm .urow .t { display: grid; gap: 4px; padding: 0 13px 10px; color: var(--pp-dim); font-size: 13.5px; }
+#app .drawer.adm .ucred { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 13px 13px; }
+#app .drawer.adm .iconbtn {
+  min-width: 36px; height: 36px; border-radius: 10px;
+  border: 1px solid var(--pp-line2); background: var(--pp-card); color: var(--pp-tx);
+  font-weight: 800;
+}
+#app .drawer.adm .iconbtn:hover { border-color: var(--pp-acc); color: var(--pp-acc); }
+#app .drawer.adm .credset {
+  width: 92px; text-align: center; background: rgba(0, 0, 0, .3); color: var(--pp-tx);
+  border: 1px solid var(--pp-line2); border-radius: 10px; padding: 8px 6px; font-weight: 700;
+}
+#app .drawer.adm .credset:focus { outline: none; border-color: var(--pp-acc); box-shadow: 0 0 0 3px var(--pp-acc-soft); }
+
+/* Ficha del usuario */
+#app .drawer.adm .ficha { border-top: 1px dashed var(--pp-line2); margin: 2px 13px 13px; padding-top: 10px; }
+#app .drawer.adm .frow { padding: 6px 0; }
+
+/* ---------- Interruptores de configuración ---------- */
+#app .drawer.adm .cfg-row {
+  border: 1px solid var(--pp-line); border-radius: 12px;
+  padding: 12px 14px; margin: 0 0 10px; background: rgba(0, 0, 0, .18);
+  transition: border-color .15s;
+}
+#app .drawer.adm .cfg-row:hover { border-color: var(--pp-line2); }
+
+/* ---------- Pie con el botón de publicar ---------- */
+#app .drawer.adm .drawer-foot {
+  padding: 14px 20px 18px; border-top: 1px solid var(--pp-line);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, .45));
+  display: grid; gap: 10px;
+}
+#app .drawer.adm .drawer-foot .btn { width: 100%; justify-content: center; font-weight: 800; letter-spacing: .03em; }
+#app .drawer.adm .drawer-foot .btn[disabled] { opacity: .55; }
+#app .drawer.adm .drawer-foot .msg {
+  justify-self: start; display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  color: var(--pp-dim); background: var(--pp-card); border: 1px solid var(--pp-line);
+}
+#app .drawer.adm .drawer-foot .msg::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+#app .drawer.adm .drawer-foot .msg.ok { color: var(--pp-ok); border-color: rgba(61, 214, 140, .4); }
+#app .drawer.adm .drawer-foot .msg.err { color: var(--pp-bad); border-color: rgba(255, 122, 122, .4); }
+
+/* ---------- Celular ---------- */
+@media (max-width: 560px) {
+  #app .drawer.adm .drawer-head { padding: 13px 14px; }
+  #app .drawer.adm .drawer-body { padding: 0 14px 14px; }
+  #app .drawer.adm .tabs { margin: 0 -14px 12px; padding: 10px 14px; }
+  #app .drawer.adm .adm-stats { gap: 8px; }
+  #app .drawer.adm .adm-stat { padding: 9px 10px; }
+  #app .drawer.adm .adm-stat b { font-size: 17px; }
+  #app .drawer.adm .drawer-foot { padding: 12px 14px 14px; }
+}
+
+/* ============ Ronda 2 ============ */
+/* Subpestañas: quitar el anillo/sombra del tema anterior */
+#app .drawer.adm .subtab { box-shadow: none !important; border: 1px solid transparent !important; background: transparent !important; color: var(--pp-dim) !important; border-radius: 9px !important; }
+#app .drawer.adm .subtab[aria-selected="true"] { background: var(--pp-acc-soft) !important; color: var(--pp-acc) !important; }
+/* Riel: que no se corte el texto de una pestaña */
+@media (min-width: 1280px) {
+  #app .drawer.adm .drawer-body.rail { grid-template-columns: 224px minmax(0, 1fr); }
+  #app .drawer.adm .rail .tab { overflow: hidden; text-overflow: ellipsis; }
+}
+/* Selectores y botón "Ver ficha completa" en oscuro */
+#app .drawer.adm .drawer-cnt select { background: rgba(0, 0, 0, .28); color: var(--pp-tx); border: 1px solid var(--pp-line2); border-radius: 10px; padding: 9px 12px; }
+#app .drawer.adm .pbtn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--pp-card) !important; color: var(--pp-tx) !important;
+  border: 1px solid var(--pp-line2) !important; border-radius: 10px !important;
+  padding: 10px 12px; font-weight: 700; box-shadow: none !important;
+}
+#app .drawer.adm .pbtn:hover { border-color: var(--pp-acc) !important; color: var(--pp-acc) !important; }
+/* Saldo en S/ 0: gris en vez de verde */
+#app .drawer.adm .usal.cero { color: var(--pp-dim); background: rgba(255, 255, 255, .06); border-color: var(--pp-line2); }
+/* Cabecera más compacta */
+#app .drawer.adm .drawer-head h2 { font-size: 20px; line-height: 1.2; }
+@media (max-width: 560px) {
+  #app .drawer.adm .drawer-head { gap: 8px; }
+  #app .drawer.adm .drawer-head h2 { font-size: 16px; }
+  #app .drawer.adm .drawer-acts .btn { padding: 7px 10px; font-size: 11.5px; }
+}
+
+
+/* ============ Ronda 3 ============ */
+#app .drawer.adm .drawer-body:not(.rail) { padding-top: 16px; }
+#app .drawer.adm .drawer-body:not(.rail) .tabs { margin-top: -16px; }
+@media (max-width: 560px) {
+  #app .drawer.adm .drawer-body:not(.rail) { padding-top: 14px; }
+  #app .drawer.adm .drawer-body:not(.rail) .tabs { margin-top: -14px; }
+}
+
+/* El cuerpo deja de ser cuadrícula para que las pestañas se queden pegadas arriba */
+#app .drawer.adm .drawer-body { display: block; }
+#app .drawer.adm .drawer-cnt > :last-child { margin-bottom: 0; }
+@media (min-width: 1280px) { #app .drawer.adm .drawer-body.rail { display: grid; } }
+@media (max-width: 560px) { #app .drawer.adm .drawer-head h2 { letter-spacing: .02em; } }
+/* Botones de la cabecera más chicos en celular (gana a .btn-sm del tema) */
+@media (max-width: 560px) { #app .drawer.adm .drawer-acts .btn.btn-sm { padding: 7px 10px; font-size: 11.5px; } }
