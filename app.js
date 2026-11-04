@@ -3085,9 +3085,105 @@
       '<button class="btn btn-ghost btn-sm" type="button" data-a="pedRecargar">Actualizar lista</button></div>';
   }
 
-  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "🎟 Premios", usuarios: "👥 Usuarios y saldo", items: "🧩 Items", compras: "📥 Compras", pedidos: "🛒 Pedidos", pagina: "📝 Textos y contactos", pub: "🖼 Publicaciones" };
+  // ---------- Libro de Reclamaciones: lista para el admin ----------
+  function recLeer(doc) {
+    var f = doc.fields || {}, g = function (k) { var v = f[k]; if (!v) return ""; return v.stringValue !== undefined ? v.stringValue : v.timestampValue !== undefined ? v.timestampValue : v.booleanValue !== undefined ? v.booleanValue : v.integerValue !== undefined ? v.integerValue : v.doubleValue !== undefined ? v.doubleValue : ""; };
+    var o = { id: doc.name.split("/").pop() };
+    ["numero", "tienda", "tipo", "tipoDoc", "numDoc", "nombre", "domicilio", "telefono", "email", "apoderado", "bienTipo", "bien", "monto", "pedidoRef", "detalle", "pedido", "estado", "creado", "vence", "respondido"].forEach(function (k) { o[k] = g(k); });
+    o.menor = g("menor") === true; o.numero = o.numero || o.id; o.estado = o.estado || "pendiente";
+    return o;
+  }
+  function cargarReclamos() {
+    admin.recCargando = true; admin.recMsg = "";
+    token().then(function (tk) {
+      return fetch(BASE.replace("/documents/", "/documents:runQuery"), { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "reclamos" }], orderBy: [{ field: { fieldPath: "creado" }, direction: "DESCENDING" }], limit: 300 } }) });
+    }).then(function (r) { if (!r.ok) throw new Error(r.status === 403 ? "Firebase todavía no te deja leer los reclamos: falta publicar la regla nueva (ver documento reclamos-panel)." : "Error " + r.status); return r.json(); })
+      .then(function (j) { admin.reclamos = (j || []).filter(function (x) { return x.document; }).map(function (x) { return recLeer(x.document); }); admin.recCargando = false; render(); })
+      .catch(function (e) { admin.reclamos = []; admin.recCargando = false; admin.recMsg = e.message; render(); });
+  }
+  // Días hábiles (lunes a viernes) que faltan hasta la fecha límite; negativo si ya venció.
+  function recDiasHabiles(venceIso) {
+    if (!venceIso) return null;
+    var hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    var v = new Date(venceIso); v.setHours(0, 0, 0, 0);
+    var paso = v >= hoy ? 1 : -1, n = 0, d = new Date(hoy);
+    while ((paso > 0 && d < v) || (paso < 0 && d > v)) { d.setDate(d.getDate() + paso); var w = d.getDay(); if (w !== 0 && w !== 6) n += paso; }
+    return n;
+  }
+  function recPlazoHtml(r) {
+    if (r.estado === "respondido") return '<small class="ped-est rec-est e-entregado">✔ Respondido</small>';
+    if (r.estado === "archivado") return '<small class="ped-est rec-est">🗂 Archivado</small>';
+    var d = recDiasHabiles(r.vence);
+    if (d === null) return '<small class="ped-est rec-est e-pagado">Pendiente</small>';
+    if (d < 0) return '<small class="ped-est rec-est e-vencido">⚠ Vencido hace ' + (-d) + (d === -1 ? ' día hábil' : ' días hábiles') + '</small>';
+    if (d === 0) return '<small class="ped-est rec-est e-vencido">⚠ Vence hoy</small>';
+    return '<small class="ped-est rec-est ' + (d <= 3 ? 'e-vencido' : 'e-pagado') + '">⏳ Quedan ' + d + (d === 1 ? ' día hábil' : ' días hábiles') + '</small>';
+  }
+  function recGmail(r) {
+    var marca = r.tienda === "litlejacob" ? "LitleJacob Store" : "Rayas Store";
+    var cuerpo = "Hola " + r.nombre + ":\n\nTe escribimos por tu " + r.tipo + " N° " + r.numero + " del Libro de Reclamaciones de " + marca + ", registrado el " + (r.creado ? new Date(r.creado).toLocaleDateString("es-PE") : "") + ".\n\nTu pedido: " + r.pedido + "\n\nNuestra respuesta:\n\n\n\nAtentamente,\n" + marca + "\nTIRAPO BUSTILLOS BRYAN DARWIN · RUC 10712504761";
+    return "https://mail.google.com/mail/?view=cm&fs=1&to=" + encodeURIComponent(r.email) + "&su=" + encodeURIComponent("Respuesta a tu " + r.tipo + " N° " + r.numero + " · " + marca) + "&body=" + encodeURIComponent(cuerpo);
+  }
+  function recCambiarEstado(id, est) {
+    var r = (admin.reclamos || []).filter(function (x) { return x.id === id; })[0]; if (!r) return;
+    var antes = r.estado, ahora = new Date().toISOString();
+    r.estado = est; r.guardando = true; render();
+    var campos = { estado: { stringValue: est } }, mask = "updateMask.fieldPaths=estado";
+    if (est === "respondido") { campos.respondido = { timestampValue: ahora }; mask += "&updateMask.fieldPaths=respondido"; }
+    fsPedir("reclamos/" + encodeURIComponent(id) + "?" + mask + "&currentDocument.exists=true", { method: "PATCH", body: JSON.stringify({ fields: campos }) })
+      .then(function (res) { if (!res.ok) throw new Error(res.status === 403 ? "Firebase no te deja cambiarlo: falta publicar la regla nueva." : "Error " + res.status); r.guardando = false; if (est === "respondido") r.respondido = ahora; render(); })
+      .catch(function (e) { r.estado = antes; r.guardando = false; admin.recMsg = "No se guardó: " + e.message; render(); });
+  }
+  function tabReclamos() {
+    if (admin.reclamos === undefined || admin.reclamos === null) { if (!admin.recCargando) cargarReclamos(); return '<p class="hint">Cargando reclamos…</p>'; }
+    var esta = "rayas", soloEsta = admin.recTodas ? false : true;
+    var base = admin.reclamos.filter(function (r) { return !soloEsta || r.tienda === esta || !r.tienda; });
+    var fl = admin.recFiltro || "pendiente";
+    var cuenta = function (e) { return base.filter(function (r) { return e === "todos" ? r.estado !== "archivado" : r.estado === e; }).length; };
+    var urg = base.filter(function (r) { var d = recDiasHabiles(r.vence); return r.estado === "pendiente" && d !== null && d <= 3; }).length;
+    var lista = base.filter(function (r) { return fl === "todos" ? r.estado !== "archivado" : r.estado === fl; });
+    var chips = [["pendiente", "⏳ Pendientes"], ["respondido", "✔ Respondidos"], ["archivado", "🗂 Archivados"], ["todos", "Todos"]].map(function (c) {
+      return '<button class="subtab" role="tab" type="button" data-a="recFiltro" data-f="' + c[0] + '" aria-selected="' + (fl === c[0]) + '">' + c[1] + ' (' + cuenta(c[0]) + ')</button>';
+    }).join("");
+    var stats = '<div class="adm-stats"><div class="adm-stat' + (cuenta("pendiente") ? ' acc' : '') + '"><small>Pendientes</small><b>' + cuenta("pendiente") + '</b></div><div class="adm-stat' + (urg ? ' acc' : '') + '"><small>Por vencer (≤ 3 días)</small><b>' + urg + '</b></div><div class="adm-stat"><small>Respondidos</small><b>' + cuenta("respondido") + '</b></div></div>';
+    var filas = lista.map(function (r) {
+      var ab = admin.recAbierto === r.id, id = esc(r.id);
+      var cab = '<button type="button" class="urow-h" data-a="recAbrir" data-id="' + id + '" aria-expanded="' + ab + '"><b>' + esc(r.numero) + ' · ' + esc(r.tipo === "queja" ? "Queja" : "Reclamo") + ' · ' + esc(r.nombre) + '</b>' + recPlazoHtml(r) + '<i>' + (ab ? "▴" : "▾") + '</i></button>';
+      if (!ab) return '<div class="urow compact">' + cab + '</div>';
+      var fila = function (k, v) { return v ? '<div class="frow"><span>' + k + '</span><div>' + v + '</div></div>' : ''; };
+      var det = '<div class="ficha rec-ficha">' +
+        fila("Tienda", esc(r.tienda === "litlejacob" ? "LitleJacob Store" : "Rayas Store")) +
+        fila("Registrado", esc(r.creado ? fechaHora(r.creado) : "—")) +
+        fila("Responder antes del", esc(r.vence ? new Date(r.vence).toLocaleDateString("es-PE") : "—") + ' (15 días hábiles)') +
+        (r.respondido ? fila("Respondido el", esc(fechaHora(r.respondido))) : '') +
+        fila("Documento", esc(r.tipoDoc + " " + r.numDoc)) +
+        fila("Correo", '<a href="mailto:' + esc(r.email) + '">' + esc(r.email) + '</a>') +
+        fila("Teléfono", soloDigitos(r.telefono) ? '<a href="https://wa.me/' + esc(waNum(r.telefono)) + '" target="_blank" rel="noopener">' + esc(r.telefono) + ' ↗</a>' : esc(r.telefono)) +
+        fila("Domicilio", esc(r.domicilio)) +
+        (r.menor ? fila("Menor de edad", "Sí · apoderado: " + esc(r.apoderado)) : '') +
+        fila(r.bienTipo === "servicio" ? "Servicio" : "Producto", esc(r.bien)) +
+        fila("Monto reclamado", r.monto ? "S/ " + esc(r.monto) : "") +
+        fila("Pedido / referencia", esc(r.pedidoRef)) +
+        fila("Qué pasó", '<p class="rec-txt">' + esc(r.detalle) + '</p>') +
+        fila("Qué pide", '<p class="rec-txt">' + esc(r.pedido) + '</p>') +
+        '<div class="fbtns">' +
+        '<a class="btn btn-yellow btn-sm" href="' + esc(recGmail(r)) + '" target="_blank" rel="noopener">✉ Responder por correo</a>' +
+        (r.estado !== "respondido" ? '<button class="btn btn-ghost btn-sm" type="button" data-a="recEstado" data-e="respondido" data-id="' + id + '"' + (r.guardando ? ' disabled' : '') + '>✔ Marcar respondido</button>' : '<button class="btn btn-ghost btn-sm" type="button" data-a="recEstado" data-e="pendiente" data-id="' + id + '"' + (r.guardando ? ' disabled' : '') + '>↺ Volver a pendiente</button>') +
+        (r.estado !== "archivado" ? '<button class="btn btn-ghost btn-sm" type="button" data-a="recEstado" data-e="archivado" data-id="' + id + '" title="Para reclamos de prueba: lo saca de la lista sin borrarlo"' + (r.guardando ? ' disabled' : '') + '>🗂 Archivar (prueba)</button>' : '') +
+        '</div></div>';
+      return '<div class="urow open">' + cab + det + '</div>';
+    }).join("");
+    return '<div class="subtabs" role="tablist">' + chips + '</div>' + stats +
+      '<div class="grp"><h3>Libro de Reclamaciones</h3>' +
+      '<p class="hint">Por ley tienes <b>15 días hábiles</b> para responder cada reclamo o queja al correo del cliente. Responde, y luego marca "Respondido". Los de prueba, archívalos (no se borran).</p>' +
+      '<label class="rec-todas"><input type="checkbox" data-a="recTodas"' + (admin.recTodas ? ' checked' : '') + '> Ver también los de LitleJacob Store</label>' +
+      (admin.recMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.recMsg) + '</p>' : '') +
+      '<div class="ulist">' + (filas || '<p class="hint">' + (fl === "pendiente" ? "🎉 No hay reclamos pendientes." : "No hay reclamos aquí.") + '</p>') + '</div>' +
+      '<div class="fbtns"><button class="btn btn-ghost btn-sm" type="button" data-a="recRecargar">↻ Actualizar</button></div></div>';
+  }
+  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "🎟 Premios", usuarios: "👥 Usuarios y saldo", items: "🧩 Items", compras: "📥 Compras", pedidos: "🛒 Pedidos", pagina: "📝 Textos y contactos", pub: "🖼 Publicaciones", reclamos: "📕 Reclamos" };
   function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : v === "sets" ? "sets" : "inicio"; }
-  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios", "pub"] : ["config", "usuarios", "pagina", "pub"]; }
+  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina", "reclamos"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios", "pub", "reclamos"] : ["config", "usuarios", "pagina", "pub", "reclamos"]; }
   function panelAdmin() {
     var sc = seccionAdmin(), lista = tabsDeSeccion(sc);
     if (lista.indexOf(admin.tab) < 0) admin.tab = lista[0];
@@ -3097,7 +3193,7 @@
     if (admin.editando) cuerpo = '<div class="drawer-cnt">' + formPremio() + '</div>';
     else cuerpo = '<div class="tabs" role="tablist">' +
       lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
-      '</div><div class="drawer-cnt">' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "pedidos" ? tabPedidos() : listaPremios())))) + '</div>';
+      '</div><div class="drawer-cnt">' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "pedidos" ? tabPedidos() : admin.tab === "reclamos" ? tabReclamos() : listaPremios())))) + '</div>';
     return '<aside class="drawer adm" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><div class="drawer-acts"><button class="btn btn-ghost btn-sm peligro" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
       '<div class="drawer-body' + (admin.editando ? '' : ' rail') + '">' + cuerpo + '</div>' +
@@ -3746,6 +3842,11 @@
       case "cerrar": leerForm(); quitarHash(); admin.abierto = false; admin.editando = null; render(); break;
       case "tab": admin.tab = t.getAttribute("data-t"); render(); break;
       case "pubAbrir": abrirPub(); break;
+      case "recFiltro": admin.recFiltro = t.getAttribute("data-f"); admin.recAbierto = null; render(); break;
+      case "recAbrir": var rid = t.getAttribute("data-id"); admin.recAbierto = admin.recAbierto === rid ? null : rid; render(); break;
+      case "recEstado": recCambiarEstado(t.getAttribute("data-id"), t.getAttribute("data-e")); break;
+      case "recRecargar": admin.reclamos = null; admin.recMsg = ""; render(); break;
+      case "recTodas": admin.recTodas = !!t.checked; render(); break;
       case "uAbrir": var uu = t.getAttribute("data-uid"); admin.uAbierto = admin.uAbierto === uu ? null : uu; render(); break;
       case "nuevo":
         admin.editando = { nuevo: true, p: premioBase() };
