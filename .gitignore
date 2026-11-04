@@ -1,2 +1,7 @@
 functions/node_modules/
 *.log
+bot-steam/node_modules/
+bot-steam/.env
+bot-steam/secretos/
+bot-steam/poll.json
+*.maFile

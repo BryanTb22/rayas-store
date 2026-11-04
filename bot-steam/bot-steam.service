@@ -1,0 +1,16 @@
+[Unit]
+Description=Bot de Steam (Rayas Store + LitleJacob Store)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/bot-steam
+ExecStart=/usr/bin/node /opt/bot-steam/index.js
+Restart=always
+RestartSec=60
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
