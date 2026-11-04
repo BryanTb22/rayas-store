@@ -2897,12 +2897,18 @@
       '<button class="subtab" type="button" role="tab" data-a="subU" data-s="lista" aria-selected="' + (sub === "lista") + '">👥 Usuarios (' + admin.usuarios.length + ')</button>' +
       '<button class="subtab" type="button" role="tab" data-a="subU" data-s="crear" aria-selected="' + (sub === "crear") + '">➕ Crear cuenta</button></div>';
     if (sub === "crear") return subtabs + formNueva;
-    return subtabs + '<div class="grp"><h3>Usuarios (' + admin.usuarios.length + ')</h3>' +
+    var _tot = 0, _con = 0;
+    admin.usuarios.forEach(function (u) { var c = Number(u.creditos) || 0; _tot += c; if (c > 0) _con++; });
+    var statsU = '<div class="adm-stats">' +
+      '<div class="adm-stat"><small>Usuarios</small><b>' + admin.usuarios.length + '</b></div>' +
+      '<div class="adm-stat acc"><small>Saldo total</small><b>S/ ' + esc((_tot % 1 ? (Math.round(_tot * 100) / 100).toFixed(2) : _tot)) + '</b></div>' +
+      '<div class="adm-stat"><small>Con saldo</small><b>' + _con + '</b></div></div>';
+    return subtabs + statsU + '<div class="grp"><h3>Lista de usuarios</h3>' +
       '<div class="field"><label for="u-buscar">Buscar</label><input id="u-buscar" placeholder="Nombre, Steam, correo o WhatsApp" value="' + esc(admin.uFiltro) + '"></div>' +
       (admin.uMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.uMsg) + '</p>' : '') +
       '<div class="ulist">' + (lista.length ? lista.map(function (u) {
         var id = esc(u.uid), ab = admin.uAbierto === u.uid;
-        var cab = '<button type="button" class="urow-h" data-a="uAbrir" data-uid="' + id + '" aria-expanded="' + ab + '">' + avatarUsuario(u) + '<b>' + esc(u.nombre || "(sin nombre)") + '</b><span class="usal">S/ ' + esc(u.creditos) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
+        var cab = '<button type="button" class="urow-h" data-a="uAbrir" data-uid="' + id + '" aria-expanded="' + ab + '">' + avatarUsuario(u) + '<b>' + esc(u.nombre || "(sin nombre)") + '</b><span class="usal' + ((Number(u.creditos) || 0) > 0 ? '' : ' cero') + '">S/ ' + esc(u.creditos) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
         if (!ab) return '<div class="urow compact">' + cab + '</div>';
         return '<div class="urow open">' + cab + '<div class="t"><span>WhatsApp: ' + esc(u.whatsapp) + '</span><span>' + esc(u.email) + '</span>' +
           (tradeValido(u.tradelink) ? '<span><a href="' + esc(u.tradelink) + '" target="_blank" rel="noopener">Abrir trade link ↗</a></span>' : '<span style="color:var(--fuchsia)">Sin trade link</span>') + '</div>' +
@@ -2997,7 +3003,7 @@
       '<button class="btn btn-ghost btn-sm" type="button" data-a="pedRecargar">Actualizar lista</button></div>';
   }
 
-  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "Premios", usuarios: "Usuarios y saldo", items: "Items", compras: "Compras", pedidos: "🛒 Pedidos", pagina: "Textos y contactos", pub: "🖼 Publicaciones" };
+  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "🎟 Premios", usuarios: "👥 Usuarios y saldo", items: "🧩 Items", compras: "📥 Compras", pedidos: "🛒 Pedidos", pagina: "📝 Textos y contactos", pub: "🖼 Publicaciones" };
   function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : v === "sets" ? "sets" : "inicio"; }
   function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios", "pub"] : ["config", "usuarios", "pagina", "pub"]; }
   function panelAdmin() {
@@ -3006,13 +3012,13 @@
     var nomSc = sc === "rifas" ? "Rifas" : sc === "items" ? "Compra y venta de items" : sc === "sets" ? "Sets Caché" : "General";
     var titulo = admin.editando ? (admin.editando.nuevo ? "Nuevo premio" : "Editar premio") : "Panel admin · " + nomSc;
     var cuerpo;
-    if (admin.editando) cuerpo = formPremio();
+    if (admin.editando) cuerpo = '<div class="drawer-cnt">' + formPremio() + '</div>';
     else cuerpo = '<div class="tabs" role="tablist">' +
       lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
-      '</div>' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "pedidos" ? tabPedidos() : listaPremios()))));
-    return '<aside class="drawer" role="dialog" aria-label="Panel de administración">' +
-      '<div class="drawer-head"><h2>' + titulo + '</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" type="button" data-a="salir" title="Cerrar la sesión de administrador" style="color:var(--danger,#ff7a7a)">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
-      '<div class="drawer-body">' + cuerpo + '</div>' +
+      '</div><div class="drawer-cnt">' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "pedidos" ? tabPedidos() : listaPremios())))) + '</div>';
+    return '<aside class="drawer adm" role="dialog" aria-label="Panel de administración">' +
+      '<div class="drawer-head"><h2>' + titulo + '</h2><div class="drawer-acts"><button class="btn btn-ghost btn-sm peligro" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
+      '<div class="drawer-body' + (admin.editando ? '' : ' rail') + '">' + cuerpo + '</div>' +
       (admin.editando || sc === "sets" ? '' :
         '<div class="drawer-foot">' +
         '<button class="btn btn-fuchsia" type="button" data-a="publicar"' + (sucio ? '' : ' disabled') + '>Guardar y publicar</button>' +
