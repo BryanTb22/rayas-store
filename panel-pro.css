@@ -313,3 +313,36 @@
   #app .drawer.adm .urow-h:has(.rec-est) b { flex: 1 1 calc(100% - 30px); white-space: normal; }
   #app .drawer.adm .urow-h .rec-est { order: 3; margin-left: 0; }
 }
+
+/* ============ Ventas ============ */
+#app .drawer.adm .ven-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+#app .drawer.adm .ven-stats .adm-stat b { font-size: 18px; }
+#app .drawer.adm .ven-var { font-style: normal; font-size: 11px; font-weight: 700; }
+#app .drawer.adm .ven-var.sube { color: var(--pp-ok); } #app .drawer.adm .ven-var.baja { color: var(--pp-bad); }
+#app .drawer.adm .ven-chart { display: flex; align-items: stretch; gap: 3px; height: 170px; padding: 6px 2px 0; }
+#app .drawer.adm .ven-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; position: relative; }
+#app .drawer.adm .ven-bar { width: 100%; max-width: 34px; border-radius: 5px 5px 2px 2px; background: linear-gradient(180deg, var(--pp-acc), color-mix(in srgb, var(--pp-acc) 55%, transparent)); transition: opacity .15s; }
+#app .drawer.adm .ven-bar.cero { background: var(--pp-line2); }
+#app .drawer.adm .ven-col:hover .ven-bar { opacity: .8; }
+#app .drawer.adm .ven-val { font-size: 10px; font-weight: 700; color: var(--pp-tx); white-space: nowrap; min-height: 12px; }
+#app .drawer.adm .ven-dia { font-size: 10px; color: var(--pp-dim); white-space: nowrap; min-height: 12px; }
+#app .drawer.adm .ven-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+#app .drawer.adm .ven-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--pp-line); }
+#app .drawer.adm .ven-row:last-child { border-bottom: 0; }
+#app .drawer.adm .ven-row > b { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#app .drawer.adm .ven-n { width: 22px; height: 22px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; background: var(--pp-acc-soft); color: var(--pp-acc); }
+#app .drawer.adm .ven-cli { display: grid; min-width: 0; } #app .drawer.adm .ven-cli small { color: var(--pp-dim); }
+#app .drawer.adm .ven-row .ped-it { min-width: 0; flex: 1 1 auto; }
+#app .drawer.adm .ven-row .ped-ln { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 900px) { #app .drawer.adm .ven-dos { grid-template-columns: 1fr; } }
+@media (max-width: 560px) {
+  #app .drawer.adm .ven-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #app .drawer.adm .ven-stats .adm-stat:first-child { grid-column: 1 / -1; }
+  #app .drawer.adm .ven-val { display: none; }
+  #app .drawer.adm .ven-chart { height: 130px; gap: 2px; }
+}
+/* Ventas: ajuste de ancho (el panel deja ~500 px para el contenido) */
+#app .drawer.adm .ven-stats { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+#app .drawer.adm .ven-stats .adm-stat small { white-space: normal; }
+#app .drawer.adm .ven-dos { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 560px) { #app .drawer.adm .ven-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
