@@ -2943,7 +2943,57 @@
     return { id: d.name.split("/").pop(), code: sv("code") || d.name.split("/").pop(), cliente: sv("customerName"), steam: sv("steamId"), email: sv("email"), tradelink: sv("tradelink"),
       whatsapp: sv("phone"), uid: sv("uid"), correoAdmin: !!(f.correoAdmin && f.correoAdmin.booleanValue), correoCliente: !!(f.correoCliente && f.correoCliente.booleanValue), correoError: sv("correoError"), estado: sv("status") || "pagado", tienda: sv("tienda"), total: nv("total"), creditos: nv("creditos"), items: its,
       fecha: f.createdAt && f.createdAt.timestampValue ? new Date(f.createdAt.timestampValue) : null, entregaDesde: f.entregaDesde && f.entregaDesde.timestampValue || "", liberadoEn: f.liberadoEn && f.liberadoEn.timestampValue || "",
-      correoLiberadoAdmin: !!(f.correoLiberadoAdmin && f.correoLiberadoAdmin.booleanValue), correoLiberadoCliente: !!(f.correoLiberadoCliente && f.correoLiberadoCliente.booleanValue) };
+      correoLiberadoAdmin: !!(f.correoLiberadoAdmin && f.correoLiberadoAdmin.booleanValue), correoLiberadoCliente: !!(f.correoLiberadoCliente && f.correoLiberadoCliente.booleanValue), bot: leerBot(f.bot) };
+  }
+  /* ---- Bot de Steam (entrega automática, solo lo que apruebas) ---- */
+  var BOT_EST = { aprobado: "⏳ En cola del bot", enviando: "📤 Enviando oferta…", enviada: "📨 Oferta enviada", aceptada: "✅ Aceptada por el cliente", fallida: "✖ El bot no pudo", retenida: "⏸ Retenida por Steam", cancelar: "🚫 Cancelando…", cancelada: "🚫 Cancelada" };
+  function leerBot(v) {
+    var m = v && v.mapValue && v.mapValue.fields; if (!m) return null;
+    var sv = function (k) { return m[k] && m[k].stringValue || ""; };
+    return { estado: sv("estado"), motivo: sv("motivo"), ofertaId: sv("ofertaId") };
+  }
+  function botVivo(p) { return !!(p.bot && /^(aprobado|enviando|enviada|cancelar|retenida)$/.test(p.bot.estado)); }
+  function cargarBotEstado() {
+    if (admin.cargandoBot) return; admin.cargandoBot = true;
+    fsPedir("bot_estado/steam").then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(function (d) {
+      var f = d.fields || {}, t = f.ultimaVez && f.ultimaVez.timestampValue ? new Date(f.ultimaVez.timestampValue).getTime() : 0;
+      admin.botEst = { enLinea: !!(f.enLinea && f.enLinea.booleanValue) && Date.now() - t < 3 * 60000, hace: t, items: Number(f.items && f.items.integerValue || -1), aviso: f.aviso && f.aviso.stringValue || "" };
+    }).catch(function () { admin.botEst = { enLinea: false, hace: 0, items: -1, aviso: "", nunca: true }; })
+      .then(function () { admin.cargandoBot = false; render(); });
+  }
+  function botLineaHtml() {
+    if (!admin.botEst) { cargarBotEstado(); return '<p class="hint">🤖 Revisando el bot…</p>'; }
+    var b = admin.botEst;
+    if (b.enLinea) return '<p class="hint">🟢 <b style="display:inline">Bot de Steam en línea</b>' + (b.items >= 0 ? ' · ' + b.items + ' items para entregar' : '') + (b.aviso ? '<br><span style="color:var(--fuchsia)">' + esc(b.aviso) + '</span>' : '') + '</p>';
+    return '<p class="hint">🔴 <b style="display:inline">Bot de Steam apagado</b>' + (b.hace ? ' (última señal: ' + esc(fechaHora(b.hace)) + ')' : b.nunca ? ' (todavía no se ha conectado)' : '') + '. Puedes aprobar envíos igual: saldrán cuando se prenda.</p>';
+  }
+  function botPedidoHtml(p) {
+    if (p.estado !== "pagado" && !(p.bot && p.bot.estado)) return "";
+    var b = p.bot || {}, est = b.estado || "", h = '<div class="field"><label>🤖 Bot de Steam</label>';
+    if (est) h += '<p class="hint"><b style="display:inline">' + esc(BOT_EST[est] || est) + '</b>' + (b.ofertaId ? ' · oferta #' + esc(b.ofertaId) : '') + (b.motivo ? '<br>' + esc(b.motivo) : '') + '</p>';
+    var puedeEnviar = p.estado === "pagado" && (!est || est === "fallida" || est === "cancelada");
+    if (puedeEnviar) h += tradeValido(p.tradelink) ? '<button type="button" class="btn btn-yellow btn-sm" data-a="botEnviar" data-id="' + esc(p.id) + '">' + (est ? "🔁 Reintentar con el bot" : "🤖 Enviar con el bot") + '</button><p class="hint">El bot le manda la oferta a su trade link y, cuando acepte, el pedido pasa solo a Entregado.</p>' : '<p class="hint" style="color:var(--fuchsia)">Para usar el bot, el cliente necesita un trade link válido.</p>';
+    if (est === "aprobado" || est === "enviada") h += '<button type="button" class="btn btn-ghost btn-sm" data-a="botCancelar" data-id="' + esc(p.id) + '">' + (est === "enviada" ? "Cancelar la oferta" : "Sacar de la cola") + '</button>';
+    return h + '</div>';
+  }
+  function botAccion(id, accion) {
+    var p = (admin.pedidos || []).filter(function (x) { return x.id === id; })[0]; if (!p) return;
+    var antes = p.bot, campos = { estado: { stringValue: accion }, motivo: { stringValue: accion === "aprobado" ? "Aprobado desde el panel." : "Cancelación pedida desde el panel." } };
+    var mask = ["bot.estado", "bot.motivo"];
+    if (accion === "aprobado") { campos.aprobadoEn = { timestampValue: new Date().toISOString() }; mask.push("bot.aprobadoEn", "bot.ofertaId", "bot.assetids"); }
+    p.bot = { estado: accion, motivo: campos.motivo.stringValue, ofertaId: accion === "aprobado" ? "" : (antes && antes.ofertaId) || "" }; render();
+    fsPedir("orders/" + encodeURIComponent(id) + "?" + mask.map(function (m) { return "updateMask.fieldPaths=" + encodeURIComponent(m); }).join("&"), {
+      method: "PATCH", body: JSON.stringify({ fields: { bot: { mapValue: { fields: campos } } } })
+    }).then(function (r) { if (!r.ok) throw new Error("Error " + r.status); vigilarBot(); })
+      .catch(function (e) { p.bot = antes; admin.pedMsg = "No se guardó: " + e.message; render(); });
+  }
+  // Mientras haya envíos en curso, refresca la lista cada 10 s para ver cómo avanzan.
+  function vigilarBot() {
+    clearTimeout(admin.botTimer);
+    admin.botTimer = setTimeout(function () {
+      if (!admin.abierto || admin.tab !== "pedidos" || !(admin.pedidos || []).some(botVivo)) return;
+      admin.botEst = null; cargarPedidos(); vigilarBot();
+    }, 10000);
   }
   function cargarPedidos() {
     admin.pedMsg = "Cargando…"; admin.pedCargando = true;
@@ -2956,6 +3006,7 @@
           .filter(function (p) { return p.tienda !== "litlejacob"; })
           .sort(function (a, b) { return (b.fecha || 0) - (a.fecha || 0); });
         admin.pedMsg = ""; admin.pedCargando = false; render();
+        if (admin.pedidos.some(botVivo)) vigilarBot();
       }).catch(function (e) { admin.pedidos = []; admin.pedMsg = e.message; admin.pedCargando = false; render(); });
   }
   function cambiarEstadoPedido(id, estado) {
@@ -3014,11 +3065,11 @@
     if (fb) lista = lista.filter(function (p) { return ((p.cliente || "") + " " + p.code + " " + (p.steam || "") + " " + (p.whatsapp || "") + " " + p.items.map(function (i) { return i.nombre; }).join(" ")).toLowerCase().indexOf(fb) >= 0; });
     return '<div class="subtabs" role="tablist">' + chips + '</div><div class="grp"><h3>Pedidos de items (' + lista.length + ')</h3>' +
       '<div class="field"><label for="ped-buscar">Buscar</label><input id="ped-buscar" placeholder="Cliente, código, item, Steam o WhatsApp" value="' + esc(admin.pedBusca || "") + '" autocomplete="off"></div>' +
-      (admin.pedMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.pedMsg) + '</p>' : '') +
+      botLineaHtml() + (admin.pedMsg ? '<p class="hint" style="color:var(--danger)">' + esc(admin.pedMsg) + '</p>' : '') +
       '<div class="ulist">' + (lista.length ? lista.map(function (p) {
         var ab = admin.pedAbierto === p.id, n = p.items.reduce(function (a, i) { return a + i.qty; }, 0);
         var estTx = (PED_ESTADOS.filter(function (e) { return e[0] === p.estado; })[0] || [0, p.estado])[1];
-        var cab = '<button type="button" class="urow-h" data-a="pedAbrir" data-id="' + esc(p.id) + '" aria-expanded="' + ab + '"><b>' + esc(p.cliente || "Sin nombre") + ' · ' + n + (n === 1 ? ' item' : ' items') + (p.estado === "cooldown" ? ' <small class="pedcd">🔒 entregar el ' + esc(cdFechaCorta({ cooldownHasta: p.entregaDesde })) + '</small>' : '') + '</b><small class="ped-est e-' + esc(p.estado) + '">' + esc(estTx) + '</small><span class="usal">' + fmtPrecio(p.total) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
+        var cab = '<button type="button" class="urow-h" data-a="pedAbrir" data-id="' + esc(p.id) + '" aria-expanded="' + ab + '"><b>' + esc(p.cliente || "Sin nombre") + ' · ' + n + (n === 1 ? ' item' : ' items') + (p.estado === "cooldown" ? ' <small class="pedcd">🔒 entregar el ' + esc(cdFechaCorta({ cooldownHasta: p.entregaDesde })) + '</small>' : '') + '</b><small class="ped-est e-' + esc(p.estado) + '">' + esc(estTx) + (p.bot && p.bot.estado ? ' · ' + esc((BOT_EST[p.bot.estado] || "").split(" ")[0]) : '') + '</small><span class="usal">' + fmtPrecio(p.total) + '</span><i>' + (ab ? "▴" : "▾") + '</i></button>';
         if (!ab) return '<div class="urow compact">' + cab + '</div>';
         return '<div class="urow open">' + cab + '<div class="t"><span>Pedido <b style="display:inline">' + esc(p.code) + '</b> · ' + (p.fecha ? esc(p.fecha.toLocaleString("es-PE")) : "") + '</span>' +
           p.items.map(function (i) { return '<span class="ped-row">' + pedItemHtml(i) + '<b class="ped-pr">' + fmtPrecio(i.precio * i.qty) + '</b></span>'; }).join("") +
@@ -3027,7 +3078,7 @@
           '<span>Pagado con saldo: ' + fmtPrecio(p.creditos) + '</span>' +
           (p.entregaDesde ? '<span class="pedcd-l">🔒 ' + (p.estado === "cooldown" ? 'En cooldown de Steam: <b style="display:inline">no lo entregues todavía</b>. Se libera el <b style="display:inline">' + esc(fechaEntrega(p.entregaDesde)) + '</b>' + (enCooldown({ cooldownHasta: p.entregaDesde }) ? ' (faltan ' + esc(cdRestante({ cooldownHasta: p.entregaDesde })) + ')' : ' (ya pasó: en la próxima hora pasa solo a Por entregar)') : 'Estuvo en cooldown hasta el ' + esc(fechaEntrega(p.entregaDesde)) + (p.liberadoEn ? ' · liberado y avisado por correo' : '')) + '</span>' : '') +
           '<span>✉ Correo a ti: ' + (p.correoAdmin ? '✔ enviado' : '✖ no enviado') + ' · Correo al cliente: ' + (p.correoCliente ? '✔ enviado' : '✖ no enviado') + (p.liberadoEn ? ' · Aviso de liberación: ' + (p.correoLiberadoAdmin ? '✔ a ti' : '✖ a ti') + ' / ' + (p.correoLiberadoCliente ? '✔ al cliente' : '✖ al cliente') : '') + '</span>' +
-          (p.correoError ? '<span style="color:var(--danger)">Motivo: ' + esc(p.correoError) + '</span>' : '') + '</div>' + historialPedidosHtml(p) +
+          (p.correoError ? '<span style="color:var(--danger)">Motivo: ' + esc(p.correoError) + '</span>' : '') + '</div>' + botPedidoHtml(p) + historialPedidosHtml(p) +
           '<div class="field"><label>Estado</label><select data-a="pedEstado" data-id="' + esc(p.id) + '">' + PED_ESTADOS.map(function (e) { return '<option value="' + e[0] + '"' + (p.estado === e[0] ? ' selected' : '') + '>' + e[1] + '</option>'; }).join("") + '</select></div>' +
           (p.estado === "cancelado" ? '<p class="hint">Cancelar no devuelve el saldo solo: súmalo en Usuarios y saldo.</p>' : '') + (p.estado === "cooldown" ? '<p class="hint">Cuando el item se libere, el pedido pasa solo a <b>Por entregar</b> y les llega un correo a ti y al cliente.</p>' : '') + '</div>';
       }).join("") : '<p class="hint">No hay pedidos aquí. Cuando alguien compre un item aparecerá y te llegará un correo.</p>') + '</div>' +
@@ -3631,7 +3682,9 @@
       case "cred": var uu = (admin.usuarios || []).filter(function (x) { return x.uid === t.getAttribute("data-uid"); })[0]; if (uu && !uu.guardando) guardarCreditos(uu.uid, uu.creditos + Number(t.getAttribute("data-d"))); break;
       case "pedAbrir": var pid = t.getAttribute("data-id"); admin.pedAbierto = admin.pedAbierto === pid ? null : pid; render(); break;
       case "pedFiltro": admin.pedFiltro = t.getAttribute("data-f"); render(); break;
-      case "pedRecargar": admin.pedidos = null; render(); break;
+      case "pedRecargar": admin.pedidos = null; admin.botEst = null; render(); break;
+      case "botEnviar": botAccion(t.getAttribute("data-id"), "aprobado"); break;
+      case "botCancelar": botAccion(t.getAttribute("data-id"), "cancelar"); break;
       case "recargarU": admin.usuarios = null; render(); break;
       case "cerrar": leerForm(); quitarHash(); admin.abierto = false; admin.editando = null; render(); break;
       case "tab": admin.tab = t.getAttribute("data-t"); render(); break;
