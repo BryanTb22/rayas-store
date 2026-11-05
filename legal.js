@@ -35,11 +35,22 @@
   function dato(v) { return v ? esc(v) : '<span class="lg-pend">(por completar)</span>'; }
   function cargarCss() {
     if (document.querySelector('link[href^="legal.css"]')) return;
-    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "legal.css?v=3"; document.head.appendChild(l);
+    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "legal.css?v=4"; document.head.appendChild(l);
   }
   function tel() { return D.telefonos.map(function (p) { return '<a href="tel:+' + esc(p.n) + '">' + esc(p.t) + '</a>'; }).join(" · "); }
   function correoHtml() { return D.correo ? '<a href="mailto:' + esc(D.correo) + '">' + esc(D.correo) + '</a>' : '<span class="lg-pend">(por completar)</span>'; }
   var LIBRO_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/><path d="M9 8h6M9 12h6"/></svg>';
+
+  /* columna "Servicios digitales" del pie (datos en servicios.js; si no está cargado, enlaces fijos) */
+  function serviciosCol() {
+    var S = window.serviciosDig, num = S ? S.datos.wa : "51952997030", web = S ? S.datos.web : "https://studio.litlejacob.trade";
+    function w(m) { return "https://wa.me/" + num + "?text=" + encodeURIComponent("Hola, vi en " + D.nombre + " que " + m + ". Quiero información."); }
+    return '<div><h4>Servicios digitales</h4><ul>' +
+      '<li><a href="' + esc(w("hacen páginas web")) + '" target="_blank" rel="noopener">Creación de páginas web</a></li>' +
+      '<li><a href="' + esc(w("configuran mensajes automáticos por WhatsApp")) + '" target="_blank" rel="noopener">Mensajes automáticos por WhatsApp</a></li>' +
+      '<li><a href="' + esc(w("hacen publicidad en redes sociales")) + '" target="_blank" rel="noopener">Publicidad en tus redes sociales</a></li>' +
+      '<li><a href="' + esc(web) + '" target="_blank" rel="noopener">Ver trabajos →</a></li></ul></div>';
+  }
 
   /* ===== pie de página ===== */
   function pie() {
@@ -51,6 +62,7 @@
         '<div><h4>Contacto</h4><p>📞 ' + tel() + '</p><p>📧 ' + correoHtml() + '</p><p>🏠 ' + dato(D.direccion) + '</p></div>' +
         '<div><h4>Información legal</h4><ul><li><a href="terminos.html">Términos y Condiciones</a></li><li><a href="devoluciones.html">Política de cambios y devoluciones</a></li>' +
           '<li><a class="lg-libro" href="reclamaciones.html">' + LIBRO_SVG + ' Libro de Reclamaciones</a></li></ul></div>' +
+        serviciosCol() +
       '</div>' +
       '<div class="lg-foot-b"><span>© ' + new Date().getFullYear() + ' ' + esc(D.nombre) + (D.ruc ? ' · RUC ' + esc(D.ruc) : '') + '</span><span>Pagos seguros con Culqi · Dota 2 y Steam son marcas de Valve Corporation; esta tienda no está afiliada a Valve.</span></div>';
     document.body.appendChild(f);

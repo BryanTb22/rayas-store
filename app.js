@@ -2528,7 +2528,7 @@
           return '<a class="svc frame' + (estado.secciones.items ? ' gold' : '') + '" href="#' + v + '"><div class="in">' + (estado.secciones.items ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">' + (c ? '🛒' : '💰') + '</span><h3>' + (c ? 'Comprar items' : 'Vender items') + '</h3><p>' + (c ? 'Compra items de Dota 2 de forma segura.' : 'Vende tus items de Dota 2 de forma segura.') + '</p><span class="btn btn-fuchsia">' + (c ? 'Ver items' : 'Vender') + '</span></div></a>';
         }).join("") : '') +
         (setsVisible() ? '<a class="svc frame' + (setsOn() ? ' gold' : '') + '" href="#sets"><div class="in">' + (setsOn() ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">🎁</span><h3>Sets Caché</h3><p>Sets de cofres de Dota 2 a buen precio, con entrega por Steam.</p><span class="btn btn-yellow">Ver sets</span></div></a>' : '') +
-        '</div></div></section>' + ultimosGanadoresHtml(cerradas);
+        '</div></div></section>' + (window.serviciosDig ? window.serviciosDig.html() : '') + ultimosGanadoresHtml(cerradas);
       if (vista === "comprar") cargarItems();
       if (vista === "vender") cargarPrecios();
       var itemsHtml = vista === "comprar" ? comprarHtml() : vista === "vender" ? venderHtml() : '<section class="section gutter" id="' + vista + '"><div class="wrap">' +

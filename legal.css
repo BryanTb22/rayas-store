@@ -7,7 +7,7 @@ html[data-t="litlejacob"] { --lg-bg:#08080a; --lg-panel:#131316; --lg-raised:#1b
 /* ---------- pie de página (en todas las páginas de la tienda) ---------- */
 .lg-foot { background: var(--lg-bg); color: var(--lg-fg); border-top: 1px solid var(--lg-line); padding: 38px 16px 26px; font: 14px/1.55 "Segoe UI", system-ui, sans-serif; position: relative; z-index: 2; }
 .lg-foot *, .lg-page * { box-sizing: border-box; }
-.lg-foot-in { max-width: 1120px; margin: 0 auto; display: grid; gap: 28px; grid-template-columns: 1.3fr 1fr 1fr; }
+.lg-foot-in { max-width: 1120px; margin: 0 auto; display: grid; gap: 28px; grid-template-columns: 1.3fr 1fr 1fr 1fr; }
 .lg-foot h4 { font-family: var(--lg-hd); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-pri); margin: 0 0 12px; }
 .lg-foot p { margin: 0 0 8px; color: var(--lg-muted); }
 .lg-foot a { color: var(--lg-fg); text-decoration: none; }
@@ -19,6 +19,7 @@ html[data-t="litlejacob"] { --lg-bg:#08080a; --lg-panel:#131316; --lg-raised:#1b
 .lg-rs a { border: 1px solid var(--lg-line); border-radius: 999px; padding: 6px 14px; font-size: 13px; background: var(--lg-panel); }
 .lg-libro { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--lg-acc); border-radius: var(--lg-r); padding: 8px 14px; font-weight: 700; background: color-mix(in srgb, var(--lg-acc) 14%, transparent); }
 .lg-foot-b { max-width: 1120px; margin: 26px auto 0; padding-top: 16px; border-top: 1px solid var(--lg-line); color: var(--lg-muted); font-size: 12.5px; display: flex; gap: 8px 18px; flex-wrap: wrap; justify-content: space-between; }
+@media (max-width: 1000px) { .lg-foot-in { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 800px) { .lg-foot-in { grid-template-columns: 1fr; } }
 
 /* ---------- páginas (términos, cambios y devoluciones, reclamaciones) ---------- */
