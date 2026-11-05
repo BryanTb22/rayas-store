@@ -1,0 +1,13 @@
+/* Servicios digitales (servicios.js): las tarjetas usan las clases de cada web; aquí solo lo extra. Mismo archivo en las dos webs. */
+.svd .svd-sub { max-width: 720px; margin: 6px auto 22px; text-align: center; opacity: .82; line-height: 1.6; font-size: 15px; }
+.svd .svd-pie { text-align: center; margin: 18px 0 0; font-size: 14px; }
+.svd .svd-pie a { color: inherit; opacity: .85; text-decoration: underline; text-underline-offset: 3px; }
+.svd .svd-pie a:hover { opacity: 1; }
+.svd .svd-cards { margin-top: 0; }
+.svd .svd-cards > a { text-decoration: none; }
+/* Rayas: tres tarjetas en fila en PC */
+@media (min-width: 1000px) { .svd .cards2.svd-cards { grid-template-columns: repeat(3, 1fr); max-width: 1140px; } }
+@media (max-width: 600px) { .svd .svd-sub { font-size: 14px; margin-bottom: 16px; } }
+/* LitleJacob: mismo subtítulo con rayitas rojas que "¿Qué buscas?" */
+html body .svd .lj-sec-k { display: flex; align-items: center; justify-content: center; gap: 12px; font: 500 13px "Oswald", Impact, sans-serif; letter-spacing: .32em; text-transform: uppercase; color: #ff5a63; margin-bottom: 6px; }
+html body .svd .lj-sec-k::before, html body .svd .lj-sec-k::after { content: ""; width: 34px; height: 2px; background: #c8161f; }
