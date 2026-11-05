@@ -32,7 +32,7 @@
 <link rel="stylesheet" href="estilos.css?v=111">
 <link rel="stylesheet" href="perfil.css?v=4">
 <link rel="stylesheet" href="ancho.css?v=1">
-<link rel="stylesheet" href="sets.css?v=3">
+<link rel="stylesheet" href="sets.css?v=4">
 <link rel="stylesheet" href="previa.css?v=1">
 <link rel="stylesheet" href="panel-pro.css?v=6">
 <script>
@@ -58,7 +58,7 @@
   if (hw) {
     document.documentElement.className += " hw";
     var hojas = document.querySelectorAll('link[rel="stylesheet"]');
-    for (var i = 0; i < hojas.length; i++) { var m = /^(estilos|perfil|sets|previa)\.css/.exec(hojas[i].getAttribute("href") || ""); if (m) hojas[i].setAttribute("href", "hw-" + m[1] + ".css?v=1"); }
+    for (var i = 0; i < hojas.length; i++) { var m = /^(estilos|perfil|sets|previa)\.css/.exec(hojas[i].getAttribute("href") || ""); if (m) hojas[i].setAttribute("href", "hw-" + m[1] + ".css?v=" + (m[1] === "sets" ? 2 : 1)); }
   }
   var l = document.createElement("link"); l.rel = "stylesheet"; l.href = hw ? "hw-tema-nuevo.css?v=1" : "tema-nuevo.css?v=27"; document.head.appendChild(l);
   if (hw) { var th = document.createElement("link"); th.rel = "stylesheet"; th.href = "tema-halloween.css?v=1"; document.head.appendChild(th); }
@@ -75,7 +75,7 @@
 <script id="estado" type="application/json">{"whatsapp":"","premios":[]}</script>
 <div id="app"></div>
 <script src="fotos.js?v=2"></script>
-<script src="sets.js?v=3"></script>
+<script src="sets.js?v=4"></script>
 <script src="previa.js?v=1"></script>
 <script src="bot-panel.js?v=2"></script>
 <script src="servicios.js?v=2"></script>
