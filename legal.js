@@ -49,7 +49,9 @@
       '<li><a href="' + esc(w("hacen páginas web")) + '" target="_blank" rel="noopener">Creación de páginas web</a></li>' +
       '<li><a href="' + esc(w("configuran mensajes automáticos por WhatsApp")) + '" target="_blank" rel="noopener">Mensajes automáticos por WhatsApp</a></li>' +
       '<li><a href="' + esc(w("hacen publicidad en redes sociales")) + '" target="_blank" rel="noopener">Publicidad en tus redes sociales</a></li>' +
-      '<li><a href="' + esc(web) + '" target="_blank" rel="noopener">Ver trabajos →</a></li></ul></div>';
+      '<li><a href="' + esc(web) + '" target="_blank" rel="noopener">🌐 Mis proyectos web: ' + esc(web.replace("https://", "")) + '</a></li>' +
+      '<li><a href="https://www.tiktok.com/@litlejacob" target="_blank" rel="noopener">🎵 TikTok: @litlejacob</a></li>' +
+      '<li><a href="' + esc(w("dan servicios digitales")) + '" target="_blank" rel="noopener">💬 WhatsApp: +51 952 997 030</a></li></ul></div>';
   }
 
   /* ===== pie de página ===== */

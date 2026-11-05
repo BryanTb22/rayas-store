@@ -10,7 +10,11 @@
 
   var SERV = {
     wa: "51952997030",                      // WhatsApp de LitleJacob Studio Web
-    web: "https://studio.litlejacob.trade",  // trabajos hechos
+    waTxt: "+51 952 997 030",
+    web: "https://studio.litlejacob.trade",  // página de proyectos web (portafolio)
+    webTxt: "studio.litlejacob.trade",
+    tiktok: "https://www.tiktok.com/@litlejacob",
+    tiktokTxt: "@litlejacob",
     items: [
       { ico: "🌐", svg: '<rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M3 8h18M8 21h8M12 18v3"></path>',
         t: "Páginas web para tu negocio",
@@ -33,7 +37,17 @@
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function wa(msg) { return "https://wa.me/" + SERV.wa + "?text=" + encodeURIComponent(msg); }
   var SUB = "Además de la tienda, ayudamos a emprendedores y negocios a vender más por internet. Escríbenos y te contamos sin compromiso.";
-  var PIE = '<p class="svd-pie"><a href="' + SERV.web + '" target="_blank" rel="noopener">Ver trabajos hechos · LitleJacob Studio Web →</a></p>';
+  var IC = {
+    web: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"></path></svg>',
+    tt: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5"></path><path d="M14 3c.4 2.6 2.2 4.4 5 4.6"></path></svg>',
+    wa: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z"></path><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-1.8-1-1 .8a3.6 3.6 0 0 1-2-2l.8-1-1-1.8z"></path></svg>'
+  };
+  function chip(href, ico, k, v) { return '<a class="svd-chip" href="' + esc(href) + '" target="_blank" rel="noopener"><span class="svd-ic">' + ico + '</span><span><small>' + k + '</small><b>' + esc(v) + '</b></span></a>'; }
+  var PIE = '<div class="svd-contacto" aria-label="Contacto de LitleJacob Studio Web">' +
+    chip(SERV.web, IC.web, "Mis proyectos web", SERV.webTxt) +
+    chip(SERV.tiktok, IC.tt, "TikTok", SERV.tiktokTxt) +
+    chip(wa("Hola, vi en " + TIENDA + " sus servicios digitales. Quiero información."), IC.wa, "WhatsApp", SERV.waTxt) +
+    '</div><p class="svd-pie">LitleJacob Studio Web · mira páginas que ya hice, videos en TikTok y escríbeme sin compromiso.</p>';
 
   /* Rayas: mismas clases que "¿Qué buscas?" (toma los colores de la web y de la temporada) */
   function htmlRayas() {
@@ -62,7 +76,7 @@
 
   function cargarCss() {
     if (document.querySelector('link[href^="servicios.css"]')) return;
-    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "servicios.css?v=1"; document.head.appendChild(l);
+    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "servicios.css?v=2"; document.head.appendChild(l);
   }
 
   function pegarLJ() {
