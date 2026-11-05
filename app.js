@@ -3085,6 +3085,66 @@
       '<button class="btn btn-ghost btn-sm" type="button" data-a="pedRecargar">Actualizar lista</button></div>';
   }
 
+  // ---------- Resumen de ventas (pedidos de items de esta tienda) ----------
+  function ventasHtml(pedidos, per) {
+    var ahora = new Date(), hoy0 = new Date(ahora); hoy0.setHours(0, 0, 0, 0);
+    var dias = per === "hoy" ? 1 : per === "7" ? 7 : per === "30" ? 30 : 0;
+    var desde = dias ? new Date(hoy0.getTime() - (dias - 1) * 864e5) : null;
+    var vivos = pedidos.filter(function (p) { return p.estado !== "cancelado" && p.fecha; });
+    var enPer = vivos.filter(function (p) { return !desde || p.fecha >= desde; });
+    var total = enPer.reduce(function (a, p) { return a + (Number(p.total) || 0); }, 0);
+    var nItems = enPer.reduce(function (a, p) { return a + p.items.reduce(function (b, i) { return b + (Number(i.qty) || 1); }, 0); }, 0);
+    var porEntregar = vivos.filter(function (p) { return p.estado === "pagado" || p.estado === "cooldown"; }).length;
+    var r2 = function (n) { return Math.round(n * 100) / 100; };
+    var sol = function (n) { n = r2(n); return "S/ " + (n % 1 ? n.toFixed(2) : n); };
+    // Comparación con el periodo anterior del mismo largo
+    var comp = "";
+    if (dias) {
+      var desdeAnt = new Date(desde.getTime() - dias * 864e5);
+      var ant = vivos.filter(function (p) { return p.fecha >= desdeAnt && p.fecha < desde; }).reduce(function (a, p) { return a + (Number(p.total) || 0); }, 0);
+      if (ant > 0) { var pct = Math.round((total - ant) / ant * 100); comp = '<em class="ven-var ' + (pct >= 0 ? 'sube' : 'baja') + '">' + (pct >= 0 ? '▲ ' : '▼ ') + Math.abs(pct) + '% vs. periodo anterior</em>'; }
+      else if (total > 0) comp = '<em class="ven-var sube">▲ nuevo (antes S/ 0)</em>';
+    }
+    var chips = [["hoy", "Hoy"], ["7", "7 días"], ["30", "30 días"], ["todo", "Todo"]].map(function (c) {
+      return '<button class="subtab" type="button" role="tab" data-a="venPer" data-p="' + c[0] + '" aria-selected="' + (per === c[0]) + '">' + c[1] + '</button>';
+    }).join("");
+    var stats = '<div class="adm-stats ven-stats">' +
+      '<div class="adm-stat acc"><small>Ventas</small><b>' + sol(total) + '</b>' + comp + '</div>' +
+      '<div class="adm-stat"><small>Pedidos</small><b>' + enPer.length + '</b></div>' +
+      '<div class="adm-stat"><small>Ticket promedio</small><b>' + (enPer.length ? sol(total / enPer.length) : "—") + '</b></div>' +
+      '<div class="adm-stat"><small>Items vendidos</small><b>' + nItems + '</b></div>' +
+      '<div class="adm-stat"><small>Por entregar</small><b>' + porEntregar + '</b></div></div>';
+    // Gráfico por día
+    var nDias = dias === 1 ? 14 : (dias || 30), barras = [], max = 0;
+    for (var k = nDias - 1; k >= 0; k--) {
+      var d0 = new Date(hoy0.getTime() - k * 864e5), d1 = new Date(d0.getTime() + 864e5);
+      var v = vivos.filter(function (p) { return p.fecha >= d0 && p.fecha < d1; }).reduce(function (a, p) { return a + (Number(p.total) || 0); }, 0);
+      barras.push({ d: d0, v: r2(v) }); if (v > max) max = v;
+    }
+    var etq = function (d) { return d.toLocaleDateString("es-PE", { day: "numeric", month: "short" }); };
+    var graf = '<div class="ven-chart" role="img" aria-label="Ventas por día">' + barras.map(function (b, i) {
+      var h = max ? Math.max(2, Math.round(b.v / max * 100)) : 2;
+      return '<div class="ven-col" title="' + esc(etq(b.d) + ': ' + sol(b.v)) + '"><span class="ven-val">' + (b.v && (nDias <= 14 || b.v === r2(max)) ? esc(sol(b.v)) : '') + '</span><span class="ven-bar' + (b.v ? '' : ' cero') + '" style="height:' + h + '%"></span><span class="ven-dia">' + (i === 0 || i === barras.length - 1 || i === Math.floor(barras.length / 2) || nDias <= 7 ? esc(etq(b.d)) : '') + '</span></div>';
+    }).join("") + '</div>';
+    // Más vendidos
+    var mapI = {};
+    enPer.forEach(function (p) { p.items.forEach(function (i) { var key = i.id || i.nombre; var o = mapI[key] || (mapI[key] = { id: i.id, nombre: i.nombre, qty: 0, ing: 0 }); o.qty += Number(i.qty) || 1; o.ing += (Number(i.precio) || 0) * (Number(i.qty) || 1); }); });
+    var topI = Object.keys(mapI).map(function (k) { return mapI[k]; }).sort(function (a, b) { return b.ing - a.ing || b.qty - a.qty; }).slice(0, 5);
+    var listaI = topI.length ? topI.map(function (o, n) { return '<div class="ven-row"><span class="ven-n">' + (n + 1) + '</span>' + pedItemHtml({ id: o.id, nombre: o.nombre, qty: o.qty }, true) + '<b>' + sol(o.ing) + '</b></div>'; }).join("") : '<p class="hint">Sin ventas en este periodo.</p>';
+    // Mejores clientes
+    var mapC = {};
+    enPer.forEach(function (p) { var key = p.uid || (p.cliente || "").toLowerCase(); var o = mapC[key] || (mapC[key] = { uid: p.uid, nombre: p.cliente || "Sin nombre", n: 0, tot: 0 }); o.n++; o.tot += Number(p.total) || 0; });
+    var topC = Object.keys(mapC).map(function (k) { return mapC[k]; }).sort(function (a, b) { return b.tot - a.tot; }).slice(0, 5);
+    var listaC = topC.length ? topC.map(function (o, n) { return '<div class="ven-row"><span class="ven-n">' + (n + 1) + '</span><span class="ven-cli"><b>' + esc(o.nombre) + '</b><small>' + o.n + (o.n === 1 ? ' compra' : ' compras') + '</small></span><b>' + sol(o.tot) + '</b>' + (o.uid ? '<button class="iconbtn" type="button" data-a="informe" data-uid="' + esc(o.uid) + '" title="Informe de compras">🧾</button>' : '') + '</div>'; }).join("") : '<p class="hint">Sin ventas en este periodo.</p>';
+    return '<div class="subtabs" role="tablist">' + chips + '</div>' + stats +
+      '<div class="grp"><h3>Ventas por día</h3>' + graf + '<p class="hint">Solo pedidos de items de esta tienda (sin cancelados). Pasa el mouse o toca una barra para ver el monto.</p></div>' +
+      '<div class="ven-dos"><div class="grp"><h3>🏆 Más vendidos</h3>' + listaI + '</div><div class="grp"><h3>⭐ Mejores clientes</h3>' + listaC + '</div></div>';
+  }
+  function tabVentas() {
+    if (!items.cargado && !items.cargando) cargarItems();
+    if (admin.pedidos === null || admin.pedidos === undefined) { if (!admin.pedCargando) cargarPedidos(); return '<p class="hint">Cargando ventas…</p>'; }
+    return ventasHtml(admin.pedidos, admin.venPer || "30");
+  }
   // ---------- Libro de Reclamaciones: lista para el admin ----------
   function recLeer(doc) {
     var f = doc.fields || {}, g = function (k) { var v = f[k]; if (!v) return ""; return v.stringValue !== undefined ? v.stringValue : v.timestampValue !== undefined ? v.timestampValue : v.booleanValue !== undefined ? v.booleanValue : v.integerValue !== undefined ? v.integerValue : v.doubleValue !== undefined ? v.doubleValue : ""; };
@@ -3181,9 +3241,9 @@
       '<div class="ulist">' + (filas || '<p class="hint">' + (fl === "pendiente" ? "🎉 No hay reclamos pendientes." : "No hay reclamos aquí.") + '</p>') + '</div>' +
       '<div class="fbtns"><button class="btn btn-ghost btn-sm" type="button" data-a="recRecargar">↻ Actualizar</button></div></div>';
   }
-  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "🎟 Premios", usuarios: "👥 Usuarios y saldo", items: "🧩 Items", compras: "📥 Compras", pedidos: "🛒 Pedidos", pagina: "📝 Textos y contactos", pub: "🖼 Publicaciones", reclamos: "📕 Reclamos" };
+  var TABS_ADMIN = { setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "🎟 Premios", usuarios: "👥 Usuarios y saldo", items: "🧩 Items", compras: "📥 Compras", pedidos: "🛒 Pedidos", pagina: "📝 Textos y contactos", pub: "🖼 Publicaciones", reclamos: "📕 Reclamos", ventas: "📊 Ventas" };
   function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : v === "sets" ? "sets" : "inicio"; }
-  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina", "reclamos"] : sc === "items" ? ["config", "items", "pedidos", "compras", "usuarios", "pub", "reclamos"] : ["config", "usuarios", "pagina", "pub", "reclamos"]; }
+  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina", "reclamos"] : sc === "items" ? ["config", "ventas", "items", "pedidos", "compras", "usuarios", "pub", "reclamos"] : ["config", "ventas", "usuarios", "pagina", "pub", "reclamos"]; }
   function panelAdmin() {
     var sc = seccionAdmin(), lista = tabsDeSeccion(sc);
     if (lista.indexOf(admin.tab) < 0) admin.tab = lista[0];
@@ -3193,7 +3253,7 @@
     if (admin.editando) cuerpo = '<div class="drawer-cnt">' + formPremio() + '</div>';
     else cuerpo = '<div class="tabs" role="tablist">' +
       lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
-      '</div><div class="drawer-cnt">' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "pedidos" ? tabPedidos() : admin.tab === "reclamos" ? tabReclamos() : listaPremios())))) + '</div>';
+      '</div><div class="drawer-cnt">' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "pedidos" ? tabPedidos() : admin.tab === "reclamos" ? tabReclamos() : admin.tab === "ventas" ? tabVentas() : listaPremios())))) + '</div>';
     return '<aside class="drawer adm" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><div class="drawer-acts"><button class="btn btn-ghost btn-sm peligro" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
       '<div class="drawer-body' + (admin.editando ? '' : ' rail') + '">' + cuerpo + '</div>' +
@@ -3842,6 +3902,7 @@
       case "cerrar": leerForm(); quitarHash(); admin.abierto = false; admin.editando = null; render(); break;
       case "tab": admin.tab = t.getAttribute("data-t"); render(); break;
       case "pubAbrir": abrirPub(); break;
+      case "venPer": admin.venPer = t.getAttribute("data-p"); render(); break;
       case "recFiltro": admin.recFiltro = t.getAttribute("data-f"); admin.recAbierto = null; render(); break;
       case "recAbrir": var rid = t.getAttribute("data-id"); admin.recAbierto = admin.recAbierto === rid ? null : rid; render(); break;
       case "recEstado": recCambiarEstado(t.getAttribute("data-id"), t.getAttribute("data-e")); break;
@@ -4242,7 +4303,7 @@
   }
   function irASeccion() {
     var h = String(location.hash || "").replace("#", "");
-    if (/^item\//.test(h)) { vistaActual = "comprar"; cargarItems(); render(); hidratarImgs(); window.scrollTo(0, 0); var iq = itemPorId(idItemHash()); document.title = iq ? iq.nombre + " • Rayas Store" : "Rayas Store"; return; }
+    if (/^item\//.test(h)) { vistaActual = "comprar"; cargarItems(); render(); hidratarImgs(); window.scrollTo(0, 0); var iq = itemPorId(idItemHash()); document.title = iq ? iq.nombre + " • Rayas Store" : "Rayas Store · Items, Sets y Rifas de Dota 2 en soles"; return; }
     if (/^comprar\//.test(h)) { vistaActual = "comprar"; aplicarRutaCatalogo(); cargarItems(); render(); hidratarImgs(); window.scrollTo(0, 0); return; }
     if (h === "comprar" && vistaActual === "comprar") { filtros.tipo = ""; filtros.heroe = ""; filtros.pag = 0; }
     if (!VISTA_HASH[h]) return;
@@ -4250,7 +4311,7 @@
     if (/^perfil/.test(h)) { cuenta.msg = ""; cuenta.msgTipo = ""; cuenta.claveAbierta = false; }
     render();
     if (vistaActual === "perfil") { if (antes !== "perfil") window.scrollTo(0, 0); document.title = "Mi perfil • Rayas Store"; return; }
-    if (antes === "perfil") document.title = "Rayas Store";
+    if (antes === "perfil") document.title = "Rayas Store · Items, Sets y Rifas de Dota 2 en soles";
     var el = (h === "inicio" || h === "rifas" && antes !== vistaActual) ? null : document.getElementById(h);
     if (el) el.scrollIntoView(); else if (antes !== vistaActual || h === "inicio") window.scrollTo(0, 0);
   }

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /accion.html
+
+Sitemap: https://rayas.trade/sitemap.xml
