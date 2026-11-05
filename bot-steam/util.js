@@ -95,4 +95,19 @@ function leerConfig(env) {
   };
 }
 
-module.exports = { leerTradelink, normalizar, elegirItems, estadoDeOferta, mensajeOferta, codigoDeMensaje, leerConfig, fechaPeru };
+// Agrupa el inventario por nombre para mostrarlo en el panel: [{ nombre, cantidad, icono, color, rareza }]
+function agruparInventario(items) {
+  const m = new Map();
+  for (const it of items || []) {
+    const nombre = it.market_hash_name || it.name || "Item";
+    const g = m.get(nombre) || { nombre, cantidad: 0, icono: "", color: "", rareza: "" };
+    g.cantidad++;
+    if (!g.icono && it.icon_url) g.icono = "https://community.akamai.steamstatic.com/economy/image/" + it.icon_url + "/96fx96f";
+    if (!g.color && it.name_color) g.color = "#" + String(it.name_color).replace(/[^0-9a-f]/gi, "").slice(0, 6);
+    if (!g.rareza) { const t = (it.tags || []).find((x) => /rarity/i.test(x.category || "")); if (t) g.rareza = t.name || t.localized_tag_name || ""; }
+    m.set(nombre, g);
+  }
+  return [...m.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
+module.exports = { agruparInventario, leerTradelink, normalizar, elegirItems, estadoDeOferta, mensajeOferta, codigoDeMensaje, leerConfig, fechaPeru };

@@ -51,3 +51,13 @@ test("leerConfig avisa lo que falta", () => {
   assert.throws(() => u.leerConfig({ STEAM_USUARIO: "x" }), /STEAM_CLAVE, MAFILE, FIREBASE_CREDENCIALES/);
   assert.strictEqual(u.leerConfig({ STEAM_USUARIO: "a", STEAM_CLAVE: "b", MAFILE: "c", FIREBASE_CREDENCIALES: "d" }).vencerHoras, 48);
 });
+
+test("agruparInventario suma unidades y arma el ícono", () => {
+  const g = u.agruparInventario([
+    { market_hash_name: "B", icon_url: "abc", name_color: "D2D2D2", tags: [{ category: "Rarity", name: "Mythical" }] },
+    { market_hash_name: "A" }, { market_hash_name: "B" },
+  ]);
+  assert.deepStrictEqual(g.map((x) => [x.nombre, x.cantidad]), [["A", 1], ["B", 2]]);
+  assert.match(g[1].icono, /economy\/image\/abc\//);
+  assert.strictEqual(g[1].color, "#D2D2D2"); assert.strictEqual(g[1].rareza, "Mythical");
+});

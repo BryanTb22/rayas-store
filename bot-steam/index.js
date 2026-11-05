@@ -8,6 +8,8 @@
                                      ↘ fallida / retenida / cancelada
    - Nunca envía nada que el admin no haya aprobado (modo prueba).
    - Cada minuto deja un "latido" en bot_estado/steam para que el panel sepa si está en línea.
+   - v1.1: publica su inventario (bot_estado/inventario), un registro de lo que hace (bot_log)
+     y obedece comandos del panel (bot_estado/comando): pausar, reanudar, inventario, reconectar.
    ===================================================================== */
 "use strict";
 
@@ -22,7 +24,7 @@ const SteamTotp = require("steam-totp");
 const admin = require("firebase-admin");
 const u = require("./util");
 
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 const E = TradeOfferManager.ETradeOfferState;
 const cfg = u.leerConfig(process.env);
 const mafile = JSON.parse(fs.readFileSync(path.resolve(__dirname, cfg.mafile), "utf8"));
@@ -52,8 +54,17 @@ let esperaSteam = "";         // aviso si Steam aún retiene los trades del bot
 const cola = [];              // pedidos por procesar (de a uno)
 const enCola = new Set();
 let trabajando = false;
+let pausado = false;          // el admin pausó los envíos desde el panel
+const cuenta = { limitada: null, puedeInvitar: null, bloqueada: false, saldo: null, moneda: null };
+let resumenOfertas = [];      // ofertas activas para mostrar en el panel
+let ultimoComando = "";
 
 function log(...a) { console.log(new Date().toISOString(), ...a); }
+// Registro visible en el panel (colección bot_log). tipo: info | ok | error | aviso
+function registrar(tipo, texto, extra) {
+  log("[" + tipo + "]", texto);
+  db.collection("bot_log").add(Object.assign({ t: AHORA(), tipo, texto: String(texto).slice(0, 400) }, extra || {})).catch((e) => log("No se pudo guardar el registro:", e.message));
+}
 function leerJson(f) { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { return undefined; } }
 function p(fn) { return new Promise((ok, mal) => fn((err, ...r) => (err ? mal(err) : ok(r.length > 1 ? r : r[0])))); }
 // getInventoryContents responde (err, inventario, monedas): nos quedamos solo con el inventario.
@@ -66,17 +77,23 @@ function iniciarSesion() {
   client.logOn({ accountName: cfg.usuario, password: cfg.clave, twoFactorCode: SteamTotp.generateAuthCode(mafile.shared_secret) });
 }
 client.on("steamGuard", (dominio, callback) => { callback(SteamTotp.generateAuthCode(mafile.shared_secret)); });
-client.on("loggedOn", () => { log("Conectado a Steam. SteamID:", client.steamID && client.steamID.getSteamID64()); client.setPersona(SteamUser.EPersonaState.Online); });
+client.on("loggedOn", () => { registrar("ok", "Conectado a Steam (" + cfg.usuario + ")."); client.setPersona(SteamUser.EPersonaState.Online); });
+client.on("accountLimitations", (limitada, baneada, bloqueada, puedeInvitar) => {
+  cuenta.limitada = !!limitada; cuenta.bloqueada = !!bloqueada; cuenta.puedeInvitar = !!puedeInvitar;
+  if (limitada) registrar("aviso", "Steam marca la cuenta como LIMITADA: falta gastar el equivalente a US$5.");
+});
+client.on("wallet", (tiene, moneda, saldo) => { cuenta.moneda = moneda; cuenta.saldo = typeof saldo === "number" ? saldo : null; });
 // Errores graves (contraseña mala, sesión abierta en otro lado…): reintento cada 10 min para no bloquear la cuenta.
-client.on("error", (e) => { listo = false; log("Error de Steam:", e.message, "— reintento en 10 minutos."); setTimeout(iniciarSesion, 10 * 60000); });
-client.on("disconnected", (eres, msg) => { listo = false; log("Desconectado de Steam:", msg || eres); });
+client.on("error", (e) => { listo = false; registrar("error", "Error de Steam: " + e.message + " — reintento en 10 minutos."); setTimeout(iniciarSesion, 10 * 60000); });
+client.on("disconnected", (eres, msg) => { listo = false; registrar("aviso", "Desconectado de Steam: " + (msg || eres)); });
 client.on("webSession", async (sessionID, cookies) => {
   try {
     await p((cb) => manager.setCookies(cookies, cb));
     community.setCookies(cookies);
     listo = true;
-    log("Sesión web lista: el bot puede tradear.");
+    registrar("ok", "Sesión web lista: el bot puede tradear.");
     await revisarInterrumpidos();
+    publicarInventario();
     despertar();
   } catch (e) { log("No se pudo preparar la sesión web:", e.message); }
 });
@@ -114,9 +131,9 @@ async function enviarPedido(ref) {
   });
   if (!tomado) return;
   const code = tomado.code || ref.id;
-  log("Procesando pedido", code);
+  registrar("info", "Preparando la oferta del pedido " + code + ".", { code });
 
-  const fallar = (motivo) => { log("Pedido", code, "falló:", motivo); return guardarBot(ref, { estado: "fallida", motivo }); };
+  const fallar = (motivo) => { registrar("error", "Pedido " + code + ": " + motivo, { code }); return guardarBot(ref, { estado: "fallida", motivo }); };
 
   const trade = u.leerTradelink(tomado.tradelink);
   if (!trade) return fallar("El cliente no tiene un trade link válido.");
@@ -169,7 +186,7 @@ async function enviarPedido(ref) {
     tx.update(ref, { "bot.estado": "enviada", "bot.motivo": "Esperando que el cliente acepte.", "bot.enviadaEn": AHORA(), "bot.actualizado": AHORA() });
     return "";
   });
-  log("Pedido", code, "→ oferta", oferta.id, yaResuelta ? "(estado: " + yaResuelta + ")" : "enviada.");
+  registrar("ok", "Pedido " + code + ": oferta #" + oferta.id + (yaResuelta ? " (" + yaResuelta + ")" : " enviada al cliente."), { code, ofertaId: String(oferta.id) });
 }
 
 /* ---------- cancelar una oferta pedida desde el panel ---------- */
@@ -181,6 +198,7 @@ async function cancelarPedido(ref) {
     const of = await p((cb) => manager.getOffer(d.bot.ofertaId, cb));
     if (of.state === E.Active || of.state === E.CreatedNeedsConfirmation) await p((cb) => of.cancel(cb));
     await guardarBot(ref, { estado: "cancelada", motivo: "Oferta cancelada desde el panel." });
+    registrar("info", "Pedido " + (d.code || ref.id) + ": oferta cancelada desde el panel.", { code: d.code || ref.id });
   } catch (e) { await guardarBot(ref, { estado: "enviada", motivo: "No se pudo cancelar la oferta: " + e.message }); }
 }
 
@@ -193,7 +211,8 @@ manager.on("sentOfferChanged", async (oferta, antes) => {
     const r = u.estadoDeOferta(oferta.state, E, oferta.escrowEnds);
     const pidioCancelar = d.bot && (d.bot.estado === "cancelada" || d.bot.estado === "cancelar");
     if (!r || (pidioCancelar && !r.entregado)) return;
-    log("Oferta", oferta.id, "(" + (d.code || ref.id) + "):", TradeOfferManager.ETradeOfferState[antes], "→", TradeOfferManager.ETradeOfferState[oferta.state]);
+    registrar(r.entregado ? "ok" : r.estado === "fallida" ? "error" : "info", "Pedido " + (d.code || ref.id) + ": " + r.motivo, { code: d.code || ref.id, ofertaId: String(oferta.id) });
+    if (r.entregado) publicarInventario();
     const extra = r.entregado ? { status: "entregado", updatedAt: AHORA(), entregadoPorBot: true } : {};
     await guardarBot(ref, { estado: r.estado, motivo: r.motivo }, extra);
   } catch (e) { log("Error al actualizar oferta", oferta.id, e.message); }
@@ -221,10 +240,10 @@ async function revisarInterrumpidos() {
 /* ---------- cola ---------- */
 function encolar(doc) { if (!enCola.has(doc.id)) { enCola.add(doc.id); cola.push(doc.ref); despertar(); } }
 async function despertar() {
-  if (trabajando || !listo) return;
+  if (trabajando || !listo || pausado) return;
   trabajando = true;
   try {
-    while (cola.length && listo) {
+    while (cola.length && listo && !pausado) {
       const ref = cola.shift();
       try {
         const d = (await ref.get()).data() || {};
@@ -249,24 +268,92 @@ setInterval(async () => {
   try { (await db.collection("orders").where("bot.estado", "==", "aprobado").get()).docs.forEach(encolar); } catch (e) { /* nada */ }
 }, 10 * 60 * 1000);
 
+/* ---------- inventario para el panel ---------- */
+let publicando = false;
+async function publicarInventario() {
+  if (!listo || publicando) return;
+  publicando = true;
+  try {
+    const inv = await leerInventario();
+    ultimoInventario = inv.length;
+    const grupos = u.agruparInventario(inv);
+    await db.doc("bot_estado/inventario").set({ items: grupos.slice(0, 400), total: inv.length, tipos: grupos.length, actualizado: AHORA() });
+  } catch (e) { registrar("error", "No se pudo leer el inventario del bot: " + e.message); }
+  finally { publicando = false; }
+}
+setInterval(publicarInventario, 15 * 60 * 1000);
+
+/* ---------- ofertas activas para el panel ---------- */
+async function leerResumenOfertas() {
+  if (!listo) return;
+  try {
+    resumenOfertas = (await ofertasActivas()).slice(0, 30).map((o) => ({
+      id: String(o.id), code: u.codigoDeMensaje(o.message), estado: TradeOfferManager.ETradeOfferState[o.state] || String(o.state),
+      da: (o.itemsToGive || []).length, recibe: (o.itemsToReceive || []).length,
+      items: (o.itemsToGive || []).concat(o.itemsToReceive || []).slice(0, 6).map((i) => i.market_hash_name || i.name || "").join(", "),
+      creada: o.created ? new Date(o.created).toISOString() : "",
+    }));
+  } catch (e) { /* se reintenta en el próximo latido */ }
+}
+
+/* ---------- comandos desde el panel (bot_estado/comando) ---------- */
+async function ejecutarComando(accion) {
+  let resultado = "";
+  if (accion === "pausar") { pausado = true; resultado = "Envíos pausados."; }
+  else if (accion === "reanudar") {
+    pausado = false; resultado = "Envíos reanudados.";
+    try { (await db.collection("orders").where("bot.estado", "in", ["aprobado", "cancelar"]).get()).docs.forEach(encolar); } catch (e) { /* nada */ }
+    despertar();
+  }
+  else if (accion === "inventario") { await publicarInventario(); await leerResumenOfertas(); resultado = "Inventario actualizado."; }
+  else if (accion === "reconectar") {
+    listo = false; resultado = "Reconectando con Steam…";
+    try { client.logOff(); } catch (e) { /* nada */ }
+    setTimeout(iniciarSesion, 5000);
+  }
+  else return "Comando desconocido: " + accion;
+  registrar("info", "Panel: " + resultado);
+  await latido();
+  return resultado;
+}
+db.doc("bot_estado/comando").onSnapshot(async (snap) => {
+  const d = snap.data() || {};
+  const id = String(d.id || "");
+  if (!d.accion || !id || id === ultimoComando) return;
+  ultimoComando = id;
+  const resultado = await ejecutarComando(String(d.accion)).catch((e) => "Error: " + e.message);
+  snap.ref.set({ accion: "", hecho: AHORA(), resultado }, { merge: true }).catch(() => {});
+}, (e) => log("No se pudo escuchar comandos:", e.message));
+
 /* ---------- latido para el panel admin ---------- */
+let vueltas = 0;
 async function latido() {
   try {
-    if (listo && ultimoInventario === null) {
-      try { ultimoInventario = (await leerInventario()).length; } catch (e) { /* nada */ }
-    }
+    if (listo && ultimoInventario === null) publicarInventario();
+    if (vueltas++ % 2 === 0) await leerResumenOfertas();
     await db.doc("bot_estado/steam").set({
       enLinea: listo, ultimaVez: AHORA(), cuenta: cfg.usuario, version: VERSION,
+      steamId: client.steamID ? client.steamID.getSteamID64() : "",
       items: ultimoInventario === null ? -1 : ultimoInventario, aviso: esperaSteam,
+      pausado, limitada: cuenta.limitada, puedeInvitar: cuenta.puedeInvitar, bloqueada: cuenta.bloqueada,
+      saldo: cuenta.saldo, moneda: cuenta.moneda, ofertas: resumenOfertas, cola: cola.length,
     }, { merge: true });
   } catch (e) { log("No se pudo guardar el latido:", e.message); }
 }
 setInterval(latido, 60000);
-setInterval(() => { ultimoInventario = null; }, 15 * 60 * 1000);
+
+// El registro guarda solo los últimos 7 días.
+setInterval(async () => {
+  try {
+    const viejos = await db.collection("bot_log").where("t", "<", new Date(Date.now() - 7 * 864e5)).limit(300).get();
+    const b = db.batch(); viejos.docs.forEach((x) => b.delete(x.ref)); if (!viejos.empty) await b.commit();
+  } catch (e) { /* nada */ }
+}, 60 * 60 * 1000);
 
 process.on("SIGTERM", async () => { listo = false; await latido(); client.logOff(); process.exit(0); });
 process.on("unhandledRejection", (e) => log("Promesa sin manejar:", e && e.message));
 
 log("Bot de Steam v" + VERSION + " arrancando…");
-iniciarSesion();
-latido();
+// Recupera la pausa si el admin la dejó puesta antes de reiniciar.
+db.doc("bot_estado/steam").get().then((s) => { pausado = !!(s.exists && s.data().pausado); if (pausado) log("Envíos en pausa (puesta desde el panel)."); })
+  .catch(() => {}).finally(() => { iniciarSesion(); latido(); });
