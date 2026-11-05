@@ -97,13 +97,76 @@
   function foto(src, extra) { var h = src && R() ? R().imgTag(src, "", extra || ' loading="lazy"') : ""; return h || '<span class="sc-sinfoto" aria-hidden="true">🎁</span>'; }
 
   /* ---------------- catálogo ---------------- */
-  var cat = { sets: [], visible: false, cargado: false, cargando: false, err: "" };
-  (function () { var g = leerLS(CAT_KEY); if (g && Array.isArray(g.sets)) { cat.sets = g.sets; cat.visible = !!g.visible; cat.cargado = true; cat.deCache = true; } })();
+  var cat = { sets: [], cuentas: [], visible: false, cargado: false, cargando: false, err: "" };
+  (function () { var g = leerLS(CAT_KEY); if (g && Array.isArray(g.sets)) { cat.sets = g.sets; cat.cuentas = Array.isArray(g.cuentas) ? g.cuentas : []; cat.visible = !!g.visible; cat.cargado = true; cat.deCache = true; } })();
+  // Reparto del stock por cuenta de Steam: porCuenta = { "<id de cuenta>": unidades }. Si un set lo tiene, su stock = la suma.
+  function normPc(pc) {
+    if (!pc || typeof pc !== "object" || Array.isArray(pc)) return null;
+    var o = {}, hay = false;
+    Object.keys(pc).forEach(function (k) { var n = Number(pc[k]); if (/^c[a-z0-9]{1,20}$/.test(k) && pc[k] !== "" && pc[k] !== null && isFinite(n)) { o[k] = Math.floor(n); hay = true; } });
+    return hay ? o : null;
+  }
+  function sumaPc(pc) { return Object.keys(pc).reduce(function (t, k) { return t + pc[k]; }, 0); }
   function normSet(x) {
     var p = x.price === null || x.price === undefined || x.price === "" || isNaN(Number(x.price)) ? null : r2(Number(x.price));
     var st = x.stock === null || x.stock === undefined || x.stock === "" || isNaN(Number(x.stock)) ? null : Math.floor(Number(x.stock));
-    return { id: Math.floor(Number(x.id)) || 0, name: String(x.name || "Set").slice(0, 80), price: p, stock: st, soldOut: !!x.soldOut || (st !== null && st <= 0),
+    var pc = normPc(x.porCuenta);
+    if (pc) st = sumaPc(pc);
+    var s = { id: Math.floor(Number(x.id)) || 0, name: String(x.name || "Set").slice(0, 80), price: p, stock: st, soldOut: !!x.soldOut || (st !== null && st <= 0),
       img: String(x.img || "").slice(0, 300), rarity: RAREZAS.indexOf(x.rarity) >= 0 ? x.rarity : "MÍTICO", hero: String(x.hero || "").slice(0, 40), styles: Math.max(0, Math.floor(Number(x.styles) || 0)) };
+    if (pc) s.porCuenta = pc;
+    return s;
+  }
+  // Cuentas de Steam desde donde se regalan los sets: { id, nick, perfil (enlace), desc (texto llamativo para el cliente) }
+  function perfilOk(v) {
+    v = String(v || "").trim(); if (!v) return "";
+    var m = /^765611\d{11}$/.exec(v); if (m) return "https://steamcommunity.com/profiles/" + v;
+    if (!/^https?:\/\//i.test(v) && /^steamcommunity\.com\//i.test(v)) v = "https://" + v;
+    var u = /^https?:\/\/(?:www\.)?steamcommunity\.com\/(id|profiles)\/([A-Za-z0-9_-]{2,64})\/?$/i.exec(v.split(/[?#]/)[0]);
+    return u ? "https://steamcommunity.com/" + u[1].toLowerCase() + "/" + u[2] + "/" : null;
+  }
+  function normCuenta(c) {
+    return { id: /^c[a-z0-9]{1,20}$/.test(c && c.id) ? c.id : "c" + Date.now().toString(36), nick: String((c && c.nick) || "Cuenta").trim().slice(0, 40) || "Cuenta",
+      perfil: perfilOk(c && c.perfil) || "", desc: String((c && c.desc) || "").trim().slice(0, 160) };
+  }
+  var FRASES = [
+    "🔥 Los sets más buscados salen directo desde {nick}",
+    "⚡ Entrega rápida desde la cuenta de {nick}: agrégala y listo",
+    "🎁 El cofre de {nick}: sets nuevos y a buen precio",
+    "👑 Colección premium de {nick}, lista para tu héroe",
+    "💎 {nick} trae los sets más top del momento",
+    "🛡 Sets garantizados desde {nick}, entrega por Steam"
+  ];
+  function descDe(c) { return c.desc || FRASES[0].replace("{nick}", c.nick); }
+  function cuentaPorId(id) { return cat.cuentas.filter(function (c) { return c.id === id; })[0] || null; }
+  function tieneCuentas(s) { return !!(s && s.porCuenta && Object.keys(s.porCuenta).length); }
+  function enCuenta(s, cid) { return s && s.porCuenta && s.porCuenta[cid] !== undefined ? s.porCuenta[cid] : null; }
+  // Suma o resta unidades a un set. Si está repartido por cuentas: se resta de la cuenta con más unidades
+  // y se suma primero a la que esté en negativo (si no, a la primera). El total queda como la suma.
+  function ajustarSet(s, delta) {
+    if (!s || !delta) return;
+    if (!tieneCuentas(s)) { s.stock = (s.stock === null ? 0 : s.stock) + delta; return; }
+    var pc = s.porCuenta, ks = Object.keys(pc), paso = delta > 0 ? 1 : -1;
+    for (var i = 0; i < Math.abs(delta); i++) {
+      var k = ks[0];
+      if (paso < 0) ks.forEach(function (x) { if (pc[x] > pc[k]) k = x; });
+      else { var neg = ks.filter(function (x) { return pc[x] < 0; }); if (neg.length) k = neg[0]; }
+      pc[k] += paso;
+    }
+    s.stock = sumaPc(pc);
+  }
+  // Chips "Nick: n" de cada cuenta (panel admin). Con donde = true se pueden tocar para ver esa cuenta en Stock.
+  function chipsCta(s, tocar) {
+    if (!tieneCuentas(s)) return "";
+    return '<span class="sc-cchips">' + cat.cuentas.filter(function (c) { return enCuenta(s, c.id) !== null; }).map(function (c) {
+      var n = s.porCuenta[c.id];
+      return (tocar ? '<button type="button" data-s="stCta" data-v="' + esc(c.id) + '"' : '<span') + ' class="sc-cchip' + (n > 0 ? '' : ' cero') + '">🎮 ' + esc(c.nick) + ': <b>' + n + '</b>' + (tocar ? '</button>' : '</span>');
+    }).join("") + '</span>';
+  }
+  function dondeHay(s) {
+    if (!tieneCuentas(s)) return "";
+    var l = Object.keys(s.porCuenta).filter(function (k) { return s.porCuenta[k] > 0 && cuentaPorId(k); }).sort(function (a, b) { return s.porCuenta[b] - s.porCuenta[a]; });
+    return l.length ? l.map(function (k) { return cuentaPorId(k).nick + " (" + s.porCuenta[k] + ")"; }).join(" · ") : "sin unidades en las cuentas";
   }
   function cargarCat(forzar) {
     if (cat.cargando || (cat.cargado && !cat.deCache && !forzar)) return Promise.resolve();
@@ -114,11 +177,12 @@
       return r.json();
     }).then(function (d) {
       var j = {}; try { j = d && d.fields && d.fields.json ? JSON.parse(d.fields.json.stringValue) : {}; } catch (e) { j = {}; }
-      var antes = JSON.stringify([cat.sets, cat.visible]);
+      var antes = JSON.stringify([cat.sets, cat.visible, cat.cuentas]);
       cat.sets = (Array.isArray(j.sets) ? j.sets : []).map(normSet).filter(function (s) { return s.id > 0; });
+      cat.cuentas = (Array.isArray(j.cuentas) ? j.cuentas : []).map(normCuenta);
       cat.visible = j.visible === true; cat.cargado = true; cat.deCache = false; cat.err = "";
-      if (!R().admin()) guardarLS(CAT_KEY, { sets: cat.sets, visible: cat.visible });
-      return antes !== JSON.stringify([cat.sets, cat.visible]);
+      if (!R().admin()) guardarLS(CAT_KEY, { sets: cat.sets, cuentas: cat.cuentas, visible: cat.visible });
+      return antes !== JSON.stringify([cat.sets, cat.visible, cat.cuentas]);
     }).catch(function (e) { cat.err = errTxt(e); cat.cargado = true; cat.deCache = false; return true; })
       .then(function (cambio) {
         cat.cargando = false;
@@ -127,8 +191,9 @@
         if (adm.tab) pintarAdmin();
       });
   }
+  function jsonCat() { return { sets: cat.sets.map(normSet), cuentas: cat.cuentas.map(normCuenta), visible: cat.visible, actualizado: new Date().toISOString() }; }
   function guardarCat(msg) {
-    var j = { sets: cat.sets.map(normSet), visible: cat.visible, actualizado: new Date().toISOString() };
+    var j = jsonCat();
     adm.msg = "Guardando…"; adm.msgTipo = ""; pintarAdmin();
     return fsPatch(DOC, { json: JSON.stringify(j), updatedAt: new Date() }).then(function () {
       adm.msg = msg || "✔ Guardado. Los clientes ya lo ven."; adm.msgTipo = "ok"; pintarAdmin(); pintarCli();
@@ -194,7 +259,7 @@
   /* =====================================================================
      VISTA DEL CLIENTE (#sets)
      ===================================================================== */
-  var cli = { q: "", rar: "" };
+  var cli = { q: "", rar: "", cuenta: "" };
   var cliEl = document.createElement("div"); cliEl.className = "sc-cli";
   function filtrados() {
     var q = sinTildes(cli.q).trim();
@@ -202,11 +267,12 @@
       return (!cli.rar || s.rarity === cli.rar) && (!q || sinTildes(s.name + " " + s.hero).indexOf(q) >= 0);
     });
   }
-  function tarjetaHtml(s) {
+  function tarjetaHtml(s, nCta) {
     var ok = disponible(s), col = colorRar(s.rarity), dentro = enCarro(s.id), adminVe = R().admin();
+    var quedan = typeof nCta === "number" ? nCta : s.stock;
     return '<article class="icard sc-card' + (ok ? '' : ' agot') + (dentro ? ' sc-in' : '') + '">' +
       '<div class="ithumb" style="--rar:' + col + '">' + foto(s.img) +
-      (ok ? (s.stock !== null && s.stock <= 3 ? '<span class="itag">Quedan ' + s.stock + '</span>' : '') : '<span class="itag agotado">Agotado</span>') +
+      (ok ? (quedan !== null && quedan <= 3 ? '<span class="itag">Quedan ' + quedan + '</span>' : '') : '<span class="itag agotado">Agotado</span>') +
       '</div>' +
       '<div class="ibody"><h4>' + esc(s.name) + '</h4>' +
       '<div class="imeta"><span style="color:' + col + '">' + esc(s.rarity) + '</span>' + (s.hero ? '<span>' + esc(nombreHeroe(s.hero)) + '</span>' : '') + (s.styles > 1 ? '<span>🎨 ' + s.styles + ' estilos</span>' : '') + '</div>' +
@@ -232,6 +298,9 @@
       '<div class="sc-rars" role="group" aria-label="Rareza">' + [""].concat(RAREZAS).map(function (r) {
         return '<button type="button" class="itab' + (cli.rar === r ? ' on' : '') + '" data-s="rar" data-v="' + esc(r) + '">' + (r ? esc(r.charAt(0) + r.slice(1).toLowerCase()) : 'Todos') + '</button>'; }).join("") + '</div>' +
       '<span class="icount sc-count"></span></div>';
+    var cs = conCuentas() ? cuentasConSets() : [];
+    if (cs.length > 1 || (cs.length && cli.cuenta)) h += '<div class="sc-ctas-nav" role="group" aria-label="Cuentas de Steam"><span>🎮 Cuentas:</span><button type="button" class="itab' + (cli.cuenta ? '' : ' on') + '" data-s="cta" data-v="">Todas</button>' +
+      cs.map(function (c) { return '<button type="button" class="itab' + (cli.cuenta === c.id ? ' on' : '') + '" data-s="cta" data-v="' + esc(c.id) + '">' + esc(c.nick) + '</button>'; }).join("") + '</div>';
     h += '<div class="sc-grid-box"></div>';
     if (t.n && !adminVe) h += '<div class="sc-cbar" role="region" aria-label="Carrito de sets"><button type="button" class="sc-cbar-in" data-s="carro"><span class="sc-cbar-n">' + t.n + '</span><span class="sc-cbar-tx"><b>' + nSets(t.n) + ' en tu carrito</b><small>' + esc(t.nivel ? t.nivel.pct + "% de descuento aplicado" + (t.sig ? " · " + (t.sig.min - t.n) + " más para " + t.sig.pct + "%" : "") : msgNivel(t)) + '</small></span><b class="sc-cbar-tot">' + mon(t.tot) + '</b><span class="btn btn-fuchsia btn-sm">Ver carrito</span></button></div>';
     cliEl.innerHTML = h;
@@ -243,11 +312,47 @@
     var cnt = cliEl.querySelector(".sc-count");
     if (!cat.cargado) { box.innerHTML = '<div class="igrid sk-grid" aria-busy="true">' + new Array(9).join('<article class="icard sk" aria-hidden="true"><div class="ithumb"></div><div class="ibody"><i class="sk-l w80"></i><i class="sk-l w50"></i><i class="sk-l w60 tall"></i></div></article>') + '</div>'; return; }
     if (cat.err && !cat.sets.length) { box.innerHTML = '<div class="empty frame"><div class="in"><strong>No se pudo cargar</strong><span>' + esc(cat.err) + '</span></div></div>'; return; }
-    var l = filtrados();
-    if (cnt) cnt.textContent = l.length + (l.length === 1 ? " set" : " sets");
-    box.innerHTML = l.length ? '<div class="igrid sc-grid">' + l.map(tarjetaHtml).join("") + '</div>'
-      : '<div class="empty frame"><div class="in"><strong>' + (cat.sets.length ? 'Ningún set coincide' : 'Pronto nuevos sets') + '</strong><span>' + (cat.sets.length ? 'Prueba con otra búsqueda.' : 'Estamos subiendo el catálogo.') + '</span></div></div>';
+    var l = filtrados(), vacio = '<div class="empty frame"><div class="in"><strong>' + (cat.sets.length ? 'Ningún set coincide' : 'Pronto nuevos sets') + '</strong><span>' + (cat.sets.length ? 'Prueba con otra búsqueda.' : 'Estamos subiendo el catálogo.') + '</span></div></div>';
+    if (cli.cuenta && !cuentaPorId(cli.cuenta)) cli.cuenta = "";
+    if (!conCuentas()) {
+      if (cnt) cnt.textContent = nSets(l.length);
+      box.innerHTML = l.length ? '<div class="igrid sc-grid">' + l.map(function (s) { return tarjetaHtml(s); }).join("") + '</div>' : vacio;
+      R().hidratar(); return;
+    }
+    var grid = function (lista, cid) { return '<div class="igrid sc-grid">' + lista.map(function (s) { return tarjetaHtml(s, cid ? enCuenta(s, cid) : undefined); }).join("") + '</div>'; };
+    var deCuenta = function (cid) { return l.filter(function (s) { return disponible(s) && enCuenta(s, cid) > 0; }); };
+    if (cli.cuenta) {   // el cliente entró a una cuenta: descripción, enlace al perfil de Steam y sus sets
+      var c = cuentaPorId(cli.cuenta), ls = deCuenta(c.id);
+      if (cnt) cnt.textContent = nSets(ls.length);
+      box.innerHTML = cabCuenta(c, ls.length, true) + (ls.length ? grid(ls, c.id) : '<div class="empty frame"><div class="in"><strong>' + (l.length ? 'Ningún set coincide en esta cuenta' : 'Esta cuenta no tiene sets ahora') + '</strong><span>Mira las otras cuentas.</span></div></div>');
+      R().hidratar(); return;
+    }
+    var h = "", vistos = {};
+    cat.cuentas.forEach(function (c) {
+      var ls = deCuenta(c.id); if (!ls.length) return;
+      ls.forEach(function (s) { vistos[s.id] = 1; });
+      h += '<section class="sc-grupo">' + cabCuenta(c, ls.length, false) + grid(ls, c.id) + '</section>';
+    });
+    var otros = l.filter(function (s) { return disponible(s) && !vistos[s.id]; }), agot = l.filter(function (s) { return !disponible(s); });
+    otros.forEach(function (s) { vistos[s.id] = 1; });
+    if (otros.length) h += '<section class="sc-grupo"><h3 class="sc-gtit">🎁 Más sets</h3>' + grid(otros) + '</section>';
+    if (agot.length) h += '<section class="sc-grupo"><h3 class="sc-gtit">Agotados</h3>' + grid(agot) + '</section>';
+    if (cnt) cnt.textContent = nSets(Object.keys(vistos).length + agot.length);
+    box.innerHTML = h || vacio;
     R().hidratar();
+  }
+  // ¿Se muestran los sets divididos por cuenta? Solo si hay cuentas y algún set repartido.
+  function conCuentas() { return cat.cuentas.length > 0 && cat.sets.some(tieneCuentas); }
+  function cuentasConSets() { return cat.cuentas.filter(function (c) { return cat.sets.some(function (s) { return disponible(s) && enCuenta(s, c.id) > 0; }); }); }
+  function cabCuenta(c, n, dentro) {
+    var ini = String(c.nick || "?").trim().charAt(0).toUpperCase() || "?";
+    return '<div class="sc-cta' + (dentro ? ' dentro' : '') + '"' + (dentro ? '' : ' data-s="cta" data-v="' + esc(c.id) + '" role="button" tabindex="0" aria-label="Ver la cuenta ' + esc(c.nick) + '"') + '>' +
+      '<span class="sc-cta-av" aria-hidden="true">' + esc(ini) + '</span>' +
+      '<span class="sc-cta-tx"><small>Cuenta de Steam · ' + nSets(n) + '</small><b>' + esc(c.nick) + '</b><em>' + esc(descDe(c)) + '</em></span>' +
+      '<span class="sc-cta-ac">' + (dentro
+        ? (c.perfil ? '<a class="btn btn-yellow btn-sm" href="' + esc(c.perfil) + '" target="_blank" rel="noopener noreferrer">🎮 Ver perfil de Steam ↗</a>' : '') + '<button type="button" class="btn btn-ghost btn-sm" data-s="cta" data-v="">← Todas las cuentas</button>'
+        : '<span class="sc-cta-ver">Ver cuenta →</span>') + '</span></div>' +
+      (dentro && c.perfil ? '<p class="sc-cta-nota">Agrega esta cuenta en Steam para recibir tus sets más rápido.</p>' : '');
   }
 
   /* ---------------- ventana (carrito, pago) ---------------- */
@@ -364,8 +469,9 @@
     return l.map(function (s) {
       var ok = disponible(s);
       return '<div class="sc-arow' + (ok ? '' : ' agot') + '"><span class="sc-ath">' + foto(s.img) + '</span>' +
-        '<span class="sc-anm"><b>' + esc(s.name) + '</b><small><i style="color:' + colorRar(s.rarity) + '">' + esc(s.rarity) + '</i>' + (s.hero ? ' · ' + esc(nombreHeroe(s.hero)) : '') + ' · ' + (s.price === null ? 'sin precio' : esc(mon(s.price))) + (ok ? '' : ' · <em class="sc-ag">Agotado</em>') + '</small></span>' +
-        '<span class="sc-ast" title="Stock"><button type="button" class="btn btn-ghost btn-sm" data-s="admStock" data-id="' + s.id + '" data-d="-1" aria-label="Quitar una unidad">−</button><b>' + (s.stock === null ? '∞' : s.stock) + '</b><button type="button" class="btn btn-ghost btn-sm" data-s="admStock" data-id="' + s.id + '" data-d="1" aria-label="Sumar una unidad">+</button></span>' +
+        '<span class="sc-anm"><b>' + esc(s.name) + '</b><small><i style="color:' + colorRar(s.rarity) + '">' + esc(s.rarity) + '</i>' + (s.hero ? ' · ' + esc(nombreHeroe(s.hero)) : '') + ' · ' + (s.price === null ? 'sin precio' : esc(mon(s.price))) + (ok ? '' : ' · <em class="sc-ag">Agotado</em>') + '</small>' + chipsCta(s) + '</span>' +
+        (tieneCuentas(s) ? '<span class="sc-ast" title="Stock total (suma de las cuentas)"><b>' + s.stock + '</b><small>total</small></span>'
+          : '<span class="sc-ast" title="Stock"><button type="button" class="btn btn-ghost btn-sm" data-s="admStock" data-id="' + s.id + '" data-d="-1" aria-label="Quitar una unidad">−</button><b>' + (s.stock === null ? '∞' : s.stock) + '</b><button type="button" class="btn btn-ghost btn-sm" data-s="admStock" data-id="' + s.id + '" data-d="1" aria-label="Sumar una unidad">+</button></span>') +
         '<span class="sc-abt"><button type="button" class="btn btn-ghost btn-sm" data-s="admEditar" data-id="' + s.id + '">✎</button>' +
         (adm.borrar === s.id ? '<button type="button" class="btn btn-sm sc-del" data-s="admBorrarSi" data-id="' + s.id + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-s="admBorrar" data-id="' + s.id + '" aria-label="Quitar">🗑</button>') + '</span></div>';
     }).join("");
@@ -377,7 +483,9 @@
       (s.img ? '<button type="button" class="btn btn-ghost btn-sm" data-s="fQuitarFoto">Quitar foto</button>' : '') + '<small class="hint sc-fst"></small></div></div>' +
       '<div class="field"><label for="sc-f-name">Nombre del set *</label><input id="sc-f-name" data-f="name" maxlength="80" value="' + esc(s.name) + '"></div>' +
       '<div class="sc-f2"><div class="field"><label for="sc-f-price">Precio (S/) *</label><input id="sc-f-price" data-f="price" type="number" min="0" step="0.01" inputmode="decimal" value="' + esc(s.priceTxt !== undefined ? s.priceTxt : s.price === null ? '' : s.price) + '"></div>' +
-      '<div class="field"><label for="sc-f-stock">Stock (vacío = sin límite)</label><input id="sc-f-stock" data-f="stock" type="number" step="1" inputmode="numeric" value="' + esc(s.stockTxt !== undefined ? s.stockTxt : s.stock === null ? '' : s.stock) + '"></div></div>' +
+      '<div class="field"><label for="sc-f-stock">' + (tieneCuentas(s) ? 'Stock total (suma de las cuentas)' : 'Stock (vacío = sin límite)') + '</label><input id="sc-f-stock" data-f="stock" type="number" step="1" inputmode="numeric" value="' + esc(s.stockTxt !== undefined ? s.stockTxt : s.stock === null ? '' : s.stock) + '"' + (tieneCuentas(s) ? ' readonly' : '') + '></div></div>' +
+      (cat.cuentas.length ? '<div class="sc-fcta"><b>🎮 Stock por cuenta de Steam</b><small>¿Cuántos tienes en cada cuenta? Vacío = no está en esa cuenta. Si llenas alguna, el stock total es la suma.</small><div class="sc-fcta-l">' +
+        cat.cuentas.map(function (c) { var v = s.pcTxt ? s.pcTxt[c.id] : enCuenta(s, c.id); return '<label class="field"><span>' + esc(c.nick) + '</span><input type="number" step="1" inputmode="numeric" data-fc="' + esc(c.id) + '" value="' + (v === null || v === undefined ? '' : esc(v)) + '" placeholder="—"></label>'; }).join("") + '</div></div>' : '') +
       '<div class="sc-f2"><div class="field"><label for="sc-f-rar">Rareza</label><select id="sc-f-rar" data-f="rarity">' + RAREZAS.map(function (r) { return '<option' + (s.rarity === r ? ' selected' : '') + '>' + r + '</option>'; }).join("") + '</select></div>' +
       '<div class="field"><label for="sc-f-styles">Estilos</label><input id="sc-f-styles" data-f="styles" type="number" min="0" max="20" step="1" inputmode="numeric" value="' + (s.styles || '') + '"></div></div>' +
       '<div class="field"><label for="sc-f-hero">Héroe (opcional)</label><input id="sc-f-hero" data-f="hero" maxlength="40" value="' + esc(nombreHeroe(s.hero)) + '"></div>' +
@@ -392,6 +500,7 @@
       f.s.priceTxt = g("price"); f.s.stockTxt = g("stock");
       f.s.rarity = g("rarity"); f.s.styles = Math.max(0, Math.floor(Number(g("styles")) || 0));
       f.s.hero = String(g("hero")).trim().slice(0, 40); f.s.soldOutMarca = !!g("soldOut");
+      if (cat.cuentas.length) { f.s.pcTxt = {}; admEl.querySelectorAll("[data-fc]").forEach(function (el) { f.s.pcTxt[el.getAttribute("data-fc")] = el.value.trim(); }); }
     }
     return f;
   }
@@ -402,7 +511,10 @@
     if (s.priceTxt === "" || !isFinite(precio) || precio <= 0) { err.textContent = "Pon un precio mayor a 0."; return; }
     var stock = s.stockTxt === "" ? null : Math.floor(Number(s.stockTxt));
     if (stock !== null && !isFinite(stock)) { err.textContent = "El stock es un número o vacío."; return; }
-    var nuevo = normSet({ id: s.id, name: s.name, price: precio, stock: stock, soldOut: s.soldOutMarca, img: s.img, rarity: s.rarity, hero: s.hero, styles: s.styles });
+    var pc = {}, malPc = false;
+    if (s.pcTxt) Object.keys(s.pcTxt).forEach(function (k) { var v = s.pcTxt[k]; if (v === "") return; var n = Math.floor(Number(v)); if (!isFinite(n)) malPc = true; else pc[k] = n; });
+    if (malPc) { err.textContent = "El stock de cada cuenta es un número o vacío."; return; }
+    var nuevo = normSet({ id: s.id, name: s.name, price: precio, stock: stock, porCuenta: pc, soldOut: s.soldOutMarca, img: s.img, rarity: s.rarity, hero: s.hero, styles: s.styles });
     var antes = cat.sets.slice();
     if (f.nuevo) cat.sets.push(nuevo); else cat.sets = cat.sets.map(function (x) { return x.id === nuevo.id ? nuevo : x; });
     adm.form = null;
@@ -422,10 +534,11 @@
   }
   function cambiarStock(id, d) {
     var s = setPorId(id); if (!s) return;
-    var antes = { stock: s.stock, soldOut: s.soldOut };
-    if (s.stock === null) { if (d < 0) return; s.stock = 1; } else s.stock = s.stock + d;
+    var antes = { stock: s.stock, soldOut: s.soldOut, pc: s.porCuenta ? Object.assign({}, s.porCuenta) : null };
+    if (tieneCuentas(s)) ajustarSet(s, d);
+    else if (s.stock === null) { if (d < 0) return; s.stock = 1; } else s.stock = s.stock + d;
     s.soldOut = s.stock <= 0 ? true : (d > 0 ? false : s.soldOut);
-    guardarCat("✔ Stock de \"" + s.name + "\": " + s.stock + ".").catch(function () { s.stock = antes.stock; s.soldOut = antes.soldOut; pintarAdmin(); });
+    guardarCat("✔ Stock de \"" + s.name + "\": " + s.stock + ".").catch(function () { s.stock = antes.stock; s.soldOut = antes.soldOut; if (antes.pc) s.porCuenta = antes.pc; pintarAdmin(); });
   }
   // Copia el catálogo publicado en litlejacob.trade (nombres, precios, stock, rareza y foto) como punto de partida.
   function importarLJ() {
@@ -644,7 +757,7 @@
       : '<div>📱 ' + (tel ? '<a href="' + esc(waEnlace(tel)) + '" target="_blank" rel="noopener noreferrer">' + esc(fmtTel(tel)) + '</a>' : 'sin WhatsApp · <button type="button" class="sc-link" data-s="telEditar">Agregar número</button>') + '</div>';
     return '<article class="sc-ocard open" data-id="' + esc(o._id) + '">' + cab + '<div class="sc-obody">' +
       '<div class="sc-ocli"><div>👤 <b>' + esc(o.customerName || "Sin nombre") + '</b>' + (o.email ? ' · ✉ ' + esc(o.email) : '') + '</div><div>' + steamHtml(o.steamId) + '</div>' + telH + '</div>' +
-      '<ul class="sc-oitems">' + (o.items || []).map(function (it) { return '<li><span class="sc-oth">' + foto(fotoItem(it)) + '</span><span>' + (it.qty > 1 ? '<b>' + it.qty + ' ×</b> ' : '') + esc(it.name) + '</span><b>' + esc(mon((Number(it.price) || 0) * (Number(it.qty) || 1))) + '</b></li>'; }).join("") + '</ul>' +
+      '<ul class="sc-oitems">' + (o.items || []).map(function (it) { var dh = dondeHay(setPorId(it.id)); return '<li><span class="sc-oth">' + foto(fotoItem(it)) + '</span><span>' + (it.qty > 1 ? '<b>' + it.qty + ' ×</b> ' : '') + esc(it.name) + (dh ? '<small class="sc-odonde">🎮 ' + esc(dh) + '</small>' : '') + '</span><b>' + esc(mon((Number(it.price) || 0) * (Number(it.qty) || 1))) + '</b></li>'; }).join("") + '</ul>' +
       '<div class="sc-otot"><span>' + esc(notas.join(" · ")) + '</span><b>' + esc(mon(o.total)) + '</b></div>' + lineaPlan(o) + amistadHtml(clave) +
       '<div class="sc-oacts"><label>Estado <select class="sc-est">' + ESTADOS.map(function (e) { return '<option value="' + e[0] + '"' + ((o.status || "pendiente") === e[0] ? ' selected' : '') + '>' + e[1] + '</option>'; }).join("") + '</select></label>' +
       (porConfirmar(o) ? '<button type="button" class="btn btn-yellow btn-sm" data-s="pReservar">✅ Confirmar reserva · descontar stock</button>' : '') +
@@ -796,7 +909,7 @@
   // Descuenta del catálogo las unidades del pedido (el stock solo baja cuando tú lo confirmas, igual que en LitleJacob).
   // Puede quedar en negativo: son sets que ya vendiste y aún debes sacar.
   function descontar(o, signo) {
-    rastreados(o).forEach(function (it) { var s = setPorId(it.id); s.stock = s.stock - signo * (Number(it.qty) || 1); s.soldOut = s.stock <= 0; });
+    rastreados(o).forEach(function (it) { var s = setPorId(it.id); ajustarSet(s, -signo * (Number(it.qty) || 1)); s.soldOut = s.stock <= 0; });
   }
   function patchPedido(o, cambios) { return fsPatch("orders/" + encodeURIComponent(o._id), cambios).then(function () { Object.assign(o, cambios); }); }
   function ok(m) { adm.msg = m; adm.msgTipo = "ok"; }
@@ -944,7 +1057,7 @@
     }).then(function () {
       P.editPed = null;
       ok("Pedido " + (o.code || o._id) + " actualizado" + (ajustar ? " y stock ajustado." : "."));
-      if (ajustar) { Object.keys(delta).forEach(function (id) { var s = setPorId(id); s.stock += delta[id]; s.soldOut = s.stock <= 0; }); return guardarCat(adm.msg); }
+      if (ajustar) { Object.keys(delta).forEach(function (id) { var s = setPorId(id); ajustarSet(s, delta[id]); s.soldOut = s.stock <= 0; }); return guardarCat(adm.msg); }
     }).then(pintarPed).catch(function (e) { ocupado(card, false); err.textContent = errTxt(e); });
   }
 
@@ -985,7 +1098,7 @@
     cadena.then(function () { if (P.fichas[clave]) return fsBorrar("customers/" + encodeURIComponent(PREF + clave)).then(function () { delete P.fichas[clave]; }); })
       .then(function () {
         ok(quien + " eliminado" + (peds.length ? " con " + (peds.length === 1 ? "su pedido" : "sus " + peds.length + " pedidos") : "") + (devolver ? " y stock devuelto." : "."));
-        if (devolver) { Object.keys(vuelta).forEach(function (id) { var s = setPorId(id); s.stock += vuelta[id]; if (s.stock > 0) s.soldOut = false; }); return guardarCat(adm.msg); }
+        if (devolver) { Object.keys(vuelta).forEach(function (id) { var s = setPorId(id); ajustarSet(s, vuelta[id]); if (s.stock > 0) s.soldOut = false; }); return guardarCat(adm.msg); }
       }).catch(function (e) { mal(e); P.cargado = false; cargarPed(); }).then(pintarPed);
   }
   function cliCompra(clave, card) {
@@ -1014,46 +1127,64 @@
   /* =====================================================================
      STOCK DE SETS (igual que "📦 Stock de sets" de LitleJacob): inventario y últimos vendidos
      ===================================================================== */
-  var S = { sub: "inv", q: "", rar: "", filtro: "all", dias: "30" };
-  function stEstado(s) {
-    if (s.stock === null) return { cls: "none", txt: "Sin registrar", key: "none" };
-    if (s.stock < 0) return { cls: "zero", txt: "Debes " + Math.abs(s.stock), key: "zero" };
-    if (s.stock === 0) return { cls: "zero", txt: "Agotado", key: "zero" };
-    if (s.stock <= 2) return { cls: "low", txt: "Pocas", key: "low" };
+  var S = { sub: "inv", q: "", rar: "", filtro: "all", dias: "30", cta: "", ctaForm: null, ctaBorrar: "" };
+  var previo = {};   // stock que tenía un set antes de repartirlo por cuentas (por si vacías todas sus cuentas)
+  function ctaSel() { return S.cta && S.cta !== "sin" && cuentaPorId(S.cta) ? S.cta : ""; }
+  // Lo que se ve y se edita en cada fila: el stock de la cuenta elegida o el total
+  function valDe(s) { var c = ctaSel(); return c ? enCuenta(s, c) : s.stock; }
+  function stEstado(s, v) {
+    if (v === undefined) v = valDe(s);
+    if (v === null) return ctaSel() ? { cls: "none", txt: "No está aquí", key: "none" } : { cls: "none", txt: "Sin registrar", key: "none" };
+    if (v < 0) return { cls: "zero", txt: "Debes " + Math.abs(v), key: "zero" };
+    if (v === 0) return { cls: "zero", txt: "Agotado", key: "zero" };
+    if (v <= 2) return { cls: "low", txt: "Pocas", key: "low" };
     return { cls: "ok", txt: "En stock", key: "ok" };
   }
+  function stBase() { return S.cta === "sin" ? cat.sets.filter(function (s) { return !tieneCuentas(s); }) : cat.sets; }
   function stStatsHtml() {
-    var reg = cat.sets.filter(function (s) { return s.stock !== null; });
+    var base = stBase(), reg = base.filter(function (s) { return valDe(s) !== null; });
     // unidades y valor: solo lo que sí tienes (los negativos son sets que aún debes)
-    var uni = reg.reduce(function (n, s) { return n + Math.max(0, s.stock); }, 0), val = reg.reduce(function (t, s) { return t + (s.price !== null ? s.price * Math.max(0, s.stock) : 0); }, 0);
-    var cero = reg.filter(function (s) { return s.stock <= 0; }).length, poco = reg.filter(function (s) { return s.stock > 0 && s.stock <= 2; }).length;
-    return '<div><b>' + reg.length + '/' + cat.sets.length + '</b><span>Sets registrados</span></div><div><b>' + uni + '</b><span>Unidades</span></div><div><b>' + esc(mon(val)) + '</b><span>Valor del stock</span></div>' +
+    var uni = reg.reduce(function (n, s) { return n + Math.max(0, valDe(s)); }, 0), val = reg.reduce(function (t, s) { return t + (s.price !== null ? s.price * Math.max(0, valDe(s)) : 0); }, 0);
+    var cero = reg.filter(function (s) { return valDe(s) <= 0; }).length, poco = reg.filter(function (s) { var v = valDe(s); return v > 0 && v <= 2; }).length;
+    return '<div><b>' + reg.length + '/' + base.length + '</b><span>' + (ctaSel() ? 'Sets en esta cuenta' : 'Sets registrados') + '</span></div><div><b>' + uni + '</b><span>Unidades</span></div><div><b>' + esc(mon(val)) + '</b><span>Valor del stock</span></div>' +
       '<div class="' + (poco ? 'warn' : '') + '"><b>' + poco + '</b><span>Pocas (1-2)</span></div><div class="' + (cero ? 'warn' : '') + '"><b>' + cero + '</b><span>Agotados</span></div>';
   }
   function stFilaHtml(s) {
-    var e = stEstado(s);
-    return '<div class="sc-srow" data-id="' + s.id + '"><span class="sc-ath">' + foto(s.img) + '</span>' +
-      '<span class="sc-anm"><b>' + esc(s.name) + '</b><small><i style="color:' + colorRar(s.rarity) + '">' + esc(s.rarity) + '</i> · ' + (s.price === null ? 'sin precio' : esc(mon(s.price))) + '</small></span>' +
+    var c = ctaSel(), v = valDe(s), e = stEstado(s, v), fijo = !c && tieneCuentas(s);
+    return '<div class="sc-srow' + (fijo ? ' fijo' : '') + '" data-id="' + s.id + '"' + (c ? ' data-c="' + esc(c) + '"' : '') + '><span class="sc-ath">' + foto(s.img) + '</span>' +
+      '<span class="sc-anm"><b>' + esc(s.name) + '</b><small><i style="color:' + colorRar(s.rarity) + '">' + esc(s.rarity) + '</i> · ' + (s.price === null ? 'sin precio' : esc(mon(s.price))) +
+      (c && s.stock !== null ? ' · <span class="sc-stot">total ' + s.stock + '</span>' : '') + '</small>' + (c ? '' : chipsCta(s, true)) + '</span>' +
       '<span class="sc-sst ' + e.cls + '">' + esc(e.txt) + '</span>' +
-      '<span class="sc-sqty"><button type="button" class="btn btn-ghost btn-sm" data-s="stMenos" aria-label="Menos">−</button><input type="number" step="1" inputmode="numeric" value="' + (s.stock === null ? '' : s.stock) + '" placeholder="—" aria-label="Stock de ' + esc(s.name) + '"><button type="button" class="btn btn-ghost btn-sm" data-s="stMas" aria-label="Más">+</button></span></div>';
+      (fijo ? '<span class="sc-sqty sc-sfijo" title="Es la suma de sus cuentas. Elige una cuenta arriba para cambiarlo."><b>' + s.stock + '</b><small>total</small></span>'
+        : '<span class="sc-sqty"><button type="button" class="btn btn-ghost btn-sm" data-s="stMenos" aria-label="Menos">−</button><input type="number" step="1" inputmode="numeric" value="' + (v === null ? '' : v) + '" placeholder="—" aria-label="Stock de ' + esc(s.name) + (c ? ' en ' + esc(cuentaPorId(c).nick) : '') + '"><button type="button" class="btn btn-ghost btn-sm" data-s="stMas" aria-label="Más">+</button></span>') + '</div>';
   }
   function stListaHtml() {
-    var q = sinTildes(S.q).trim();
-    var l = ordenados(cat.sets).filter(function (s) { return (!q || sinTildes(s.name + " " + s.hero).indexOf(q) >= 0) && (!S.rar || s.rarity === S.rar) && (S.filtro === "all" || stEstado(s).key === S.filtro); });
+    var q = sinTildes(S.q).trim(), c = ctaSel();
+    var l = ordenados(stBase()).filter(function (s) { return (!q || sinTildes(s.name + " " + s.hero).indexOf(q) >= 0) && (!S.rar || s.rarity === S.rar) && (S.filtro === "all" || stEstado(s).key === S.filtro); });
+    if (c) l.sort(function (a, b) { return (enCuenta(a, c) === null ? 1 : 0) - (enCuenta(b, c) === null ? 1 : 0); });   // los de esta cuenta primero
     return l.length ? l.map(stFilaHtml).join("") : '<p class="hint">No hay sets con ese filtro.</p>';
   }
   function pintarStock() {
     if (!cat.cargado || cat.deCache) { admEl.innerHTML = '<p class="hint">Cargando catálogo…</p>'; cargarCat(true); return; }
-    var inv = S.sub === "inv";
-    var h = '<div class="subtabs" role="tablist"><button type="button" class="subtab" role="tab" data-s="stSub" data-v="inv" aria-selected="' + inv + '">📦 Inventario</button><button type="button" class="subtab" role="tab" data-s="stSub" data-v="sold" aria-selected="' + !inv + '">🧾 Últimos vendidos</button></div>';
-    if (!inv) { admEl.innerHTML = h + '<div class="sc-sold">' + vendidosHtml() + '</div>'; R().hidratar(); return; }
+    if (S.cta && S.cta !== "sin" && !cuentaPorId(S.cta)) S.cta = "";
+    var sub = S.sub, tab = function (v, txt) { return '<button type="button" class="subtab" role="tab" data-s="stSub" data-v="' + v + '" aria-selected="' + (sub === v) + '">' + txt + '</button>'; };
+    var h = '<div class="subtabs" role="tablist">' + tab("inv", "📦 Inventario") + tab("ctas", "🎮 Cuentas de Steam") + tab("sold", "🧾 Últimos vendidos") + '</div>';
+    if (sub === "sold") { admEl.innerHTML = h + '<div class="sc-sold">' + vendidosHtml() + '</div>'; R().hidratar(); return; }
+    if (sub === "ctas") { admEl.innerHTML = h + ctasHtml(); if (S.ctaForm) ctaPrevia(); R().hidratar(); return; }
+    var c = ctaSel();
+    if (cat.cuentas.length) h += '<div class="sc-sctas" role="group" aria-label="Cuenta de Steam"><span>🎮 Ver stock de:</span>' +
+      [["", "Todas (total)"]].concat(cat.cuentas.map(function (x) { return [x.id, x.nick]; }), [["sin", "Sin cuenta"]]).map(function (o) {
+        return '<button type="button" class="itab' + (S.cta === o[0] ? ' on' : '') + '" data-s="stCta" data-v="' + esc(o[0]) + '">' + esc(o[1]) + '</button>'; }).join("") + '</div>';
+    else h += '<p class="sc-msg">💡 ¿Tienes los sets repartidos en varias cuentas de Steam? Agrégalas en <b>🎮 Cuentas de Steam</b> y aquí podrás llevar el stock de cada una.</p>';
+    if (c) { var cc = cuentaPorId(c); h += '<div class="sc-sctainfo"><b>🎮 ' + esc(cc.nick) + '</b><small>Escribe cuántos tienes de cada set en esta cuenta. Vacío = no está en esta cuenta. El total de cada set es la suma de sus cuentas.</small>' + (cc.perfil ? '<a href="' + esc(cc.perfil) + '" target="_blank" rel="noopener noreferrer">Perfil de Steam ↗</a>' : '') + '</div>'; }
     h += '<div class="sc-stats sc-sstats">' + stStatsHtml() + '</div>' +
       '<div class="sc-pbar sc-sbar"><input type="search" class="sc-sq" placeholder="Buscar set…" value="' + esc(S.q) + '" autocomplete="off">' +
       '<select class="sc-srar" aria-label="Rareza"><option value="">Todas las rarezas</option>' + RAREZAS.map(function (r) { return '<option' + (S.rar === r ? ' selected' : '') + '>' + r + '</option>'; }).join("") + '</select>' +
-      '<select class="sc-sfil" aria-label="Filtrar"><option value="all">Todos</option><option value="ok">Con stock</option><option value="low">Pocas unidades (1-2)</option><option value="zero">Agotados (0)</option><option value="none">Sin registrar</option></select></div>' +
+      '<select class="sc-sfil" aria-label="Filtrar"><option value="all">Todos</option><option value="ok">Con stock</option><option value="low">Pocas unidades (1-2)</option><option value="zero">Agotados (0)</option><option value="none">' + (c ? 'No están en esta cuenta' : 'Sin registrar') + '</option></select></div>' +
       '<p class="sc-msg sc-smsg ' + esc(adm.msgTipo) + '" role="status">' + esc(adm.msg) + '</p>' +
       '<div class="sc-slist">' + stListaHtml() + '</div>' +
-      '<p class="hint">Se guarda y se publica solo. Con 0 o menos unidades el set aparece como AGOTADO (puedes poner números negativos: son sets que ya vendiste y aún debes sacar). Vacío = sin registrar (sin límite).</p>';
+      '<p class="hint">Se guarda y se publica solo. Con 0 o menos unidades el set aparece como AGOTADO (puedes poner números negativos: son sets que ya vendiste y aún debes sacar). Vacío = sin registrar (sin límite).' +
+      (cat.cuentas.length ? ' Los sets repartidos en cuentas muestran su total: para cambiarlo elige la cuenta arriba. Al confirmar un pedido, el stock se descuenta de la cuenta que tiene más unidades de ese set.' : '') + '</p>';
     admEl.innerHTML = h;
     admEl.querySelector(".sc-sfil").value = S.filtro;
     R().hidratar();
@@ -1063,13 +1194,28 @@
     if (!stAntes) stAntes = JSON.stringify(cat.sets);
     var prev = s.stock;
     s.stock = val;
+    stAplicar(s, prev);
+  }
+  // Cambia el stock de un set en una cuenta (vacío = el set no está en esa cuenta)
+  function stPonerCta(s, cid, val) {
+    if (!stAntes) stAntes = JSON.stringify(cat.sets);
+    var prev = s.stock;
+    if (!tieneCuentas(s)) { if (val === null) return; previo[s.id] = s.stock; s.porCuenta = {}; }
+    if (val === null) delete s.porCuenta[cid]; else s.porCuenta[cid] = val;
+    if (!Object.keys(s.porCuenta).length) { delete s.porCuenta; s.stock = previo[s.id] !== undefined ? previo[s.id] : 0; }
+    else s.stock = sumaPc(s.porCuenta);
+    stAplicar(s, prev);
+  }
+  function stAplicar(s, prev) {
+    var val = s.stock;
     if (val !== null && val <= 0) s.soldOut = true;
     else if (val !== null && val > 0 && prev !== null && prev <= 0 && s.soldOut && s.price !== null) s.soldOut = false;
     else if (val === null && prev !== null && prev <= 0 && s.soldOut) s.soldOut = false;
     var fila = admEl.querySelector('.sc-srow[data-id="' + s.id + '"]');
     if (fila) {
-      var e = stEstado(s), b = fila.querySelector(".sc-sst"); b.className = "sc-sst " + e.cls; b.textContent = e.txt;
-      var inp = fila.querySelector("input"); if (document.activeElement !== inp) inp.value = val === null ? "" : val;
+      var v = valDe(s), e = stEstado(s, v), b = fila.querySelector(".sc-sst"); b.className = "sc-sst " + e.cls; b.textContent = e.txt;
+      var inp = fila.querySelector("input"); if (inp && document.activeElement !== inp) inp.value = v === null ? "" : v;
+      var tt = fila.querySelector(".sc-stot"); if (tt) tt.textContent = "total " + s.stock;
     }
     var st = admEl.querySelector(".sc-sstats"); if (st) st.innerHTML = stStatsHtml();
     var m = admEl.querySelector(".sc-smsg"); if (m) { m.className = "sc-msg sc-smsg"; m.textContent = "Guardando…"; }
@@ -1079,10 +1225,81 @@
   // Guardado del stock sin redibujar el panel (para no perder lo que estás escribiendo)
   function stGuardar() {
     var copia = stAntes; stAntes = null;
-    var j = { sets: cat.sets.map(normSet), visible: cat.visible, actualizado: new Date().toISOString() };
+    var j = jsonCat();
     var aviso = function (cls, txt) { adm.msg = txt; adm.msgTipo = cls; var mm = admEl.querySelector(".sc-smsg"); if (mm) { mm.className = "sc-msg sc-smsg " + cls; mm.textContent = txt; } };
     fsPatch(DOC, { json: JSON.stringify(j), updatedAt: new Date() }).then(function () { aviso("ok", "✔ Stock guardado. Los clientes ya lo ven."); pintarCli(); })
       .catch(function (e) { try { cat.sets = JSON.parse(copia); } catch (x) { /* nada */ } aviso("err", errTxt(e)); if (adm.tab === "setsStk") pintarStock(); });
+  }
+
+  /* ---- Cuentas de Steam (nick, enlace al perfil y frase llamativa que ve el cliente) ---- */
+  function unidadesCta(cid) { var n = 0, k = 0; cat.sets.forEach(function (s) { var v = enCuenta(s, cid); if (v !== null) { k++; n += Math.max(0, v); } }); return { sets: k, uni: n }; }
+  function ctasHtml() {
+    var msg = adm.msg ? '<p class="sc-msg ' + esc(adm.msgTipo) + '" role="status">' + esc(adm.msg) + '</p>' : '';
+    var h = '<div class="sc-ctas">' + msg +
+      '<p class="hint">Cada cuenta sale en <b>Sets Caché</b> como un grupo con su nick y su frase. Cuando el cliente entra a la cuenta, ve el botón a su <b>perfil de Steam</b>. Las cuentas sin sets disponibles no se muestran.</p>';
+    if (S.ctaForm) return h + ctaFormHtml() + '</div>';
+    h += '<div class="sc-acts"><button type="button" class="btn btn-yellow btn-sm" data-s="ctaNueva">+ Agregar cuenta</button></div>';
+    if (!cat.cuentas.length) return h + '<p class="hint">Aún no hay cuentas. Agrega la primera con su nick de Steam y el enlace de su perfil.</p></div>';
+    h += cat.cuentas.map(function (c, i) {
+      var u = unidadesCta(c.id);
+      return '<div class="sc-ctarow"><span class="sc-cta-av" aria-hidden="true">' + esc(String(c.nick).charAt(0).toUpperCase()) + '</span>' +
+        '<span class="sc-anm"><b>' + esc(c.nick) + '</b><small>' + esc(descDe(c)) + '</small><small>' + nSets(u.sets) + ' · ' + u.uni + (u.uni === 1 ? ' unidad' : ' unidades') +
+        (c.perfil ? ' · <a href="' + esc(c.perfil) + '" target="_blank" rel="noopener noreferrer">Perfil de Steam ↗</a>' : ' · <em class="sc-ag">sin enlace de perfil</em>') + '</small></span>' +
+        '<span class="sc-abt">' + (i > 0 ? '<button type="button" class="btn btn-ghost btn-sm" data-s="ctaSubir" data-v="' + esc(c.id) + '" aria-label="Subir">▲</button>' : '') +
+        '<button type="button" class="btn btn-ghost btn-sm" data-s="stCtaVer" data-v="' + esc(c.id) + '">📦 Stock</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-s="ctaEditar" data-v="' + esc(c.id) + '">✎</button>' +
+        (S.ctaBorrar === c.id ? '<button type="button" class="btn btn-sm sc-del" data-s="ctaBorrarSi" data-v="' + esc(c.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-s="ctaBorrar" data-v="' + esc(c.id) + '" aria-label="Quitar">🗑</button>') + '</span></div>';
+    }).join("");
+    return h + '</div>';
+  }
+  function ctaFormHtml() {
+    var f = S.ctaForm;
+    return '<div class="grp sc-form sc-ctaform"><h3>' + (f.nueva ? 'Nueva cuenta de Steam' : 'Editar cuenta') + '</h3>' +
+      '<div class="field"><label for="sc-c-nick">Nick de Steam *</label><input id="sc-c-nick" data-cf="nick" maxlength="40" value="' + esc(f.nick) + '" placeholder="Ej. RAYAS STORE #1"></div>' +
+      '<div class="field"><label for="sc-c-perfil">Enlace del perfil de Steam</label><input id="sc-c-perfil" data-cf="perfil" maxlength="200" inputmode="url" value="' + esc(f.perfil) + '" placeholder="https://steamcommunity.com/id/…"><small class="hint">En Steam: tu perfil → clic derecho en la página → Copiar dirección (URL).</small></div>' +
+      '<div class="field"><label for="sc-c-desc">Frase llamativa (la ven los clientes)</label><input id="sc-c-desc" data-cf="desc" maxlength="160" value="' + esc(f.desc) + '" placeholder="' + esc(FRASES[0].replace("{nick}", f.nick || "esta cuenta")) + '"></div>' +
+      '<div class="sc-acts"><button type="button" class="btn btn-ghost btn-sm" data-s="ctaSugerir">✨ Sugerir otra frase</button></div>' +
+      '<div class="sc-ctaprev"><small>Así lo verá el cliente:</small><div class="sc-cta-box"></div></div>' +
+      '<p class="sc-ferr" role="alert"></p>' +
+      '<div class="sc-acts"><button type="button" class="btn btn-fuchsia btn-sm" data-s="ctaGuardar">💾 Guardar cuenta</button><button type="button" class="btn btn-ghost btn-sm" data-s="ctaCancelar">Cancelar</button></div></div>';
+  }
+  function ctaLeer() {
+    var f = S.ctaForm; if (!f) return f;
+    ["nick", "perfil", "desc"].forEach(function (k) { var el = admEl.querySelector('[data-cf="' + k + '"]'); if (el) f[k] = el.value; });
+    return f;
+  }
+  function ctaPrevia() {
+    var f = ctaLeer(), box = admEl.querySelector(".sc-cta-box"); if (!f || !box) return;
+    var c = normCuenta({ id: f.id || "cx", nick: f.nick.trim() || "Tu cuenta", perfil: perfilOk(f.perfil) || "", desc: f.desc });
+    box.innerHTML = cabCuenta(c, unidadesCta(c.id).sets || 3, true);
+    box.querySelectorAll("[data-s]").forEach(function (el) { el.removeAttribute("data-s"); });
+  }
+  function ctaGuardar() {
+    var f = ctaLeer(), err = admEl.querySelector(".sc-ctaform .sc-ferr");
+    var nick = String(f.nick || "").trim().replace(/\s+/g, " "), perfil = perfilOk(f.perfil);
+    if (!nick) { err.textContent = "Escribe el nick de la cuenta."; return; }
+    if (perfil === null) { err.textContent = "Pega el enlace del perfil de Steam (empieza con https://steamcommunity.com/id/… o /profiles/…)."; return; }
+    if (cat.cuentas.some(function (c) { return c.id !== f.id && sinTildes(c.nick) === sinTildes(nick); })) { err.textContent = "Ya tienes una cuenta con ese nick."; return; }
+    var c = normCuenta({ id: f.id || ("c" + Date.now().toString(36)), nick: nick, perfil: perfil, desc: f.desc });
+    var antes = cat.cuentas.slice();
+    if (f.nueva) cat.cuentas.push(c); else cat.cuentas = cat.cuentas.map(function (x) { return x.id === c.id ? c : x; });
+    S.ctaForm = null;
+    guardarCat("✔ Cuenta \"" + c.nick + "\" guardada." + (f.nueva ? " Ahora ve a 📦 Inventario, elige la cuenta y pon cuántos sets tiene." : "")).catch(function () { cat.cuentas = antes; S.ctaForm = f; pintarAdmin(); });
+  }
+  function ctaBorrar(cid) {
+    var c = cuentaPorId(cid); if (!c) return;
+    var u = unidadesCta(cid);
+    if (u.uni && !window.confirm("La cuenta " + c.nick + " tiene " + u.uni + (u.uni === 1 ? " unidad" : " unidades") + " en " + nSets(u.sets) + ". Si la quitas, esas unidades se restan del stock. ¿Continuar?")) { S.ctaBorrar = ""; pintarAdmin(); return; }
+    var copia = JSON.stringify([cat.sets, cat.cuentas]);
+    cat.cuentas = cat.cuentas.filter(function (x) { return x.id !== cid; });
+    cat.sets.forEach(function (s) {
+      if (enCuenta(s, cid) === null) return;
+      var prev = s.stock; delete s.porCuenta[cid];
+      if (!Object.keys(s.porCuenta).length) { delete s.porCuenta; s.stock = 0; } else s.stock = sumaPc(s.porCuenta);
+      if (s.stock <= 0) s.soldOut = true; else if (prev <= 0 && s.price !== null) s.soldOut = false;
+    });
+    S.ctaBorrar = ""; if (S.cta === cid) S.cta = "";
+    guardarCat("Cuenta \"" + c.nick + "\" quitada.").catch(function () { var r = JSON.parse(copia); cat.sets = r[0]; cat.cuentas = r[1]; pintarAdmin(); });
   }
   function vendidosHtml() {
     if (!P.cargado) { if (!P.cargando && !P.err) cargarPed(); return P.err ? '<p class="sc-msg err">' + esc(P.err) + '</p>' : '<p class="hint">Cargando ventas…</p>'; }
@@ -1125,6 +1342,7 @@
       case "agregar": agregar(id); break;
       case "quitar": quitar(id); break;
       case "rar": cli.rar = t.getAttribute("data-v") || ""; pintarCli(); break;
+      case "cta": cli.cuenta = t.getAttribute("data-v") || ""; pintarCli(); var tope = cliEl.querySelector(".sc-ctas-nav") || cliEl.querySelector(".sc-grid-box"); if (tope && tope.getBoundingClientRect().top < 0) tope.scrollIntoView({ block: "start", behavior: "smooth" }); break;
       case "carro": abrirMod({ tipo: "carro" }); break;
       case "cerrarMod": cerrarMod(); break;
       case "menos": cambiarQty(id, -1); pintarMod(); break;
@@ -1156,7 +1374,24 @@
       case "stSub": S.sub = t.getAttribute("data-v"); adm.msg = ""; pintarStock(); break;
       case "stMenos": case "stMas":
         var fs = t.closest(".sc-srow"), ss = fs && setPorId(fs.getAttribute("data-id")); if (!ss) break;
-        stPoner(ss, (ss.stock === null ? 0 : ss.stock) + (a === "stMas" ? 1 : -1)); break;
+        var fc = fs.getAttribute("data-c");
+        if (fc) { var vc = enCuenta(ss, fc); stPonerCta(ss, fc, (vc === null ? 0 : vc) + (a === "stMas" ? 1 : -1)); }
+        else if (!tieneCuentas(ss)) stPoner(ss, (ss.stock === null ? 0 : ss.stock) + (a === "stMas" ? 1 : -1));
+        break;
+      case "stCta": case "stCtaVer": S.cta = t.getAttribute("data-v") || ""; S.sub = "inv"; S.filtro = "all"; adm.msg = ""; pintarStock(); break;
+      case "ctaNueva": S.ctaForm = { nueva: true, nick: "", perfil: "", desc: "" }; adm.msg = ""; pintarStock(); var cn = admEl.querySelector('[data-cf="nick"]'); if (cn) cn.focus(); break;
+      case "ctaEditar": var ce = cuentaPorId(t.getAttribute("data-v")); if (ce) { S.ctaForm = { nueva: false, id: ce.id, nick: ce.nick, perfil: ce.perfil, desc: ce.desc }; adm.msg = ""; pintarStock(); } break;
+      case "ctaCancelar": S.ctaForm = null; pintarStock(); break;
+      case "ctaGuardar": ctaGuardar(); break;
+      case "ctaSugerir":
+        var cf = ctaLeer(), di = admEl.querySelector('[data-cf="desc"]'), nk = String(cf.nick || "").trim() || "esta cuenta";
+        cf.fr = ((cf.fr === undefined ? -1 : cf.fr) + 1) % FRASES.length; if (di) di.value = FRASES[cf.fr].replace("{nick}", nk); ctaPrevia(); break;
+      case "ctaBorrar": S.ctaBorrar = t.getAttribute("data-v"); pintarStock(); break;
+      case "ctaBorrarSi": ctaBorrar(t.getAttribute("data-v")); break;
+      case "ctaSubir":
+        var ci = cat.cuentas.map(function (x) { return x.id; }).indexOf(t.getAttribute("data-v"));
+        if (ci > 0) { var cop = cat.cuentas.slice(); cat.cuentas.splice(ci - 1, 0, cat.cuentas.splice(ci, 1)[0]); guardarCat("✔ Orden de las cuentas guardado (así salen en la página).").catch(function () { cat.cuentas = cop; pintarAdmin(); }); }
+        break;
       case "stRecargar": P.cargado = false; P.err = ""; cargarPed(); break;
       // pedidos
       case "pRecargar": P.cargado = false; P.err = ""; adm.msg = ""; cargarPed(); cargarCat(true); break;
@@ -1216,8 +1451,15 @@
     else if (el.classList.contains("sc-sq")) { S.q = el.value; var sl = admEl.querySelector(".sc-slist"); if (sl) { sl.innerHTML = stListaHtml(); R().hidratar(); } }
     else if (el.getAttribute("data-p") === "q") { var pb = el.closest(".sc-pick"); pb.setAttribute("data-hi", 0); pkResultados(pb); }
     else if (el.closest && el.closest(".sc-srow") && el.tagName === "INPUT") {
-      var s = setPorId(el.closest(".sc-srow").getAttribute("data-id")), v = el.value.trim(), n = parseInt(v, 10);
-      if (s) stPoner(s, v === "" || isNaN(n) ? null : n);
+      var fila = el.closest(".sc-srow"), s = setPorId(fila.getAttribute("data-id")), v = el.value.trim(), n = parseInt(v, 10), c = fila.getAttribute("data-c");
+      if (s && c) stPonerCta(s, c, v === "" || isNaN(n) ? null : n);
+      else if (s && !tieneCuentas(s)) stPoner(s, v === "" || isNaN(n) ? null : n);
+    }
+    else if (el.hasAttribute && el.hasAttribute("data-cf")) ctaPrevia();
+    else if (el.hasAttribute && el.hasAttribute("data-fc")) {   // editor del set: el total es la suma de las cuentas
+      var tot = 0, hay = false, sf = admEl.querySelector('[data-f="stock"]');
+      admEl.querySelectorAll("[data-fc]").forEach(function (x) { var nn = parseInt(x.value, 10); if (x.value.trim() !== "" && !isNaN(nn)) { hay = true; tot += nn; } });
+      if (sf) { if (hay) { sf.value = tot; sf.readOnly = true; } else sf.readOnly = false; }
     }
   });
   document.addEventListener("focusin", function (ev) { var el = ev.target; if (el.getAttribute && el.getAttribute("data-p") === "q") pkResultados(el.closest(".sc-pick")); });
@@ -1243,6 +1485,7 @@
       if (ev.key === "Enter") { ev.preventDefault(); pkAccion(pb, "pkAgregar"); return; }
       if (ev.key === "Escape") { pkCerrar(pb); return; }
     }
+    if ((ev.key === "Enter" || ev.key === " ") && el && el.classList && el.classList.contains("sc-cta") && el.getAttribute("data-s") === "cta") { ev.preventDefault(); el.click(); return; }
     if (ev.key === "Escape" && mod && mod.tipo !== "cargando") cerrarMod();
   });
 
@@ -1272,6 +1515,6 @@
       }
       R().hidratar();
     },
-    _probar: { totales: totales, plan: plan, cat: cat, P: P }
+    _probar: { totales: totales, plan: plan, cat: cat, P: P, ajustarSet: ajustarSet, perfilOk: perfilOk }
   };
 })();
