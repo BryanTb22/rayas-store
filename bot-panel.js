@@ -1,6 +1,7 @@
 /* =====================================================================
    Panel del Bot de Steam (Rayas Store + LitleJacob Store)
-   Se usa desde el Panel admin de las dos webs: BotPanel.html({ token, projectId, repintar, acento })
+   Página completa: bot.html → BotPanel.montarPagina(elemento, { token, projectId, acento })
+   Acceso rápido en el Panel admin: BotPanel.html({ token, projectId, repintar, acento, modo: "compacto", url: "bot.html" })
    Lee (Firestore REST):
      bot_estado/steam       latido: en línea, cuenta, saldo, ofertas activas, pausa…
      bot_estado/inventario  inventario agrupado del bot
@@ -215,6 +216,10 @@
     '.bp-filtros{display:flex;gap:6px;flex-wrap:wrap}.bp-filtro{font:inherit;font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid rgba(127,127,127,.35);background:transparent;color:inherit;cursor:pointer}.bp-filtro[aria-pressed="true"]{background:var(--bpA);border-color:var(--bpA);color:#fff}' +
     '.bp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}.bp-item{display:flex;gap:8px;padding:8px;border-radius:10px;background:rgba(127,127,127,.07);align-items:flex-start}' +
     '.bp-item img,.bp-noimg{width:48px;height:48px;border-radius:8px;object-fit:contain;flex:none;background:rgba(0,0,0,.25);display:grid;place-items:center}.bp-item-t{min-width:0}.bp-item-t b{display:block;font-size:12.5px;line-height:1.25;word-break:break-word}.bp-item-t small{display:block;font-size:11.5px;opacity:.75;margin:2px 0 4px}.bp-item .bp-tag{font-size:10.5px;padding:2px 7px}' +
+    '.bp-pagina .bp-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px;align-items:start}.bp-pagina .bp-cols>div{display:grid;gap:14px}' +
+    '.bp-pagina .bp-grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}.bp-pagina .bp-item img,.bp-pagina .bp-noimg{width:60px;height:60px}.bp-pagina .bp-log{max-height:520px}.bp-pagina .bp-nums{grid-template-columns:repeat(5,1fr)}' +
+    '.bp-abrir{display:block;text-align:center;margin-top:12px;padding:12px;font-size:14px}' +
+    '@media(max-width:900px){.bp-pagina .bp-cols{grid-template-columns:1fr}.bp-pagina .bp-nums{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}}' +
     '.bp-log{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:340px;overflow:auto}.bp-log li{display:flex;gap:8px;font-size:13px}.bp-log small{display:block;opacity:.6;font-size:11.5px}.bp-log .t-error{color:#fca5a5}' +
     '@media(max-width:520px){.bp-fila{flex-direction:column}.bp-fila-b{text-align:left}}';
   function estilos() {
@@ -241,14 +246,27 @@
     }
   });
 
-  window.BotPanel = {
-    html: function (c) {
-      cfg = c; estilos();
-      if (!st.ultima && !cargando) setTimeout(cargar, 0);
-      else if (Date.now() - st.ultima > 20000) setTimeout(cargar, 0);
-      if (!st.ultima) return '<div class="bp" id="bp-root"' + (c.acento ? ' style="--bp-acento:' + esc(c.acento) + '"' : '') + '><div class="bp-card">🤖 Cargando el estado del bot…</div></div>';
-      return '<div class="bp" id="bp-root"' + (c.acento ? ' style="--bp-acento:' + esc(c.acento) + '"' : '') + '>' + cabecera() + numeros() + envios() + ofertas() + inventario() + registro() + '</div>';
-    },
-    recargar: function () { cargar(true); }
-  };
+  function html(c) {
+    cfg = c; estilos();
+    if (!st.ultima && !cargando) setTimeout(cargar, 0);
+    else if (Date.now() - st.ultima > 20000) setTimeout(cargar, 0);
+    var modo = c.modo || "pagina";
+    var abre = '<div class="bp' + (modo === "pagina" ? " bp-pagina" : "") + '" id="bp-root"' + (c.acento ? ' style="--bp-acento:' + esc(c.acento) + '"' : '') + '>';
+    var irPagina = c.url ? '<a class="bp-btn fuerte bp-abrir" href="' + esc(c.url) + '" target="_blank" rel="noopener">⛶ Abrir el panel del bot en pantalla completa</a>' : '';
+    if (!st.ultima) return abre + '<div class="bp-card">🤖 Cargando el estado del bot…</div>' + (modo === "compacto" ? irPagina : '') + '</div>';
+    if (modo === "compacto") return abre + cabecera() + numeros() + irPagina + '</div>';
+    return abre + cabecera() + numeros() + '<div class="bp-cols"><div>' + envios() + ofertas() + registro() + '</div><div>' + inventario() + '</div></div></div>';
+  }
+  // Página completa: repinta dentro del elemento y conserva el foco del buscador.
+  function montarPagina(el, c) {
+    var conf = Object.assign({}, c, { modo: "pagina" });
+    conf.repintar = function () {
+      var a = document.activeElement, id = a && a.id, pos = null;
+      try { pos = a && a.selectionStart; } catch (e) { /* nada */ }
+      el.innerHTML = html(conf);
+      if (id) { var n = document.getElementById(id); if (n) { n.focus(); try { if (pos != null) n.setSelectionRange(pos, pos); } catch (e) { /* nada */ } } }
+    };
+    el.innerHTML = html(conf);
+  }
+  window.BotPanel = { html: html, montarPagina: montarPagina, recargar: function () { cargar(true); } };
 })();

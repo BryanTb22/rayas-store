@@ -3246,7 +3246,7 @@
   function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina", "reclamos"] : sc === "items" ? ["config", "ventas", "items", "pedidos", "bot", "compras", "usuarios", "pub", "reclamos"] : ["config", "ventas", "usuarios", "pagina", "pub", "reclamos"]; }
   /* ---- Bot de Steam (módulo compartido bot-panel.js) ---- */
   function tabBot() {
-    return window.BotPanel ? window.BotPanel.html({ token: token, projectId: FB.projectId, repintar: render, acento: "#ff8a1f" })
+    return window.BotPanel ? window.BotPanel.html({ token: token, projectId: FB.projectId, repintar: render, acento: "#ff8a1f", modo: "compacto", url: "bot.html" })
       : '<p class="hint">Cargando el panel del bot…</p>';
   }
   function panelAdmin() {
