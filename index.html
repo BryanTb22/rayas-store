@@ -45,10 +45,10 @@
     if (localStorage.getItem("rayas_tema") === "clasico") return;
   } catch (e) { /* sin almacenamiento: se queda el tema nuevo */ }
   document.documentElement.className += " tn";
-  /* TEMPORADA HALLOWEEN ("Noche de Diretide"): se prende sola del 1 de octubre al 10 de noviembre y luego vuelve
+  /* TEMPORADA HALLOWEEN ("Noche de Diretide"): se prende sola del 1 de octubre al 9 de noviembre y luego vuelve
      el diseño normal (sus archivos no se tocan; Halloween usa copias hw-*.css + tema-halloween.css/js).
      Forzar en este navegador:  ?temporada=halloween  ·  ?temporada=normal  ·  ?temporada=auto (volver a la fecha) */
-  var HW_DESDE = 1001, HW_HASTA = 1110, hoy = new Date(), md = (hoy.getMonth() + 1) * 100 + hoy.getDate(), hw = md >= HW_DESDE && md <= HW_HASTA;
+  var HW_DESDE = 1001, HW_HASTA = 1109, hoy = new Date(), md = (hoy.getMonth() + 1) * 100 + hoy.getDate(), hw = md >= HW_DESDE && md <= HW_HASTA;
   try {
     var tq = (location.search.match(/[?&]temporada=([a-z]+)/) || [])[1];
     if (tq === "halloween" || tq === "normal") localStorage.setItem("rayas_temporada", tq); else if (tq === "auto") localStorage.removeItem("rayas_temporada");
