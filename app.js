@@ -583,11 +583,11 @@
       btns = '<button class="btn btn-yellow" type="button" data-a="cdAceptar">✔ Entiendo, pagar igual</button><button class="btn btn-ghost btn-sm" type="button" data-a="' + (m.accion === "carro" ? 'verCarrito' : 'cerrarModal') + '">Volver</button>';
     } else if (m.tipo === "yape") {
       var yp = estado.yape || {};
-      h = '<h3>Pagar con Yape 💜</h3><p class="hint">Yapea <b>S/ ' + fmtSol(m.sel) + '</b> (sin comisión) y avísanos por WhatsApp con tu captura. Te cargamos <b>' + creditosPara(m.sel) + ' soles</b> a tu cuenta.</p>' +
+      h = '<h3>Pagar con Yape 💜</h3><p class="hint">' + (m.sel ? 'Yapea <b>S/ ' + fmtSol(m.sel) + '</b> (sin comisión) y avísanos por WhatsApp con tu captura. Te cargamos <b>' + creditosPara(m.sel) + ' soles</b> a tu cuenta.' : 'Yapea el monto que quieras (desde S/ ' + PAGOS.min + ', sin comisión) y avísanos por WhatsApp con tu captura. Te cargamos ese monto a tu saldo' + (c && !c.promoUsada ? ' (primera recarga: S/ 50 → S/ 55 · S/ 100 → S/ 110)' : '') + '.') + '</p>' +
         (yp.qr ? '<div class="yapeqr"><img data-fs="' + esc(yp.qr.slice(3)) + '" alt="QR de Yape" width="240" height="240"></div>' : '') +
         (yp.numero || yp.nombre ? '<p class="hint" style="text-align:center">' + (yp.numero ? 'Yape al <b>' + esc(yp.numero) + '</b>' : '') + (yp.nombre ? ' · a nombre de <b>' + esc(yp.nombre) + '</b>' : '') + '</p>' : '') +
         '<p class="hint"><b>1.</b> Escanea el QR o yapea al número. <b>2.</b> Toca el botón de abajo y envía la captura del Yape por WhatsApp. <b>3.</b> Cargamos tu saldo (usa el mismo nombre/correo de tu cuenta).</p>';
-      btns = '<button class="btn btn-ghost btn-sm" type="button" data-a="yapeBajar">⬇ Descargar QR</button><button class="btn btn-yellow" type="button" data-a="yapeAvisar">✅ Ya pagué · enviar captura por WhatsApp</button><button class="btn btn-ghost btn-sm" type="button" data-a="volverRecarga">← Cambiar monto</button>' + cerrar;
+      btns = '<button class="btn btn-ghost btn-sm" type="button" data-a="yapeBajar">⬇ Descargar QR</button><button class="btn btn-yellow" type="button" data-a="yapeAvisar">✅ Ya pagué · enviar captura por WhatsApp</button>' + (m.sel ? '<button class="btn btn-ghost btn-sm" type="button" data-a="volverRecarga">← Cambiar monto</button>' : '') + cerrar;
     } else if (m.tipo === "efectivoPend") {
       h = '<h3>Código de pago listo 💵</h3><p class="hint">Se abrió tu código de pago por <b>S/ ' + m.soles + '</b>. Págalo en un agente, banco, app bancaria o con QR (vale por 24 horas). Cuando Culqi lo confirme, tu saldo se suman solos; puede tardar unos minutos.</p>' +
         '<p class="hint">Tienes <b>' + fmtSol(c ? c.creditos : 0) + '</b> soles ahora.</p>';
@@ -728,6 +728,12 @@
         p.replay = { segs: rt.segs.map(function (y) { return { n: y.n, c: y.c }; }), w: rt.w, rot: rt.rot, dur: rt.dur, fecha: p.resultado };
         marcarSucio();
       }
+    } else if (rt.modo === "mensual") {
+      mensualDe(rt.mes);
+      var im = estado.mensual[rt.mes] = estado.mensual[rt.mes] || {}, fe = new Date().toISOString();
+      im.ganador = g.n; im.ganadorUid = g.uid; im.puntos = g.c; im.total = rt.total; im.fecha = fe;
+      im.replay = { segs: rt.segs.map(function (y) { return { n: y.n, c: y.c }; }), w: rt.w, rot: rt.rot, dur: rt.dur, fecha: fe };
+      marcarSucio();
     }
     render();
   }
@@ -758,14 +764,15 @@
     })();
   }
   function modalRuleta() {
-    var rt = ruleta, g = rt.segs[rt.w], p = estado.premios[buscarPremio(rt.pid)] || {};
-    return '<div class="scrim scrim-top"></div><div class="elegir ruleta" role="dialog" aria-label="Ruleta"><h3>' + (rt.modo === "replay" ? '🎬 Repetición del sorteo' : '🎲 Sorteo') + ' · ' + esc(p.nombre || "") + '</h3>' +
+    var rt = ruleta, g = rt.segs[rt.w], mes = rt.modo === "mensual" || rt.modo === "replayMes", rep = rt.modo === "replay" || rt.modo === "replayMes";
+    var p = mes ? { nombre: "Sorteo de " + nombreMes(rt.mes) + ((mensualDe(rt.mes) || {}).premio && mensualDe(rt.mes).premio.nombre ? " · " + mensualDe(rt.mes).premio.nombre : "") } : (estado.premios[buscarPremio(rt.pid)] || {});
+    return '<div class="scrim scrim-top"></div><div class="elegir ruleta" role="dialog" aria-label="Ruleta"><h3>' + (rep ? '🎬 Repetición del sorteo' : '🎲 Sorteo') + ' · ' + esc(p.nombre || "") + '</h3>' +
       '<div class="rwrap"><div class="rpin"></div><canvas id="ruleta-cv" width="440" height="440"></canvas></div>' +
-      (rt.fin ? '<div class="rwin">🏆 ¡Ganador: <b>' + esc(g.n) + '</b>!</div>' + (rt.modo === "replay" && rt.fecha ? '<p class="hint">Sorteo realizado: ' + esc(fechaHora(rt.fecha)) + '</p>' : '') : '<p class="hint">' + rt.segs.length + ' participante' + (rt.segs.length === 1 ? '' : 's') + '. Más tickets = más espacio en la ruleta.</p>') +
+      (rt.fin ? '<div class="rwin">🏆 ¡Ganador: <b>' + esc(g.n) + '</b>!</div>' + (rep && rt.fecha ? '<p class="hint">Sorteo realizado: ' + esc(fechaHora(rt.fecha)) + '</p>' : '') : '<p class="hint">' + rt.segs.length + ' participante' + (rt.segs.length === 1 ? '' : 's') + '. ' + (mes ? 'Más puntos' : 'Más tickets') + ' = más espacio en la ruleta.</p>') +
       '<div class="rbtns">' +
-      (!rt.fin && !rt.run ? '<button class="btn btn-yellow" id="ruleta-go" type="button" data-a="ruletaGirar">' + (rt.modo === "replay" ? '▶ Ver repetición' : '🎰 ¡Girar!') + '</button>' : '') +
-      (rt.fin && rt.modo === "sorteo" ? '<button class="btn btn-fuchsia" type="button" data-a="ruletaGuardar">Guardar y publicar resultado</button>' : '') +
-      (rt.fin && rt.modo === "replay" ? '<button class="btn btn-ghost" type="button" data-a="ruletaOtra">↻ Ver otra vez</button>' : '') +
+      (!rt.fin && !rt.run ? '<button class="btn btn-yellow" id="ruleta-go" type="button" data-a="ruletaGirar">' + (rep ? '▶ Ver repetición' : '🎰 ¡Girar!') + '</button>' : '') +
+      (rt.fin && (rt.modo === "sorteo" || rt.modo === "mensual") ? '<button class="btn btn-fuchsia" type="button" data-a="ruletaGuardar">Guardar y publicar resultado</button>' : '') +
+      (rt.fin && rep ? '<button class="btn btn-ghost" type="button" data-a="ruletaOtra">↻ Ver otra vez</button>' : '') +
       (!rt.run ? '<button class="btn btn-ghost btn-sm" type="button" data-a="ruletaCerrar">Cerrar</button>' : '') + '</div></div>';
   }
   function modalElegir() {
@@ -2359,7 +2366,7 @@
       (sub ? '<p>' + sub + '</p>' : '') + '<div class="orn">◆</div></div>';
   }
 
-  var VISTA_HASH = { sets: "sets", inicio: "inicio", rifas: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender", perfil: "perfil", "perfil/transacciones": "perfil", "perfil/seguridad": "perfil" };
+  var VISTA_HASH = { sets: "sets", inicio: "inicio", rifas: "rifas", sorteo: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender", perfil: "perfil", "perfil/transacciones": "perfil", "perfil/seguridad": "perfil" };
   var vistaActual = "inicio";
   function switchItems() {
     if (!admin.puede) return "";
@@ -2410,6 +2417,162 @@
   }
   document.addEventListener("click", function (ev) { if (!ev.target.closest(".udrop")) cerrarMenuUsuario(); });
   document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") cerrarMenuUsuario(); });
+  /* ================= Cabecera estilo mercado (como Avan Market) =================
+     Logo · secciones · canasta (carrito) · saldo con botón "+" (recargar) · menú del usuario. */
+  var MK_SVG = {
+    cesta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 11 4-7"/><path d="m19 11-4-7"/><path d="M2 11h20"/><path d="m3.5 11 1.6 7.4a2 2 0 0 0 2 1.6h9.8a2 2 0 0 0 2-1.6l1.7-7.4"/><path d="M9 15v2M15 15v2"/></svg>',
+    mas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    fl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>'
+  };
+  function cabeceraMk(vista, V, linkCreditos) {
+    var p = cuenta.perfil, n = itemsVisible() ? carroN() : 0;
+    function lk(h, v, txt, ok, extra) { return ok ? '<a class="mk-lk' + (vista === v ? ' on' : '') + (extra || '') + '" href="#' + h + '"' + (vista === v ? ' aria-current="page"' : '') + '>' + txt + '</a>' : ''; }
+    var nav = lk("inicio", "inicio", "Inicio", true) +
+      lk("comprar", "comprar", "Comprar<span class=\"mk-lg\"> items</span>" + (estado.secciones.items ? '' : ' 🔒'), itemsVisible()) +
+      lk("vender", "vender", "Vender<span class=\"mk-lg\"> items</span>" + (estado.secciones.items ? '' : ' 🔒'), itemsVisible()) +
+      lk("sets", "sets", "Sets<span class=\"mk-lg\"> Caché</span>" + (setsOn() ? '' : ' 🔒'), setsVisible()) +
+      lk("rifas", "rifas", "Rifas" + (rifasOn() ? '' : ' 🔒'), rifasVisible(), ' rifas');
+    var cesta = itemsVisible() && !admin.puede ? '<button type="button" class="mk-cesta" data-a="carAbrir" aria-label="Carrito' + (n ? ', ' + n + (n === 1 ? ' item' : ' items') : ', vacío') + '" title="Carrito">' + MK_SVG.cesta + (n ? '<span class="mk-n">' + (n > 99 ? '99+' : n) + '</span>' : '') + '</button>' : '';
+    var der;
+    if (admin.puede) der = '<button class="mk-btn" type="button" data-a="admin">Panel admin</button><button class="mk-btn ghost" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button>';
+    else if (p) {
+      var puedeRec = recargaOn() || !!linkCreditos;
+      der = cesta +
+        '<span class="mk-saldo' + (puedeRec ? '' : ' solo') + '"><button type="button" class="mk-monto" data-a="misMovs" title="Ver mis movimientos"><small>Saldo</small><b>S/ ' + fmtSol(p.creditos) + '</b></button>' +
+        (puedeRec ? '<button type="button" class="mk-mas" data-a="mkMas" aria-haspopup="menu" aria-expanded="false" aria-label="Recargar saldo" title="Recargar saldo">' + MK_SVG.mas + '</button>' + masMenuHtml(linkCreditos) : '') + '</span>' +
+        '<span class="udrop mk-user"><button class="mk-av" type="button" data-a="udropToggle" aria-haspopup="menu" aria-expanded="false" aria-label="Mi cuenta: ' + esc(p.nombre || "") + '">' + avatarUsuario(p) + '<span class="mk-fl">' + MK_SVG.fl + '</span></button>' +
+        '<div class="udrop-menu" role="menu">' +
+        '<div class="udrop-head"><b>' + esc(p.nombre || "Mi cuenta") + '</b><small>' + esc(p.email || "") + '</small><span class="udrop-saldo">Saldo: <b>S/ ' + fmtSol(p.creditos) + '</b></span></div>' +
+        '<button type="button" role="menuitem" data-a="miCuenta"><i>👤</i>Perfil</button>' +
+        '<button type="button" role="menuitem" data-a="misMovs"><i>🧾</i>Transacciones</button>' +
+        (rifasVisible() ? '<button type="button" role="menuitem" data-a="misRifas"><i>🎟️</i>Mis rifas</button>' : '') +
+        '<button type="button" role="menuitem" class="udrop-out" data-a="salir"><i>⎋</i>Cerrar sesión</button>' +
+        '</div></span>';
+    } else if (leerSesion()) der = cesta + '<button class="mk-btn ghost" type="button" data-a="miCuenta">Mi cuenta</button>';
+    else der = cesta + '<button class="mk-btn ghost" type="button" data-a="entrar">Entrar</button><button class="mk-btn" type="button" data-a="registro">Crear cuenta</button>';
+    return '<header class="topbar mk-head gutter"><div class="wrap">' +
+      '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo mk-logo"><img class="logo-img" src="img/logo-v2.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
+      '<nav class="mk-nav" aria-label="Secciones">' + nav + '</nav>' +
+      '<div class="mk-der">' + der + '</div>' +
+      '</div></header>';
+  }
+  // Ventanita del "+": formas de recargar (WhatsApp, QR de Yape y, si está activo, Culqi).
+  function masMenuHtml(linkCreditos) {
+    var c = cuenta.perfil, primera = !!(c && !c.promoUsada);
+    return '<div class="mk-pop" role="menu" aria-label="Recargar saldo">' +
+      '<div class="mk-pop-h"><b>Recargar saldo</b><span>Tienes <b>S/ ' + fmtSol(c ? c.creditos : 0) + '</b></span></div>' +
+      (primera ? '<p class="mk-pop-promo">🎁 Primera recarga: S/ 50 → <b>S/ 55</b> · S/ 100 → <b>S/ 110</b></p>' : '') +
+      (linkCreditos ? '<button type="button" role="menuitem" class="mk-op" data-a="masWsp"><span class="mk-op-i wsp">💬</span><span><b>Por WhatsApp</b><small>Te atiende una persona · sin comisión</small></span></button>' : '') +
+      (yapeOn() ? '<button type="button" role="menuitem" class="mk-op" data-a="masQr"><span class="mk-op-i qr">💜</span><span><b>Yape con QR</b><small>Escanea, paga y manda tu captura · sin comisión</small></span></button>' : '') +
+      (pagosOn() ? '<button type="button" role="menuitem" class="mk-op" data-a="recargar"><span class="mk-op-i card">💳</span><span><b>Tarjeta, efectivo o billeteras</b><small>Pago en línea con Culqi · tu saldo sube solo</small></span></button>' : '') +
+      '</div>';
+  }
+  function cerrarMas() { document.querySelectorAll(".mk-saldo.open").forEach(function (d) { d.classList.remove("open"); var b = d.querySelector("[data-a=mkMas]"); if (b) b.setAttribute("aria-expanded", "false"); }); }
+  document.addEventListener("click", function (ev) { if (!(ev.target.closest && ev.target.closest(".mk-saldo"))) cerrarMas(); });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") cerrarMas(); });
+
+  /* ================= Sorteo del mes =================
+     Cada S/ 1 gastado en tickets de rifas = 1 punto. Los tickets de una rifa cuentan en el mes en que CIERRA esa rifa
+     (si no tiene fecha de cierre, en el mes en que se compró el primer ticket). Hora de Perú.
+     Más puntos = más espacio en la ruleta. El admin pone el premio del mes y sortea desde el panel (pestaña "Sorteo del mes").
+     Se guarda en estado.mensual["2026-11"] = { premio: {nombre, img, descripcion}, ganador, ganadorUid, puntos, total, fecha, replay }. */
+  var MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  function mesDe(fecha) { var t = new Date(fecha).getTime(); if (!isFinite(t)) return ""; var d = new Date(t - 5 * 3600000); return d.getUTCFullYear() + "-" + ("0" + (d.getUTCMonth() + 1)).slice(-2); }
+  function mesActual() { return mesDe(Date.now()); }
+  function mesAnterior(m) { var y = +m.slice(0, 4), mm = +m.slice(5, 7) - 1; if (mm < 1) { mm = 12; y--; } return y + "-" + ("0" + mm).slice(-2); }
+  function nombreMes(m) { return (MESES[+m.slice(5, 7) - 1] || "") + " " + m.slice(0, 4); }
+  function finDeMes(m) { var y = +m.slice(0, 4), mm = +m.slice(5, 7); return Date.UTC(mm === 12 ? y + 1 : y, mm === 12 ? 0 : mm, 1) + 5 * 3600000; }   // 00:00 del mes siguiente en Perú
+  function mensualDe(m) { estado.mensual = estado.mensual && typeof estado.mensual === "object" ? estado.mensual : {}; return estado.mensual[m] || null; }
+  function rankingMes(m) {
+    var porUid = {}, mesPremio = {};
+    estado.premios.forEach(function (p) { if (p.cierre) mesPremio[p.id] = mesDe(p.cierre); });
+    Object.keys(partes).forEach(function (pid) {
+      var lista = partes[pid] || [], mp = mesPremio[pid];
+      if (!mp) { var pri = lista.map(function (x) { return x.creado; }).filter(Boolean).sort()[0]; mp = pri ? mesDe(pri) : ""; }
+      if (mp !== m) return;
+      lista.forEach(function (x) {
+        var k = x.uid || ("n:" + x.nombre), pts = Math.max(0, Math.floor(Number(x.costo) || 0)); if (!pts) return;
+        var r = porUid[k] || (porUid[k] = { uid: x.uid, nombre: x.nombre || "Cliente", puntos: 0 });
+        r.puntos += pts; if (x.nombre) r.nombre = x.nombre;
+      });
+    });
+    var lista = Object.keys(porUid).map(function (k) { return porUid[k]; }).sort(function (a, b) { return b.puntos - a.puntos || String(a.nombre).localeCompare(b.nombre); });
+    var total = lista.reduce(function (a, r) { return a + r.puntos; }, 0);
+    lista.forEach(function (r) { r.pct = total ? r.puntos / total * 100 : 0; });
+    return { lista: lista, total: total };
+  }
+  function pctTxt(x) { return x >= 10 ? Math.round(x) + "%" : x >= 1 ? x.toFixed(1).replace(".0", "") + "%" : x > 0 ? "<1%" : "0%"; }
+  function sorteoMesHtml(V) {
+    var m = mesActual(), info = mensualDe(m) || {}, pr = info.premio || {}, rk = rankingMes(m);
+    var ant = mesAnterior(m), infoAnt = mensualDe(ant) || {};
+    if (!pr.nombre && !rk.lista.length && !infoAnt.ganador && !admin.puede) return '';
+    var uid = uidSesion(), mio = null; rk.lista.forEach(function (r, i) { if (uid && r.uid === uid) { mio = r; mio.pos = i + 1; } });
+    var quedan = Math.max(0, finDeMes(m) - Date.now()), dias = Math.floor(quedan / 86400000), horas = Math.floor(quedan % 86400000 / 3600000);
+    var top = rk.lista.slice(0, 10);
+    return '<section class="section gutter mk-sorteo" id="sorteo"><div class="wrap">' +
+      '<div class="sec-title"><div class="kicker">Mientras más juegas, más chances</div><h2><span class="t1">Sorteo</span> <span>del mes</span></h2><p>Cada <b>S/ 1</b> que gastas en tickets de rifas es <b>1 punto</b>. A fin de mes sorteamos un premio: quien tiene más puntos tiene más probabilidad de ganar.</p><div class="orn">◆</div></div>' +
+      (infoAnt.ganador ? '<div class="ms-ant frame gold"><div class="in"><span class="ms-ant-i">🏆</span><div><small>Ganador de ' + esc(nombreMes(ant)) + '</small><b>' + esc(infoAnt.ganador) + '</b>' + (infoAnt.premio && infoAnt.premio.nombre ? '<span>' + esc(infoAnt.premio.nombre) + '</span>' : '') + '</div>' + (infoAnt.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="mmReplay" data-m="' + esc(ant) + '">🎬 Ver sorteo</button>' : '') + '</div></div>' : '') +
+      '<div class="ms-grid">' +
+      '<div class="ms-premio frame gold"><div class="in">' +
+        '<div class="ms-foto">' + (pr.img ? imgTag(pr.img, pr.nombre || "", ' loading="lazy"') : '<span class="ms-sinfoto">🎁</span>') + '</div>' +
+        '<div class="ms-txt"><small>Premio de ' + esc(nombreMes(m)) + '</small><h3>' + esc(pr.nombre || "Premio por anunciar") + '</h3>' + (pr.descripcion ? '<p>' + esc(pr.descripcion) + '</p>' : '') +
+        (info.ganador ? '<div class="ms-gano">🏆 Ganó <b>' + esc(info.ganador) + '</b></div>' + (info.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="mmReplay" data-m="' + esc(m) + '">🎬 Ver sorteo</button>' : '')
+          : '<div class="ms-cuenta"><span><b>' + dias + '</b> días</span><span><b>' + horas + '</b> horas</span><em>para el sorteo</em></div>') +
+        (V ? '<p class="hint">Edita el premio en Panel admin → 🏆 Sorteo del mes.</p>' : '') +
+        '</div></div></div>' +
+      '<div class="ms-rank frame"><div class="in">' +
+        '<div class="ms-rank-h"><b>Tabla de puntos</b><span>' + rk.lista.length + ' participante' + (rk.lista.length === 1 ? '' : 's') + ' · ' + rk.total + ' puntos</span></div>' +
+        (cuenta.perfil && !admin.puede ? '<div class="ms-yo">' + (mio ? 'Vas <b>#' + mio.pos + '</b> con <b>' + mio.puntos + '</b> punto' + (mio.puntos === 1 ? '' : 's') + ' · <b>' + pctTxt(mio.pct) + '</b> de probabilidad' : 'Aún no tienes puntos este mes. Entra a una rifa y empieza a sumar. 🍀') + '</div>' : '') +
+        (top.length ? '<ol class="ms-lista">' + top.map(function (r, i) {
+          return '<li' + (uid && r.uid === uid ? ' class="yo"' : '') + '><span class="ms-pos">' + (i + 1) + '</span><span class="ms-nom">' + esc(r.nombre) + '</span><span class="ms-bar"><i style="width:' + Math.max(3, Math.round(r.pct)) + '%"></i></span><span class="ms-pts"><b>' + r.puntos + '</b> pts · ' + pctTxt(r.pct) + '</span></li>';
+        }).join("") + '</ol>' + (rk.lista.length > 10 ? '<p class="hint" style="margin:10px 0 0">…y ' + (rk.lista.length - 10) + ' más.</p>' : '')
+          : '<p class="hint" style="margin:6px 0 0">Todavía nadie suma puntos este mes. ¡Sé el primero!</p>') +
+      '</div></div>' +
+      '</div></div></section>';
+  }
+  // Panel admin → "🏆 Sorteo del mes"
+  function tabMensual() {
+    var m = admin.mmMes || mesActual(), info = mensualDe(m) || {}, pr = info.premio || {}, rk = rankingMes(m), act = mesActual(), ant = mesAnterior(act);
+    var terminado = Date.now() >= finDeMes(m);
+    return '<div class="grp"><h3>🏆 Sorteo del mes</h3>' +
+      '<p class="hint">Cada S/ 1 gastado en tickets = 1 punto. Los tickets cuentan en el mes en que cierra su rifa. Al terminar el mes, sortea aquí: la ruleta da más espacio a quien tiene más puntos.</p>' +
+      '<div class="mm-meses">' + [ant, act].map(function (k) { return '<button type="button" class="tab" data-a="mmMes" data-m="' + k + '" aria-selected="' + (k === m) + '">' + esc(nombreMes(k)) + (mensualDe(k) && mensualDe(k).ganador ? ' ✔' : '') + '</button>'; }).join("") + '</div></div>' +
+      '<div class="grp"><h3>Premio de ' + esc(nombreMes(m)) + '</h3>' +
+      '<div class="field"><label for="mm-nombre">Nombre del premio</label><input id="mm-nombre" class="mm-f" data-k="nombre" maxlength="80" value="' + esc(pr.nombre || "") + '" placeholder="Ej. Arcana de Phantom Assassin"></div>' +
+      '<div class="field"><label for="mm-img">Foto del premio (link https://…)</label><input id="mm-img" class="mm-f" data-k="img" inputmode="url" placeholder="https://…" value="' + esc(pr.img || "") + '">' +
+      '<p class="hint">Copia la imagen del item (clic derecho → Copiar dirección de imagen) desde el Mercado de Steam y pégala aquí.</p></div>' +
+      '<div class="field"><label for="mm-desc">Descripción (opcional)</label><textarea id="mm-desc" class="mm-f" data-k="descripcion" maxlength="200" rows="2">' + esc(pr.descripcion || "") + '</textarea></div>' +
+      '<p class="hint">Después toca <b>Guardar y publicar</b> para que los clientes lo vean.</p></div>' +
+      '<div class="grp"><h3>Puntos de ' + esc(nombreMes(m)) + '</h3>' +
+      (rk.lista.length ? '<div class="alist">' + rk.lista.map(function (r, i) { return '<div class="aitem"><div class="t"><b>' + (i + 1) + '. ' + esc(r.nombre) + '</b><span>' + r.puntos + ' puntos · ' + pctTxt(r.pct) + ' de probabilidad</span></div></div>'; }).join("") + '</div>' : '<p class="hint">Nadie tiene puntos en este mes.</p>') +
+      '</div>' +
+      '<div class="grp"><h3>Sorteo</h3>' +
+      (info.ganador
+        ? '<p class="hint">🏆 Ganó <b>' + esc(info.ganador) + '</b> con ' + (info.puntos || 0) + ' de ' + (info.total || 0) + ' puntos' + (info.fecha ? ' (' + esc(fechaHora(info.fecha)) + ')' : '') + '.</p>' +
+          '<div class="cav">' + (info.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="mmReplay" data-m="' + esc(m) + '">🎬 Ver sorteo</button>' : '') +
+          (admin.mmBorrar === m ? '<button class="btn btn-ghost btn-sm" type="button" data-a="mmBorrarSi" data-m="' + esc(m) + '">¿Seguro? Borrar resultado</button>' : '<button class="btn btn-ghost btn-sm" type="button" data-a="mmBorrar" data-m="' + esc(m) + '">Borrar resultado</button>') + '</div>'
+        : (rk.lista.length ? (terminado ? '' : '<p class="hint">⚠ El mes aún no termina: si sorteas ahora, los puntos que se sumen después no contarán.</p>') +
+            '<button class="btn btn-yellow" type="button" data-a="mmSortear" data-m="' + esc(m) + '">🎰 Sortear ' + esc(nombreMes(m)) + '</button>'
+          : '<p class="hint">Cuando haya puntos podrás sortear.</p>')) +
+      '</div>';
+  }
+  function abrirRuletaMes(m) {
+    var rk = rankingMes(m); if (!rk.lista.length) return;
+    var segs = ruletaSegs(rk.lista.map(function (r) { return { uid: r.uid, nombre: r.nombre, cantidad: r.puntos }; })), tot = 0; segs.forEach(function (g) { tot += g.c; });
+    var r = Math.random() * tot, w = 0, ac = 0;
+    try { var u = new Uint32Array(1); crypto.getRandomValues(u); r = u[0] / 4294967296 * tot; } catch (e) { /* Math.random */ }
+    for (var i = 0; i < segs.length; i++) { ac += segs[i].c; if (r < ac) { w = i; break; } }
+    var g = segs[w], off = (Math.random() * 0.7 - 0.35) * (g.a1 - g.a0), th = (g.a0 + g.a1) / 2 + off;
+    ruleta = { modo: "mensual", mes: m, segs: segs, w: w, rot: 360 * 6 + ((360 - th) % 360 + 360) % 360, dur: 8000, fin: false, run: false, total: tot };
+    admin.abierto = false; render();
+  }
+  function abrirRepeticionMes(m) {
+    var info = mensualDe(m); if (!info || !info.replay || !info.replay.segs) return;
+    var rp = info.replay;
+    ruleta = { modo: "replayMes", mes: m, segs: ruletaSegs(rp.segs), w: rp.w, rot: rp.rot, dur: rp.dur || 8000, fin: false, run: false, fecha: rp.fecha };
+    render();
+  }
+
   function render() {
     var app = document.getElementById("app");
     if (!app) return;
@@ -2432,33 +2595,14 @@
         (subk ? tx("p", subk) : '') + '<div class="orn">◆</div></div>';
     }
     var html = '' +
-      '<header class="topbar gutter"><div class="wrap">' +
-      '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo"><img class="logo-img" src="img/logo-v2.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
-      '<nav class="nav"><a class="navlink' + (vista === "inicio" ? ' on' : '') + '" href="#inicio">Inicio</a>' + (rifasVisible() ? '<a class="navlink" href="#como">Cómo participar</a><a class="navlink" href="#ganadores">Ganadores</a><a class="navlink" href="#reglas">Reglas</a>' : '') +
-      (admin.puede ? '<button class="lock" type="button" data-a="admin">Panel admin</button><button class="lock" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button>'
-        : (cuenta.perfil ? '<button class="lock hot misrifas" type="button" data-a="misRifas">🎟️ Mis rifas</button>' + menuUsuarioHtml(vista)
-          : (leerSesion() ? '<button class="lock" type="button" data-a="miCuenta">Mi cuenta</button>'
-            : '<button class="lock" type="button" data-a="entrar">Entrar</button><button class="lock hot" type="button" data-a="registro">Crear cuenta</button>'))) +
-      '</nav></div></header>' +
-      '<div class="svcbar gutter"><div class="wrap">' +
-      (itemsVisible() ? '<a class="svc-tab comprar' + (vista === "comprar" ? ' on' : '') + '" href="#comprar"><span>🛒</span>Comprar items' + (estado.secciones.items ? '' : ' 🔒') + '</a><a class="svc-tab vender' + (vista === "vender" ? ' on' : '') + '" href="#vender"><span>💰</span>Vender items' + (estado.secciones.items ? '' : ' 🔒') + '</a>' : '') +
-      (setsVisible() ? '<a class="svc-tab sets' + (vista === "sets" ? ' on' : '') + '" href="#sets"><span>🎁</span>Sets Caché' + (setsOn() ? '' : ' 🔒') + '</a>' : '') +
-      (itemsVisible() ? '<button type="button" class="svc-tab carrito" data-a="carAbrir"><span>🛒</span>Carrito' + (carroN() ? ' (' + carroN() + ')' : '') + '</button>' : '') +
-      (rifasVisible() ? '<a class="svc-tab' + (vista === "rifas" ? ' on' : '') + '" href="#rifas"><span>🎟️</span>Rifas' + (rifasOn() ? '' : ' 🔒') + '</a>' : '') +
-      (linkCreditos || V || recargaOn() ? btnRecargar("svc-tab recargar", "btnRecargarNav", linkCreditos) : '') +
-      '</div></div>' +
+      cabeceraMk(vista, V, linkCreditos) +
 
       '@@VISTA@@' +
-      '<section class="hero gutter" id="rifas-top">' + fotoBtn("hero") + '<div class="wrap">' +
-      '<img class="hero-logo" src="img/logo-v2.webp" alt="Rayas Store" width="132" height="132">' + fotoBtn("logo") +
-      tx("div", "kicker", 'class="kicker"') +
-      (V ? '<h1' + ed("t:titulo", "Título") + '>' + esc(T.titulo) + '</h1>' : '<h1>' + tituloHtml(T.titulo) + '</h1>') +
-      tx("p", "subtitulo") +
-      '<div class="actions">' + lnk("btn btn-yellow", "#rifas", "btnVer") +
-      btnRecargar("btn btn-fuchsia", "btnCreditos", linkCreditos) +
-      '</div>' +
-      '<div class="badges">' + ["badge1", "badge2", "badge3"].map(function (k) { return '<span class="badge"><b>◆</b>' + tx("span", k) + '</span>'; }).join("") + '</div>' +
-      '</div></section>' +
+      // Rifas: se entra directo a las tarjetas (sin el banner grande); arriba una barrita para moverse dentro de Rifas.
+      '<nav class="mk-sub gutter" aria-label="En Rifas"><div class="wrap">' +
+      '<a href="#rifas">🎟️ Rifas activas</a><a href="#sorteo">🏆 Sorteo del mes</a><a href="#como">Cómo participar</a><a href="#ganadores">Ganadores</a><a href="#reglas">Reglas</a>' +
+      (cuenta.perfil && !admin.puede ? '<button type="button" data-a="misRifas">Mis rifas</button>' : '') +
+      '</div></nav>' +
 
       '<section class="section gutter" id="rifas"><div class="wrap">' +
       sec("rifasKicker", "rifasT1", "rifasT2", "rifasSub") +
@@ -2467,6 +2611,7 @@
           (V ? '<button type="button" class="addcard" data-a="nuevoVivo"><span>+</span>Agregar premio</button>' : '') + '</div>'
         : '<div class="empty frame"><div class="in">' + tx("strong", "vacioT") + tx("span", "vacioS") + '</div></div>') +
       '</div></section>' +
+      sorteoMesHtml(V) +
 
       '<section class="band lava gutter" id="como">' + fotoBtn("lava") + '<div class="wrap">' +
       sec("comoKicker", "comoT1", "comoT2") +
@@ -2511,7 +2656,7 @@
     (function () {
       var a = html.split("@@VISTA@@"), b = a[1].split("@@FIN@@");
       var inicioHtml = '<section class="hero gutter" id="inicio">' + fotoBtn("hero") + '<div class="wrap">' +
-        '<img class="hero-logo" src="img/logo-v2.webp" alt="Rayas Store" width="132" height="132">' +
+        '<img class="hero-logo" src="img/logo-v2.webp" alt="Rayas Store" width="132" height="132">' + fotoBtn("logo") +
         tx("div", "inicioKicker", 'class="kicker"') +
         (V ? '<h1' + ed("t:inicioTitulo", "Título") + '>' + esc(T.inicioTitulo) + '</h1>' : '<h1>' + tituloHtml(T.inicioTitulo) + '</h1>') +
         tx("p", "inicioSub") +
@@ -2552,6 +2697,8 @@
     var top = scrollDrawer ? scrollDrawer.scrollTop : 0;
     var boxPrev = document.querySelector(".itm-box"), boxTop = boxPrev ? boxPrev.scrollTop : 0;
     app.innerHTML = html;
+    var mkOn = document.querySelector(".mk-nav .mk-lk.on"), mkNav = mkOn && mkOn.parentNode;   // en celular, la sección actual a la vista
+    if (mkNav && mkNav.scrollWidth > mkNav.clientWidth + 2) mkNav.scrollLeft = Math.max(0, mkOn.offsetLeft - mkNav.offsetLeft - (mkNav.clientWidth - mkOn.offsetWidth) / 2);
     var boxNew = document.querySelector(".itm-box"); if (boxNew && boxTop) boxNew.scrollTop = boxTop;
     document.body.classList.toggle("itm-open", !!(admin.puede && admin.itemForm));
     montarGoogle();
@@ -3241,9 +3388,9 @@
       '<div class="ulist">' + (filas || '<p class="hint">' + (fl === "pendiente" ? "🎉 No hay reclamos pendientes." : "No hay reclamos aquí.") + '</p>') + '</div>' +
       '<div class="fbtns"><button class="btn btn-ghost btn-sm" type="button" data-a="recRecargar">↻ Actualizar</button></div></div>';
   }
-  var TABS_ADMIN = { bot: "🤖 Bot de Steam", setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "🎟 Premios", usuarios: "👥 Usuarios y saldo", items: "🧩 Items", compras: "📥 Compras", pedidos: "🛒 Pedidos", pagina: "📝 Textos y contactos", pub: "🖼 Publicaciones", reclamos: "📕 Reclamos", ventas: "📊 Ventas" };
+  var TABS_ADMIN = { bot: "🤖 Bot de Steam", setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "🎟 Premios", mensual: "🏆 Sorteo del mes", usuarios: "👥 Usuarios y saldo", items: "🧩 Items", compras: "📥 Compras", pedidos: "🛒 Pedidos", pagina: "📝 Textos y contactos", pub: "🖼 Publicaciones", reclamos: "📕 Reclamos", ventas: "📊 Ventas" };
   function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : v === "sets" ? "sets" : "inicio"; }
-  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "usuarios", "pagina", "reclamos"] : sc === "items" ? ["config", "ventas", "items", "pedidos", "bot", "compras", "usuarios", "pub", "reclamos"] : ["config", "ventas", "usuarios", "pagina", "pub", "reclamos"]; }
+  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "mensual", "usuarios", "pagina", "reclamos"] : sc === "items" ? ["config", "ventas", "items", "pedidos", "bot", "compras", "usuarios", "pub", "reclamos"] : ["config", "ventas", "usuarios", "pagina", "pub", "reclamos"]; }
   /* ---- Bot de Steam (módulo compartido bot-panel.js) ---- */
   function tabBot() {
     return window.BotPanel ? window.BotPanel.html({ token: token, projectId: FB.projectId, repintar: render, acento: "#ff8a1f", modo: "compacto", url: "bot.html" })
@@ -3258,7 +3405,7 @@
     if (admin.editando) cuerpo = '<div class="drawer-cnt">' + formPremio() + '</div>';
     else cuerpo = '<div class="tabs" role="tablist">' +
       lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
-      '</div><div class="drawer-cnt">' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "bot" ? tabBot() : admin.tab === "pedidos" ? tabPedidos() : admin.tab === "reclamos" ? tabReclamos() : admin.tab === "ventas" ? tabVentas() : listaPremios())))) + '</div>';
+      '</div><div class="drawer-cnt">' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "bot" ? tabBot() : admin.tab === "pedidos" ? tabPedidos() : admin.tab === "reclamos" ? tabReclamos() : admin.tab === "ventas" ? tabVentas() : admin.tab === "mensual" ? tabMensual() : listaPremios())))) + '</div>';
     return '<aside class="drawer adm" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><div class="drawer-acts"><button class="btn btn-ghost btn-sm peligro" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
       '<div class="drawer-body' + (admin.editando ? '' : ' rail') + '">' + cuerpo + '</div>' +
@@ -3746,7 +3893,7 @@
       case "entrar": ev.preventDefault(); cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; render(); break;
       case "registro": ev.preventDefault(); cuenta.modo = "registro"; cuenta.msg = t.getAttribute("data-need") ? "Para participar primero crea una cuenta en la página." : ""; cuenta.msgTipo = t.getAttribute("data-need") ? "err" : ""; render(); break;
       case "misRifas": cuenta.modo = "rifas"; cuenta.msg = ""; render(); cargarParts(); break;
-      case "udropToggle": { var dd = t.closest(".udrop"), ab = !dd.classList.contains("open"); cerrarMenuUsuario(); if (ab) { dd.classList.add("open"); t.setAttribute("aria-expanded", "true"); } break; }
+      case "udropToggle": { var dd = t.closest(".udrop"), ab = !dd.classList.contains("open"); cerrarMenuUsuario(); cerrarMas(); if (ab) { dd.classList.add("open"); t.setAttribute("aria-expanded", "true"); } break; }
       case "misMovs": cuenta.msg = ""; location.hash = PF_RUTA.trans; break;
       case "miCuenta": cuenta.msg = ""; location.hash = PF_RUTA.info; break;
       case "pfClaveToggle": cuenta.claveAbierta = !cuenta.claveAbierta; render(); if (cuenta.claveAbierta) { var ka = document.getElementById("k-actual"); if (ka) ka.focus(); } break;
@@ -3793,6 +3940,14 @@
       case "carAdd": if (carroAgregar(t.getAttribute("data-id"))) render(); break;
       case "carAhora": if (carroAgregar(t.getAttribute("data-id"))) { modal = { tipo: "carrito" }; render(); } break;
       case "carAbrir": cargarItems(); modal = { tipo: "carrito" }; render(); break;
+      case "mkMas": { var sw = t.closest(".mk-saldo"), abre = !sw.classList.contains("open"); cerrarMas(); cerrarMenuUsuario(); if (abre) { sw.classList.add("open"); t.setAttribute("aria-expanded", "true"); } break; }
+      case "masWsp": { cerrarMas(); montoWsp = 0; var hm = creditoHref(); if (hm === "#elegir") { elegirMsg = null; elegirAbierto = true; render(); } else if (hm) window.open(hm, "_blank", "noopener"); break; }
+      case "masQr": cerrarMas(); modal = { tipo: "yape", sel: 0 }; render(); hidratarImgs(); break;
+      case "mmMes": admin.mmMes = t.getAttribute("data-m"); admin.mmBorrar = null; render(); break;
+      case "mmSortear": abrirRuletaMes(t.getAttribute("data-m")); break;
+      case "mmReplay": abrirRepeticionMes(t.getAttribute("data-m")); break;
+      case "mmBorrar": admin.mmBorrar = t.getAttribute("data-m"); render(); break;
+      case "mmBorrarSi": { var mb = mensualDe(t.getAttribute("data-m")); if (mb) { delete mb.ganador; delete mb.ganadorUid; delete mb.puntos; delete mb.total; delete mb.fecha; delete mb.replay; } admin.mmBorrar = null; marcarSucio(); render(); break; }
       case "carMas": carroAgregar(t.getAttribute("data-id")); render(); break;
       case "carMenos": var cid = t.getAttribute("data-id"); if ((carro[cid] || 0) > 1) carro[cid]--; else delete carro[cid]; carroGuardar(); render(); break;
       case "carQuitar": delete carro[t.getAttribute("data-id")]; carroGuardar(); render(); break;
@@ -4012,6 +4167,12 @@
   }
   document.addEventListener("input", function (ev) {
     if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
+    if (ev.target.classList && ev.target.classList.contains("mm-f")) {   // premio del sorteo del mes (se guarda al publicar)
+      var mmK = admin.mmMes || mesActual(); mensualDe(mmK);
+      var mmI = estado.mensual[mmK] = estado.mensual[mmK] || {}; mmI.premio = mmI.premio || {};
+      var mmV = ev.target.value; if (ev.target.getAttribute("data-k") === "img") mmV = mmV.trim();
+      mmI.premio[ev.target.getAttribute("data-k")] = mmV; marcarSucio(); actualizarPie(); return;
+    }
     if (ev.target.closest && ev.target.closest("[data-edit]")) { aplicarEdicion(ev.target.closest("[data-edit]")); return; }
     if (ev.target.id === "pf-buscar") { cuenta.tBuscar = ev.target.value; pfFiltrar(); return; }
     if (ev.target.id === "ped-buscar") {
@@ -4363,6 +4524,6 @@
   cargarRemoto();
   cargarParts();
   revisarHash();
-  (function () { var h = String(location.hash || "").replace("#", ""); var el = (h === "como" || h === "ganadores" || h === "reglas") ? document.getElementById(h) : null; if (el) el.scrollIntoView(); })();
+  (function () { var h = String(location.hash || "").replace("#", ""); var el = (h === "como" || h === "ganadores" || h === "reglas" || h === "sorteo") ? document.getElementById(h) : null; if (el) el.scrollIntoView(); })();
   if (!steamAlCargar() && leerSesion() && !admin.puede) cargarPerfil();
 })();
