@@ -765,8 +765,8 @@
   }
   function modalRuleta() {
     var rt = ruleta, g = rt.segs[rt.w], mes = rt.modo === "mensual" || rt.modo === "replayMes", rep = rt.modo === "replay" || rt.modo === "replayMes";
-    var p = mes ? { nombre: "Sorteo de " + nombreMes(rt.mes) + ((mensualDe(rt.mes) || {}).premio && mensualDe(rt.mes).premio.nombre ? " · " + mensualDe(rt.mes).premio.nombre : "") } : (estado.premios[buscarPremio(rt.pid)] || {});
-    return '<div class="scrim scrim-top"></div><div class="elegir ruleta" role="dialog" aria-label="Ruleta"><h3>' + (rep ? '🎬 Repetición del sorteo' : '🎲 Sorteo') + ' · ' + esc(p.nombre || "") + '</h3>' +
+    var p = mes ? { nombre: nombreMes(rt.mes) + ((mensualDe(rt.mes) || {}).premio && mensualDe(rt.mes).premio.nombre ? " · " + mensualDe(rt.mes).premio.nombre : "") } : (estado.premios[buscarPremio(rt.pid)] || {});
+    return '<div class="scrim scrim-top"></div><div class="elegir ruleta" role="dialog" aria-label="Ruleta"><h3>' + (rep ? '🎬 Repetición del sorteo' : mes ? '🏆 Sorteo del mes' : '🎲 Sorteo') + ' · ' + esc(p.nombre || "") + '</h3>' +
       '<div class="rwrap"><div class="rpin"></div><canvas id="ruleta-cv" width="440" height="440"></canvas></div>' +
       (rt.fin ? '<div class="rwin">🏆 ¡Ganador: <b>' + esc(g.n) + '</b>!</div>' + (rep && rt.fecha ? '<p class="hint">Sorteo realizado: ' + esc(fechaHora(rt.fecha)) + '</p>' : '') : '<p class="hint">' + rt.segs.length + ' participante' + (rt.segs.length === 1 ? '' : 's') + '. ' + (mes ? 'Más puntos' : 'Más tickets') + ' = más espacio en la ruleta.</p>') +
       '<div class="rbtns">' +
