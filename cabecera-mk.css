@@ -146,3 +146,42 @@ html:root .mk-sub + .section { padding-top: 34px; }
 }
 @media (max-width: 600px) { html:root .mk-lg { display: none; } html:root .mk-nav { justify-content: space-between; } }
 html:root .ms-foto { max-height: 320px; }
+
+:root { --mp-ac: var(--yellow, #ffc93c); }
+
+/* ===== Detalle de puntos del sorteo del mes (panel admin y cliente) ===== */
+.aitem.mp-u { display: block; padding: 0; }
+.mp-u .mp-cab { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; cursor: pointer; }
+.mp-u .mp-cab:focus-visible { outline: 2px solid var(--mp-ac); outline-offset: -2px; border-radius: 10px; }
+.mp-u .mp-cab .t { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.mp-u .mp-cab .t span { opacity: .8; font-size: 13px; }
+.mp-fl { flex: none; opacity: .7; font-size: 12px; }
+.mp-u.on { border-color: var(--mp-ac); }
+.mp-in { padding: 0 12px 12px; }
+.mp-det { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; }
+.mp-det li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(0, 0, 0, .28); border: 1px solid rgba(255, 255, 255, .07); }
+.mp-det li.aj { border-style: dashed; }
+.mp-ic { flex: none; }
+.mp-tx { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+.mp-tx b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.mp-tx small { opacity: .7; font-size: 12px; }
+.mp-pts { flex: none; font-weight: 800; color: var(--mp-ac); }
+.mp-pts.neg { color: #ff6b6b; }
+.mp-x { flex: none; width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .15); background: transparent; color: inherit; cursor: pointer; }
+.mp-x:hover { border-color: #ff6b6b; color: #ff6b6b; }
+.mp-aj { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+.mp-aj input, .mp-aj select { min-height: 38px; padding: 6px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .18); background: rgba(0, 0, 0, .35); color: inherit; font: inherit; font-size: 14px; }
+.mp-aj .mp-n { width: 96px; }
+.mp-aj .mp-m { flex: 1 1 180px; min-width: 0; }
+.mp-aj .mp-u-sel { flex: 1 1 100%; min-width: 0; width: 100%; max-width: 100%; }
+.mp-nuevo, .mp-lista { min-width: 0; max-width: 100%; }
+.mp-nuevo { margin-top: 14px; padding: 12px; border-radius: 12px; border: 1px dashed rgba(255, 255, 255, .2); }
+.mp-mios { margin-top: 8px; }
+.mp-mios summary { cursor: pointer; font-weight: 700; color: var(--mp-ac); }
+@media (max-width: 600px) { .mp-aj .btn { flex: 1 1 40%; } }
+
+/* Barra de rifas sin límite de tickets: se ve igual que las demás, con un brillo que se mueve */
+.card .cbar.nolim { visibility: visible; position: relative; overflow: hidden; }
+.card .cbar.nolim i { position: absolute; left: 0; top: 0; width: 40% !important; opacity: .9; animation: mpNolim 2.6s linear infinite; will-change: transform; }
+@keyframes mpNolim { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .card .cbar.nolim i { animation: none; width: 100% !important; opacity: .45; } }
