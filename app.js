@@ -2602,12 +2602,15 @@
         '</div></div></div>' +
       '<div class="ms-rank frame"><div class="in">' +
         '<div class="ms-rank-h"><b>Tabla de puntos</b><span>' + rk.lista.length + ' participante' + (rk.lista.length === 1 ? '' : 's') + ' · ' + rk.total + ' puntos</span></div>' +
-        (rk.conTope ? '<p class="ms-tope">⚖️ Nadie pasa de <b>' + rk.tope + ' %</b> de probabilidad: lo que sobra se reparte entre los demás.</p>' : '') +
-        (cuenta.perfil && !admin.puede ? '<div class="ms-yo">' + (mio ? 'Vas <b>#' + mio.pos + '</b> con <b>' + mio.puntos + '</b> punto' + (mio.puntos === 1 ? '' : 's') + ' · <b>' + pctTxt(mio.pct) + '</b> de probabilidad' + '<details class="mp-mios"><summary>¿De dónde vienen mis puntos?</summary>' + detallePuntosHtml(mio, false) + '</details>' : 'Aún no tienes puntos este mes. Entra a una rifa y empieza a sumar. 🍀') + '</div>' : '') +
+        (cuenta.perfil && !admin.puede ? '<div class="ms-yo">' + (mio ? 'Vas <b>#' + mio.pos + '</b> con <b>' + mio.puntos + '</b> punto' + (mio.puntos === 1 ? '' : 's') + ' · <b>' + pctTxt(mio.pct) + '</b> de probabilidad' + (mio.pos > 1 ? (function (fa) { return '<span class="ms-falta">' + (fa === 1 ? 'Te falta <b>1 punto</b>' : 'Te faltan <b>' + fa + ' puntos</b>') + ' (S/ ' + fa + ' en tickets) para pasar al puesto #' + (mio.pos - 1) + '.</span>'; })(rk.lista[mio.pos - 2].puntos - mio.puntos + 1) : '<span class="ms-falta">¡Vas primero! Sigue jugando para no perder el puesto.</span>') + '<details class="mp-mios"><summary>¿De dónde vienen mis puntos?</summary>' + detallePuntosHtml(mio, false) + '</details>' : 'Aún no tienes puntos este mes. Entra a una rifa y empieza a sumar. 🍀') + '</div>' : '') +
         (top.length ? '<ol class="ms-lista">' + top.map(function (r, i) {
-          return '<li' + (uid && r.uid === uid ? ' class="yo"' : '') + '><span class="ms-pos">' + (i + 1) + '</span><span class="ms-nom">' + esc(r.nombre) + '</span><span class="ms-bar"><i style="width:' + Math.max(3, Math.round(r.pct)) + '%"></i></span><span class="ms-pts"><b>' + r.puntos + '</b> pts · ' + pctTxt(r.pct) + '</span></li>';
+          return '<li' + (uid && r.uid === uid ? ' class="yo"' : '') + '><span class="ms-pos">' + (i + 1) + '</span><span class="ms-nom">' + esc(r.nombre) + '</span><span class="ms-bar"><i style="width:' + Math.max(3, Math.round(r.pct)) + '%"></i></span><span class="ms-pts"><b>' + r.puntos + '</b> pts</span><span class="ms-pct"><b>' + pctTxt(r.pct) + '</b><small>de ganar</small></span></li>';
         }).join("") + '</ol>' + (rk.lista.length > 10 ? '<p class="hint" style="margin:10px 0 0">…y ' + (rk.lista.length - 10) + ' más.</p>' : '')
           : '<p class="hint" style="margin:6px 0 0">Todavía nadie suma puntos este mes. ¡Sé el primero!</p>') +
+        '<p class="ms-explica"><b>¿Cómo se calcula?</b> Cada S/ 1 en tickets de rifas = 1 punto. Tu probabilidad de ganar = tus puntos ÷ los puntos de todos. Mientras más juegas, más sube tu %; si otros juegan más, tu % baja.' +
+          (rk.tope < 100 ? ' Para que todos tengan chance, nadie pasa de ' + rk.tope + ' % (con 3 o más participantes): lo que sobra se reparte entre los demás según sus puntos.' : '') +
+          ((info.premio2 || {}).nombre ? ' Además, todos los que tienen puntos entran al premio para todos con la misma chance.' : '') +
+          ' Los puntos vuelven a 0 cada mes.</p>' +
       '</div></div>' +
       '</div>' + chicoHtml(m, info, uid) + '</div></section>';
   }
