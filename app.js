@@ -2295,7 +2295,7 @@
     var est = p.estado === "proxima" ? "proxima" : (p.estado === "cerrada" ? "cerrada" : (p.estado === "oculta" ? "oculta" : "activa"));
     var estTxt = est === "activa" ? "Abierta" : (est === "proxima" ? "Próximamente" : (est === "oculta" ? "Deshabilitada" : "Cerrada"));
     var cupos = num(p.cupos, 0), part = Math.max(num(p.participantes, 0), tomados(p.id)), cred = num(p.creditos, 0);
-    var partTxt = cupos > 0 ? (part + " / " + cupos + " tickets") : (part + (part === 1 ? " ticket" : " tickets"));
+    var partTxt = cupos > 0 ? (part + " / " + cupos + " tickets") : (part + (part === 1 ? " ticket comprado" : " tickets comprados"));
     var lleno = cupos > 0 && part >= cupos;
     var mio0 = misParts[p.id] || 0, tope0 = num(p.maxPorUsuario, 0), topeOk = tope0 > 0 && mio0 >= tope0;
     var fz = vivo() ? est : fase(p);
@@ -2351,7 +2351,7 @@
       '<h3' + ed("p:" + p.id + ":nombre", "Nombre del premio") + '>' + esc(V ? p.nombre : (p.nombre || "Premio")) + '</h3>' +
       (p.descripcion || V ? '<p class="desc"' + ed("p:" + p.id + ":descripcion", "Descripción (opcional)") + '>' + esc(p.descripcion) + '</p>' : '<p class="desc vacia" aria-hidden="true">&nbsp;</p>') +
       '<div class="meta"><span class="cost"><small>S/</small><b' + ed("p:" + p.id + ":creditos", "0") + '>' + cred + '</b><small>por ticket</small></span><span class="pill">' + partTxt + '</span></div>' +
-      (cupos > 0 ? '<div class="cbar' + (part >= cupos ? ' full' : (part / cupos >= 0.8 ? ' hot' : '')) + '" role="img" aria-label="' + esc(partTxt) + '"><i style="width:' + Math.min(100, Math.round(part / cupos * 100)) + '%"></i></div>' : '<div class="cbar nolim" aria-hidden="true"><i style="width:0"></i></div>') +
+      (cupos > 0 ? '<div class="cbar' + (part >= cupos ? ' full' : (part / cupos >= 0.8 ? ' hot' : '')) + '" role="img" aria-label="' + esc(partTxt) + '"><i style="width:' + Math.min(100, Math.round(part / cupos * 100)) + '%"></i></div>' : '<div class="cbar nolim" role="img" aria-label="' + esc(partTxt) + '"><i></i></div>') +
       (est === "activa" && p.cierre ? '<div class="timer' + (urg ? ' urg' : '') + '" data-cierre="' + esc(p.cierre) + '"><span class="tic">⏳</span> <span class="tx">' + esc(restante(p.cierre)) + '</span></div>' : '') +
       (est === "activa" && p.cierre ? '<div class="pill fechas">Cierra: ' + esc(fechaHora(p.cierre)) + (+p.cupos > 0 ? ' o al agotar tickets' : '') + '</div>' : '') +
       (est === "activa" && !p.cierre && +p.cupos > 0 ? '<div class="pill fechas">Cierra al agotar tickets</div>' : '') +
