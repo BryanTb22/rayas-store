@@ -732,8 +732,14 @@
       mensualDe(rt.mes);
       var im = estado.mensual[rt.mes] = estado.mensual[rt.mes] || {}, fe = new Date().toISOString();
       im.congelado = entradasMes(rt.mes).map(function (e) { return { pid: e.pid, rifa: e.rifa, uid: e.uid, nombre: e.nombre, pts: e.pts, tickets: e.tickets, creado: e.creado }; });
-      im.ganador = g.n; im.ganadorUid = g.uid; im.puntos = g.c; im.total = rt.total; im.fecha = fe;
+      im.ganador = g.n; im.ganadorUid = g.uid; im.puntos = g.pts !== undefined ? g.pts : g.c; im.total = rt.total; im.fecha = fe; im.topeUsado = rt.tope || 100;
       im.replay = { segs: rt.segs.map(function (y) { return { n: y.n, c: y.c }; }), w: rt.w, rot: rt.rot, dur: rt.dur, fecha: fe };
+      marcarSucio();
+    } else if (rt.modo === "mensual2") {
+      mensualDe(rt.mes);
+      var i2 = estado.mensual[rt.mes] = estado.mensual[rt.mes] || {}, f2 = new Date().toISOString();
+      i2.ganador2 = g.n; i2.ganador2Uid = g.uid; i2.fecha2 = f2;
+      i2.replay2 = { segs: rt.segs.map(function (y) { return { n: y.n, c: y.c }; }), w: rt.w, rot: rt.rot, dur: rt.dur, fecha: f2 };
       marcarSucio();
     }
     render();
@@ -765,14 +771,15 @@
     })();
   }
   function modalRuleta() {
-    var rt = ruleta, g = rt.segs[rt.w], mes = rt.modo === "mensual" || rt.modo === "replayMes", rep = rt.modo === "replay" || rt.modo === "replayMes";
-    var p = mes ? { nombre: nombreMes(rt.mes) + ((mensualDe(rt.mes) || {}).premio && mensualDe(rt.mes).premio.nombre ? " · " + mensualDe(rt.mes).premio.nombre : "") } : (estado.premios[buscarPremio(rt.pid)] || {});
-    return '<div class="scrim scrim-top"></div><div class="elegir ruleta" role="dialog" aria-label="Ruleta"><h3>' + (rep ? '🎬 Repetición del sorteo' : mes ? '🏆 Sorteo del mes' : '🎲 Sorteo') + ' · ' + esc(p.nombre || "") + '</h3>' +
+    var rt = ruleta, g = rt.segs[rt.w], chico = rt.modo === "mensual2" || rt.modo === "replayMes2", mes = chico || rt.modo === "mensual" || rt.modo === "replayMes", rep = rt.modo === "replay" || rt.modo === "replayMes" || rt.modo === "replayMes2";
+    var im0 = mes ? (mensualDe(rt.mes) || {}) : {}, pp = (chico ? im0.premio2 : im0.premio) || {};
+    var p = mes ? { nombre: nombreMes(rt.mes) + (pp.nombre ? " · " + pp.nombre : "") } : (estado.premios[buscarPremio(rt.pid)] || {});
+    return '<div class="scrim scrim-top"></div><div class="elegir ruleta" role="dialog" aria-label="Ruleta"><h3>' + (rep ? '🎬 Repetición del sorteo' : chico ? '🎁 Premio para todos' : mes ? '🏆 Sorteo del mes' : '🎲 Sorteo') + ' · ' + esc(p.nombre || "") + '</h3>' +
       '<div class="rwrap"><div class="rpin"></div><canvas id="ruleta-cv" width="440" height="440"></canvas></div>' +
-      (rt.fin ? '<div class="rwin">🏆 ¡Ganador: <b>' + esc(g.n) + '</b>!</div>' + (rep && rt.fecha ? '<p class="hint">Sorteo realizado: ' + esc(fechaHora(rt.fecha)) + '</p>' : '') : '<p class="hint">' + rt.segs.length + ' participante' + (rt.segs.length === 1 ? '' : 's') + '. ' + (mes ? 'Más puntos' : 'Más tickets') + ' = más espacio en la ruleta.</p>') +
+      (rt.fin ? '<div class="rwin">🏆 ¡Ganador: <b>' + esc(g.n) + '</b>!</div>' + (rep && rt.fecha ? '<p class="hint">Sorteo realizado: ' + esc(fechaHora(rt.fecha)) + '</p>' : '') : '<p class="hint">' + rt.segs.length + ' participante' + (rt.segs.length === 1 ? '' : 's') + '. ' + (chico ? 'Todos tienen la misma chance.' : mes ? 'Más puntos = más espacio en la ruleta' + (rt.tope && rt.tope < 100 ? ' (nadie pasa de ' + rt.tope + ' %)' : '') + '.' : 'Más tickets = más espacio en la ruleta.') + '</p>') +
       '<div class="rbtns">' +
       (!rt.fin && !rt.run ? '<button class="btn btn-yellow" id="ruleta-go" type="button" data-a="ruletaGirar">' + (rep ? '▶ Ver repetición' : '🎰 ¡Girar!') + '</button>' : '') +
-      (rt.fin && (rt.modo === "sorteo" || rt.modo === "mensual") ? '<button class="btn btn-fuchsia" type="button" data-a="ruletaGuardar">Guardar y publicar resultado</button>' : '') +
+      (rt.fin && (rt.modo === "sorteo" || rt.modo === "mensual" || rt.modo === "mensual2") ? '<button class="btn btn-fuchsia" type="button" data-a="ruletaGuardar">Guardar y publicar resultado</button>' : '') +
       (rt.fin && rep ? '<button class="btn btn-ghost" type="button" data-a="ruletaOtra">↻ Ver otra vez</button>' : '') +
       (!rt.run ? '<button class="btn btn-ghost btn-sm" type="button" data-a="ruletaCerrar">Cerrar</button>' : '') + '</div></div>';
   }
@@ -2531,8 +2538,9 @@
       .sort(function (a, b) { return b.puntos - a.puntos || String(a.nombre).localeCompare(b.nombre); });
     var lista = todos.filter(function (r) { return r.puntos > 0; });
     var total = lista.reduce(function (a, r) { return a + r.puntos; }, 0);
-    todos.forEach(function (r) { r.pct = total ? r.puntos / total * 100 : 0; });
-    return { lista: lista, todos: todos, total: total };
+    todos.forEach(function (r) { r.pct = 0; r.pctReal = 0; });
+    var tope = topeMes(m), conTope = repartirConTope(lista, total, tope);
+    return { lista: lista, todos: todos, total: total, tope: tope, conTope: conTope };
   }
   function detallePuntosHtml(r, admin0) {
     var h = r.rifas.map(function (e) {
@@ -2543,6 +2551,36 @@
     }).join("");
     return '<ul class="mp-det">' + (h || '<li><span class="mp-tx"><small>Sin movimientos.</small></span></li>') + '</ul>';
   }
+  /* Tope de probabilidad del premio grande (decidido por Bryan el 11/11/2026):
+     - con 3 o más participantes, nadie pasa de info.tope % (por defecto 40 %); lo que sobra se reparte
+       entre los demás según sus puntos;
+     - con 1 o 2 participantes no se puede aplicar (se reparte normal según puntos).
+     Al sortear se guarda el tope usado (topeUsado) para que el resultado no cambie si se edita después. */
+  var TOPE_DEF = 40;
+  function topeMes(m) {
+    var info = mensualDe(m) || {};
+    var t = info.ganador && info.topeUsado !== undefined ? Number(info.topeUsado) : (info.tope === undefined ? TOPE_DEF : Number(info.tope));
+    return isFinite(t) && t >= 34 && t < 100 ? t : 100;   // 100 = sin tope
+  }
+  function repartirConTope(lista, total, tope) {
+    lista.forEach(function (r) { r.pct = total ? r.puntos / total * 100 : 0; r.pctReal = r.pct; r.topado = false; });
+    if (tope >= 100 || lista.length < 3 || lista.length * tope < 100) return false;
+    var fijos = 0, hubo = false;
+    for (var vuelta = 0; vuelta < lista.length; vuelta++) {
+      var libres = lista.filter(function (r) { return !r.topado; }), sumL = libres.reduce(function (a, r) { return a + r.puntos; }, 0), resto = 100 - fijos, nuevo = false;
+      libres.forEach(function (r) { r.pct = sumL ? r.puntos / sumL * resto : 0; });
+      libres.forEach(function (r) { if (r.pct > tope + 1e-9) { r.pct = tope; r.topado = true; fijos += tope; nuevo = hubo = true; } });
+      if (!nuevo) break;
+    }
+    return hubo;
+  }
+  // Premio para todos: entran todos los que tienen puntos ese mes, con la misma probabilidad.
+  // Si "excluir" está marcado (por defecto sí), el ganador del premio grande no entra.
+  function participantesChico(m) {
+    var info = mensualDe(m) || {}, rk = rankingMes(m);
+    var fuera = info.ganador && info.excluir !== false ? claveU(info.ganadorUid, info.ganador) : "";
+    return rk.lista.filter(function (r) { return !fuera || (r.uid ? r.uid !== info.ganadorUid : r.clave !== fuera); });
+  }
   function pctTxt(x) { return x >= 10 ? Math.round(x) + "%" : x >= 1 ? x.toFixed(1).replace(".0", "") + "%" : x > 0 ? "<1%" : "0%"; }
   function sorteoMesHtml(V) {
     var m = mesActual(), info = mensualDe(m) || {}, pr = info.premio || {}, rk = rankingMes(m);
@@ -2552,8 +2590,8 @@
     var quedan = Math.max(0, finDeMes(m) - Date.now()), dias = Math.floor(quedan / 86400000), horas = Math.floor(quedan % 86400000 / 3600000);
     var top = rk.lista.slice(0, 10);
     return '<section class="section gutter mk-sorteo" id="sorteo"><div class="wrap">' +
-      '<div class="sec-title"><div class="kicker">Mientras más juegas, más chances</div><h2><span class="t1">Sorteo</span> <span>del mes</span></h2><p>Cada <b>S/ 1</b> que gastas en tickets de rifas es <b>1 punto</b>. A fin de mes sorteamos un premio: quien tiene más puntos tiene más probabilidad de ganar.</p><div class="orn">◆</div></div>' +
-      (infoAnt.ganador ? '<div class="ms-ant frame gold"><div class="in"><span class="ms-ant-i">🏆</span><div><small>Ganador de ' + esc(nombreMes(ant)) + '</small><b>' + esc(infoAnt.ganador) + '</b>' + (infoAnt.premio && infoAnt.premio.nombre ? '<span>' + esc(infoAnt.premio.nombre) + '</span>' : '') + '</div>' + (infoAnt.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="mmReplay" data-m="' + esc(ant) + '">🎬 Ver sorteo</button>' : '') + '</div></div>' : '') +
+      '<div class="sec-title"><div class="kicker">Mientras más juegas, más chances</div><h2><span class="t1">Sorteo</span> <span>del mes</span></h2><p>Cada <b>S/ 1</b> que gastas en tickets de rifas es <b>1 punto</b>. A fin de mes sorteamos un premio: quien tiene más puntos tiene más probabilidad de ganar' + (topeMes(m) < 100 ? ', pero nadie pasa de <b>' + topeMes(m) + ' %</b>, así todos tienen chance' : '') + '.</p><div class="orn">◆</div></div>' +
+      (infoAnt.ganador ? '<div class="ms-ant frame gold"><div class="in"><span class="ms-ant-i">🏆</span><div><small>Ganador de ' + esc(nombreMes(ant)) + '</small><b>' + esc(infoAnt.ganador) + '</b>' + (infoAnt.premio && infoAnt.premio.nombre ? '<span>' + esc(infoAnt.premio.nombre) + '</span>' : '') + (infoAnt.ganador2 ? '<span>🎁 Premio para todos: <b class="ms-g2">' + esc(infoAnt.ganador2) + '</b>' + (infoAnt.premio2 && infoAnt.premio2.nombre ? ' · ' + esc(infoAnt.premio2.nombre) : '') + '</span>' : '') + '</div>' + (infoAnt.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="mmReplay" data-m="' + esc(ant) + '">🎬 Ver sorteo</button>' : '') + '</div></div>' : '') +
       '<div class="ms-grid">' +
       '<div class="ms-premio frame gold"><div class="in">' +
         '<div class="ms-foto">' + (pr.img ? imgTag(pr.img, pr.nombre || "", ' loading="lazy"') : '<span class="ms-sinfoto">🎁</span>') + '</div>' +
@@ -2564,13 +2602,30 @@
         '</div></div></div>' +
       '<div class="ms-rank frame"><div class="in">' +
         '<div class="ms-rank-h"><b>Tabla de puntos</b><span>' + rk.lista.length + ' participante' + (rk.lista.length === 1 ? '' : 's') + ' · ' + rk.total + ' puntos</span></div>' +
+        (rk.conTope ? '<p class="ms-tope">⚖️ Nadie pasa de <b>' + rk.tope + ' %</b> de probabilidad: lo que sobra se reparte entre los demás.</p>' : '') +
         (cuenta.perfil && !admin.puede ? '<div class="ms-yo">' + (mio ? 'Vas <b>#' + mio.pos + '</b> con <b>' + mio.puntos + '</b> punto' + (mio.puntos === 1 ? '' : 's') + ' · <b>' + pctTxt(mio.pct) + '</b> de probabilidad' + '<details class="mp-mios"><summary>¿De dónde vienen mis puntos?</summary>' + detallePuntosHtml(mio, false) + '</details>' : 'Aún no tienes puntos este mes. Entra a una rifa y empieza a sumar. 🍀') + '</div>' : '') +
         (top.length ? '<ol class="ms-lista">' + top.map(function (r, i) {
           return '<li' + (uid && r.uid === uid ? ' class="yo"' : '') + '><span class="ms-pos">' + (i + 1) + '</span><span class="ms-nom">' + esc(r.nombre) + '</span><span class="ms-bar"><i style="width:' + Math.max(3, Math.round(r.pct)) + '%"></i></span><span class="ms-pts"><b>' + r.puntos + '</b> pts · ' + pctTxt(r.pct) + '</span></li>';
         }).join("") + '</ol>' + (rk.lista.length > 10 ? '<p class="hint" style="margin:10px 0 0">…y ' + (rk.lista.length - 10) + ' más.</p>' : '')
           : '<p class="hint" style="margin:6px 0 0">Todavía nadie suma puntos este mes. ¡Sé el primero!</p>') +
       '</div></div>' +
-      '</div></div></section>';
+      '</div>' + chicoHtml(m, info, uid) + '</div></section>';
+  }
+  // Tarjeta del "Premio para todos" (solo si el admin le puso nombre).
+  function chicoHtml(m, info, uid) {
+    var p2 = info.premio2 || {}; if (!p2.nombre) return '';
+    var ps = info.ganador ? participantesChico(m) : rankingMes(m).lista, n = ps.length, yo = null;
+    ps.forEach(function (r) { if (uid && r.uid === uid) yo = r; });
+    var est = info.ganador2
+      ? '<div class="ms-gano">🎁 Ganó <b>' + esc(info.ganador2) + '</b></div>' + (info.replay2 ? '<button class="btn btn-ghost btn-sm" type="button" data-a="mmReplay" data-m="' + esc(m) + '" data-c="2">🎬 Ver sorteo</button>' : '')
+      : (cuenta.perfil && !admin.puede
+        ? (yo ? '<div class="ms-ok">✔ Ya participas · <b>1 de ' + n + '</b> (' + pctTxt(100 / n) + ')</div>' : '<div class="ms-ok no">Compra al menos 1 ticket este mes para entrar.</div>')
+        : '<div class="ms-ok">' + n + ' participante' + (n === 1 ? '' : 's') + (n ? ' · cada uno ' + pctTxt(100 / n) : '') + '</div>');
+    return '<div class="ms-chico frame"><div class="in">' +
+      '<div class="ms-chico-f">' + (p2.img ? imgTag(p2.img, p2.nombre, ' loading="lazy"') : '<span class="ms-sinfoto">🎁</span>') + '</div>' +
+      '<div class="ms-txt"><small>Premio para todos · ' + esc(nombreMes(m)) + '</small><h3>' + esc(p2.nombre) + '</h3>' +
+      '<p>' + (p2.descripcion ? esc(p2.descripcion) + ' ' : '') + 'Todos los que compran al menos 1 ticket en el mes tienen <b>la misma chance</b>, sin importar cuántos puntos tengan.' + (info.excluir !== false ? ' El ganador del premio grande no entra.' : '') + '</p>' +
+      est + '</div></div></div>';
   }
   // Panel admin → "🏆 Sorteo del mes"
   function tabMensual() {
@@ -2584,7 +2639,17 @@
       '<div class="field"><label for="mm-img">Foto del premio (link https://…)</label><input id="mm-img" class="mm-f" data-k="img" inputmode="url" placeholder="https://…" value="' + esc(pr.img || "") + '">' +
       '<p class="hint">Copia la imagen del item (clic derecho → Copiar dirección de imagen) desde el Mercado de Steam y pégala aquí.</p></div>' +
       '<div class="field"><label for="mm-desc">Descripción (opcional)</label><textarea id="mm-desc" class="mm-f" data-k="descripcion" maxlength="200" rows="2">' + esc(pr.descripcion || "") + '</textarea></div>' +
+      '<div class="field"><label for="mm-tope">Tope de probabilidad</label><select id="mm-tope" class="mm-tope"' + (info.ganador ? ' disabled' : '') + '>' +
+        [[35, "35 %"], [40, "40 % (recomendado)"], [50, "50 %"], [60, "60 %"], [100, "Sin tope"]].map(function (o) { return '<option value="' + o[0] + '"' + (topeMes(m) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
+        '<p class="hint">Con 3 o más participantes, nadie pasa de este %. Con 1 o 2 se reparte normal según puntos.' + (rk.conTope ? ' <b>Ahora mismo se está aplicando.</b>' : '') + '</p></div>' +
       '<p class="hint">Después toca <b>Guardar y publicar</b> para que los clientes lo vean.</p></div>' +
+      '<div class="grp"><h3>🎁 Premio para todos (opcional)</h3>' +
+      '<p class="hint">Se sortea después del premio grande, entre todos los que tienen puntos en el mes, con <b>la misma probabilidad</b>. Si lo dejas sin nombre, no se muestra.</p>' +
+      '<div class="field"><label for="mm2-nombre">Nombre del premio</label><input id="mm2-nombre" class="mm-f2" data-k="nombre" maxlength="80" value="' + esc((info.premio2 || {}).nombre || "") + '" placeholder="Ej. S/ 10 de saldo o un set"></div>' +
+      '<div class="field"><label for="mm2-img">Foto (link https://…, opcional)</label><input id="mm2-img" class="mm-f2" data-k="img" inputmode="url" placeholder="https://…" value="' + esc((info.premio2 || {}).img || "") + '"></div>' +
+      '<div class="field"><label for="mm2-desc">Descripción (opcional)</label><input id="mm2-desc" class="mm-f2" data-k="descripcion" maxlength="120" value="' + esc((info.premio2 || {}).descripcion || "") + '"></div>' +
+      '<label class="mm-chk"><input type="checkbox" class="mm-excl"' + (info.excluir !== false ? ' checked' : '') + (info.ganador2 ? ' disabled' : '') + '> El ganador del premio grande no entra al premio para todos</label></div>' +
+      convieneGrp(m, rk) +
       '<div class="grp"><h3>Puntos de ' + esc(nombreMes(m)) + '</h3>' +
       '<p class="hint">Toca un usuario para ver de qué rifa viene cada punto y para sumarle o quitarle puntos a mano. Cuentan las rifas que cierran este mes y las abiertas que no tienen fecha de cierre.' + (info.ganador ? ' <b>Este mes ya se sorteó:</b> los puntos quedaron congelados.' : '') + '</p>' +
       (rk.todos.length ? '<div class="alist mp-lista">' + rk.todos.map(function (r, i) {
@@ -2612,24 +2677,71 @@
           '<div class="cav">' + (info.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="mmReplay" data-m="' + esc(m) + '">🎬 Ver sorteo</button>' : '') +
           (admin.mmBorrar === m ? '<button class="btn btn-ghost btn-sm" type="button" data-a="mmBorrarSi" data-m="' + esc(m) + '">¿Seguro? Borrar resultado</button>' : '<button class="btn btn-ghost btn-sm" type="button" data-a="mmBorrar" data-m="' + esc(m) + '">Borrar resultado</button>') + '</div>'
         : (rk.lista.length ? (terminado ? '' : '<p class="hint">⚠ El mes aún no termina: si sorteas ahora, los puntos que se sumen después no contarán.</p>') +
-            '<button class="btn btn-yellow" type="button" data-a="mmSortear" data-m="' + esc(m) + '">🎰 Sortear ' + esc(nombreMes(m)) + '</button>'
+            '<button class="btn btn-yellow" type="button" data-a="mmSortear" data-m="' + esc(m) + '">🎰 Sortear premio grande</button>'
           : '<p class="hint">Cuando haya puntos podrás sortear.</p>')) +
+      (function () {
+        var p2 = info.premio2 || {}; if (!p2.nombre) return '';
+        var h = '<h3 class="mm-h2">🎁 Premio para todos</h3>';
+        if (info.ganador2) return h + '<p class="hint">Ganó <b>' + esc(info.ganador2) + '</b>' + (info.fecha2 ? ' (' + esc(fechaHora(info.fecha2)) + ')' : '') + '.</p><div class="cav">' +
+          (info.replay2 ? '<button class="btn btn-ghost btn-sm" type="button" data-a="mmReplay" data-m="' + esc(m) + '" data-c="2">🎬 Ver sorteo</button>' : '') +
+          (admin.mmBorrar2 === m ? '<button class="btn btn-ghost btn-sm" type="button" data-a="mmBorrar2Si" data-m="' + esc(m) + '">¿Seguro? Borrar resultado</button>' : '<button class="btn btn-ghost btn-sm" type="button" data-a="mmBorrar2" data-m="' + esc(m) + '">Borrar resultado</button>') + '</div>';
+        if (!info.ganador) return h + '<p class="hint">Primero sortea el premio grande.</p>';
+        var ps = participantesChico(m);
+        return h + (ps.length ? '<p class="hint">' + ps.length + ' participante' + (ps.length === 1 ? '' : 's') + ', cada uno con ' + pctTxt(100 / ps.length) + '.</p><button class="btn btn-yellow" type="button" data-a="mmSortear2" data-m="' + esc(m) + '">🎰 Sortear premio para todos</button>'
+          : '<p class="hint">No hay más participantes para este premio.</p>');
+      })() +
       '</div>';
+  }
+  /* "¿Me conviene?": cuenta rápida para no perder plata con el sorteo. Los costos quedan SOLO en este navegador
+     (no se publican, porque el estado de las rifas es público). */
+  function mmCostos(m) { try { var o = JSON.parse(localStorage.getItem("rayas_mm_costos") || "{}"); return o[m] || {}; } catch (e) { return {}; } }
+  function mmCostosGuardar(m, k, v) { try { var o = JSON.parse(localStorage.getItem("rayas_mm_costos") || "{}"); o[m] = o[m] || {}; o[m][k] = v; localStorage.setItem("rayas_mm_costos", JSON.stringify(o)); } catch (e) { /* nada */ } }
+  function recaudadoMes(rk) { return rk.todos.reduce(function (a, r) { return a + r.compras; }, 0); }
+  function convieneRes(m, rk) {
+    var c = mmCostos(m), g = Number(c.g) || 0, ch = Number(c.c) || 0, mg = Number(c.mg); if (!(mg > 0 && mg <= 100)) mg = 25;
+    var rec = recaudadoMes(rk), gan = rec * mg / 100, cost = g + ch, minimo = mg ? cost / (mg / 100) : 0;
+    if (!cost) return '<p class="hint">Escribe cuánto te cuestan los premios para hacer la cuenta.</p>';
+    var ok = gan >= cost;
+    return '<div class="mm-conv ' + (ok ? 'ok' : 'mal') + '"><b>' + (ok ? '✔ Vas cubierto' : '✖ Todavía no te conviene') + '</b>' +
+      '<span>Ganancia estimada de las rifas: <b>S/ ' + gan.toFixed(2) + '</b> (' + mg + ' % de S/ ' + rec.toFixed(2) + ' en tickets)</span>' +
+      '<span>Premios: <b>S/ ' + cost.toFixed(2) + '</b> · Mínimo en tickets para no perder: <b>S/ ' + minimo.toFixed(2) + '</b>' + (ok ? '' : ' · faltan <b>S/ ' + (minimo - rec).toFixed(2) + '</b>') + '</span></div>';
+  }
+  function convieneGrp(m, rk) {
+    var c = mmCostos(m);
+    return '<div class="grp"><h3>💰 ¿Me conviene?</h3>' +
+      '<p class="hint">Cuenta rápida para no perder plata. Lo que escribas aquí se queda solo en este navegador (los clientes no lo ven).</p>' +
+      '<div class="mm-cgrid"><div class="field"><label for="mmc-g">Costo premio grande (S/)</label><input id="mmc-g" class="mm-c" data-k="g" type="number" inputmode="decimal" min="0" step="0.5" value="' + esc(c.g || "") + '" placeholder="0"></div>' +
+      '<div class="field"><label for="mmc-c">Costo premio para todos (S/)</label><input id="mmc-c" class="mm-c" data-k="c" type="number" inputmode="decimal" min="0" step="0.5" value="' + esc(c.c || "") + '" placeholder="0"></div>' +
+      '<div class="field"><label for="mmc-mg">Lo que te queda de cada S/ de tickets (%)</label><input id="mmc-mg" class="mm-c" data-k="mg" type="number" inputmode="numeric" min="1" max="100" step="1" value="' + esc(c.mg || "") + '" placeholder="25"></div></div>' +
+      '<p class="hint">Ej.: rifa de 12 tickets × S/ 5 = S/ 60; si el item te costó S/ 45, te quedan S/ 15 = 25 %.</p>' +
+      '<div id="mm-conv-res">' + convieneRes(m, rk) + '</div></div>';
   }
   function abrirRuletaMes(m) {
     var rk = rankingMes(m); if (!rk.lista.length) return;
-    var segs = ruletaSegs(rk.lista.map(function (r) { return { uid: r.uid, nombre: r.nombre, cantidad: r.puntos }; })), tot = 0; segs.forEach(function (g) { tot += g.c; });
+    // El espacio en la ruleta es la probabilidad (con tope); se guardan también los puntos reales.
+    var segs = ruletaSegs(rk.lista.map(function (r) { return { uid: r.uid, nombre: r.nombre, cantidad: Math.max(1, Math.round(r.pct * 100)) }; })), tot = 0;
+    segs.forEach(function (g, i) { g.pts = rk.lista[i].puntos; tot += g.c; });
     var r = Math.random() * tot, w = 0, ac = 0;
     try { var u = new Uint32Array(1); crypto.getRandomValues(u); r = u[0] / 4294967296 * tot; } catch (e) { /* Math.random */ }
     for (var i = 0; i < segs.length; i++) { ac += segs[i].c; if (r < ac) { w = i; break; } }
     var g = segs[w], off = (Math.random() * 0.7 - 0.35) * (g.a1 - g.a0), th = (g.a0 + g.a1) / 2 + off;
-    ruleta = { modo: "mensual", mes: m, segs: segs, w: w, rot: 360 * 6 + ((360 - th) % 360 + 360) % 360, dur: 8000, fin: false, run: false, total: tot };
+    ruleta = { modo: "mensual", mes: m, segs: segs, w: w, rot: 360 * 6 + ((360 - th) % 360 + 360) % 360, dur: 8000, fin: false, run: false, total: rk.total, tope: rk.tope };
     admin.abierto = false; render();
   }
-  function abrirRepeticionMes(m) {
-    var info = mensualDe(m); if (!info || !info.replay || !info.replay.segs) return;
-    var rp = info.replay;
-    ruleta = { modo: "replayMes", mes: m, segs: ruletaSegs(rp.segs), w: rp.w, rot: rp.rot, dur: rp.dur || 8000, fin: false, run: false, fecha: rp.fecha };
+  // Premio para todos: misma chance para cada participante.
+  function abrirRuletaChico(m) {
+    var info = mensualDe(m) || {}; if (!info.ganador || info.ganador2) return;
+    var ps = participantesChico(m); if (!ps.length) return;
+    var segs = ruletaSegs(ps.map(function (r) { return { uid: r.uid, nombre: r.nombre, cantidad: 1 }; }));
+    var w = Math.floor(Math.random() * segs.length);
+    try { var u = new Uint32Array(1); crypto.getRandomValues(u); w = Math.floor(u[0] / 4294967296 * segs.length); } catch (e) { /* Math.random */ }
+    var g = segs[w], off = (Math.random() * 0.7 - 0.35) * (g.a1 - g.a0), th = (g.a0 + g.a1) / 2 + off;
+    ruleta = { modo: "mensual2", mes: m, segs: segs, w: w, rot: 360 * 6 + ((360 - th) % 360 + 360) % 360, dur: 8000, fin: false, run: false };
+    admin.abierto = false; render();
+  }
+  function abrirRepeticionMes(m, chico) {
+    var info = mensualDe(m), rp = info && (chico ? info.replay2 : info.replay); if (!rp || !rp.segs) return;
+    ruleta = { modo: chico ? "replayMes2" : "replayMes", mes: m, segs: ruletaSegs(rp.segs), w: rp.w, rot: rp.rot, dur: rp.dur || 8000, fin: false, run: false, fecha: rp.fecha };
     render();
   }
 
@@ -4032,7 +4144,10 @@
       case "masQr": cerrarMas(); modal = { tipo: "yape", sel: 0 }; render(); hidratarImgs(); break;
       case "mmMes": admin.mmMes = t.getAttribute("data-m"); admin.mmBorrar = null; render(); break;
       case "mmSortear": abrirRuletaMes(t.getAttribute("data-m")); break;
-      case "mmReplay": abrirRepeticionMes(t.getAttribute("data-m")); break;
+      case "mmReplay": abrirRepeticionMes(t.getAttribute("data-m"), t.getAttribute("data-c") === "2"); break;
+      case "mmSortear2": abrirRuletaChico(t.getAttribute("data-m")); break;
+      case "mmBorrar2": admin.mmBorrar2 = t.getAttribute("data-m"); render(); break;
+      case "mmBorrar2Si": { var mb2 = mensualDe(t.getAttribute("data-m")); if (mb2) { delete mb2.ganador2; delete mb2.ganador2Uid; delete mb2.fecha2; delete mb2.replay2; } admin.mmBorrar2 = null; marcarSucio(); render(); break; }
       case "mmBorrar": admin.mmBorrar = t.getAttribute("data-m"); render(); break;
       case "mmVer": { var kv = t.getAttribute("data-k"); admin.mmVer = admin.mmVer === kv ? null : kv; admin.mmMsg = ""; render(); break; }
       case "mmAj": case "mmAjNuevo": {
@@ -4050,7 +4165,7 @@
         marcarSucio(); render(); break;
       }
       case "mmAjQuitar": { var mQ = admin.mmMes || mesActual(), iQ = mensualDe(mQ); if (iQ && Array.isArray(iQ.ajustes) && !iQ.ganador) { iQ.ajustes.splice(Number(t.getAttribute("data-i")), 1); admin.mmMsg = "Ajuste quitado. Toca Guardar y publicar."; marcarSucio(); render(); } break; }
-      case "mmBorrarSi": { var mb = mensualDe(t.getAttribute("data-m")); if (mb) { delete mb.ganador; delete mb.ganadorUid; delete mb.puntos; delete mb.total; delete mb.fecha; delete mb.replay; delete mb.congelado; } admin.mmBorrar = null; marcarSucio(); render(); break; }
+      case "mmBorrarSi": { var mb = mensualDe(t.getAttribute("data-m")); if (mb) { delete mb.ganador; delete mb.ganadorUid; delete mb.puntos; delete mb.total; delete mb.fecha; delete mb.replay; delete mb.congelado; delete mb.topeUsado; delete mb.ganador2; delete mb.ganador2Uid; delete mb.fecha2; delete mb.replay2; } admin.mmBorrar = null; marcarSucio(); render(); break; }
       case "carMas": carroAgregar(t.getAttribute("data-id")); render(); break;
       case "carMenos": var cid = t.getAttribute("data-id"); if ((carro[cid] || 0) > 1) carro[cid]--; else delete carro[cid]; carroGuardar(); render(); break;
       case "carQuitar": delete carro[t.getAttribute("data-id")]; carroGuardar(); render(); break;
@@ -4278,6 +4393,16 @@
       var mmV = ev.target.value; if (ev.target.getAttribute("data-k") === "img") mmV = mmV.trim();
       mmI.premio[ev.target.getAttribute("data-k")] = mmV; marcarSucio(); actualizarPie(); return;
     }
+    if (ev.target.classList && ev.target.classList.contains("mm-f2")) {   // premio para todos
+      var m2K = admin.mmMes || mesActual(); mensualDe(m2K);
+      var m2I = estado.mensual[m2K] = estado.mensual[m2K] || {}; m2I.premio2 = m2I.premio2 || {};
+      var m2V = ev.target.value; if (ev.target.getAttribute("data-k") === "img") m2V = m2V.trim();
+      m2I.premio2[ev.target.getAttribute("data-k")] = m2V; marcarSucio(); actualizarPie(); return;
+    }
+    if (ev.target.classList && ev.target.classList.contains("mm-c")) {   // ¿Me conviene? (solo en este navegador)
+      var mcK = admin.mmMes || mesActual(); mmCostosGuardar(mcK, ev.target.getAttribute("data-k"), ev.target.value);
+      var mcR = document.getElementById("mm-conv-res"); if (mcR) mcR.innerHTML = convieneRes(mcK, rankingMes(mcK)); return;
+    }
     if (ev.target.closest && ev.target.closest("[data-edit]")) { aplicarEdicion(ev.target.closest("[data-edit]")); return; }
     if (ev.target.id === "pf-buscar") { cuenta.tBuscar = ev.target.value; pfFiltrar(); return; }
     if (ev.target.id === "ped-buscar") {
@@ -4309,6 +4434,12 @@
   });
   // Al salir de un campo de texto de la página, refresca la vista previa.
   document.addEventListener("change", function (ev) {
+    if (ev.target.classList && (ev.target.classList.contains("mm-tope") || ev.target.classList.contains("mm-excl"))) {   // sorteo del mes
+      var mtK = admin.mmMes || mesActual(); mensualDe(mtK);
+      var mtI = estado.mensual[mtK] = estado.mensual[mtK] || {};
+      if (ev.target.classList.contains("mm-tope")) mtI.tope = Number(ev.target.value) || 100; else mtI.excluir = !!ev.target.checked;
+      marcarSucio(); render(); return;
+    }
     if (ev.target.id === "pf-tipo") { cuenta.tTipo = ev.target.value; pfFiltrar(); return; }
     if (ev.target.id === "it-nombre" && admin.itemForm && !admin.itemForm.id && !admin.itemForm.soloCambios) { admin.itemForm.nombre = ev.target.value; render(); hidratarImgs(); return; }
     if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;

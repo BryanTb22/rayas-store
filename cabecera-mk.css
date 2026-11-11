@@ -238,3 +238,34 @@ html:root .ms-foto { max-height: 320px; }
   .rp-cab { gap: 10px; }
   .rp-pc { display: none; }
 }
+
+/* ===== Sorteo del mes: tope de probabilidad, premio para todos y "¿Me conviene?" (11/11/2026) ===== */
+.ms-tope { margin: -4px 0 10px; font-size: 13px; opacity: .85; }
+.ms-tope b { color: var(--mp-ac); }
+.ms-chico { margin-top: 22px; }
+.ms-chico .in { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 18px; align-items: center; padding: 16px 18px; }
+.ms-chico-f { aspect-ratio: 3 / 2; border-radius: 12px; overflow: hidden; background: rgba(0, 0, 0, .3); display: grid; place-items: center; }
+.ms-chico-f img { width: 100%; height: 100%; object-fit: cover; }
+.ms-chico-f .ms-sinfoto { font-size: 48px; }
+.ms-chico .ms-txt h3 { font-size: 20px; }
+.ms-chico .ms-txt p b { color: var(--mp-ac); }
+.ms-ok { font-weight: 700; font-size: 15px; }
+.ms-ok b { color: var(--mp-ac); }
+.ms-ok.no { font-weight: 600; opacity: .8; }
+.ms-g2 { font-size: inherit !important; }
+.mm-chk { display: flex; gap: 10px; align-items: center; font-size: 14px; cursor: pointer; margin-top: 6px; }
+.mm-chk input { width: 18px; height: 18px; accent-color: var(--mp-ac); }
+.mm-h2 { margin: 18px 0 6px; font-size: 15px; }
+.mm-cgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.mm-conv { display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; font-size: 14px; border: 1px solid; }
+.mm-conv b { font-weight: 800; }
+.mm-conv > b { font-size: 16px; }
+.mm-conv.ok { background: rgba(46, 204, 113, .1); border-color: rgba(46, 204, 113, .5); }
+.mm-conv.ok > b { color: #4ade80; }
+.mm-conv.mal { background: rgba(255, 90, 90, .1); border-color: rgba(255, 90, 90, .5); }
+.mm-conv.mal > b { color: #ff7b7b; }
+@media (max-width: 600px) {
+  .ms-chico .in { grid-template-columns: 1fr; }
+  .ms-chico-f { max-height: 150px; }
+  .mm-cgrid { grid-template-columns: 1fr; }
+}
