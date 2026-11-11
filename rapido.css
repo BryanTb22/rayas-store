@@ -1,0 +1,53 @@
+/* rapido.css — mismo aspecto, menos trabajo para el celular y la PC (10/11/2026).
+   Se carga al final (después de tema-nuevo.css). Medido: en Rifas el navegador repintaba la pantalla sin parar.
+   1) Sin "vidrio esmerilado" (backdrop-filter): con el fondo oscuro casi no se nota y era lo más pesado
+      (se recalculaba en cada cuadro porque detrás se mueven las luces y las partículas).
+   2) Las animaciones que nunca paran ahora solo usan transform/opacity (las hace la tarjeta gráfica, sin repintar). */
+
+*, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html.tn .topbar { background: rgba(6, 12, 36, .9) !important; }
+html.tn .footer { background: rgba(6, 12, 36, .85) !important; }
+html.tn .svcbar { background: rgba(6, 12, 36, .85) !important; }
+html.tn .scrim, html.tn .itm-scrim { background-color: rgba(3, 6, 20, .72) !important; }
+
+/* Tarjetas de rifas y ganadores: borde de color y sombra con box-shadow (igual que LitleJacob).
+   Antes usaban filter: drop-shadow sobre toda la tarjeta y cada animación de adentro obligaba a recalcularlo (tirones al desplazar). */
+html.tn .card.frame { filter: none !important; box-shadow: 0 0 0 1px color-mix(in srgb, var(--r) 70%, #fff), 0 10px 26px rgba(0, 0, 0, .5) !important; }
+html.tn #ganadores .winner.frame.gold { filter: none !important; box-shadow: 0 0 0 1px #ffe9a0, 0 12px 30px color-mix(in srgb, var(--yellow) 28%, transparent) !important; }
+html.tn .card:hover { filter: none !important; box-shadow: 0 0 0 1px color-mix(in srgb, var(--r) 70%, #fff), 0 22px 40px color-mix(in srgb, var(--r) 38%, transparent) !important; }
+
+/* Luces grandes del fondo: en su propia capa, se mueven sin repintar */
+#tnFondo i { will-change: transform; }
+#tnParticulas { will-change: contents; }
+
+/* Brillo que cruza los botones de las rifas y las tarjetas de ganadores (antes movía "left") */
+@keyframes rpBrilloBtn { 0%, 55% { transform: translateX(-150%); } 100% { transform: translateX(325%); } }
+@keyframes rpBrillo { 0%, 55% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
+.card .btn-yellow::after { left: 0 !important; animation-name: rpBrilloBtn !important; will-change: transform; }
+.winner .in::after, #ganadores .winner.frame.gold::after, #ganadores .winner .thumb::after { left: 0 !important; right: 0 !important; animation-name: rpBrillo !important; will-change: transform; }
+
+/* "ABIERTA": latido con un anillo que crece y se apaga (antes animaba box-shadow) */
+@keyframes rpAnillo { 0% { opacity: .9; transform: scale(.94); } 70%, 100% { opacity: 0; transform: scale(1.14, 1.3); } }
+@keyframes rpLatido { 0%, 100% { transform: scale(1); opacity: .9; } 50% { transform: scale(1.5); opacity: .45; } }
+.status.activa { animation: none !important; }
+.status.activa::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--yellow) 55%, transparent); animation: rpAnillo 2s ease-out infinite; will-change: transform, opacity; }
+html.tn .status.activa::before { animation: rpLatido 1.8s ease-in-out infinite !important; will-change: transform, opacity; }
+
+/* Aviso "Cada premio indica…" de Rifas: brillo que late con opacidad (antes animaba box-shadow) */
+@keyframes rpResplandor { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+#rifas .sec-title > p { animation: none !important; }
+#rifas .sec-title > p::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 0 9px rgba(255, 201, 60, .1), 0 10px 40px rgba(255, 201, 60, .45); animation: rpResplandor 2.4s ease-in-out infinite; will-change: opacity; }
+
+/* Etiqueta "Última unidad" de los items */
+html.tn .iult { animation: none !important; }
+html.tn .iult::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 4px 22px rgba(255, 45, 143, .85); animation: rpResplandor 2.2s ease-in-out infinite; will-change: opacity; }
+
+/* Contador de las rifas: parpadeo solo con opacidad, en su propia capa */
+.timer { will-change: opacity; }
+
+@media (prefers-reduced-motion: reduce) {
+  .status.activa::after, html.tn .status.activa::before, #rifas .sec-title > p::after, html.tn .iult::after { animation: none !important; }
+}

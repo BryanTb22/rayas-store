@@ -15,26 +15,33 @@
   }
   function medir() {
     W = cv.width = window.innerWidth; H = cv.height = window.innerHeight;
-    var n = Math.min(70, Math.floor(W / (W < 700 ? 18 : 22)));
+    var n = Math.min(W < 700 ? 24 : 60, Math.floor(W / (W < 700 ? 18 : 22)));   // en celular, menos partículas
     while (ps.length < n) ps.push(nueva(false));
     ps.length = n;
   }
   window.addEventListener("resize", medir); medir();
-  document.addEventListener("visibilitychange", function () { vivo = !document.hidden; if (vivo) cuadro(); });
-  function cuadro() {
+  // Ahorro: 30 cuadros por segundo (antes 60), quietas mientras se desplaza la página y apagadas con la pestaña oculta.
+  var ultimo = 0, girando = false, quietoHasta = 0;
+  window.addEventListener("scroll", function () { quietoHasta = performance.now() + 180; }, { passive: true });
+  document.addEventListener("visibilitychange", function () { vivo = !document.hidden; if (vivo && !girando) { ultimo = 0; requestAnimationFrame(cuadro); } });
+  function cuadro(ahora) {
+    girando = false;
     if (!vivo || reducir) return;
+    girando = true; requestAnimationFrame(cuadro);
+    ahora = ahora || performance.now();
+    if (ahora - ultimo < 32 || ahora < quietoHasta) return;
+    var k = ultimo ? Math.min(3, (ahora - ultimo) / 16.7) : 1; ultimo = ahora;
     ctx.clearRect(0, 0, W, H);
     for (var i = 0; i < ps.length; i++) {
-      var p = ps[i]; p.y += p.vy; p.x += p.vx + Math.sin(p.t) * .12; p.t += p.ts;
+      var p = ps[i]; p.y += p.vy * k; p.x += (p.vx + Math.sin(p.t) * .12) * k; p.t += p.ts * k;
       if (p.y < -10) ps[i] = nueva(true); else if (p.x < -10) p.x = W + 10; else if (p.x > W + 10) p.x = -10;
       var al = p.a * (.55 + .45 * Math.sin(p.t * 3));
       // Brillo con un halo tenue (barato); shadowBlur por partícula era lo más pesado del dibujo.
       ctx.fillStyle = "hsla(" + p.h + ",95%,55%," + (al * .22) + ")"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3.4, 0, 6.2832); ctx.fill();
       ctx.fillStyle = "hsla(" + p.h + ",95%,62%," + al + ")"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
     }
-    requestAnimationFrame(cuadro);
   }
-  if (!reducir) cuadro();
+  if (!reducir) requestAnimationFrame(cuadro);
 })();
 
 /* ---------- Íconos de línea en vez de emojis (mismo trazo, tamaño y color en todos los sistemas) ---------- */
