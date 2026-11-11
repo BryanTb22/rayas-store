@@ -180,8 +180,6 @@ html:root .ms-foto { max-height: 320px; }
 .mp-mios summary { cursor: pointer; font-weight: 700; color: var(--mp-ac); }
 @media (max-width: 600px) { .mp-aj .btn { flex: 1 1 40%; } }
 
-/* Barra de rifas sin límite de tickets: se ve igual que las demás, con un brillo que se mueve */
-.card .cbar.nolim { visibility: visible; position: relative; overflow: hidden; }
-.card .cbar.nolim i { position: absolute; left: 0; top: 0; width: 40% !important; opacity: .9; animation: mpNolim 2.6s linear infinite; will-change: transform; }
-@keyframes mpNolim { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
-@media (prefers-reduced-motion: reduce) { .card .cbar.nolim i { animation: none; width: 100% !important; opacity: .45; } }
+/* Barra de rifas sin límite de tickets: llena y quieta (no hay total con qué compararla) */
+.card .cbar.nolim { visibility: visible; }
+.card .cbar.nolim i { width: 100% !important; }
