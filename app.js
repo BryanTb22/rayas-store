@@ -731,6 +731,7 @@
     } else if (rt.modo === "mensual") {
       mensualDe(rt.mes);
       var im = estado.mensual[rt.mes] = estado.mensual[rt.mes] || {}, fe = new Date().toISOString();
+      im.congelado = entradasMes(rt.mes).map(function (e) { return { pid: e.pid, rifa: e.rifa, uid: e.uid, nombre: e.nombre, pts: e.pts, tickets: e.tickets, creado: e.creado }; });
       im.ganador = g.n; im.ganadorUid = g.uid; im.puntos = g.c; im.total = rt.total; im.fecha = fe;
       im.replay = { segs: rt.segs.map(function (y) { return { n: y.n, c: y.c }; }), w: rt.w, rot: rt.rot, dur: rt.dur, fecha: fe };
       marcarSucio();
@@ -2483,23 +2484,64 @@
   function nombreMes(m) { return (MESES[+m.slice(5, 7) - 1] || "") + " " + m.slice(0, 4); }
   function finDeMes(m) { var y = +m.slice(0, 4), mm = +m.slice(5, 7); return Date.UTC(mm === 12 ? y + 1 : y, mm === 12 ? 0 : mm, 1) + 5 * 3600000; }   // 00:00 del mes siguiente en Perú
   function mensualDe(m) { estado.mensual = estado.mensual && typeof estado.mensual === "object" ? estado.mensual : {}; return estado.mensual[m] || null; }
-  function rankingMes(m) {
-    var porUid = {}, mesPremio = {};
-    estado.premios.forEach(function (p) { if (p.cierre) mesPremio[p.id] = mesDe(p.cierre); });
+  /* Mes al que van los puntos de una rifa:
+     - con fecha de cierre → mes del cierre;
+     - cerrada sin fecha de cierre → mes en que se sorteó (resultado);
+     - abierta sin fecha de cierre (cierra al agotar tickets / sin límite) → mes actual (todavía no cierra).
+     Si la rifa ya no existe → mes del primer ticket. */
+  function mesRifa(pid, lista) {
+    var k = buscarPremio(pid), p = k >= 0 ? estado.premios[k] : null;
+    if (p && p.cierre && mesDe(p.cierre)) return mesDe(p.cierre);
+    if (p && p.estado === "cerrada") return p.resultado && mesDe(p.resultado) ? mesDe(p.resultado) : mesActual();
+    if (p) return mesActual();
+    var pri = (lista || []).map(function (x) { return x.creado; }).filter(Boolean).sort()[0];
+    return pri ? mesDe(pri) : "";
+  }
+  function claveU(uid, nombre) { return uid || ("n:" + (nombre || "")); }
+  // Puntos ya usados en sorteos de OTROS meses (se congelan al guardar un sorteo), para no contarlos dos veces.
+  function puntosUsados(m) {
+    var us = {}; estado.mensual = estado.mensual && typeof estado.mensual === "object" ? estado.mensual : {};
+    Object.keys(estado.mensual).forEach(function (k) {
+      var inf = estado.mensual[k]; if (k === m || !inf || !inf.ganador || !Array.isArray(inf.congelado)) return;
+      inf.congelado.forEach(function (e) { var kk = e.pid + "|" + claveU(e.uid, e.nombre); us[kk] = (us[kk] || 0) + (Number(e.pts) || 0); });
+    });
+    return us;
+  }
+  // Puntos que salen de las compras de tickets de un mes (sin ajustes manuales).
+  function entradasMes(m) {
+    var info = mensualDe(m);
+    if (info && info.ganador && Array.isArray(info.congelado)) return info.congelado.map(function (e) { return Object.assign({}, e); });
+    var us = puntosUsados(m), out = [];
     Object.keys(partes).forEach(function (pid) {
-      var lista = partes[pid] || [], mp = mesPremio[pid];
-      if (!mp) { var pri = lista.map(function (x) { return x.creado; }).filter(Boolean).sort()[0]; mp = pri ? mesDe(pri) : ""; }
-      if (mp !== m) return;
+      var lista = partes[pid] || []; if (mesRifa(pid, lista) !== m) return;
+      var k = buscarPremio(pid), pr = k >= 0 ? estado.premios[k] : null;
       lista.forEach(function (x) {
-        var k = x.uid || ("n:" + x.nombre), pts = Math.max(0, Math.floor(Number(x.costo) || 0)); if (!pts) return;
-        var r = porUid[k] || (porUid[k] = { uid: x.uid, nombre: x.nombre || "Cliente", puntos: 0 });
-        r.puntos += pts; if (x.nombre) r.nombre = x.nombre;
+        var cu = claveU(x.uid, x.nombre), pts = Math.max(0, Math.floor(Number(x.costo) || 0)) - (us[pid + "|" + cu] || 0); if (pts <= 0) return;
+        out.push({ pid: pid, rifa: pr ? (pr.nombre || "Rifa") : (x.premioNombre || "Rifa borrada"), uid: x.uid || "", nombre: x.nombre || "Cliente", pts: pts, tickets: x.cantidad || 1, creado: x.creado || "" });
       });
     });
-    var lista = Object.keys(porUid).map(function (k) { return porUid[k]; }).sort(function (a, b) { return b.puntos - a.puntos || String(a.nombre).localeCompare(b.nombre); });
+    return out;
+  }
+  function rankingMes(m) {
+    var porUid = {}, info = mensualDe(m) || {};
+    function fila(uid, nombre) { var k = claveU(uid, nombre); return porUid[k] || (porUid[k] = { uid: uid || "", nombre: nombre || "Cliente", clave: k, puntos: 0, compras: 0, ajuste: 0, rifas: [], ajustes: [] }); }
+    entradasMes(m).forEach(function (e) { var r = fila(e.uid, e.nombre); r.compras += e.pts; r.rifas.push(e); if (e.nombre) r.nombre = e.nombre; });
+    (Array.isArray(info.ajustes) ? info.ajustes : []).forEach(function (a, i) { var r = fila(a.uid, a.nombre); var n = Math.round(Number(a.pts) || 0); r.ajuste += n; r.ajustes.push({ i: i, pts: n, motivo: a.motivo || "", fecha: a.fecha || "" }); });
+    var todos = Object.keys(porUid).map(function (k) { var r = porUid[k]; r.puntos = Math.max(0, r.compras + r.ajuste); r.rifas.sort(function (a, b) { return String(a.creado).localeCompare(String(b.creado)); }); return r; })
+      .sort(function (a, b) { return b.puntos - a.puntos || String(a.nombre).localeCompare(b.nombre); });
+    var lista = todos.filter(function (r) { return r.puntos > 0; });
     var total = lista.reduce(function (a, r) { return a + r.puntos; }, 0);
-    lista.forEach(function (r) { r.pct = total ? r.puntos / total * 100 : 0; });
-    return { lista: lista, total: total };
+    todos.forEach(function (r) { r.pct = total ? r.puntos / total * 100 : 0; });
+    return { lista: lista, todos: todos, total: total };
+  }
+  function detallePuntosHtml(r, admin0) {
+    var h = r.rifas.map(function (e) {
+      return '<li><span class="mp-ic">🎟️</span><span class="mp-tx"><b>' + esc(e.rifa) + '</b><small>' + e.tickets + (e.tickets === 1 ? ' ticket' : ' tickets') + (e.creado ? ' · ' + esc(fechaHora(e.creado)) : '') + '</small></span><span class="mp-pts">+' + e.pts + '</span></li>';
+    }).join("") + r.ajustes.map(function (a) {
+      return '<li class="aj"><span class="mp-ic">✏️</span><span class="mp-tx"><b>' + (admin0 ? 'Ajuste manual' + (a.motivo ? ': ' + esc(a.motivo) : '') : 'Ajuste de la tienda') + '</b><small>' + (a.fecha ? esc(fechaHora(a.fecha)) : '') + '</small></span><span class="mp-pts' + (a.pts < 0 ? ' neg' : '') + '">' + (a.pts > 0 ? '+' : '') + a.pts + '</span>' +
+        (admin0 ? '<button type="button" class="mp-x" data-a="mmAjQuitar" data-i="' + a.i + '" title="Quitar este ajuste" aria-label="Quitar este ajuste">✕</button>' : '') + '</li>';
+    }).join("");
+    return '<ul class="mp-det">' + (h || '<li><span class="mp-tx"><small>Sin movimientos.</small></span></li>') + '</ul>';
   }
   function pctTxt(x) { return x >= 10 ? Math.round(x) + "%" : x >= 1 ? x.toFixed(1).replace(".0", "") + "%" : x > 0 ? "<1%" : "0%"; }
   function sorteoMesHtml(V) {
@@ -2522,7 +2564,7 @@
         '</div></div></div>' +
       '<div class="ms-rank frame"><div class="in">' +
         '<div class="ms-rank-h"><b>Tabla de puntos</b><span>' + rk.lista.length + ' participante' + (rk.lista.length === 1 ? '' : 's') + ' · ' + rk.total + ' puntos</span></div>' +
-        (cuenta.perfil && !admin.puede ? '<div class="ms-yo">' + (mio ? 'Vas <b>#' + mio.pos + '</b> con <b>' + mio.puntos + '</b> punto' + (mio.puntos === 1 ? '' : 's') + ' · <b>' + pctTxt(mio.pct) + '</b> de probabilidad' : 'Aún no tienes puntos este mes. Entra a una rifa y empieza a sumar. 🍀') + '</div>' : '') +
+        (cuenta.perfil && !admin.puede ? '<div class="ms-yo">' + (mio ? 'Vas <b>#' + mio.pos + '</b> con <b>' + mio.puntos + '</b> punto' + (mio.puntos === 1 ? '' : 's') + ' · <b>' + pctTxt(mio.pct) + '</b> de probabilidad' + '<details class="mp-mios"><summary>¿De dónde vienen mis puntos?</summary>' + detallePuntosHtml(mio, false) + '</details>' : 'Aún no tienes puntos este mes. Entra a una rifa y empieza a sumar. 🍀') + '</div>' : '') +
         (top.length ? '<ol class="ms-lista">' + top.map(function (r, i) {
           return '<li' + (uid && r.uid === uid ? ' class="yo"' : '') + '><span class="ms-pos">' + (i + 1) + '</span><span class="ms-nom">' + esc(r.nombre) + '</span><span class="ms-bar"><i style="width:' + Math.max(3, Math.round(r.pct)) + '%"></i></span><span class="ms-pts"><b>' + r.puntos + '</b> pts · ' + pctTxt(r.pct) + '</span></li>';
         }).join("") + '</ol>' + (rk.lista.length > 10 ? '<p class="hint" style="margin:10px 0 0">…y ' + (rk.lista.length - 10) + ' más.</p>' : '')
@@ -2544,7 +2586,25 @@
       '<div class="field"><label for="mm-desc">Descripción (opcional)</label><textarea id="mm-desc" class="mm-f" data-k="descripcion" maxlength="200" rows="2">' + esc(pr.descripcion || "") + '</textarea></div>' +
       '<p class="hint">Después toca <b>Guardar y publicar</b> para que los clientes lo vean.</p></div>' +
       '<div class="grp"><h3>Puntos de ' + esc(nombreMes(m)) + '</h3>' +
-      (rk.lista.length ? '<div class="alist">' + rk.lista.map(function (r, i) { return '<div class="aitem"><div class="t"><b>' + (i + 1) + '. ' + esc(r.nombre) + '</b><span>' + r.puntos + ' puntos · ' + pctTxt(r.pct) + ' de probabilidad</span></div></div>'; }).join("") + '</div>' : '<p class="hint">Nadie tiene puntos en este mes.</p>') +
+      '<p class="hint">Toca un usuario para ver de qué rifa viene cada punto y para sumarle o quitarle puntos a mano. Cuentan las rifas que cierran este mes y las abiertas que no tienen fecha de cierre.' + (info.ganador ? ' <b>Este mes ya se sorteó:</b> los puntos quedaron congelados.' : '') + '</p>' +
+      (rk.todos.length ? '<div class="alist mp-lista">' + rk.todos.map(function (r, i) {
+        var ab = admin.mmVer === r.clave;
+        return '<div class="aitem mp-u' + (ab ? ' on' : '') + '"><button type="button" class="mp-cab" data-a="mmVer" data-k="' + esc(r.clave) + '" aria-expanded="' + ab + '"><span class="t"><b>' + (r.puntos > 0 ? (rk.lista.indexOf(r) + 1) + '. ' : '— ') + esc(r.nombre) + '</b><span>' + r.puntos + ' puntos · ' + pctTxt(r.pct) + ' de probabilidad · ' + r.rifas.length + (r.rifas.length === 1 ? ' rifa' : ' rifas') + (r.ajuste ? ' · ajuste ' + (r.ajuste > 0 ? '+' : '') + r.ajuste : '') + '</span></span><span class="mp-fl">' + (ab ? '▲' : '▼') + '</span></button>' +
+          (ab ? '<div class="mp-in">' + detallePuntosHtml(r, true) +
+            (info.ganador ? '' : '<div class="mp-aj"><input type="number" class="mp-n" inputmode="numeric" step="1" min="1" max="100000" placeholder="Puntos" aria-label="Puntos"><input type="text" class="mp-m" maxlength="60" placeholder="Motivo (ej. compró por WhatsApp)" aria-label="Motivo">' +
+              '<button class="btn btn-yellow btn-sm" type="button" data-a="mmAj" data-s="1" data-uid="' + esc(r.uid) + '" data-n="' + esc(r.nombre) + '">＋ Sumar</button><button class="btn btn-ghost btn-sm" type="button" data-a="mmAj" data-s="-1" data-uid="' + esc(r.uid) + '" data-n="' + esc(r.nombre) + '">－ Quitar</button></div>') +
+            '</div>' : '') + '</div>';
+      }).join("") + '</div>' : '<p class="hint">Nadie tiene puntos en este mes.</p>') +
+      (info.ganador ? '' : (function () {
+        if (admin.usuarios === null && !admin.cargandoU) { admin.cargandoU = true; setTimeout(cargarUsuarios, 0); }
+        var us = (admin.usuarios || []).slice().sort(function (a, b) { return String(a.nombre).localeCompare(b.nombre); });
+        return '<div class="mp-nuevo"><b>➕ Dar puntos a otro usuario</b>' + (us.length
+          ? '<div class="mp-aj"><select class="mp-u-sel" aria-label="Usuario"><option value="">Elige un usuario…</option>' + us.map(function (u) { return '<option value="' + esc(u.uid) + '">' + esc(u.nombre + (u.email ? " · " + u.email : "")) + '</option>'; }).join("") + '</select>' +
+            '<input type="number" class="mp-n" inputmode="numeric" step="1" min="1" max="100000" placeholder="Puntos" aria-label="Puntos"><input type="text" class="mp-m" maxlength="60" placeholder="Motivo" aria-label="Motivo"><button class="btn btn-yellow btn-sm" type="button" data-a="mmAjNuevo">＋ Sumar</button></div>'
+          : '<p class="hint">Cargando usuarios…</p>') + '</div>';
+      })()) +
+      (admin.mmMsg ? '<p class="hint" role="status">' + esc(admin.mmMsg) + '</p>' : '') +
+      '<p class="hint">Los ajustes se guardan al tocar <b>Guardar y publicar</b>.</p>' +
       '</div>' +
       '<div class="grp"><h3>Sorteo</h3>' +
       (info.ganador
@@ -3947,7 +4007,23 @@
       case "mmSortear": abrirRuletaMes(t.getAttribute("data-m")); break;
       case "mmReplay": abrirRepeticionMes(t.getAttribute("data-m")); break;
       case "mmBorrar": admin.mmBorrar = t.getAttribute("data-m"); render(); break;
-      case "mmBorrarSi": { var mb = mensualDe(t.getAttribute("data-m")); if (mb) { delete mb.ganador; delete mb.ganadorUid; delete mb.puntos; delete mb.total; delete mb.fecha; delete mb.replay; } admin.mmBorrar = null; marcarSucio(); render(); break; }
+      case "mmVer": { var kv = t.getAttribute("data-k"); admin.mmVer = admin.mmVer === kv ? null : kv; admin.mmMsg = ""; render(); break; }
+      case "mmAj": case "mmAjNuevo": {
+        var caja = t.closest(".mp-aj"), nIn = caja && caja.querySelector(".mp-n"), mIn = caja && caja.querySelector(".mp-m");
+        var cant = Math.floor(Math.abs(Number(nIn && nIn.value) || 0));
+        if (!cant) { if (nIn) { nIn.focus(); } admin.mmMsg = "Escribe cuántos puntos."; render(); break; }
+        var uidA = t.getAttribute("data-uid") || "", nomA = t.getAttribute("data-n") || "";
+        if (a === "mmAjNuevo") { var sel = caja.querySelector(".mp-u-sel"), ua = sel && usuarioPorUid(sel.value); if (!ua) { admin.mmMsg = "Elige un usuario."; render(); break; } uidA = ua.uid; nomA = ua.nombre; }
+        var mA = admin.mmMes || mesActual(); mensualDe(mA);
+        var infA = estado.mensual[mA] = estado.mensual[mA] || {}; if (infA.ganador) break;
+        infA.ajustes = Array.isArray(infA.ajustes) ? infA.ajustes : [];
+        var sg = a === "mmAjNuevo" ? 1 : Number(t.getAttribute("data-s")) || 1;
+        infA.ajustes.push({ uid: uidA, nombre: nomA, pts: sg * cant, motivo: String(mIn && mIn.value || "").trim().slice(0, 60), fecha: new Date().toISOString() });
+        admin.mmVer = claveU(uidA, nomA); admin.mmMsg = (sg > 0 ? "✔ Sumaste " : "✔ Quitaste ") + cant + " puntos a " + nomA + ". Toca Guardar y publicar.";
+        marcarSucio(); render(); break;
+      }
+      case "mmAjQuitar": { var mQ = admin.mmMes || mesActual(), iQ = mensualDe(mQ); if (iQ && Array.isArray(iQ.ajustes) && !iQ.ganador) { iQ.ajustes.splice(Number(t.getAttribute("data-i")), 1); admin.mmMsg = "Ajuste quitado. Toca Guardar y publicar."; marcarSucio(); render(); } break; }
+      case "mmBorrarSi": { var mb = mensualDe(t.getAttribute("data-m")); if (mb) { delete mb.ganador; delete mb.ganadorUid; delete mb.puntos; delete mb.total; delete mb.fecha; delete mb.replay; delete mb.congelado; } admin.mmBorrar = null; marcarSucio(); render(); break; }
       case "carMas": carroAgregar(t.getAttribute("data-id")); render(); break;
       case "carMenos": var cid = t.getAttribute("data-id"); if ((carro[cid] || 0) > 1) carro[cid]--; else delete carro[cid]; carroGuardar(); render(); break;
       case "carQuitar": delete carro[t.getAttribute("data-id")]; carroGuardar(); render(); break;
