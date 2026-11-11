@@ -51,3 +51,10 @@ html.tn .iult::after { content: ""; position: absolute; inset: 0; border-radius:
 @media (prefers-reduced-motion: reduce) {
   .status.activa::after, html.tn .status.activa::before, #rifas .sec-title > p::after, html.tn .iult::after { animation: none !important; }
 }
+
+/* Ventanas (recargar saldo, elegir contacto…): sin barra de costado y con barra vertical fina y discreta (11/11/2026).
+   Antes salía la barra gruesa amarilla/fucsia del tema y una barra horizontal con un cuadrito blanco en la esquina. */
+html .elegir:not(.stkp) { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .22) transparent; }
+html .elegir:not(.stkp)::-webkit-scrollbar { width: 6px; height: 0; }
+html .elegir:not(.stkp)::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .22); border: 0; border-radius: 6px; }
+html .elegir:not(.stkp)::-webkit-scrollbar-track, html .elegir::-webkit-scrollbar-corner { background: transparent; }
