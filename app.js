@@ -3448,9 +3448,9 @@
       '<div class="ulist">' + (filas || '<p class="hint">' + (fl === "pendiente" ? "🎉 No hay reclamos pendientes." : "No hay reclamos aquí.") + '</p>') + '</div>' +
       '<div class="fbtns"><button class="btn btn-ghost btn-sm" type="button" data-a="recRecargar">↻ Actualizar</button></div></div>';
   }
-  var TABS_ADMIN = { bot: "🤖 Bot de Steam", setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "🎟 Premios", mensual: "🏆 Sorteo del mes", usuarios: "👥 Usuarios y saldo", items: "🧩 Items", compras: "📥 Compras", pedidos: "🛒 Pedidos", pagina: "📝 Textos y contactos", pub: "🖼 Publicaciones", reclamos: "📕 Reclamos", ventas: "📊 Ventas" };
+  var TABS_ADMIN = { bot: "🤖 Bot de Steam", setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "🎟 Premios", parts: "🎫 Participantes", mensual: "🏆 Sorteo del mes", usuarios: "👥 Usuarios y saldo", items: "🧩 Items", compras: "📥 Compras", pedidos: "🛒 Pedidos", pagina: "📝 Textos y contactos", pub: "🖼 Publicaciones", reclamos: "📕 Reclamos", ventas: "📊 Ventas" };
   function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : v === "sets" ? "sets" : "inicio"; }
-  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "mensual", "usuarios", "pagina", "reclamos"] : sc === "items" ? ["config", "ventas", "items", "pedidos", "bot", "compras", "usuarios", "pub", "reclamos"] : ["config", "ventas", "usuarios", "pagina", "pub", "reclamos"]; }
+  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "parts", "mensual", "usuarios", "pagina", "reclamos"] : sc === "items" ? ["config", "ventas", "items", "pedidos", "bot", "compras", "usuarios", "pub", "reclamos"] : ["config", "ventas", "usuarios", "pagina", "pub", "reclamos"]; }
   /* ---- Bot de Steam (módulo compartido bot-panel.js) ---- */
   function tabBot() {
     return window.BotPanel ? window.BotPanel.html({ token: token, projectId: FB.projectId, repintar: render, acento: "#ff8a1f", modo: "compacto", url: "bot.html" })
@@ -3465,7 +3465,7 @@
     if (admin.editando) cuerpo = '<div class="drawer-cnt">' + formPremio() + '</div>';
     else cuerpo = '<div class="tabs" role="tablist">' +
       lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
-      '</div><div class="drawer-cnt">' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "bot" ? tabBot() : admin.tab === "pedidos" ? tabPedidos() : admin.tab === "reclamos" ? tabReclamos() : admin.tab === "ventas" ? tabVentas() : admin.tab === "mensual" ? tabMensual() : listaPremios())))) + '</div>';
+      '</div><div class="drawer-cnt">' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "bot" ? tabBot() : admin.tab === "pedidos" ? tabPedidos() : admin.tab === "reclamos" ? tabReclamos() : admin.tab === "ventas" ? tabVentas() : admin.tab === "mensual" ? tabMensual() : admin.tab === "parts" ? listaParticipantes() : listaPremios())))) + '</div>';
     return '<aside class="drawer adm" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><div class="drawer-acts"><button class="btn btn-ghost btn-sm peligro" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
       '<div class="drawer-body' + (admin.editando ? '' : ' rail') + '">' + cuerpo + '</div>' +
@@ -3625,26 +3625,53 @@
     }
     return h + '<div class="fbtns"><button class="btn btn-yellow btn-sm" type="button" data-a="editU" data-uid="' + id + '">✎ Editar datos</button></div></div>';
   }
+  /* Panel admin → "🎫 Participantes": una tarjeta por rifa (foto, tickets, barra) que se abre para ver quién participa,
+     su probabilidad, su ficha, agregar participantes y sortear. */
   function listaParticipantes() {
-    if (!estado.premios.length) return '';
+    if (!estado.premios.length) return '<div class="grp"><h3>🎫 Participantes</h3><p class="hint">Todavía no hay rifas.</p></div>';
     if (admin.usuarios === null && !admin.cargandoU) { admin.cargandoU = true; cargarUsuarios(); }
-    return estado.premios.map(function (p) {
-      var l = partes[p.id] || [], pid = esc(p.id);
+    var filtro = admin.rpFiltro || "abiertas";
+    function abierta(p) { return p.estado !== "cerrada"; }
+    var ps = estado.premios.filter(function (p) { return filtro === "todas" || (filtro === "abiertas" ? abierta(p) : !abierta(p)); });
+    var nAb = 0, nPer = {}, nTk = 0, nSol = 0;
+    estado.premios.forEach(function (p) { if (!abierta(p)) return; nAb++; (partes[p.id] || []).forEach(function (x) { nPer[x.uid || x.nombre] = 1; nTk += x.cantidad || 1; nSol += Number(x.costo) || 0; }); });
+    var EST = { activa: "Abierta", proxima: "Próximamente", cerrada: "Cerrada", oculta: "Oculta" };
+    var html = ps.map(function (p) {
+      var l = (partes[p.id] || []).slice().sort(function (a, b) { return (b.cantidad || 1) - (a.cantidad || 1) || String(a.creado).localeCompare(String(b.creado)); });
+      var pid = esc(p.id), tk = tomados(p.id), cup = num(p.cupos, 0), man = num(p.participantes, 0), on = admin.rpAbierto === p.id;
+      var est = EST[p.estado] ? p.estado : "activa", sol = l.reduce(function (a, x) { return a + (Number(x.costo) || 0); }, 0);
+      var pct = cup > 0 ? Math.min(100, Math.round(tk / cup * 100)) : (tk ? 100 : 0);
       var libres = (admin.usuarios || []).filter(function (u) { return !l.some(function (x) { return x.uid === u.uid; }); });
-      return '<div class="grp"><h3>Participantes · ' + esc(p.nombre || "Premio") + ' (' + l.length + (l.length === 1 ? ' persona' : ' personas') + ' · ' + tomados(p.id) + '/' + (num(p.cupos, 0) > 0 ? num(p.cupos, 0) : '∞') + ' tickets)</h3>' +
-        (p.ganador ? '<p class="hint">🏆 Ganador: <b>' + esc(p.ganador) + '</b> <button class="btn btn-ghost btn-sm" type="button" data-a="quitarGan" data-id="' + pid + '">Quitar ganador</button></p>' : '') +
-        (l.length ? '' : '<p class="hint">Todavía nadie participa en esta rifa.</p>') +
-        l.map(function (x) {
-          var abierto = admin.fichaU === p.id + "_" + x.uid;
-          return '<div class="prow' + (p.ganadorUid === x.uid ? ' win' : '') + '"><button type="button" class="pbtn" data-a="verFicha" data-key="' + esc(p.id + "_" + x.uid) + '">' +
-            '<span>' + (p.ganadorUid === x.uid ? '🏆 ' : '') + esc(x.nombre) + ' <em class="xq">×' + x.cantidad + '</em></span><small>' + esc(x.creado ? fechaHora(x.creado) : "") + '</small><i>' + (abierto ? "▴" : "▾") + '</i></button>' +
-            (abierto ? detalleUsuario(x.uid, { p: p, costo: x.costo, cantidad: x.cantidad }) : '') + '</div>';
-        }).join("") +
-        (admin.usuarios && libres.length ? '<div class="addp"><label for="add-u-' + pid + '">Agregar participante</label><div class="addrow"><select id="add-u-' + pid + '">' +
-          libres.map(function (u) { return '<option value="' + esc(u.uid) + '">' + esc(u.nombre || u.email) + '</option>'; }).join("") +
-          '</select><input id="add-q-' + pid + '" type="number" min="1" max="100" value="1" aria-label="Tickets"><button class="btn btn-ghost btn-sm" type="button" data-a="addPart" data-id="' + pid + '">Agregar</button></div><small class="hint">Se agrega sin descontar saldo.</small>' + (admin.addPid === p.id && admin.addMsg ? '<p class="hint" style="color:' + (admin.addMsgOk ? 'var(--ok)' : 'var(--danger)') + '" role="status">' + esc(admin.addMsg) + '</p>' : '') + '</div>' : '') +
-        (l.length ? '<button class="btn btn-ghost btn-sm" type="button" data-a="sortear" data-id="' + pid + '">🎰 Sortear con ruleta</button>' + (p.replay ? ' <button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + pid + '">🎬 Ver repetición</button>' : '') : '') + '</div>';
+      var cab = '<button type="button" class="rp-cab" data-a="rpAbrir" data-id="' + pid + '" aria-expanded="' + on + '">' +
+        '<span class="rp-img">' + (p.img ? imgTag(p.img, "") : '<i>🎁</i>') + '</span>' +
+        '<span class="rp-t"><b>' + esc(p.nombre || "Premio") + '</b><small><em class="rp-est ' + est + '">' + EST[est] + '</em> S/ ' + num(p.creditos, 0) + ' por ticket' + (sol ? ' · S/ ' + sol + ' recaudado' : '') + '</small>' +
+          '<span class="rp-bar' + (cup > 0 && tk >= cup ? ' full' : '') + '"><i style="width:' + pct + '%"></i></span></span>' +
+        '<span class="rp-num"><b>' + tk + '</b><small>' + (cup > 0 ? '/ ' + cup + ' tickets' : 'tickets') + '</small><em>' + l.length + (l.length === 1 ? ' persona' : ' personas') + '</em></span>' +
+        '<span class="rp-fl" aria-hidden="true">' + (on ? '▲' : '▼') + '</span></button>';
+      if (!on) return '<div class="rp">' + cab + '</div>';
+      var cuerpo = '';
+      if (man > tk) cuerpo += '<p class="rp-av">⚠ La tarjeta muestra <b>' + man + '</b> tickets porque hay un número escrito a mano, pero solo <b>' + tk + '</b> son compras registradas. Solo estas entran a la ruleta. Si vendiste tickets por WhatsApp, agrégalos abajo.</p>';
+      if (p.ganador) cuerpo += '<div class="rp-gan">🏆 Ganador: <b>' + esc(p.ganador) + '</b>' + (p.replay ? '<button class="btn btn-ghost btn-sm" type="button" data-a="repeticion" data-id="' + pid + '">🎬 Ver repetición</button>' : '') + '<button class="btn btn-ghost btn-sm" type="button" data-a="quitarGan" data-id="' + pid + '">Quitar ganador</button></div>';
+      cuerpo += l.length ? '<div class="rp-lista">' + l.map(function (x) {
+        var abierto = admin.fichaU === p.id + "_" + x.uid, gana = p.ganadorUid && p.ganadorUid === x.uid, c = x.cantidad || 1;
+        return '<div class="rp-row' + (gana ? ' win' : '') + (abierto ? ' on' : '') + '"><button type="button" class="rp-p" data-a="verFicha" data-key="' + esc(p.id + "_" + x.uid) + '" aria-expanded="' + abierto + '">' +
+          '<span class="rp-ini" aria-hidden="true">' + (gana ? '🏆' : esc(String(x.nombre || "?").charAt(0).toUpperCase())) + '</span>' +
+          '<span class="rp-n"><b>' + esc(x.nombre || "Cliente") + '</b><small>' + esc(x.creado ? fechaHora(x.creado) : "") + (x.costo ? ' · S/ ' + x.costo : ' · agregado a mano') + '</small></span>' +
+          '<span class="rp-tk">×' + c + '</span><span class="rp-pc">' + (tk ? Math.round(c / tk * 100) : 0) + '%</span><span class="rp-fl" aria-hidden="true">' + (abierto ? '▲' : '▼') + '</span></button>' +
+          (abierto ? detalleUsuario(x.uid, { p: p, costo: x.costo, cantidad: x.cantidad }) : '') + '</div>';
+      }).join("") + '</div>' : '<p class="hint">Todavía nadie participa en esta rifa.</p>';
+      if (admin.usuarios && libres.length) cuerpo += '<div class="rp-add"><label for="add-u-' + pid + '">➕ Agregar participante <small>(no descuenta saldo)</small></label><div class="addrow"><select id="add-u-' + pid + '">' +
+        libres.map(function (u) { return '<option value="' + esc(u.uid) + '">' + esc(u.nombre || u.email) + '</option>'; }).join("") +
+        '</select><input id="add-q-' + pid + '" type="number" min="1" max="100" value="1" aria-label="Tickets"><button class="btn btn-ghost btn-sm" type="button" data-a="addPart" data-id="' + pid + '">Agregar</button></div>' +
+        (admin.addPid === p.id && admin.addMsg ? '<p class="hint" style="color:' + (admin.addMsgOk ? 'var(--ok)' : 'var(--danger)') + '" role="status">' + esc(admin.addMsg) + '</p>' : '') + '</div>';
+      if (l.length && !p.ganador) cuerpo += '<button class="btn btn-yellow rp-sort" type="button" data-a="sortear" data-id="' + pid + '">🎰 Sortear con ruleta</button>';
+      return '<div class="rp on">' + cab + '<div class="rp-in">' + cuerpo + '</div></div>';
     }).join("");
+    return '<div class="grp"><h3>🎫 Participantes</h3>' +
+      '<div class="rp-res"><span><b>' + nAb + '</b>rifas abiertas</span><span><b>' + Object.keys(nPer).length + '</b>personas</span><span><b>' + nTk + '</b>tickets</span><span><b>S/ ' + nSol + '</b>recaudado</span></div>' +
+      '<div class="rp-chips" role="group" aria-label="Filtrar rifas">' + [["abiertas", "Abiertas"], ["cerradas", "Cerradas"], ["todas", "Todas"]].map(function (f) { return '<button type="button" class="chip" data-a="rpFiltro" data-f="' + f[0] + '" aria-pressed="' + (filtro === f[0]) + '">' + f[1] + '</button>'; }).join("") + '</div>' +
+      '<p class="hint">Toca una rifa para ver quién participa, su probabilidad de ganar y sortearla.</p>' +
+      (html ? '<div class="rp-wrap">' + html + '</div>' : '<p class="hint">No hay rifas en este filtro.</p>') + '</div>';
   }
   function cuposLibresAdmin(pid) {
     var k = buscarPremio(pid); if (k < 0) return 100;
@@ -3740,7 +3767,7 @@
     return '<div class="grp"><h3>Premios</h3>' +
       (items ? '<div class="alist">' + items + '</div>' : '<p class="hint">Todavía no hay premios. Agrega el primero.</p>') +
       '<div><button class="btn btn-yellow" type="button" data-a="nuevo">+ Agregar premio</button></div>' +
-      listaParticipantes() +
+      '<p class="hint" style="margin-top:14px">Para ver quién participa y sortear, ve a la pestaña <button type="button" class="lnkbtn" data-a="tab" data-t="parts">🎫 Participantes</button>.</p>' +
       '<p class="hint">Los cambios se ven al instante en tu pantalla. Los visitantes los ven cuando pulsas "Guardar y publicar".</p></div>' +
       '<div class="grp"><button class="btn btn-ghost btn-sm" type="button" data-a="salir">Cerrar sesión</button></div>';
   }
@@ -4067,6 +4094,8 @@
       case "subU": admin.subU = t.getAttribute("data-s"); render(); break;
       case "crearCuenta": crearCuentaAdmin(); break;
       case "addPart": agregarParticipante(t.getAttribute("data-id")); break;
+      case "rpAbrir": { var rpi = t.getAttribute("data-id"); admin.rpAbierto = admin.rpAbierto === rpi ? null : rpi; admin.fichaU = null; render(); break; }
+      case "rpFiltro": admin.rpFiltro = t.getAttribute("data-f"); admin.rpAbierto = null; render(); break;
       case "editU": admin.editU = t.getAttribute("data-uid"); admin.uMsg = ""; render(); break;
       case "cancelarU": admin.editU = null; admin.uMsg = ""; render(); break;
       case "guardarU": guardarUsuario(t.getAttribute("data-uid")); break;
