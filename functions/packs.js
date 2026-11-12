@@ -4,9 +4,8 @@
  * el navegador solo manda cuántos soles quiere pagar; los créditos los calcula el servidor.
  *
  *  1 crédito = S/ 1.
- *  Los montos de la lista tienen promo de PRIMERA recarga (una sola vez por cuenta):
- *    S/ 50 -> 55 créditos, S/ 100 -> 110 créditos.
- *  Cualquier otro monto entero entre MIN_SOLES y MAX_SOLES se acepta sin promo.
+ *  Sin promo de recarga (la de primera recarga S/ 50 -> 55 y S/ 100 -> 110 se quitó el 11/11/2026).
+ *  Cualquier monto entero entre MIN_SOLES y MAX_SOLES da los mismos soles de saldo.
  */
 const MIN_SOLES = 3;
 const MAX_SOLES = 500;
@@ -15,8 +14,8 @@ const MIN_ORDEN = 6;   // mínimo de Culqi para QR / PagoEfectivo / billeteras (
 const PACKS = {
   10: { soles: 10, base: 10 },
   20: { soles: 20, base: 20 },
-  50: { soles: 50, base: 50, promo: 55 },
-  100: { soles: 100, base: 100, promo: 110 }
+  50: { soles: 50, base: 50 },
+  100: { soles: 100, base: 100 }
 };
 
 function packPorSoles(valor) {
