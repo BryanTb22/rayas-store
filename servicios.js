@@ -44,6 +44,7 @@
   };
   function chip(href, ico, k, v) { return '<a class="svd-chip" href="' + esc(href) + '" target="_blank" rel="noopener"><span class="svd-ic">' + ico + '</span><span><small>' + k + '</small><b>' + esc(v) + '</b></span></a>'; }
   var PIE = '<div class="svd-contacto" aria-label="Contacto de LitleJacob Studio Web">' +
+    '<a class="svd-chip svd-port" href="#paginas-web"><span class="svd-ic">' + IC.web + '</span><span><small>Creación de páginas web</small><b>Ver mis trabajos →</b></span></a>' +
     chip(SERV.web, IC.web, "Mis proyectos web", SERV.webTxt) +
     chip(SERV.tiktok, IC.tt, "TikTok", SERV.tiktokTxt) +
     chip(wa("Hola, vi en " + TIENDA + " sus servicios digitales. Quiero información."), IC.wa, "WhatsApp", SERV.waTxt) +
@@ -76,7 +77,7 @@
 
   function cargarCss() {
     if (document.querySelector('link[href^="servicios.css"]')) return;
-    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "servicios.css?v=2"; document.head.appendChild(l);
+    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "servicios.css?v=3"; document.head.appendChild(l);
   }
 
   function pegarLJ() {

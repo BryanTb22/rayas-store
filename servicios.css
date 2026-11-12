@@ -23,3 +23,7 @@ html body .svd .lj-sec-k::before, html body .svd .lj-sec-k::after { content: "";
 html.svd-rayas .svd .svd-ic, .svd.section .svd-ic { color: #ffd23f; }
 html[data-t="litlejacob"] .svd .svd-ic, .svd.home-block .svd-ic { color: #ff4d57; }
 @media (max-width: 600px) { .svd .svd-contacto { flex-direction: column; align-items: stretch; } }
+/* enlace a la sección "Páginas web" (portafolio) */
+.svd .svd-port { border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.08); }
+html body .svd .svd-port b { color: #ffd23f; }
+html body .home-block.svd .svd-port b { color: #ff5a63; }
