@@ -2374,7 +2374,7 @@
       (sub ? '<p>' + sub + '</p>' : '') + '<div class="orn">◆</div></div>';
   }
 
-  var VISTA_HASH = { sets: "sets", inicio: "inicio", rifas: "rifas", sorteo: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender", perfil: "perfil", "perfil/transacciones": "perfil", "perfil/seguridad": "perfil" };
+  var VISTA_HASH = { sets: "sets", inicio: "inicio", rifas: "rifas", sorteo: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender", perfil: "perfil", "perfil/transacciones": "perfil", "perfil/seguridad": "perfil", "paginas-web": "web" };
   var vistaActual = "inicio";
   function switchItems() {
     if (!admin.puede) return "";
@@ -2439,7 +2439,8 @@
       lk("comprar", "comprar", "Comprar<span class=\"mk-lg\"> items</span>" + (estado.secciones.items ? '' : ' 🔒'), itemsVisible()) +
       lk("vender", "vender", "Vender<span class=\"mk-lg\"> items</span>" + (estado.secciones.items ? '' : ' 🔒'), itemsVisible()) +
       lk("sets", "sets", "Sets<span class=\"mk-lg\"> Caché</span>" + (setsOn() ? '' : ' 🔒'), setsVisible()) +
-      lk("rifas", "rifas", "Rifas" + (rifasOn() ? '' : ' 🔒'), rifasVisible(), ' rifas');
+      lk("rifas", "rifas", "Rifas" + (rifasOn() ? '' : ' 🔒'), rifasVisible(), ' rifas') +
+      (window.portafolioWeb ? lk("paginas-web", "web", "Páginas web", true, ' web') : '');
     var cesta = itemsVisible() && !admin.puede ? '<button type="button" class="mk-cesta" data-a="carAbrir" aria-label="Carrito' + (n ? ', ' + n + (n === 1 ? ' item' : ' items') : ', vacío') + '" title="Carrito">' + MK_SVG.cesta + (n ? '<span class="mk-n">' + (n > 99 ? '99+' : n) + '</span>' : '') + '</button>' : '';
     var der;
     if (admin.puede) der = '<button class="mk-btn" type="button" data-a="admin">Panel admin</button><button class="mk-btn ghost" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button>';
@@ -2822,7 +2823,7 @@
       '<span class="logo"><img class="logo-img" src="img/logo-v2.webp" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
       '<nav class="fnav" aria-label="Enlaces rápidos"><a href="#inicio">Inicio</a>' +
         (rifasVisible() ? '<a href="#rifas">Rifas</a><a href="#como">Cómo participar</a><a href="#ganadores">Ganadores</a><a href="#reglas">Reglas</a>' : '') +
-        (itemsVisible() ? '<a href="#comprar">Comprar items</a><a href="#vender">Vender items</a>' : '') + (setsVisible() ? '<a href="#sets">Sets Caché</a>' : '') + '</nav>' +
+        (itemsVisible() ? '<a href="#comprar">Comprar items</a><a href="#vender">Vender items</a>' : '') + (setsVisible() ? '<a href="#sets">Sets Caché</a>' : '') + '<a href="#paginas-web">Páginas web</a></nav>' +
       (V ? '<button type="button" class="btn btn-ghost btn-sm" data-a="editContactos">✎ Editar contactos de WhatsApp</button>'
          : (contactos().length ? '<span>WhatsApp: ' + contactos().map(function (c) { return esc(c.nombre) + ' <span class="wa">' + esc(waBonito(c.numero)) + '</span>'; }).join(' · ') + '</span>' : '')) +
       tx("span", "pie") +
@@ -2857,7 +2858,8 @@
         '<div class="empty frame"><div class="in"><strong>Estamos preparando esta sección</strong><span>Muy pronto podrás ' + (vista === "vender" ? 'vender' : 'comprar') + ' items de Dota 2 aquí.</span></div></div>' +
         '</div></section>';
       var setsHtml = '<section class="section gutter" id="sets"><div class="wrap"><div id="setsSlot"></div></div></section>';
-      html = a[0] + (vista === "sets" ? setsHtml : vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : vista === "perfil" ? perfilPaginaHtml() : inicioHtml) + b[1];
+      var webHtml = '<section class="section gutter" id="paginas-web"><div class="wrap">' + (window.portafolioWeb ? window.portafolioWeb.html() : '') + '</div></section>';
+      html = a[0] + (vista === "web" ? webHtml : vista === "sets" ? setsHtml : vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : vista === "perfil" ? perfilPaginaHtml() : inicioHtml) + b[1];
     })();
     if (ruleta) html += modalRuleta();
     else if (modal && modal.tipo === "stock") html += stkPanelHtml();
@@ -4716,7 +4718,8 @@
     if (/^perfil/.test(h)) { cuenta.msg = ""; cuenta.msgTipo = ""; cuenta.claveAbierta = false; }
     render();
     if (vistaActual === "perfil") { if (antes !== "perfil") window.scrollTo(0, 0); document.title = "Mi perfil • Rayas Store"; return; }
-    if (antes === "perfil") document.title = "Rayas Store · Items, Sets y Rifas de Dota 2 en soles";
+    if (vistaActual === "web") { window.scrollTo(0, 0); document.title = "Creación de páginas web • Rayas Store"; return; }
+    if (antes === "perfil" || antes === "web") document.title = "Rayas Store · Items, Sets y Rifas de Dota 2 en soles";
     var el = (h === "inicio" || h === "rifas" && antes !== vistaActual) ? null : document.getElementById(h);
     if (el) el.scrollIntoView(); else if (antes !== vistaActual || h === "inicio") window.scrollTo(0, 0);
   }
