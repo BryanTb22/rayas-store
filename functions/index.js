@@ -92,9 +92,8 @@ async function acreditar(pagoId, chargeId) {
     const saldo = Number(u.data().creditos || 0);
     if (d.estado === "acreditado") return { ya: true, creditos: d.creditosAcreditados, saldo: saldo };
 
-    // La promo de primera recarga se decide AQUÍ, no al crear el pago: así dos pagos
-    // pendientes no pueden cobrar la promo los dos.
-    const conPromo = !!d.promoCreditos && !u.data().promoUsada;
+    // Promo de primera recarga quitada (11/11/2026): ni los pagos que quedaron pendientes la cobran.
+    const conPromo = false;
     const creditos = conPromo ? d.promoCreditos : d.baseCreditos;
 
     const cambiosUsuario = { creditos: FV.increment(creditos) };
@@ -810,7 +809,7 @@ exports.barridoPagos = onSchedule(
         if (!u || !u.email) continue;   // sin correo no hay a quién avisar
         const c = emails.recordatorio(p.tienda || "rayas", {
           id: doc.id, nombre: u.nombre, soles: p.soles,
-          creditos: p.promoCreditos && !u.promoUsada ? p.promoCreditos : p.baseCreditos,
+          creditos: p.baseCreditos,
           expiraEn: new Date(creado + 24 * 3600000)
         });
         await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: u.email, subject: c.subject, html: c.html, text: c.text, clave: "recordatorio-" + doc.id });
