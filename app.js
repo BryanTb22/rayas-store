@@ -25,6 +25,7 @@
     urlItemSteam: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/itemSteam",
     urlPreciosSteam: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/preciosSteam",
     urlSteamIniciar: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/steamIniciar",
+    urlVenta: "https://us-central1-" + FB.projectId + ".cloudfunctions.net/venta",
     js: "https://checkout.culqi.com/js/v4"
   };
   var PACKS_UI = [
@@ -601,6 +602,14 @@
       var mi = modalItemHtml(m); h = mi.h; btns = mi.btns + cerrar;
     } else if (m.tipo === "carrito") {
       var mc = carroHtml(); h = mc.h; btns = mc.btns;
+    } else if (m.tipo === "ventaCodigo") {
+      var vm = ventaModalHtml(m); h = vm.h; btns = vm.btns;
+    } else if (m.tipo === "ventaOk") {
+      h = '<h3>¡Venta lista! 🎉</h3><p class="hint">Recibimos tus ' + (m.count === 1 ? 'skin' : m.count + ' skins') + ' (venta <b>' + esc(m.code) + '</b>). Se sumaron <b>' + fmtPrecio(m.total) + '</b> a tu saldo' + (c ? ': ahora tienes <b>' + fmtSol(c.creditos) + '</b> soles' : '') + '.</p>';
+      btns = cerrar;
+    } else if (m.tipo === "error" && m.wsp) {
+      h = '<h3>Venta por WhatsApp</h3><p class="hint">' + esc(m.msg) + '</p>';
+      btns = '<button class="btn btn-yellow" type="button" data-a="venWsp">💬 Vender por WhatsApp</button>' + cerrar;
     } else if (m.tipo === "itemOk") {
       h = '<h3>¡Compra lista! 🎉</h3><p class="hint">Compraste <b>' + esc(m.nombre) + '</b>. Pedido <b>' + esc(m.code) + '</b>. Te quedan <b>' + fmtSol(m.saldo) + '</b> soles. ' +
         (m.entrega ? 'Tu item está en <b>cooldown de Steam</b>: lo recibes el <b>' + esc(fechaEntrega(m.entrega)) + '</b>. Ese día te avisaremos por correo y te escribiremos para entregártelo por Steam.' : 'Te escribiremos para entregártelo por Steam.') + ' Asegúrate de tener tu link de intercambio en tu cuenta.</p>';
@@ -1811,9 +1820,11 @@
         cargarPerfil(); cargarItems(true);
       }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message === "NO_SESSION") ? "Tu sesión venció. Vuelve a entrar." : "No se pudo completar la compra. No se descontó saldo." }; render(); });
   }
-  /* ===== Vender items: el cliente pega su trade link y ve sus items; tú pones los precios de compra ===== */
+  /* ===== Vender skins: el cliente pega su trade link, elige items y nos los vende; cobra en saldo al instante =====
+     Precios: lista manual (rayas_compra, panel → Compras) y lista automática del motor (función venta, accion "precios"); la manual gana.
+     "Vender ahora" crea la venta en el servidor (precios congelados + código V-XXXXX) y el bot de Steam la paga al recibir el trade. */
   var INV_URL = "https://inventario-seqcayr4iq-uc.a.run.app";
-  var ven = { link: "", cargando: false, err: "", lista: null, noTrad: 0, sel: {}, precios: [], pCargado: false, pCargando: false, q: "", f: { tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", min: "", max: "", orden: "mayor" } };
+  var ven = { link: "", cargando: false, err: "", lista: null, noTrad: 0, sel: {}, precios: [], auto: {}, cfg: null, cfgPidiendo: false, pCargado: false, pCargando: false, q: "", f: { tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", min: "", max: "", orden: "mayor" } };
   function claveCompra(n) { return sinTildes(n).replace(/\s+/g, " ").trim(); }
   function slugCompra(n) { return claveCompra(n).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || ("x" + Date.now().toString(36)); }
   function cargarPrecios(forzar) {
@@ -1832,13 +1843,16 @@
         return j.nextPageToken && acc.length < 3000 ? pag(j.nextPageToken) : null;
       });
     }
-    pag("").then(function () { ven.precios = acc; ven.pCargado = true; }).catch(function () { /* sin lista: todo sale a consultar */ ven.pCargado = true; })
+    var auto = fetch(PAGOS.urlVenta, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accion: "precios" }) })
+      .then(function (r) { return r.ok ? r.json() : {}; }).then(function (j) { var m = {}; (j.precios || []).forEach(function (x) { m[x[0]] = Number(x[1]); }); ven.auto = m; ven.abierto = !!j.abierto; }).catch(function () { /* sin lista automática */ });
+    Promise.all([pag("").then(function () { ven.precios = acc; }).catch(function () { /* sin lista manual */ }), auto]).then(function () { ven.pCargado = true; })
       .then(function () { ven.pCargando = false; render(); });
   }
   function precioCompra(nombre) {
     var k = claveCompra(nombre);
     for (var i = 0; i < ven.precios.length; i++) if (claveCompra(ven.precios[i].nombre) === k) return ven.precios[i].precio;
-    return null;
+    var a = ven.auto[String(nombre || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’‘`´]/g, "'").replace(/\s+/g, " ").trim().toLowerCase()];
+    return a > 0 ? a : null;
   }
   function verInventario() {
     var link = String(ven.link || "").trim();
@@ -1863,12 +1877,13 @@
   }
   function venderCardHtml(g, idx) {
     var p = precioCompra(g.name), c = ven.sel[g.k] || 0;
-    return '<article class="icard' + (c ? ' vsel' : '') + '"><div class="ithumb" style="--rar:' + esc(g.color || "#8a8fb0") + '">' + (imgTag(g.icon, g.name, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') +
+    var off = p === null && ventaAuto();
+    return '<article class="icard' + (c ? ' vsel' : '') + (off ? ' voff' : '') + '"><div class="ithumb" style="--rar:' + esc(g.color || "#8a8fb0") + '">' + (imgTag(g.icon, g.name, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') +
       (g.n > 1 ? '<span class="itag">x' + g.n + '</span>' : '') + '</div>' +
       '<div class="ibody"><h4>' + esc(g.name) + '</h4>' +
-      '<div class="iprice"><b>' + (p === null ? 'Consultar' : fmtPrecio(p)) + '</b></div>' +
+      '<div class="iprice"><b>' + (p === null ? (ventaAuto() ? 'No lo compramos' : 'Consultar') : fmtPrecio(p)) + '</b></div>' +
       '<div class="vstep"><button type="button" class="btn btn-ghost btn-sm" data-a="venMenos" data-i="' + idx + '" aria-label="Quitar uno"' + (c ? '' : ' disabled') + '>−</button>' +
-      '<span>' + c + '</span><button type="button" class="btn btn-ghost btn-sm" data-a="venMas" data-i="' + idx + '" aria-label="Agregar uno"' + (c >= g.n ? ' disabled' : '') + '>+</button></div></div></article>';
+      '<span>' + c + '</span><button type="button" class="btn btn-ghost btn-sm" data-a="venMas" data-i="' + idx + '" aria-label="Agregar uno"' + (c >= g.n || off ? ' disabled' : '') + '>+</button></div></div></article>';
   }
   function venFiltrados() {
     var f = ven.f, q = sinTildes(ven.q), mn = parseFloat(f.min), mx = parseFloat(f.max);
@@ -1912,6 +1927,7 @@
   }
   function venderHtml() {
     var cuerpo;
+    if (uidSesion()) pedirConfigVenta();
     if (ven.cargando) cuerpo = '<div class="empty frame"><div class="in"><strong>Leyendo tu inventario…</strong><span>Puede tardar unos segundos.</span></div></div>';
     else if (ven.lista === null) cuerpo = '<div class="empty frame"><div class="in"><strong>Pega tu trade link para empezar</strong><span>Verás tus items de Dota 2 que se pueden intercambiar y el precio al que te los compramos.</span></div></div>';
     else if (!ven.lista.length) cuerpo = '<div class="empty frame"><div class="in"><strong>No hay items intercambiables</strong><span>Revisa que tu inventario de Dota 2 sea público y tenga items que puedas tradear.</span></div></div>';
@@ -1923,12 +1939,14 @@
         '<span class="icount">' + vis.length + ' de ' + ven.lista.length + ' tipos de item' + (ven.noTrad ? ' · ' + ven.noTrad + ' no intercambiables' : '') + '</span></div>' +
         (vis.length ? '<div class="igrid">' + vis.map(function (o) { return venderCardHtml(o.g, o.i); }).join("") + '</div>' : '<div class="empty frame"><div class="in"><strong>Ningún item coincide</strong><span>Prueba con otros filtros.</span></div></div>') +
         '</div></div>' +
-        '<div class="vbar"><div><b>' + T.n + '</b> item' + (T.n === 1 ? '' : 's') + ' elegido' + (T.n === 1 ? '' : 's') + (T.n ? ' · Total: <b>' + fmtPrecio(T.tot) + '</b>' + (T.sinP ? ' + ' + T.sinP + ' a consultar' : '') : '') + '</div>' +
-        '<button class="btn btn-yellow" type="button" data-a="venWsp"' + (T.n && contactos().length ? '' : ' disabled') + '>💬 Vender por WhatsApp</button></div>';
+        '<div class="vbar"><div><div><b>' + T.n + '</b> item' + (T.n === 1 ? '' : 's') + ' elegido' + (T.n === 1 ? '' : 's') + (T.n ? ' · ' + (ventaAuto() ? 'Recibes' : 'Total') + ': <b>' + fmtPrecio(T.tot) + '</b>' + (T.sinP ? ' + ' + T.sinP + ' a consultar' : '') : '') + '</div>' +
+        (ventaAuto() ? '<div class="vpago"><span class="vchip">⚡ Pago al instante</span> como saldo de la tienda</div>' : '') + '</div>' +
+        (ventaAuto() ? '<button class="btn btn-fuchsia" type="button" data-a="venVender"' + (T.n ? '' : ' disabled') + '>💰 Vender ahora</button>'
+          : '<button class="btn btn-yellow" type="button" data-a="venWsp"' + (T.n && contactos().length ? '' : ' disabled') + '>💬 Vender por WhatsApp</button>') + '</div>';
     }
     return '<section class="section gutter" id="vender"><div class="wrap">' +
-      '<div class="ipg-crumb"><a href="#inicio">Inicio</a> <span>›</span> <span>Vender items</span></div>' +
-      '<div class="sec-title"><div class="kicker">Tus items</div><h2><span class="t1">Vender</span> <span>items</span></h2><p>Pega tu trade link, elige lo que quieres vender y mira cuánto te pagamos.</p><div class="orn">◆</div></div>' +
+      '<div class="ipg-crumb"><a href="#inicio">Inicio</a> <span>›</span> <span>Vender skins</span></div>' +
+      '<div class="sec-title"><div class="kicker">Tus items</div><h2><span class="t1">Vender</span> <span>skins</span></h2><p>' + (ventaAuto() ? 'Pega tu trade link, elige tus skins y recibe el pago al instante como saldo de la tienda.' : 'Pega tu trade link, elige lo que quieres vender y mira cuánto te pagamos.') + '</p><div class="orn">◆</div></div>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala con el interruptor de abajo cuando esté lista.</p>') + switchItems() +
       '<div class="vlink frame"><div class="in"><label for="ven-link">Tu trade link de Steam</label>' +
       '<div class="vrow"><input id="ven-link" type="url" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(ven.link) + '" autocomplete="off">' +
@@ -1947,6 +1965,65 @@
     });
     return "¡Hola! 👋 Quiero *VENDER* estos items a *" + TD.nombreMayus + "* 💰\n\n" + l.join("\n") + "\n\n🧾 Total: " + fmtPrecio(T.tot) + (T.sinP ? " + " + T.sinP + " a consultar" : "") +
       "\n🔗 Mi trade link: " + String(ven.link).trim() + (p ? "\n\n👤 " + p.nombre + " (📧 " + p.email + ")" : "") + "\n\n¿Me confirmas? 🙏✨";
+  }
+  /* --- Vender ahora: venta automática (piloto) --- */
+  // ¿Esta persona puede vender con el bot? (el servidor decide: admin, clientes del piloto o todos cuando se abra)
+  function ventaAuto() { return uidSesion() ? !!(ven.cfg && ven.cfg.puede) : !!ven.abierto; }
+  function pedirConfigVenta() {
+    if (ven.cfgPidiendo || !uidSesion() || (ven.cfg && ven.cfg.uid === uidSesion())) return;
+    ven.cfgPidiendo = true;
+    llamarVenta({ accion: "config" }).then(function (j) { ven.cfg = Object.assign({ uid: uidSesion() }, j); })
+      .catch(function () { ven.cfg = { uid: uidSesion(), puede: false }; })
+      .then(function () { ven.cfgPidiendo = false; render(); hidratarImgs(); });
+  }
+  function llamarVenta(datos) {
+    return token().then(function (tk) {
+      return fetch(PAGOS.urlVenta, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify(datos) });
+    }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.error || "No se pudo completar."); e.codigo = j.codigo || ""; throw e; } return j; }); });
+  }
+  function venderAhora() {
+    if (!uidSesion()) { modal = null; cuenta.modo = "login"; cuenta.msg = "Entra a tu cuenta para vender tus skins."; cuenta.msgTipo = ""; render(); return; }
+    var items = [];
+    (ven.lista || []).forEach(function (g) { var c = ven.sel[g.k] || 0; if (c && precioCompra(g.name) !== null) items.push({ name: g.k || g.name, qty: c }); });
+    if (!items.length) return;
+    modal = { tipo: "cargando" }; render();
+    llamarVenta({ accion: "crear", link: String(ven.link || "").trim(), items: items }).then(function (j) {
+      modal = { tipo: "ventaCodigo", code: j.code, total: j.total, count: j.count, vence: j.vence, bot: j.botTradelink, estado: "esperando", motivo: "" }; render();
+      vigilarVenta(j.code);
+    }).catch(function (e) {
+      modal = { tipo: "error", msg: e.message === "NO_SESSION" ? "Tu sesión venció. Vuelve a entrar." : e.message, wsp: e.codigo === "NO_DISPONIBLE" }; render();
+    });
+  }
+  // Mientras la ventana del código está abierta, revisa cada 8 s si el bot ya recibió el trade y pagó.
+  var vigiaVenta = null;
+  function vigilarVenta(code) {
+    clearInterval(vigiaVenta);
+    vigiaVenta = setInterval(function () {
+      if (!modal || modal.code !== code || (modal.tipo !== "ventaCodigo")) { clearInterval(vigiaVenta); return; }
+      llamarVenta({ accion: "mias" }).then(function (j) {
+        var v = (j.ventas || []).filter(function (x) { return x.code === code; })[0];
+        if (!v || !modal || modal.code !== code) return;
+        if (v.estado === "pagada") { clearInterval(vigiaVenta); modal = { tipo: "ventaOk", code: code, total: v.total, count: v.count }; ven.sel = {}; render(); cargarPerfil(); cargarMovs(); return; }
+        if (v.estado !== modal.estado || v.motivo !== modal.motivo) { modal.estado = v.estado; modal.motivo = v.motivo; render(); }
+        if (["cancelada", "vencida", "fallida", "retenida"].indexOf(v.estado) >= 0) clearInterval(vigiaVenta);
+      }).catch(function () { /* se reintenta */ });
+    }, 8000);
+  }
+  function ventaModalHtml(m) {
+    var hora = ""; try { hora = new Date(m.vence).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }); } catch (e) { /* nada */ }
+    var fin = ["cancelada", "vencida", "fallida", "retenida"].indexOf(m.estado) >= 0;
+    var h = '<h3>' + (fin ? 'Venta ' + esc(m.estado) : m.estado === "aceptando" ? 'Recibiendo tus skins… ⏳' : '¡Listo! Ahora envía tus skins') + '</h3>' +
+      (fin ? '<p class="hint">' + esc(m.motivo || "Esta venta ya no está activa.") + ' Si quieres, vuelve a elegir tus items y crea una venta nueva.</p>' :
+      '<p class="hint">Guardamos tus precios. Envía la oferta de intercambio al bot <b>con este código en el mensaje</b>:</p>' +
+      '<div class="vcode"><small>Tu código de venta</small><strong>' + esc(m.code) + '</strong><button class="btn btn-ghost btn-sm" type="button" data-a="venCopiar">' + (m.copiado ? '✔ Copiado' : '📋 Copiar código') + '</button></div>' +
+      '<ol class="vpasos"><li>Toca <b>"Abrir intercambio con el bot"</b>.</li><li>Agrega <b>solo</b> ' + (m.count === 1 ? 'el item' : 'los ' + m.count + ' items') + ' de esta venta.</li><li>Pega el código <b>' + esc(m.code) + '</b> en el mensaje y envía la oferta.</li><li>Confirma en tu app de Steam. El saldo se suma solo en cuanto el bot la acepta.</li></ol>' +
+      (m.motivo && m.estado === "esperando" ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(m.motivo) + '</p>' : '') +
+      '<div class="vres"><span>' + m.count + (m.count === 1 ? ' item' : ' items') + '</span><b>Recibirás ' + fmtPrecio(m.total) + '</b></div>' +
+      (hora ? '<p class="vtime">⏱ Los precios se mantienen hasta las ' + esc(hora) + '</p>' : ''));
+    var btns = (fin ? '' : (m.bot ? '<a class="btn btn-fuchsia" href="' + esc(m.bot) + '" target="_blank" rel="noopener">🔁 Abrir intercambio con el bot</a>' : '') +
+      (m.estado === "esperando" ? '<button class="btn btn-ghost btn-sm" type="button" data-a="venCancelar">Cancelar venta</button>' : '')) +
+      '<button class="btn btn-ghost btn-sm" type="button" data-a="cerrarModal">Cerrar</button>';
+    return { h: h, btns: btns };
   }
   function ventaEvento(el) {
     if (el.id === "ofe-min" || el.id === "ofe-max") {
@@ -1982,10 +2059,48 @@
       if (vn && vn.tagName === "INPUT") { vn.focus(); try { vn.setSelectionRange(vpos, vpos); } catch (e) { /* nada */ } }
       hidratarImgs(); return true;
     }
+    if (el.id && el.id.indexOf("vs-") === 0) { var VS = admin.vs = admin.vs || {}; VS.form = VS.form || {}; VS.form[el.id.slice(3)] = el.type === "checkbox" ? el.checked : el.value; return true; }
     if (el.id === "cp-nombre" || el.id === "cp-precio" || el.id === "cp-bulk") {
       admin.cp = admin.cp || {}; admin.cp[el.id.slice(3)] = el.value; return true;
     }
     return false;
+  }
+  /* --- Admin: pestaña Vender skins (piloto, configuración y ventas) --- */
+  function cargarVskins() {
+    var V = admin.vs = admin.vs || {};
+    if (V.cargando) return; V.cargando = true;
+    llamarVenta({ accion: "admin" }).then(function (j) { V.cfg = j.config; V.lista = j.ventas || []; V.form = V.form || { activo: !!j.config.activo, permitidos: (j.config.permitidos || []).join("\n"), topeVenta: String(j.config.topeVenta), topeDia: String(j.config.topeDia), minutos: String(j.config.minutos), botTradelink: j.config.botTradelink || "" }; V.err = ""; })
+      .catch(function (e) { V.err = e.message; }).then(function () { V.cargando = false; V.listo = true; render(); });
+  }
+  function tabVskins() {
+    var V = admin.vs = admin.vs || {};
+    if (!V.listo && !V.cargando) cargarVskins();
+    if (!V.listo) return '<p class="hint">Cargando ventas…</p>';
+    var F = V.form || {}, EST = { esperando: "⏳ Esperando trade", aceptando: "📥 Recibiendo", pagada: "✅ Pagada", cancelada: "🚫 Cancelada", vencida: "⌛ Vencida", fallida: "✖ Fallida", retenida: "⏸ Retenida" };
+    return '<div class="grp"><h3>Venta automática (piloto)</h3>' +
+      '<p class="hint">El cliente elige sus skins, la web le da un código y el bot de Steam recibe el trade y le paga en saldo al instante. Los precios salen del motor del bot LIS (cada hora) y de tu lista de <b>📥 Compras</b>, que manda sobre la automática.</p>' +
+      '<label class="chk"><input type="checkbox" id="vs-activo"' + (F.activo ? ' checked' : '') + '><span>Abierto para <b>todos</b> los clientes (si está apagado: solo tú y los de la lista de abajo)</span></label>' +
+      '<div class="field"><label for="vs-permitidos">Clientes del piloto (correo de su cuenta, uno por línea)</label><textarea id="vs-permitidos" rows="3" style="width:100%">' + esc(F.permitidos || "") + '</textarea></div>' +
+      '<div class="field"><label for="vs-topeVenta">Tope por venta (S/)</label><input id="vs-topeVenta" inputmode="decimal" value="' + esc(F.topeVenta || "") + '"></div>' +
+      '<div class="field"><label for="vs-topeDia">Tope por cliente por día (S/)</label><input id="vs-topeDia" inputmode="decimal" value="' + esc(F.topeDia || "") + '"></div>' +
+      '<div class="field"><label for="vs-minutos">Minutos que se mantienen los precios</label><input id="vs-minutos" inputmode="numeric" value="' + esc(F.minutos || "") + '"></div>' +
+      '<div class="field"><label for="vs-botTradelink">Trade link del bot</label><input id="vs-botTradelink" type="url" value="' + esc(F.botTradelink || "") + '" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…"></div>' +
+      '<div class="cav"><button class="btn btn-fuchsia btn-sm" type="button" data-a="vsGuardar">Guardar</button><button class="btn btn-ghost btn-sm" type="button" data-a="vsRecargar">↻ Actualizar</button></div>' +
+      (V.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(V.err) + '</p>' : '') + (V.msg ? '<p class="hint" role="status">' + esc(V.msg) + '</p>' : '') + '</div>' +
+      '<div class="grp"><h3>Últimas ventas (' + (V.lista || []).length + ')</h3>' + ((V.lista || []).length ? V.lista.map(function (v) {
+        return '<div class="uitem"><div><b>' + esc(v.code) + '</b> · ' + esc(EST[v.estado] || v.estado) + ' · <b>' + fmtPrecio(v.total) + '</b> · ' + esc(v.nombre || "") + ' <small>(' + esc(v.tienda === "litlejacob" ? "LJ" : "Rayas") + ')</small><br>' +
+          '<small>' + esc(fechaHora(v.creada)) + ' · ' + (v.items || []).map(function (i) { return esc(i.qty + "× " + i.name); }).join(", ") + '</small>' +
+          (v.motivo ? '<br><small style="color:var(--danger)">' + esc(v.motivo) + '</small>' : '') + '</div></div>';
+      }).join("") : '<p class="hint">Todavía no hay ventas.</p>') + '</div>';
+  }
+  function accionVskins(a) {
+    var V = admin.vs = admin.vs || {};
+    if (a === "vsRecargar") { V.listo = false; V.form = null; V.msg = ""; render(); return; }
+    var F = V.form || {}, num = function (x) { return parseFloat(String(x || "").replace(",", ".")); };
+    var cfg = { activo: !!F.activo, permitidos: String(F.permitidos || "").split(/[\s,]+/).filter(Boolean), topeVenta: num(F.topeVenta), topeDia: num(F.topeDia), minutos: num(F.minutos), botTradelink: String(F.botTradelink || "").trim() };
+    V.msg = "Guardando…"; V.err = ""; render();
+    llamarVenta({ accion: "guardarConfig", config: cfg }).then(function () { V.msg = "Guardado ✔"; V.listo = false; V.form = null; ven.cfg = null; render(); })
+      .catch(function (e) { V.msg = ""; V.err = e.message; render(); });
   }
   /* --- Admin: pestaña Compras (precios a los que compras) --- */
   /* Generador de publicaciones (publicador.js se carga solo al usarlo) */
@@ -2515,7 +2630,7 @@
   var vistaActual = "inicio";
   function switchItems() {
     if (!admin.puede) return "";
-    return '<label class="chk" style="justify-content:center;margin:6px 0 14px"><input type="checkbox" class="c-items2"' + (estado.secciones && estado.secciones.items ? ' checked' : '') + '> Mostrar "Comprar items" y "Vender items" a los clientes (también en LitleJacob Store)</label>';
+    return '<label class="chk" style="justify-content:center;margin:6px 0 14px"><input type="checkbox" class="c-items2"' + (estado.secciones && estado.secciones.items ? ' checked' : '') + '> Mostrar "Comprar items" y "Vender skins" a los clientes (también en LitleJacob Store)</label>';
   }
   function rifasOn() { return !(estado.secciones && estado.secciones.rifas === false); }
   function rifasVisible() { return !!(admin.puede || rifasOn()); }
@@ -2574,7 +2689,7 @@
     function lk(h, v, txt, ok, extra) { return ok ? '<a class="mk-lk' + (vista === v ? ' on' : '') + (extra || '') + '" href="#' + h + '"' + (vista === v ? ' aria-current="page"' : '') + '>' + txt + '</a>' : ''; }
     var nav = lk("inicio", "inicio", "Inicio", true) +
       lk("comprar", "comprar", "Comprar<span class=\"mk-lg\"> items</span>" + (estado.secciones.items ? '' : ' 🔒'), itemsVisible()) +
-      lk("vender", "vender", "Vender<span class=\"mk-lg\"> items</span>" + (estado.secciones.items ? '' : ' 🔒'), itemsVisible()) +
+      lk("vender", "vender", "Vender<span class=\"mk-lg\"> skins</span>" + (estado.secciones.items ? '' : ' 🔒'), itemsVisible()) +
       (VISTA_HASH.compro ? lk("compro", "compro", "Compro", true) : '') +
       lk("sets", "sets", "Sets<span class=\"mk-lg\"> Caché</span>" + (setsOn() ? '' : ' 🔒'), setsVisible()) +
       lk("rifas", "rifas", "Rifas" + (rifasOn() ? '' : ' 🔒'), rifasVisible(), ' rifas') +
@@ -2961,7 +3076,7 @@
       '<span class="logo"><img class="logo-img" src="' + esc(TD.logo) + '" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
       '<nav class="fnav" aria-label="Enlaces rápidos"><a href="#inicio">Inicio</a>' +
         (rifasVisible() ? '<a href="#rifas">Rifas</a><a href="#como">Cómo participar</a><a href="#ganadores">Ganadores</a><a href="#reglas">Reglas</a>' : '') +
-        (itemsVisible() ? '<a href="#comprar">Comprar items</a><a href="#vender">Vender items</a>' : '') + (setsVisible() ? '<a href="#sets">Sets Caché</a>' : '') + '<a href="#paginas-web">Páginas web</a></nav>' +
+        (itemsVisible() ? '<a href="#comprar">Comprar items</a><a href="#vender">Vender skins</a>' : '') + (setsVisible() ? '<a href="#sets">Sets Caché</a>' : '') + '<a href="#paginas-web">Páginas web</a></nav>' +
       (V ? '<button type="button" class="btn btn-ghost btn-sm" data-a="editContactos">✎ Editar contactos de WhatsApp</button>'
          : (contactos().length ? '<span>WhatsApp: ' + contactos().map(function (c) { return esc(c.nombre) + ' <span class="wa">' + esc(waBonito(c.numero)) + '</span>'; }).join(' · ') + '</span>' : '')) +
       tx("span", "pie") +
@@ -2984,7 +3099,7 @@
         (rifasVisible() ? '<a class="svc frame' + (rifasOn() ? ' gold' : '') + '" href="#rifas"><div class="in">' + (rifasOn() ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">🎟️</span>' + tx("h3", "cardRifasT") + tx("p", "cardRifasD") + '<span class="btn btn-yellow">' + esc(T.cardRifasBtn) + '</span></div></a>' : '') +
         (itemsVisible() ? ['comprar', 'vender'].map(function (v) {
           var c = v === "comprar";
-          return '<a class="svc frame' + (estado.secciones.items ? ' gold' : '') + '" href="#' + v + '"><div class="in">' + (estado.secciones.items ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">' + (c ? '🛒' : '💰') + '</span><h3>' + (c ? 'Comprar items' : 'Vender items') + '</h3><p>' + (c ? 'Compra items de Dota 2 de forma segura.' : 'Vende tus items de Dota 2 de forma segura.') + '</p><span class="btn btn-fuchsia">' + (c ? 'Ver items' : 'Vender') + '</span></div></a>';
+          return '<a class="svc frame' + (estado.secciones.items ? ' gold' : '') + '" href="#' + v + '"><div class="in">' + (estado.secciones.items ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">' + (c ? '🛒' : '💰') + '</span><h3>' + (c ? 'Comprar items' : 'Vender skins') + '</h3><p>' + (c ? 'Compra items de Dota 2 de forma segura.' : 'Vende tus skins de Dota 2 y cobra en saldo.') + '</p><span class="btn btn-fuchsia">' + (c ? 'Ver items' : 'Vender') + '</span></div></a>';
         }).join("") : '') +
         (setsVisible() ? '<a class="svc frame' + (setsOn() ? ' gold' : '') + '" href="#sets"><div class="in">' + (setsOn() ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">🎁</span><h3>Sets Caché</h3><p>Sets de cofres de Dota 2 a buen precio, con entrega por Steam.</p><span class="btn btn-yellow">Ver sets</span></div></a>' : '') +
         (VISTA_HASH.compro ? '<a class="svc frame gold" href="#compro"><div class="in"><span class="ico">💼</span><h3>Compro</h3><p>Compro inventarios de Dota 2 y cuentas con items exclusivos. Te hago una oferta por WhatsApp.</p><span class="btn btn-fuchsia">Quiero vender</span></div></a>' : '') +
@@ -3062,6 +3177,7 @@
       }).filter(function (c) { return c.monto > 0; });
       if (vistaActual === "perfil") { render(); pfFiltrar(); }
     }).catch(function () { /* sin historial de compras */ });
+    llamarVenta({ accion: "mias" }).then(function (j) { cuenta.ventas = j.ventas || []; if (cuenta.ventas.length && vistaActual === "perfil") { render(); pfFiltrar(); } }).catch(function () { /* sin ventas */ });
   }
   /* ================= Perfil: Información personal · Transacciones · Seguridad ================= */
   var PF_TABS = [["info", "👤", "Información personal"], ["trans", "🔁", "Transacciones"], ["seg", "🔒", "Seguridad"]];
@@ -3095,6 +3211,13 @@
           det: [{ nombre: p.nombre, img: p.img, qty: x.cantidad, unit: x.cantidad ? (Number(x.costo) || 0) / x.cantidad : 0, sub: Number(x.costo) || 0, unidad: x.cantidad === 1 ? "ticket" : "tickets", estTxt: txt, est: est }], tienda: "" });
       });
     });
+    var VEST = { esperando: "Esperando tu trade", aceptando: "Recibiendo", pagada: "Pagada", cancelada: "Cancelada", vencida: "Vencida", fallida: "No se completó", retenida: "Retenida por Steam" };
+    (cuenta.ventas || []).forEach(function (v) {
+      var est = v.estado === "pagada" ? "entregado" : (v.estado === "esperando" || v.estado === "aceptando") ? "curso" : "cancelado";
+      filas.push({ key: "v_" + v.code, t: v.creada, tipo: "venta", titulo: "Venta de skins", code: v.code, est: est, estTxt: VEST[v.estado] || v.estado, monto: Number(v.total) || 0, mas: v.estado === "pagada",
+        det: (v.items || []).map(function (i) { return { nombre: i.name, img: "", qty: i.qty, unit: i.price, sub: i.price * i.qty, unidad: "", estTxt: VEST[v.estado] || "", est: est }; }),
+        tienda: v.tienda === "litlejacob" ? "LitleJacob Store" : (v.tienda === "rayas" ? "Rayas Store" : "") });
+    });
     (cuenta.compras || []).forEach(function (c) {
       var cdTxt = c.estado === "cooldown" ? "En cooldown · lo recibes el " + cdFechaCorta({ cooldownHasta: c.entregaDesde }) : "";
       filas.push({ key: "c_" + (c.code || c.t), t: c.t, tipo: c.sets ? "sets" : "compra", titulo: c.sets ? "Compra de sets" : "Compra de items", code: c.code || "", est: c.estado || "pagado", estTxt: cdTxt || PF_EST[c.estado] || c.estado || "Pagado", monto: c.monto,
@@ -3108,7 +3231,7 @@
     var filas = pfFilas(), ab = cuenta.abiertos || {};
     var tipoSel = cuenta.tTipo || "";
     var cab = '<div class="pf-tools"><div class="pf-sec-h"><h2>Transacciones</h2><p>Tus compras de items, sets y tickets de rifas. Toca una fila para ver el detalle.</p></div><div class="pf-filtros">' +
-      '<select id="pf-tipo" aria-label="Tipo de transacción"><option value="">Todas</option><option value="compra"' + (tipoSel === "compra" ? " selected" : "") + '>Compras de items</option><option value="sets"' + (tipoSel === "sets" ? " selected" : "") + '>Compras de sets</option><option value="rifa"' + (tipoSel === "rifa" ? " selected" : "") + '>Rifas</option></select>' +
+      '<select id="pf-tipo" aria-label="Tipo de transacción"><option value="">Todas</option><option value="compra"' + (tipoSel === "compra" ? " selected" : "") + '>Compras de items</option><option value="sets"' + (tipoSel === "sets" ? " selected" : "") + '>Compras de sets</option><option value="rifa"' + (tipoSel === "rifa" ? " selected" : "") + '>Rifas</option><option value="venta"' + (tipoSel === "venta" ? " selected" : "") + '>Ventas de skins</option></select>' +
       '<input id="pf-buscar" type="search" placeholder="Buscar por ID o nombre del item" autocomplete="off" value="' + esc(cuenta.tBuscar || "") + '"></div></div>';
     if (!filas.length) return cab + '<div class="pf-vacio pf-vacio-t">Todavía no tienes transacciones. Tus compras de items y tus tickets de rifas aparecerán aquí.</div>';
     var tabla = '<div class="pf-tabla" role="table"><div class="pf-th" role="row"><span>Tipo / Fecha</span><span>ID</span><span>Estado</span><span>Sistema de pago</span><span>Importe</span><span class="r">Saldo</span></div>' +
@@ -3121,15 +3244,15 @@
               '<span data-l="Estado"><i class="pf-dot est-' + esc(d.est) + '"></i>' + esc(d.estTxt) + '</span>' +
               '<span data-l="Precio unitario">' + pfMon(d.unit) + '</span><span class="r" data-l="Subtotal"><b>' + pfMon(d.sub) + '</b></span></div>';
           }).join("") : '<div class="pf-dr"><span class="hint">No hay detalle guardado de esta compra.</span></div>') +
-          (f.tienda ? '<div class="pf-pie">Comprado en <b>' + esc(f.tienda) + '</b></div>' : '') + '</div>';
+          (f.tienda ? '<div class="pf-pie">' + (f.tipo === "venta" ? 'Vendido a' : 'Comprado en') + ' <b>' + esc(f.tienda) + '</b></div>' : '') + '</div>';
         return '<div class="pf-tx' + (abierto ? ' open' : '') + '" data-tipo="' + f.tipo + '" data-q="' + esc(q) + '">' +
           '<button type="button" class="pf-row" data-a="txAbrir" data-k="' + esc(f.key) + '" aria-expanded="' + abierto + '">' +
           '<span class="c-tipo"><b>' + esc(f.titulo) + '<i class="pf-fl" aria-hidden="true">▾</i></b><small>' + (f.t ? esc(fechaHora(f.t)) : "—") + '</small></span>' +
           '<span class="c-id" data-l="ID">' + (esc(f.code) || "—") + '</span>' +
           '<span class="c-est" data-l="Estado"><i class="pf-dot est-' + esc(f.est) + '"></i>' + esc(f.estTxt) + '</span>' +
-          '<span class="c-pago" data-l="Sistema de pago">Saldo</span>' +
+          '<span class="c-pago" data-l="Sistema de pago">' + (f.tipo === "venta" ? 'Trade de Steam' : 'Saldo') + '</span>' +
           '<span class="c-imp" data-l="Importe">' + pfMon(f.monto) + '</span>' +
-          '<span class="c-sal neg r" data-l="Saldo">−' + pfMon(f.monto) + '</span></button>' + det + '</div>';
+          (f.tipo === "venta" ? '<span class="c-sal r' + (f.mas ? ' pos' : '') + '" data-l="Saldo">' + (f.mas ? '+' + pfMon(f.monto) : '—') + '</span></button>' : '<span class="c-sal neg r" data-l="Saldo">−' + pfMon(f.monto) + '</span></button>') + det + '</div>';
       }).join("") + '<p class="pf-nada" hidden>Ninguna transacción coincide con tu búsqueda.</p></div>';
     return cab + tabla;
   }
@@ -3705,9 +3828,9 @@
       '<div class="ulist">' + (filas || '<p class="hint">' + (fl === "pendiente" ? "🎉 No hay reclamos pendientes." : "No hay reclamos aquí.") + '</p>') + '</div>' +
       '<div class="fbtns"><button class="btn btn-ghost btn-sm" type="button" data-a="recRecargar">↻ Actualizar</button></div></div>';
   }
-  var TABS_ADMIN = { bot: "🤖 Bot de Steam", setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "🎟 Premios", parts: "🎫 Participantes", mensual: "🏆 Sorteo del mes", usuarios: "👥 Usuarios y saldo", items: "🧩 Items", compras: "📥 Compras", pedidos: "🛒 Pedidos", pagina: "📝 Textos y contactos", pub: "🖼 Publicaciones", reclamos: "📕 Reclamos", ventas: "📊 Ventas" };
+  var TABS_ADMIN = { bot: "🤖 Bot de Steam", setsCat: "🎁 Catálogo de sets", setsStk: "📦 Stock", setsPed: "📋 Pedidos y clientes", config: "⚙ Configuración", premios: "🎟 Premios", parts: "🎫 Participantes", mensual: "🏆 Sorteo del mes", usuarios: "👥 Usuarios y saldo", items: "🧩 Items", compras: "📥 Compras", pedidos: "🛒 Pedidos", pagina: "📝 Textos y contactos", pub: "🖼 Publicaciones", reclamos: "📕 Reclamos", ventas: "📊 Ventas", vskins: "💰 Vender skins" };
   function seccionAdmin() { var v = vistaActual; return v === "rifas" ? "rifas" : (v === "comprar" || v === "vender") ? "items" : v === "sets" ? "sets" : "inicio"; }
-  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "parts", "mensual", "usuarios", "pagina", "reclamos"] : sc === "items" ? ["config", "ventas", "items", "pedidos", "bot", "compras", "usuarios", "pub", "reclamos"] : ["config", "ventas", "usuarios", "pagina", "pub", "reclamos"]; }
+  function tabsDeSeccion(sc) { return sc === "sets" ? ["setsCat", "setsStk", "setsPed"] : sc === "rifas" ? ["config", "premios", "parts", "mensual", "usuarios", "pagina", "reclamos"] : sc === "items" ? ["config", "ventas", "items", "pedidos", "bot", "vskins", "compras", "usuarios", "pub", "reclamos"] : ["config", "ventas", "usuarios", "pagina", "pub", "reclamos"]; }
   /* ---- Bot de Steam (módulo compartido bot-panel.js) ---- */
   function tabBot() {
     return window.BotPanel ? window.BotPanel.html({ token: token, projectId: FB.projectId, repintar: render, acento: "#ff8a1f", modo: "compacto", url: "bot.html" })
@@ -3722,7 +3845,7 @@
     if (admin.editando) cuerpo = '<div class="drawer-cnt">' + formPremio() + '</div>';
     else cuerpo = '<div class="tabs" role="tablist">' +
       lista.map(function (k) { return '<button class="tab" role="tab" type="button" data-a="tab" data-t="' + k + '" aria-selected="' + (admin.tab === k) + '">' + (k === "config" && sc === "inicio" ? "⚙ Configuraciones principales" : TABS_ADMIN[k]) + '</button>'; }).join("") +
-      '</div><div class="drawer-cnt">' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "pub" ? tabPub() : admin.tab === "bot" ? tabBot() : admin.tab === "pedidos" ? tabPedidos() : admin.tab === "reclamos" ? tabReclamos() : admin.tab === "ventas" ? tabVentas() : admin.tab === "mensual" ? tabMensual() : admin.tab === "parts" ? listaParticipantes() : listaPremios())))) + '</div>';
+      '</div><div class="drawer-cnt">' + (sc === "sets" ? '<div id="setsAdminSlot" data-t="' + esc(admin.tab) + '"></div>' : admin.tab === "config" ? tabConfig(sc) : admin.tab === "pagina" ? tabPagina() : (admin.tab === "usuarios" ? tabUsuarios() : (admin.tab === "items" ? tabItems() : (admin.tab === "compras" ? tabCompras() : admin.tab === "vskins" ? tabVskins() : admin.tab === "pub" ? tabPub() : admin.tab === "bot" ? tabBot() : admin.tab === "pedidos" ? tabPedidos() : admin.tab === "reclamos" ? tabReclamos() : admin.tab === "ventas" ? tabVentas() : admin.tab === "mensual" ? tabMensual() : admin.tab === "parts" ? listaParticipantes() : listaPremios())))) + '</div>';
     return '<aside class="drawer adm" role="dialog" aria-label="Panel de administración">' +
       '<div class="drawer-head"><h2>' + titulo + '</h2><div class="drawer-acts"><button class="btn btn-ghost btn-sm peligro" type="button" data-a="salir" title="Cerrar la sesión de administrador">⎋ Cerrar sesión</button><button class="btn btn-ghost btn-sm" type="button" data-a="cerrar">Cerrar panel</button></div></div>' +
       '<div class="drawer-body' + (admin.editando ? '' : ' rail') + '">' + cuerpo + '</div>' +
@@ -4064,7 +4187,7 @@
     var it = !!(estado.secciones && estado.secciones.items), cq = !!(estado.pagos && estado.pagos.culqi);
     return '<div class="grp cfg"><h3>' + (sc === "rifas" ? 'Configuración de rifas' : sc === "items" ? 'Configuración de compra y venta' : 'Configuraciones principales') + '</h3><p class="hint">Activa o desactiva las secciones de la página. Lo desactivado solo lo ves tú (administrador). Pulsa <b>Guardar y publicar</b> para que lo vean todos. Estas opciones son las mismas en Rayas Store y LitleJacob Store.</p>' +
       (sc === "items" ? "" : swCfg("c-rifas", rifasOn(), "🎟️ Rifas", "Sección de rifas, cómo participar, ganadores y reglas.", "VISIBLE para los clientes", "OCULTA: solo tú la ves")) +
-      (sc === "rifas" ? "" : swCfg("c-items", it, "🛒 Compra y venta de items", "Comprar items, Vender items y Carrito.", "VISIBLE para los clientes", "OCULTA: solo tú la ves")) +
+      (sc === "rifas" ? "" : swCfg("c-items", it, "🛒 Compra y venta de items", "Comprar items, Vender skins y Carrito.", "VISIBLE para los clientes", "OCULTA: solo tú la ves")) +
       (sc !== "inicio" ? "" : swCfg("c-pagos", cq, "💳 Culqi (tarjeta / Yape)", "Botón de pago en línea para recargar saldo.", "ACTIVO: pueden recargar con tarjeta o Yape", "APAGADO: solo piden saldo por WhatsApp")) +
       (sc !== "inicio" ? "" : correosPruebaHtml()) +
       (sc === "inicio" ? "" : '<p class="hint">Las demás opciones (Culqi, Yape, contactos) están en el panel de <b>Inicio</b>.</p>') +
@@ -4281,16 +4404,25 @@
         else if (iw && cw.length === 1) window.open(waLinkA(cw[0].numero, mensajeItem(iw)), "_blank", "noopener");
         break;
       case "venVer": verInventario(); break;
+      case "venVender": venderAhora(); break;
+      case "venCopiar":
+        if (modal && modal.code) { var cc = modal.code; try { navigator.clipboard.writeText(cc); } catch (e) { /* sin portapapeles */ } modal.copiado = true; render(); }
+        break;
+      case "venCancelar":
+        if (modal && modal.tipo === "ventaCodigo") { var vc = modal.code; llamarVenta({ accion: "cancelar", code: vc }).then(function () { if (modal && modal.code === vc) { modal.estado = "cancelada"; modal.motivo = "La cancelaste tú."; render(); } }).catch(function (e) { if (modal && modal.code === vc) { modal.motivo = e.message; render(); } }); }
+        break;
       case "venTipo": ven.f.tipo = t.getAttribute("data-v") || ""; render(); hidratarImgs(); break;
       case "venReset": ven.f = { tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", min: "", max: "", orden: "mayor" }; ven.q = ""; render(); hidratarImgs(); break;
       case "venMio": if (cuenta.perfil) { ven.link = cuenta.perfil.tradelink || ""; render(); } break;
       case "venMas": var gm = ven.lista && ven.lista[Number(t.getAttribute("data-i"))]; if (gm) { ven.sel[gm.k] = Math.min(gm.n, (ven.sel[gm.k] || 0) + 1); render(); hidratarImgs(); } break;
       case "venMenos": var gn = ven.lista && ven.lista[Number(t.getAttribute("data-i"))]; if (gn) { ven.sel[gn.k] = Math.max(0, (ven.sel[gn.k] || 0) - 1); render(); hidratarImgs(); } break;
       case "venWsp":
+        if (modal && modal.tipo === "error") modal = null;
         var cv = contactos();
         if (cv.length > 1) { modal = null; elegirMsg = mensajeVenta(); elegirAbierto = true; render(); }
         else if (cv.length === 1) window.open(waLinkA(cv[0].numero, mensajeVenta()), "_blank", "noopener");
         break;
+      case "vsGuardar": case "vsRecargar": accionVskins(a); break;
       case "cpGuardar": case "cpBulk": case "cpEditar": case "cpCancelar": case "cpBorrar": case "cpBorrarSi": accionCompras(a, t); break;
       case "carAdd": if (carroAgregar(t.getAttribute("data-id"))) render(); break;
       case "carAhora": if (carroAgregar(t.getAttribute("data-id"))) { modal = { tipo: "carrito" }; render(); } break;

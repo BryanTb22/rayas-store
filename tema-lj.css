@@ -81,6 +81,11 @@
 .itab.on { color: #510b0f; }
 .ibuy { color: #510b0f; }
 .icard.vsel { outline:2px solid var(--gold,#db1e27); }
+.icard.voff .iprice b { color:var(--muted,#a4a7ae); }
+.vpago { color:#d8dadd; }
+.vcode { border:2px dashed #c7c9cd; }
+.vcode small { color:#a4a7ae; }
+.vtime { color:#e43a42; }
 .itadmb .btn { background:rgba(12, 9, 10,.88); }
 select option { background-color: #181213; }
 select option:checked, select option:hover { background-color: #342729; }
