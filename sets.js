@@ -1,6 +1,9 @@
 /* =====================================================================
-   SETS CACHÉ de Rayas Store
-   - Catálogo propio de Rayas en Firestore: live/rayasSets (campo json = { sets: [...], visible, actualizado }).
+   SETS CACHÉ de las dos tiendas (Rayas Store y LitleJacob Store, mismo código)
+   - Catálogo de cada tienda en Firestore: live/rayasSets y live/ljSets (campo json = { sets: [...], visible, actualizado }).
+   - Solo LitleJacob (TIENDA.tiene): cofres + nivel (tier), lotes con vencimiento, promo 10% x3 / 15% x6.
+     Al guardar, LitleJacob copia precio/stock a live/catalog (lo que lee comprarSets al cobrar).
+   - Solo Rayas: stock repartido por cuenta de Steam.
    - Los clientes ven todos los sets juntos, ordenados por precio (de menor a mayor), sin dividir por cofres.
    - Pagan con su saldo (función comprarSets, tienda "rayas") o lo piden por WhatsApp.
    - Panel admin: catálogo (agregar, editar, stock, foto) y pedidos de sets de Rayas (cupo propio de 8 sets por día,
@@ -11,11 +14,17 @@
   "use strict";
   function R() { return window.RY; }
   var TD = window.TIENDA || { id: "rayas", nombre: "Rayas Store", nombreMayus: "RAYAS STORE", dominio: "rayas.trade", codigo: "RY", clientePrefijo: "r_", claves: { setsCarro: "rayas_sets_carrito", setsCat: "rayas_sets_guardados_v1" } }; // ajustes de la tienda (tienda.js)
-  var DOC = "live/rayasSets";   // ETAPA 4 de "una sola web": LitleJacob tendrá su propio documento
+  var TI = TD.tiene || {};   // funciones que tiene solo una tienda (cofres, lotes y promo: LitleJacob · cuentas de Steam: Rayas)
+  // Cada tienda tiene su catálogo: Rayas en live/rayasSets y LitleJacob en live/ljSets.
+  // LitleJacob además copia precio y stock a live/catalog, que es lo que lee el servidor al cobrar (comprarSets).
+  var DOC = TD.esLJ ? "live/ljSets" : "live/rayasSets";
   var URL_COMPRAR = "https://us-central1-litlejacob-store.cloudfunctions.net/comprarSets";
-  var LJ_WEB = "https://litlejacob.trade/";
+  var LJ_VIEJA = "https://raw.githubusercontent.com/BryanTb22/litlejacob22.github.io/main/index.html";   // web vieja de LitleJacob (catálogo dentro del index.html)
   var RAREZAS = ["MÍTICO", "INMORTAL", "ARCANO"];
-  var DTO = [], DTO_MAX = 25;   // Rayas NO tiene promo por cantidad (functions/sets.js: sinDescuento para tienda rayas)
+  var TIERS = ["COMÚN", "RARO", "MUY RARO", "ULTRA RARO"];   // nivel dentro del cofre (solo LitleJacob)
+  // Promo por cantidad: igual que functions/sets.js (DISCOUNT_TIERS). Rayas NO tiene (sinDescuento para tienda rayas).
+  var DTO = TI.setsPromo ? [{ min: 6, pct: 15 }, { min: 3, pct: 10 }] : [], DTO_MAX = 25;
+  var LOTE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, LOTE_AVISO = 10;   // lotes: "2026-11-11T21:00" (hora de Perú); aviso 10 días antes
   var CAP = 8, ESPERA = 30, PREF = TD.clientePrefijo;                                // igual que functions/recordatorio.js
   var CARRO_KEY = TD.claves.setsCarro, CAT_KEY = TD.claves.setsCat;
   var ESTADOS = [["pendiente", "⏳ Pendiente"], ["pagado", "💰 Pagado"], ["entregado", "✅ Entregado"], ["cancelado", "✖ Cancelado"]];
@@ -98,8 +107,8 @@
   function foto(src, extra) { var h = src && R() ? R().imgTag(src, "", extra || ' loading="lazy"') : ""; return h || '<span class="sc-sinfoto" aria-hidden="true">🎁</span>'; }
 
   /* ---------------- catálogo ---------------- */
-  var cat = { sets: [], cuentas: [], visible: false, cargado: false, cargando: false, err: "" };
-  (function () { var g = leerLS(CAT_KEY); if (g && Array.isArray(g.sets)) { cat.sets = g.sets; cat.cuentas = Array.isArray(g.cuentas) ? g.cuentas : []; cat.visible = !!g.visible; cat.cargado = true; cat.deCache = true; } })();
+  var cat = { sets: [], cuentas: [], cofres: [], visible: false, cargado: false, cargando: false, err: "" };
+  (function () { var g = leerLS(CAT_KEY); if (g && Array.isArray(g.sets)) { cat.sets = g.sets; cat.cuentas = Array.isArray(g.cuentas) ? g.cuentas : []; cat.cofres = Array.isArray(g.cofres) ? g.cofres : []; cat.visible = !!g.visible; cat.cargado = true; cat.deCache = true; } })();
   // Reparto del stock por cuenta de Steam: porCuenta = { "<id de cuenta>": unidades }. Si un set lo tiene, su stock = la suma.
   function normPc(pc) {
     if (!pc || typeof pc !== "object" || Array.isArray(pc)) return null;
@@ -116,8 +125,47 @@
     var s = { id: Math.floor(Number(x.id)) || 0, name: String(x.name || "Set").slice(0, 80), price: p, stock: st, soldOut: !!x.soldOut || (st !== null && st <= 0),
       img: String(x.img || "").slice(0, 300), rarity: RAREZAS.indexOf(x.rarity) >= 0 ? x.rarity : "MÍTICO", hero: String(x.hero || "").slice(0, 40), styles: Math.max(0, Math.floor(Number(x.styles) || 0)) };
     if (pc) s.porCuenta = pc;
+    // Solo LitleJacob: cofre, nivel (tier), color y lotes con vencimiento. En Rayas no existen y el set queda igual que siempre.
+    if (x.cofre) s.cofre = String(x.cofre).slice(0, 40);
+    if (TIERS.indexOf(x.tier) >= 0) s.tier = x.tier;
+    if (/^#[0-9a-f]{6}$/i.test(x.tint || "")) s.tint = x.tint;
+    if (Array.isArray(x.lotes)) {
+      var lt = x.lotes.filter(function (l) { return l && typeof l === "object"; }).map(function (l) { return { vence: LOTE_RE.test(l.vence || "") ? l.vence : "", n: parseInt(l.n, 10) || 0 }; });
+      if (lt.length) { s.lotes = lt; syncLotes(s); }
+    }
     return s;
   }
+  /* ---- COFRES (solo LitleJacob): { id, name, img }. Los sets se muestran agrupados por cofre, en el orden del catálogo. ---- */
+  function normCofre(c) { return { id: /^[a-z0-9_-]{1,40}$/i.test(c && c.id) ? c.id : "c" + Date.now().toString(36), name: String((c && c.name) || "Cofre").trim().slice(0, 80) || "Cofre", img: String((c && c.img) || "").slice(0, 300) }; }
+  function cofrePorId(id) { return cat.cofres.filter(function (c) { return c.id === id; })[0] || null; }
+  function setsDeCofre(id) { return cat.sets.filter(function (s) { return (cofrePorId(s.cofre) ? s.cofre : (cat.cofres[0] || {}).id) === id; }); }
+  /* ---- LOTES (solo LitleJacob): unidades separadas por fecha de vencimiento para regalar en Steam (solo los ve el admin) ----
+     s.lotes = [{ vence: "2026-11-11T21:00" (hora de Perú) o "" (no vence), n: 2 }]; el stock = la suma de los lotes. */
+  function hayLotes(s) { return !!(s && Array.isArray(s.lotes) && s.lotes.length); }
+  function sumaLotes(s) { return s.lotes.reduce(function (t, l) { return t + (parseInt(l.n, 10) || 0); }, 0); }
+  function loteHora(l) { return l.vence ? Date.parse(l.vence + ":00-05:00") : Infinity; }
+  function ordenarLotes(s) { s.lotes.sort(function (a, b) { return loteHora(a) - loteHora(b); }); }
+  function syncLotes(s) { if (!hayLotes(s)) return; ordenarLotes(s); s.stock = sumaLotes(s); if (s.stock <= 0) s.soldOut = true; }
+  function loteDias(l) { var t = loteHora(l); return t === Infinity ? Infinity : (t - Date.now()) / 86400000; }
+  function loteFecha(l) { return l.vence ? new Date(loteHora(l)).toLocaleString("es-PE", { timeZone: "America/Lima", weekday: "short", day: "2-digit", month: "2-digit", hour: "numeric", minute: "2-digit" }) : "sin vencimiento"; }
+  function loteNivel(l) {
+    var d = loteDias(l), n = Math.floor(d);
+    if (d === Infinity) return { cls: "lt-free", txt: "sin vencimiento" };
+    if (d <= 0) return { cls: "lt-dead", txt: "vencido" };
+    if (d <= LOTE_AVISO) return { cls: "lt-red", txt: d < 1 ? "vence hoy" : "faltan " + n + (n === 1 ? " día" : " días") };
+    return { cls: d <= 20 ? "lt-amber" : "lt-ok", txt: "faltan " + n + " días" };
+  }
+  function porVencer(s) { return hayLotes(s) ? s.lotes.filter(function (l) { var d = loteDias(l); return d > 0 && d <= LOTE_AVISO && l.n > 0; }) : []; }
+  // Saca 1 unidad del lote que vence antes PERO que siga vigente el día de la entrega (necesito = AAAA-MM-DD).
+  // Si ningún lote alcanza, sale del lote más nuevo (queda negativo = "Debes": hay que abrir otro cofre).
+  function loteSacar(s, necesito) {
+    var hoy = hoyIso(), lim = Date.parse((necesito && necesito > hoy ? necesito : hoy) + "T00:00:00-05:00");
+    ordenarLotes(s);
+    var l = s.lotes.filter(function (x) { return x.n > 0 && loteHora(x) >= lim && loteHora(x) > Date.now(); })[0] || s.lotes[s.lotes.length - 1];
+    l.n -= 1;
+  }
+  // Devuelve 1 unidad: primero a un lote en negativo ("Debes"), si no al lote más nuevo
+  function loteDevolver(s) { ordenarLotes(s); (s.lotes.filter(function (x) { return x.n < 0; })[0] || s.lotes[s.lotes.length - 1]).n += 1; }
   // Cuentas de Steam desde donde se regalan los sets: { id, nick, perfil (enlace), desc (texto llamativo para el cliente) }
   function perfilOk(v) {
     v = String(v || "").trim(); if (!v) return "";
@@ -144,8 +192,10 @@
   function enCuenta(s, cid) { return s && s.porCuenta && s.porCuenta[cid] !== undefined ? s.porCuenta[cid] : null; }
   // Suma o resta unidades a un set. Si está repartido por cuentas: se resta de la cuenta con más unidades
   // y se suma primero a la que esté en negativo (si no, a la primera). El total queda como la suma.
-  function ajustarSet(s, delta) {
+  // Con lotes (LitleJacob): se saca del lote que vence antes y que siga vigente el día de la entrega (necesito).
+  function ajustarSet(s, delta, necesito) {
     if (!s || !delta) return;
+    if (hayLotes(s)) { for (var j = 0; j < Math.abs(delta); j++) { if (delta < 0) loteSacar(s, necesito); else loteDevolver(s); } s.stock = sumaLotes(s); return; }
     if (!tieneCuentas(s)) { s.stock = (s.stock === null ? 0 : s.stock) + delta; return; }
     var pc = s.porCuenta, ks = Object.keys(pc), paso = delta > 0 ? 1 : -1;
     for (var i = 0; i < Math.abs(delta); i++) {
@@ -178,12 +228,14 @@
       return r.json();
     }).then(function (d) {
       var j = {}; try { j = d && d.fields && d.fields.json ? JSON.parse(d.fields.json.stringValue) : {}; } catch (e) { j = {}; }
-      var antes = JSON.stringify([cat.sets, cat.visible, cat.cuentas]);
+      var antes = JSON.stringify([cat.sets, cat.visible, cat.cuentas, cat.cofres]);
       cat.sets = (Array.isArray(j.sets) ? j.sets : []).map(normSet).filter(function (s) { return s.id > 0; });
       cat.cuentas = (Array.isArray(j.cuentas) ? j.cuentas : []).map(normCuenta);
+      cat.cofres = TI.setsCofres && Array.isArray(j.cofres) ? j.cofres.map(normCofre) : [];
       cat.visible = j.visible === true; cat.cargado = true; cat.deCache = false; cat.err = "";
-      if (!R().admin()) guardarLS(CAT_KEY, { sets: cat.sets, cuentas: cat.cuentas, visible: cat.visible });
-      return antes !== JSON.stringify([cat.sets, cat.visible, cat.cuentas]);
+      cat.importado = j.importado || "";
+      if (!R().admin()) guardarLS(CAT_KEY, { sets: cat.sets, cuentas: cat.cuentas, cofres: cat.cofres, visible: cat.visible });
+      return antes !== JSON.stringify([cat.sets, cat.visible, cat.cuentas, cat.cofres]);
     }).catch(function (e) { cat.err = errTxt(e); cat.cargado = true; cat.deCache = false; return true; })
       .then(function (cambio) {
         cat.cargando = false;
@@ -192,11 +244,32 @@
         if (adm.tab) pintarAdmin();
       });
   }
-  function jsonCat() { return { sets: cat.sets.map(normSet), cuentas: cat.cuentas.map(normCuenta), visible: cat.visible, actualizado: new Date().toISOString() }; }
+  function jsonCat() {
+    var j = { sets: cat.sets.map(normSet), cuentas: cat.cuentas.map(normCuenta), visible: cat.visible, actualizado: new Date().toISOString() };
+    if (TI.setsCofres) j.cofres = cat.cofres.map(normCofre);
+    if (cat.importado) j.importado = cat.importado;
+    return j;
+  }
+  // Precio, stock y foto de cada set, como los lee el servidor al cobrar (functions/sets.js cotizar) y el correo de las 8:00.
+  function precioYStock() {
+    var o = {};
+    cat.sets.forEach(function (s) { o[String(s.id)] = { price: s.price, stock: s.stock, soldOut: !!s.soldOut, img: s.img && !/^data:/i.test(s.img) ? s.img : "" }; });
+    return o;
+  }
+  // Guarda el catálogo. En LitleJacob también actualiza live/catalog (solo los campos sets y updatedAt: lo demás no se toca).
+  // Nunca se manda un catálogo vacío a live/catalog: dejaría a LitleJacob sin poder cobrar.
+  function guardarDoc(j) {
+    return fsPatch(DOC, { json: JSON.stringify(j), updatedAt: new Date() }).then(function () {
+      if (!TD.esLJ || !cat.sets.length || !cat.importado) return;
+      return fsPatch("live/catalog", { sets: precioYStock(), updatedAt: Date.now() }).catch(function (e) {
+        throw new Error("El catálogo se guardó, pero no se actualizó el precio/stock para cobrar (" + errTxt(e) + "). Vuelve a intentarlo.");
+      });
+    });
+  }
   function guardarCat(msg) {
     var j = jsonCat();
     adm.msg = "Guardando…"; adm.msgTipo = ""; pintarAdmin();
-    return fsPatch(DOC, { json: JSON.stringify(j), updatedAt: new Date() }).then(function () {
+    return guardarDoc(j).then(function () {
       adm.msg = msg || "✔ Guardado. Los clientes ya lo ven."; adm.msgTipo = "ok"; pintarAdmin(); pintarCli();
     }).catch(function (e) { adm.msg = errTxt(e); adm.msgTipo = "err"; pintarAdmin(); throw e; });
   }
@@ -260,11 +333,16 @@
   /* =====================================================================
      VISTA DEL CLIENTE (#sets)
      ===================================================================== */
-  var cli = { q: "", rar: "", cuenta: "" };
+  var cli = { q: "", rar: "", cuenta: "", cofre: "" };
   var cliEl = document.createElement("div"); cliEl.className = "sc-cli";
+  // Con cofres (LitleJacob) se respeta el orden que puso el admin dentro de cada cofre; los agotados van al final.
+  function ordenCofre(lista) {
+    return lista.map(function (s, i) { return [s, i]; }).sort(function (a, b) { return (disponible(a[0]) ? 0 : 1) - (disponible(b[0]) ? 0 : 1) || a[1] - b[1]; }).map(function (x) { return x[0]; });
+  }
+  function conCofres() { return !!(TI.setsCofres && cat.cofres.length); }
   function filtrados() {
     var q = sinTildes(cli.q).trim();
-    return ordenados(cat.sets).filter(function (s) {
+    return (conCofres() ? ordenCofre(cat.sets) : ordenados(cat.sets)).filter(function (s) {
       return (!cli.rar || s.rarity === cli.rar) && (!q || sinTildes(s.name + " " + s.hero).indexOf(q) >= 0);
     });
   }
@@ -276,7 +354,7 @@
       (ok ? (quedan !== null && quedan <= 3 ? '<span class="itag">Quedan ' + quedan + '</span>' : '') : '<span class="itag agotado">Agotado</span>') +
       '</div>' +
       '<div class="ibody"><h4>' + esc(s.name) + '</h4>' +
-      '<div class="imeta"><span style="color:' + col + '">' + esc(s.rarity) + '</span>' + (s.hero ? '<span>' + esc(nombreHeroe(s.hero)) + '</span>' : '') + (s.styles > 1 ? '<span>🎨 ' + s.styles + ' estilos</span>' : '') + '</div>' +
+      '<div class="imeta"><span style="color:' + col + '">' + esc(s.rarity) + '</span>' + (TI.setsCofres && s.tier ? '<span class="sc-tier t' + TIERS.indexOf(s.tier) + '">' + esc(s.tier) + '</span>' : '') + (s.hero ?'<span>' + esc(nombreHeroe(s.hero)) + '</span>' : '') + (s.styles > 1 ? '<span>🎨 ' + s.styles + ' estilos</span>' : '') + '</div>' +
       '<div class="iprice"><b>' + (s.price === null ? 'Consultar' : esc(mon(s.price))) + '</b><span class="iacts">' +
       (adminVe ? '<button type="button" class="btn btn-ghost btn-sm" data-s="admEditar" data-id="' + s.id + '">✎ Editar</button>'
         : ok ? '<button type="button" class="sc-add' + (dentro ? ' on' : '') + '" data-s="' + (dentro ? 'quitar' : 'agregar') + '" data-id="' + s.id + '">' + (dentro ? '✓ En carrito' : '🛒 Agregar') + '</button>' : '<span class="ibuy">Agotado</span>') +
@@ -286,19 +364,26 @@
     if (!R()) return;
     var adminVe = R().admin(), t = totales();
     var h = '<div class="sec-title"><div class="kicker">Cofres de Dota 2</div><h2><span class="t1">Sets</span> <span>Caché</span></h2>' +
-      '<p>Todos los sets ordenados por precio. Págalos con tu saldo o pídelos por WhatsApp.</p><div class="orn">◆</div></div>';
+      '<p>' + (conCofres() ? 'Sets de cada cofre de Dota 2.' : 'Todos los sets ordenados por precio.') + ' Págalos con tu saldo o pídelos por WhatsApp.</p><div class="orn">◆</div></div>';
     if (adminVe) h += (cat.visible ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala en Panel admin → 🎁 Catálogo de sets.</p>') +
       '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-s="admAbrir" data-t="setsCat">🎁 Catálogo de sets</button><button type="button" class="btn btn-ghost btn-sm" data-s="admAbrir" data-t="setsStk">📦 Stock</button><button type="button" class="btn btn-ghost btn-sm" data-s="admAbrir" data-t="setsPed">📋 Pedidos y clientes</button></div></div>';
     if (!adminVe && cat.cargado && !cat.err && !cat.visible) {
       cliEl.innerHTML = h + '<div class="empty frame"><div class="in"><strong>Muy pronto</strong><span>Estamos preparando los sets caché. Vuelve en unos días.</span></div></div>';
       return;
     }
-    h += '<div class="sc-info sc-info1">' +
+    h += '<div class="sc-info' + (DTO.length ? '' : ' sc-info1') + '">' +
+      (DTO.length ? '<div class="sc-promo"><b>🔥 Promo por cantidad</b><span>Lleva <b>3 sets</b> y ahorra <b>10%</b> · lleva <b>6 sets</b> y ahorra <b>15%</b>. El descuento se aplica a los sets de hasta S/ ' + DTO_MAX + '.</span></div>' : '') +
       '<div class="sc-entrega"><b>🚚 Entrega por Steam</b><span>⚡ Si ya somos amigos, la entrega es inmediata. ⏳ Si aún no, se cumplen 30 días de amistad antes de la entrega.</span></div></div>';
     h += '<div class="sc-bar"><input type="search" class="sc-q" placeholder="Buscar set o héroe…" autocomplete="off" value="' + esc(cli.q) + '">' +
       '<div class="sc-rars" role="group" aria-label="Rareza">' + [""].concat(RAREZAS).map(function (r) {
         return '<button type="button" class="itab' + (cli.rar === r ? ' on' : '') + '" data-s="rar" data-v="' + esc(r) + '">' + (r ? esc(r.charAt(0) + r.slice(1).toLowerCase()) : 'Todos') + '</button>'; }).join("") + '</div>' +
       '<span class="icount sc-count"></span></div>';
+    if (conCofres()) {   // LitleJacob: elegir cofre (solo los que tienen sets)
+      if (cli.cofre && !cofrePorId(cli.cofre)) cli.cofre = "";
+      var cfs = cat.cofres.filter(function (c) { return setsDeCofre(c.id).length; });
+      if (cfs.length > 1) h += '<div class="sc-cofres-nav" role="group" aria-label="Cofres"><button type="button" class="sc-cofre-chip' + (cli.cofre ? '' : ' on') + '" data-s="cofre" data-v=""><span class="sc-cofre-ico" aria-hidden="true">🧰</span><span><b>Todos los cofres</b><small>' + nSets(cat.sets.length) + '</small></span></button>' +
+        cfs.map(function (c) { return '<button type="button" class="sc-cofre-chip' + (cli.cofre === c.id ? ' on' : '') + '" data-s="cofre" data-v="' + esc(c.id) + '"><span class="sc-cofre-ico">' + foto(c.img) + '</span><span><b>' + esc(c.name) + '</b><small>' + nSets(setsDeCofre(c.id).length) + '</small></span></button>'; }).join("") + '</div>';
+    }
     var cs = conCuentas() ? cuentasConSets() : [];
     if (cs.length > 1 || (cs.length && cli.cuenta)) h += '<div class="sc-ctas-nav" role="group" aria-label="Cuentas de Steam"><span>🎮 Cuentas:</span><button type="button" class="itab' + (cli.cuenta ? '' : ' on') + '" data-s="cta" data-v="">Todas</button>' +
       cs.map(function (c) { return '<button type="button" class="itab' + (cli.cuenta === c.id ? ' on' : '') + '" data-s="cta" data-v="' + esc(c.id) + '">' + esc(c.nick) + '</button>'; }).join("") + '</div>';
@@ -315,6 +400,19 @@
     if (cat.err && !cat.sets.length) { box.innerHTML = '<div class="empty frame"><div class="in"><strong>No se pudo cargar</strong><span>' + esc(cat.err) + '</span></div></div>'; return; }
     var l = filtrados(), vacio = '<div class="empty frame"><div class="in"><strong>' + (cat.sets.length ? 'Ningún set coincide' : 'Pronto nuevos sets') + '</strong><span>' + (cat.sets.length ? 'Prueba con otra búsqueda.' : 'Estamos subiendo el catálogo.') + '</span></div></div>';
     if (cli.cuenta && !cuentaPorId(cli.cuenta)) cli.cuenta = "";
+    if (conCofres()) {   // LitleJacob: un grupo por cofre, con su foto y su nombre
+      var hc = "", nc = 0;
+      (cli.cofre && cofrePorId(cli.cofre) ? [cofrePorId(cli.cofre)] : cat.cofres).forEach(function (c) {
+        var todos = setsDeCofre(c.id), ls = l.filter(function (s) { return todos.indexOf(s) >= 0; });
+        if (!ls.length) return;
+        nc += ls.length;
+        hc += '<section class="sc-grupo sc-cofre" id="cofre-' + esc(c.id) + '"><div class="sc-cofre-cab"><span class="sc-cofre-img">' + foto(c.img) + '</span><span class="sc-cofre-tx"><small>Cofre · ' + (ls.length === todos.length ? nSets(todos.length) : ls.length + ' de ' + nSets(todos.length)) + '</small><b>' + esc(c.name) + '</b></span></div>' +
+          '<div class="igrid sc-grid">' + ls.map(function (s) { return tarjetaHtml(s); }).join("") + '</div></section>';
+      });
+      if (cnt) cnt.textContent = nSets(nc);
+      box.innerHTML = hc || vacio;
+      R().hidratar(); return;
+    }
     if (!conCuentas()) {
       if (cnt) cnt.textContent = nSets(l.length);
       box.innerHTML = l.length ? '<div class="igrid sc-grid">' + l.map(function (s) { return tarjetaHtml(s); }).join("") + '</div>' : vacio;
@@ -455,23 +553,30 @@
     if (!cat.cargado || cat.deCache) { admEl.innerHTML = '<p class="hint">Cargando catálogo…</p>'; cargarCat(true); return; }
     var agot = cat.sets.filter(function (s) { return !disponible(s); }).length, stock = cat.sets.reduce(function (a, s) { return a + (s.stock || 0); }, 0);
     var h = '<div class="grp"><label class="cfg-row' + (cat.visible ? ' on' : '') + '"><span class="cfg-tx"><b>🎁 Sets Caché</b><small>Sección de sets en el menú de ' + esc(TD.nombre) + '.</small><em>' + (cat.visible ? 'VISIBLE para los clientes' : 'OCULTA: solo tú la ves') + '</em></span><input type="checkbox" class="sc-vis"' + (cat.visible ? ' checked' : '') + '><span class="cfg-sw" aria-hidden="true"></span></label>' + msg + '</div>';
+    if (TD.esLJ && !cat.importado) h += '<div class="grp sc-import"><b>📥 Falta traer el catálogo de la web vieja</b><small>Copia tal cual los cofres, sets, fotos, precios, stock y lotes que hoy tiene ' + esc(TD.nombre) + ' en su web vieja (y el stock en vivo de la base de datos). Hazlo el día del cambio, justo antes de mover el dominio. Mientras no lo hagas, lo que cambies aquí NO afecta lo que se cobra.</small><button type="button" class="btn btn-yellow btn-sm" data-s="admImportarLJ">📥 Importar catálogo de ' + esc(TD.nombre) + '</button></div>';
     if (adm.form) return (admEl.innerHTML = h + formHtml(), void R().hidratar());
+    if (adm.cofres) return (admEl.innerHTML = h + cofresHtml(), void R().hidratar());
     h += '<div class="sc-stats"><div><b>' + cat.sets.length + '</b><span>Sets</span></div><div><b>' + (cat.sets.length - agot) + '</b><span>Disponibles</span></div><div><b>' + agot + '</b><span>Agotados</span></div><div><b>' + stock + '</b><span>Unidades</span></div></div>';
     h += '<div class="sc-acts"><button type="button" class="btn btn-yellow btn-sm" data-s="admNuevo">+ Agregar set</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-s="admImportar">📥 Copiar sets de LitleJacob</button></div>' +
-      '<input type="search" class="sc-aq" placeholder="Buscar set…" value="' + esc(adm.q) + '" autocomplete="off">';
+      (TI.setsCofres ? '<button type="button" class="btn btn-ghost btn-sm" data-s="admCofres">🧰 Cofres (' + cat.cofres.length + ')</button>' +
+        (cat.importado ? '<button type="button" class="btn btn-ghost btn-sm" data-s="admImportarLJ">📥 Volver a importar de la web vieja</button>' : '')
+        : '<button type="button" class="btn btn-ghost btn-sm" data-s="admImportar">📥 Copiar sets de LitleJacob</button>') + '</div>' +
+      (conCofres() ? '<div class="sc-pbar">' : '') + '<input type="search" class="sc-aq" placeholder="Buscar set…" value="' + esc(adm.q) + '" autocomplete="off">' +
+      (conCofres() ? '<select class="sc-acof" aria-label="Cofre"><option value="">Todos los cofres</option>' + cat.cofres.map(function (c) { return '<option value="' + esc(c.id) + '"' + (adm.cofre === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join("") + '</select></div>' : '');
     h += '<div class="sc-alist">' + listaAdmHtml() + '</div>';
     admEl.innerHTML = h; R().hidratar();
   }
   function listaAdmHtml() {
     var q = sinTildes(adm.q).trim();
-    var l = ordenados(cat.sets).filter(function (s) { return !q || sinTildes(s.name + " " + s.hero).indexOf(q) >= 0; });
-    if (!l.length) return '<p class="hint">' + (cat.sets.length ? 'Ningún set coincide.' : 'Aún no hay sets. Pulsa <b>+ Agregar set</b> o copia los de LitleJacob para empezar.') + '</p>';
+    var cof = conCofres() && cofrePorId(adm.cofre) ? setsDeCofre(adm.cofre) : null;
+    var l = (conCofres() ? ordenCofre(cat.sets) : ordenados(cat.sets)).filter(function (s) { return (!q || sinTildes(s.name + " " + s.hero).indexOf(q) >= 0) && (!cof || cof.indexOf(s) >= 0); });
+    if (!l.length) return '<p class="hint">' + (cat.sets.length ? 'Ningún set coincide.' : TD.esLJ ? 'Aún no hay sets. Importa el catálogo de la web vieja o pulsa <b>+ Agregar set</b>.' : 'Aún no hay sets. Pulsa <b>+ Agregar set</b> o copia los de LitleJacob para empezar.') + '</p>';
     return l.map(function (s) {
-      var ok = disponible(s);
+      var ok = disponible(s), cf = conCofres() ? cofrePorId(s.cofre) || cat.cofres[0] : null;
       return '<div class="sc-arow' + (ok ? '' : ' agot') + '"><span class="sc-ath">' + foto(s.img) + '</span>' +
-        '<span class="sc-anm"><b>' + esc(s.name) + '</b><small><i style="color:' + colorRar(s.rarity) + '">' + esc(s.rarity) + '</i>' + (s.hero ? ' · ' + esc(nombreHeroe(s.hero)) : '') + ' · ' + (s.price === null ? 'sin precio' : esc(mon(s.price))) + (ok ? '' : ' · <em class="sc-ag">Agotado</em>') + '</small>' + chipsCta(s) + '</span>' +
-        (tieneCuentas(s) ? '<span class="sc-ast" title="Stock total (suma de las cuentas)"><b>' + s.stock + '</b><small>total</small></span>'
+        '<span class="sc-anm"><b>' + esc(s.name) + '</b><small><i style="color:' + colorRar(s.rarity) + '">' + esc(s.rarity) + '</i>' + (s.tier ? ' · ' + esc(s.tier) : '') + (s.hero ? ' · ' + esc(nombreHeroe(s.hero)) : '') + ' · ' + (s.price === null ? 'sin precio' : esc(mon(s.price))) + (ok ? '' : ' · <em class="sc-ag">Agotado</em>') + '</small>' +
+        (cf ? '<small>🧰 ' + esc(cf.name) + '</small>' : '') + chipsCta(s) + chipsLotes(s) + '</span>' +
+        (tieneCuentas(s) || hayLotes(s) ? '<span class="sc-ast" title="' + (hayLotes(s) ? 'Stock total (suma de los lotes). Cámbialo en 📦 Stock → 📅 Lotes.' : 'Stock total (suma de las cuentas)') + '"><b>' + s.stock + '</b><small>total</small></span>'
           : '<span class="sc-ast" title="Stock"><button type="button" class="btn btn-ghost btn-sm" data-s="admStock" data-id="' + s.id + '" data-d="-1" aria-label="Quitar una unidad">−</button><b>' + (s.stock === null ? '∞' : s.stock) + '</b><button type="button" class="btn btn-ghost btn-sm" data-s="admStock" data-id="' + s.id + '" data-d="1" aria-label="Sumar una unidad">+</button></span>') +
         '<span class="sc-abt"><button type="button" class="btn btn-ghost btn-sm" data-s="admEditar" data-id="' + s.id + '">✎</button>' +
         (adm.borrar === s.id ? '<button type="button" class="btn btn-sm sc-del" data-s="admBorrarSi" data-id="' + s.id + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-s="admBorrar" data-id="' + s.id + '" aria-label="Quitar">🗑</button>') + '</span></div>';
@@ -484,7 +589,10 @@
       (s.img ? '<button type="button" class="btn btn-ghost btn-sm" data-s="fQuitarFoto">Quitar foto</button>' : '') + '<small class="hint sc-fst"></small></div></div>' +
       '<div class="field"><label for="sc-f-name">Nombre del set *</label><input id="sc-f-name" data-f="name" maxlength="80" value="' + esc(s.name) + '"></div>' +
       '<div class="sc-f2"><div class="field"><label for="sc-f-price">Precio (S/) *</label><input id="sc-f-price" data-f="price" type="number" min="0" step="0.01" inputmode="decimal" value="' + esc(s.priceTxt !== undefined ? s.priceTxt : s.price === null ? '' : s.price) + '"></div>' +
-      '<div class="field"><label for="sc-f-stock">' + (tieneCuentas(s) ? 'Stock total (suma de las cuentas)' : 'Stock (vacío = sin límite)') + '</label><input id="sc-f-stock" data-f="stock" type="number" step="1" inputmode="numeric" value="' + esc(s.stockTxt !== undefined ? s.stockTxt : s.stock === null ? '' : s.stock) + '"' + (tieneCuentas(s) ? ' readonly' : '') + '></div></div>' +
+      '<div class="field"><label for="sc-f-stock">' + (hayLotes(s) ? 'Stock total (suma de los lotes)' : tieneCuentas(s) ? 'Stock total (suma de las cuentas)' : 'Stock (vacío = sin límite)') + '</label><input id="sc-f-stock" data-f="stock" type="number" step="1" inputmode="numeric" value="' + esc(s.stockTxt !== undefined ? s.stockTxt : s.stock === null ? '' : s.stock) + '"' + (tieneCuentas(s) || hayLotes(s) ? ' readonly' : '') + '></div></div>' +
+      (hayLotes(s) ? '<p class="hint">📅 Este set tiene lotes con vencimiento: ' + chipsLotes(s) + 'Cámbialos en <b>📦 Stock → 📅 Lotes</b>.</p>' : '') +
+      (TI.setsCofres ? '<div class="sc-f2"><div class="field"><label for="sc-f-cofre">Cofre</label><select id="sc-f-cofre" data-f="cofre">' + cat.cofres.map(function (c) { return '<option value="' + esc(c.id) + '"' + ((cofrePorId(s.cofre) ? s.cofre : (cat.cofres[0] || {}).id) === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join("") + '</select></div>' +
+        '<div class="field"><label for="sc-f-tier">Nivel en el cofre</label><select id="sc-f-tier" data-f="tier"><option value="">—</option>' + TIERS.map(function (t) { return '<option' + (s.tier === t ? ' selected' : '') + '>' + t + '</option>'; }).join("") + '</select></div></div>' : '') +
       (cat.cuentas.length ? '<div class="sc-fcta"><b>🎮 Stock por cuenta de Steam</b><small>¿Cuántos tienes en cada cuenta? Vacío = no está en esa cuenta. Si llenas alguna, el stock total es la suma.</small><div class="sc-fcta-l">' +
         cat.cuentas.map(function (c) { var v = s.pcTxt ? s.pcTxt[c.id] : enCuenta(s, c.id); return '<label class="field"><span>' + esc(c.nick) + '</span><input type="number" step="1" inputmode="numeric" data-fc="' + esc(c.id) + '" value="' + (v === null || v === undefined ? '' : esc(v)) + '" placeholder="—"></label>'; }).join("") + '</div></div>' : '') +
       '<div class="sc-f2"><div class="field"><label for="sc-f-rar">Rareza</label><select id="sc-f-rar" data-f="rarity">' + RAREZAS.map(function (r) { return '<option' + (s.rarity === r ? ' selected' : '') + '>' + r + '</option>'; }).join("") + '</select></div>' +
@@ -501,6 +609,7 @@
       f.s.priceTxt = g("price"); f.s.stockTxt = g("stock");
       f.s.rarity = g("rarity"); f.s.styles = Math.max(0, Math.floor(Number(g("styles")) || 0));
       f.s.hero = String(g("hero")).trim().slice(0, 40); f.s.soldOutMarca = !!g("soldOut");
+      if (g("cofre") !== undefined) { f.s.cofre = g("cofre"); f.s.tier = g("tier"); }
       if (cat.cuentas.length) { f.s.pcTxt = {}; admEl.querySelectorAll("[data-fc]").forEach(function (el) { f.s.pcTxt[el.getAttribute("data-fc")] = el.value.trim(); }); }
     }
     return f;
@@ -515,7 +624,9 @@
     var pc = {}, malPc = false;
     if (s.pcTxt) Object.keys(s.pcTxt).forEach(function (k) { var v = s.pcTxt[k]; if (v === "") return; var n = Math.floor(Number(v)); if (!isFinite(n)) malPc = true; else pc[k] = n; });
     if (malPc) { err.textContent = "El stock de cada cuenta es un número o vacío."; return; }
-    var nuevo = normSet({ id: s.id, name: s.name, price: precio, stock: stock, porCuenta: pc, soldOut: s.soldOutMarca, img: s.img, rarity: s.rarity, hero: s.hero, styles: s.styles });
+    var nuevo = normSet({ id: s.id, name: s.name, price: precio, stock: stock, porCuenta: pc, soldOut: s.soldOutMarca, img: s.img, rarity: s.rarity, hero: s.hero, styles: s.styles,
+      cofre: s.cofre, tier: s.tier, tint: s.tint, lotes: s.lotes });   // cofre, nivel, color y lotes: solo LitleJacob
+    if (hayLotes(nuevo) && !s.soldOutMarca && nuevo.stock > 0) nuevo.soldOut = false;
     var antes = cat.sets.slice();
     if (f.nuevo) cat.sets.push(nuevo); else cat.sets = cat.sets.map(function (x) { return x.id === nuevo.id ? nuevo : x; });
     adm.form = null;
@@ -535,27 +646,101 @@
   }
   function cambiarStock(id, d) {
     var s = setPorId(id); if (!s) return;
-    var antes = { stock: s.stock, soldOut: s.soldOut, pc: s.porCuenta ? Object.assign({}, s.porCuenta) : null };
+    var antes = { stock: s.stock, soldOut: s.soldOut, pc: s.porCuenta ? Object.assign({}, s.porCuenta) : null, lotes: hayLotes(s) ? JSON.stringify(s.lotes) : null };
+    if (antes.lotes) { var lr = antes.lotes; ajustarSet(s, d); s.soldOut = s.stock <= 0 ? true : (d > 0 ? false : s.soldOut);
+      return guardarCat("✔ Stock de \"" + s.name + "\": " + s.stock + ".").catch(function () { s.lotes = JSON.parse(lr); s.stock = antes.stock; s.soldOut = antes.soldOut; pintarAdmin(); }); }
     if (tieneCuentas(s)) ajustarSet(s, d);
     else if (s.stock === null) { if (d < 0) return; s.stock = 1; } else s.stock = s.stock + d;
     s.soldOut = s.stock <= 0 ? true : (d > 0 ? false : s.soldOut);
     guardarCat("✔ Stock de \"" + s.name + "\": " + s.stock + ".").catch(function () { s.stock = antes.stock; s.soldOut = antes.soldOut; if (antes.pc) s.porCuenta = antes.pc; pintarAdmin(); });
   }
-  // Copia el catálogo publicado en litlejacob.trade (nombres, precios, stock, rareza y foto) como punto de partida.
+  // Catálogo de la web vieja de LitleJacob: estaba dentro de su index.html (<script id="catalogData">).
+  function leerWebVieja() {
+    return fetch(LJ_VIEJA + "?t=" + Date.now(), { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("No se pudo leer la web vieja de LitleJacob (" + r.status + ")."); return r.text(); }).then(function (txt) {
+      var m = /<script id="catalogData" type="application\/json">([\s\S]*?)<\/script>/.exec(txt);
+      var d = m ? JSON.parse(m[1]) : null;
+      if (!d || !Array.isArray(d.sets) || !d.sets.length) throw new Error("No encontré el catálogo en la web vieja de LitleJacob.");
+      return d;
+    });
+  }
+  // Sets de LitleJacob: primero su catálogo en la base de datos (live/ljSets); si todavía no existe, la web vieja.
+  function setsDeLJ() {
+    return fetch(R().BASE + "live/ljSets", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (d) {
+      var j = null; try { j = d && d.fields && d.fields.json ? JSON.parse(d.fields.json.stringValue) : null; } catch (e) { j = null; }
+      return j && Array.isArray(j.sets) && j.sets.length ? j.sets : leerWebVieja().then(function (v) { return v.sets; });
+    });
+  }
+  // Chips de lotes (panel admin): unidades y cuándo vencen
+  function chipsLotes(s) {
+    if (!hayLotes(s)) return "";
+    return '<span class="sc-lchips">' + s.lotes.map(function (l) { var nv = loteNivel(l);
+      return '<span class="sc-lchip ' + nv.cls + '" title="' + (l.vence ? 'Se puede regalar hasta el ' + esc(loteFecha(l)) + ' (hora de Perú)' : 'Sin fecha límite para regalar') + '"><b>' + (l.n < 0 ? 'debes ' + Math.abs(l.n) : l.n) + '</b> · ' + esc(l.vence ? loteFecha(l) + ' · ' + nv.txt : 'sin vencimiento') + '</span>'; }).join("") + '</span>';
+  }
+  /* ---- Importar el catálogo de LitleJacob desde su web vieja (una sola vez, el día del cambio) ----
+     Copia cofres, sets, fotos, niveles, estilos y lotes tal cual, con los mismos números de set (así los pedidos viejos
+     siguen apuntando al mismo set). Precio, stock y agotado salen de live/catalog si son más nuevos que la web publicada. */
+  function importarCatLJ() {
+    adm.msg = "Leyendo el catálogo de la web vieja…"; adm.msgTipo = ""; pintarAdmin();
+    var vivo = fetch(R().BASE + "live/catalog", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+      .then(function (d) { return d && d.fields ? docObj(d) : null; });
+    Promise.all([leerWebVieja(), vivo]).then(function (r) {
+      var d = r[0], lv = r[1], usarVivo = !!(lv && lv.sets && Number(lv.updatedAt) > (Number(d.version) || 0)), ajustados = [];
+      var cofres = (Array.isArray(d.cofres) ? d.cofres : []).map(normCofre);
+      var sets = d.sets.map(function (x) {
+        var o = Object.assign({}, x), v = usarVivo && lv.sets[String(x.id)];
+        if (v) {
+          if (v.price !== null && v.price !== undefined) o.price = v.price;
+          if ("soldOut" in v) o.soldOut = v.soldOut;
+          if ("stock" in v) o.stock = v.stock === null ? null : Number(v.stock);
+        }
+        var s = normSet(o);
+        // Si el stock en vivo no coincide con la suma de los lotes, la diferencia va al lote más nuevo
+        if (hayLotes(s) && v && v.stock !== null && v.stock !== undefined && Number(v.stock) !== s.stock) { ordenarLotes(s); s.lotes[s.lotes.length - 1].n += Number(v.stock) - s.stock; s.stock = sumaLotes(s); ajustados.push(s.name); }
+        if (v && "soldOut" in v) s.soldOut = !!v.soldOut || (s.stock !== null && s.stock <= 0);
+        return s;
+      }).filter(function (s) { return s.id > 0; });
+      var uni = sets.reduce(function (n, s) { return n + Math.max(0, s.stock || 0); }, 0);
+      if (!window.confirm((cat.importado ? "⚠ Ya importaste el catálogo antes (" + cat.importado.slice(0, 10) + "). Esto REEMPLAZA el catálogo de aquí por el de la web vieja.\n\n" : "") +
+        "Se copiarán " + cofres.length + " cofres y " + sets.length + " sets (" + uni + " unidades en stock" + (usarVivo ? ", con el stock en vivo" : "") + "). ¿Continuar?")) { adm.msg = ""; pintarAdmin(); return; }
+      var antes = JSON.stringify([cat.sets, cat.cofres, cat.importado, cat.visible]);
+      cat.sets = sets; cat.cofres = cofres; cat.importado = new Date().toISOString(); cat.visible = true;
+      return guardarCat("✔ Catálogo importado: " + cofres.length + " cofres y " + sets.length + " sets." + (ajustados.length ? " Lotes ajustados al stock en vivo: " + ajustados.join(", ") + "." : ""))
+        .then(function () { R().render(); })   // el menú deja de mostrar el candado de "oculta"
+        .catch(function () { var a = JSON.parse(antes); cat.sets = a[0]; cat.cofres = a[1]; cat.importado = a[2]; cat.visible = a[3]; pintarAdmin(); });
+    }).catch(function (e) { adm.msg = errTxt(e); adm.msgTipo = "err"; pintarAdmin(); });
+  }
+  /* ---- Gestor de cofres (solo LitleJacob): nombre, foto y orden. Un cofre con sets no se puede quitar. ---- */
+  function cofresHtml() {
+    return '<div class="grp sc-cofres"><h3>🧰 Cofres</h3><p class="hint">Los sets salen agrupados por cofre, en este orden. El nombre se guarda al salir del campo.</p>' +
+      cat.cofres.map(function (c, i) {
+        var n = setsDeCofre(c.id).length;
+        return '<div class="sc-arow" data-cof="' + esc(c.id) + '"><span class="sc-ath">' + foto(c.img) + '</span>' +
+          '<span class="sc-anm"><input class="sc-cofname" data-cof="' + esc(c.id) + '" maxlength="80" value="' + esc(c.name) + '" aria-label="Nombre del cofre"><small>' + nSets(n) + '</small></span>' +
+          '<span class="sc-abt"><label class="btn btn-ghost btn-sm sc-file" title="Foto del cofre">📷<input type="file" accept="image/*" class="sc-coffile" data-cof="' + esc(c.id) + '" hidden></label>' +
+          (i > 0 ? '<button type="button" class="btn btn-ghost btn-sm" data-s="cofSubir" data-v="' + esc(c.id) + '" aria-label="Subir">▲</button>' : '') +
+          (n ? '' : adm.borrarCofre === c.id ? '<button type="button" class="btn btn-sm sc-del" data-s="cofBorrarSi" data-v="' + esc(c.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-s="cofBorrar" data-v="' + esc(c.id) + '" aria-label="Quitar">🗑</button>') + '</span></div>';
+      }).join("") +
+      '<div class="sc-acts"><button type="button" class="btn btn-yellow btn-sm" data-s="cofNuevo">+ Agregar cofre</button><button type="button" class="btn btn-ghost btn-sm" data-s="cofCerrar">← Volver a los sets</button></div></div>';
+  }
+  function cofGuardar(msg, copia) { return guardarCat(msg).catch(function () { cat.cofres = copia; pintarAdmin(); }); }
+  function cofFoto(id, file) {
+    var c = cofrePorId(id); if (!c) return;
+    R().editorFoto(file).then(function (lista) { if (!lista) return null; adm.msg = "Subiendo foto…"; adm.msgTipo = ""; pintarAdmin(); return R().subirImagen(lista, 640); })
+      .then(function (ref) { if (!ref) return; var copia = cat.cofres.map(normCofre); c.img = ref; return cofGuardar("✔ Foto del cofre \"" + c.name + "\" guardada.", copia); })
+      .catch(function (e) { adm.msg = errTxt(e); adm.msgTipo = "err"; pintarAdmin(); });
+  }
+  // Copia el catálogo de LitleJacob (nombres, precios, stock, rareza y foto) como punto de partida.
   function importarLJ() {
     adm.msg = "Leyendo el catálogo de LitleJacob…"; adm.msgTipo = ""; pintarAdmin();
-    fetch(LJ_WEB, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("No se pudo abrir litlejacob.trade (" + r.status + ")."); return r.text(); }).then(function (txt) {
-      var m = /<script id="catalogData" type="application\/json">([\s\S]*?)<\/script>/.exec(txt);
-      var d = m ? JSON.parse(m[1]) : null, l = d && Array.isArray(d.sets) ? d.sets : [];
-      if (!l.length) throw new Error("No encontré sets en LitleJacob.");
+    setsDeLJ().then(function (l) {
       var ya = {}; cat.sets.forEach(function (s) { ya[sinTildes(s.name)] = true; });
       var nuevos = l.filter(function (x) { return x && x.name && !ya[sinTildes(x.name)]; });
       if (!nuevos.length) { adm.msg = "Ya tienes todos los sets de LitleJacob."; adm.msgTipo = "ok"; pintarAdmin(); return; }
       if (!window.confirm("Se agregarán " + nuevos.length + " sets copiados de LitleJacob (con su nombre, foto, rareza, precio y stock). Los que ya tienes no se tocan. Después revisa precios y stock de Rayas. ¿Continuar?")) { adm.msg = ""; pintarAdmin(); return; }
       var id = nuevoId();
       nuevos.forEach(function (x) {
-        var img = String(x.img || "");
-        if (/^img\//.test(img)) img = LJ_WEB + img; else if (!/^https:\/\//.test(img)) img = "";
+        var img = String(x.img || "");   // las fotos img/… de LitleJacob ya están en este mismo sitio
+        if (!/^img\//.test(img) && !/^https:\/\//.test(img)) img = "";
         cat.sets.push(normSet({ id: id++, name: x.name, price: x.price, stock: x.stock === undefined || x.stock === null ? null : Math.max(0, Number(x.stock) || 0), soldOut: x.soldOut, img: img, rarity: x.rarity, hero: x.hero, styles: x.styles }));
       });
       return guardarCat("✔ Se copiaron " + nuevos.length + " sets de LitleJacob. Revisa precios y stock.");
@@ -571,15 +756,24 @@
   function cargarPed() {
     if (P.cargando) return;
     P.cargando = true; P.err = ""; pintarAdmin();
-    var url = R().BASE.replace("/documents/", "/documents:runQuery");
-    var ped = R().token().then(function (tk) {
+    var url = R().BASE.replace("/documents/", "/documents:runQuery"), ped;
+    if (TD.esRayas) ped = R().token().then(function (tk) {
       return fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
         body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "orders" }], where: { fieldFilter: { field: { fieldPath: "tienda" }, op: "EQUAL", value: { stringValue: "rayas" } } }, limit: 1000 } }) });
     }).then(function (r) { if (!r.ok) throw new Error("No se pudieron leer los pedidos (" + r.status + ")."); return r.json(); })
       .then(function (j) { return (j || []).filter(function (x) { return x.document; }).map(function (x) { return docObj(x.document); }).filter(function (o) { return o.origen !== "items"; }); });
+    else {   // LitleJacob: sus pedidos viejos no tienen el campo "tienda", así que se leen todos y se quitan los de Rayas (igual que functions/recordatorio.js)
+      var todos = [], accP = function (tok) {
+        return R().fsPedir("orders?pageSize=300" + (tok ? "&pageToken=" + encodeURIComponent(tok) : "")).then(function (r) { if (!r.ok) throw new Error("No se pudieron leer los pedidos (" + r.status + ")."); return r.json(); })
+          .then(function (j) { (j.documents || []).forEach(function (d) { todos.push(docObj(d)); }); return j.nextPageToken && todos.length < 5000 ? accP(j.nextPageToken) : null; });
+      };
+      ped = accP("").then(function () { return todos.filter(function (o) { return o.tienda !== "rayas" && o.origen !== "items"; }); });
+    }
+    // Fichas: las de Rayas son customers/r_<clave>; las de LitleJacob no tienen prefijo (se saltan las r_)
+    var esMia = function (id) { return PREF ? id.indexOf(PREF) === 0 : id.indexOf("r_") !== 0; };
     var fichas = {}, acc = function (tok) {
       return R().fsPedir("customers?pageSize=300" + (tok ? "&pageToken=" + encodeURIComponent(tok) : "")).then(function (r) { if (!r.ok) throw new Error("No se pudieron leer los clientes (" + r.status + ")."); return r.json(); })
-        .then(function (j) { (j.documents || []).forEach(function (d) { var o = docObj(d); if (o._id.indexOf(PREF) === 0) fichas[o._id.slice(PREF.length)] = o; }); return j.nextPageToken ? acc(j.nextPageToken) : null; });
+        .then(function (j) { (j.documents || []).forEach(function (d) { var o = docObj(d); if (esMia(o._id)) fichas[o._id.slice(PREF.length)] = o; }); return j.nextPageToken ? acc(j.nextPageToken) : null; });
     };
     // Cuentas de la web (las mismas de Rifas / LitleJacob): solo para marcar "✅ cuenta" en Clientes. Si falla, no importa.
     var cuentas = [], accU = function (tok) {
@@ -897,7 +1091,7 @@
     var pl = elPlan(), hoyN = pl.cnt[pl.hoy] || 0;
     var barra = '<div class="sc-cupo' + (hoyN >= CAP ? ' full' : '') + '"><span>🚚 Cupo de entregas de hoy: <b>' + hoyN + '/' + CAP + ' sets</b><small>Steam deja mandar ' + CAP + ' sets por día: lo que pase de ' + CAP + ' se corre al día siguiente (día ' + (ESPERA + 1) + ').</small></span>' +
       '<span class="sc-acts"><button type="button" class="btn btn-yellow btn-sm" data-s="manAbrir"' + (manEl ? ' disabled' : '') + '>➕ Agregar pedido manual</button></span></div>';
-    list.innerHTML = barra + (l.length ? l.map(tarjetaPed).join("") : '<p class="hint">' + (O.length ? 'No hay pedidos con ese filtro.' : 'Aún no hay pedidos de sets en Rayas. Aparecerán aquí cuando alguien compre con su saldo, o agrega uno manual.') + '</p>');
+    list.innerHTML = barra + (l.length ? l.map(tarjetaPed).join("") : '<p class="hint">' + (O.length ? 'No hay pedidos con ese filtro.' : 'Aún no hay pedidos de sets en ' + esc(TD.nombre) + '. Aparecerán aquí cuando alguien compre con su saldo, o agrega uno manual.') + '</p>');
     // El formulario manual se conserva entre redibujados (buscar, filtrar) para no perder lo escrito
     if (manEl) list.firstElementChild.after(manEl);
     list.querySelectorAll(".sc-ocard .sc-pick").forEach(pkPintar);
@@ -910,7 +1104,8 @@
   // Descuenta del catálogo las unidades del pedido (el stock solo baja cuando tú lo confirmas, igual que en LitleJacob).
   // Puede quedar en negativo: son sets que ya vendiste y aún debes sacar.
   function descontar(o, signo) {
-    rastreados(o).forEach(function (it) { var s = setPorId(it.id); ajustarSet(s, -signo * (Number(it.qty) || 1)); s.soldOut = s.stock <= 0; });
+    var desde = desdeDe(claveCli(o.steamId, o.customerName)), entrega = desde ? isoMas(desde, ESPERA) : "";   // con lotes: que siga vigente ese día
+    rastreados(o).forEach(function (it) { var s = setPorId(it.id); ajustarSet(s, -signo * (Number(it.qty) || 1), entrega); s.soldOut = s.stock <= 0; });
   }
   function patchPedido(o, cambios) { return fsPatch("orders/" + encodeURIComponent(o._id), cambios).then(function () { Object.assign(o, cambios); }); }
   function ok(m) { adm.msg = m; adm.msgTipo = "ok"; }
@@ -1128,7 +1323,7 @@
   /* =====================================================================
      STOCK DE SETS (igual que "📦 Stock de sets" de LitleJacob): inventario y últimos vendidos
      ===================================================================== */
-  var S = { sub: "inv", q: "", rar: "", filtro: "all", dias: "30", cta: "", ctaForm: null, ctaBorrar: "" };
+  var S = { sub: "inv", q: "", rar: "", filtro: "all", dias: "30", cta: "", ctaForm: null, ctaBorrar: "", lote: null };
   var previo = {};   // stock que tenía un set antes de repartirlo por cuentas (por si vacías todas sus cuentas)
   function ctaSel() { return S.cta && S.cta !== "sin" && cuentaPorId(S.cta) ? S.cta : ""; }
   // Lo que se ve y se edita en cada fila: el stock de la cuenta elegida o el total
@@ -1151,13 +1346,58 @@
       '<div class="' + (poco ? 'warn' : '') + '"><b>' + poco + '</b><span>Pocas (1-2)</span></div><div class="' + (cero ? 'warn' : '') + '"><b>' + cero + '</b><span>Agotados</span></div>';
   }
   function stFilaHtml(s) {
-    var c = ctaSel(), v = valDe(s), e = stEstado(s, v), fijo = !c && tieneCuentas(s);
+    var c = ctaSel(), v = valDe(s), e = stEstado(s, v), lotes = !c && hayLotes(s), fijo = !c && (tieneCuentas(s) || lotes);
+    var btnLotes = TI.setsLotes && !c ? '<button type="button" class="btn btn-ghost btn-sm sc-lbtn" data-s="stLotes" aria-label="Lotes de vencimiento" title="Lotes con fecha de vencimiento" aria-expanded="' + (S.lote === s.id) + '">📅</button>' : '';
     return '<div class="sc-srow' + (fijo ? ' fijo' : '') + '" data-id="' + s.id + '"' + (c ? ' data-c="' + esc(c) + '"' : '') + '><span class="sc-ath">' + foto(s.img) + '</span>' +
       '<span class="sc-anm"><b>' + esc(s.name) + '</b><small><i style="color:' + colorRar(s.rarity) + '">' + esc(s.rarity) + '</i> · ' + (s.price === null ? 'sin precio' : esc(mon(s.price))) +
-      (c && s.stock !== null ? ' · <span class="sc-stot">total ' + s.stock + '</span>' : '') + '</small>' + (c ? '' : chipsCta(s, true)) + '</span>' +
+      (c && s.stock !== null ? ' · <span class="sc-stot">total ' + s.stock + '</span>' : '') + '</small>' + (c ? '' : chipsCta(s, true)) + chipsLotes(s) + '</span>' +
       '<span class="sc-sst ' + e.cls + '">' + esc(e.txt) + '</span>' +
-      (fijo ? '<span class="sc-sqty sc-sfijo" title="Es la suma de sus cuentas. Elige una cuenta arriba para cambiarlo."><b>' + s.stock + '</b><small>total</small></span>'
-        : '<span class="sc-sqty"><button type="button" class="btn btn-ghost btn-sm" data-s="stMenos" aria-label="Menos">−</button><input type="number" step="1" inputmode="numeric" value="' + (v === null ? '' : v) + '" placeholder="—" aria-label="Stock de ' + esc(s.name) + (c ? ' en ' + esc(cuentaPorId(c).nick) : '') + '"><button type="button" class="btn btn-ghost btn-sm" data-s="stMas" aria-label="Más">+</button></span>') + '</div>';
+      (fijo ? '<span class="sc-sqty sc-sfijo" title="' + (lotes ? 'Es la suma de sus lotes. Toca 📅 Lotes para cambiarlo.' : 'Es la suma de sus cuentas. Elige una cuenta arriba para cambiarlo.') + '"><b>' + s.stock + '</b><small>total</small>' + btnLotes + '</span>'
+        : '<span class="sc-sqty"><button type="button" class="btn btn-ghost btn-sm" data-s="stMenos" aria-label="Menos">−</button><input type="number" step="1" inputmode="numeric" value="' + (v === null ? '' : v) + '" placeholder="—" aria-label="Stock de ' + esc(s.name) + (c ? ' en ' + esc(cuentaPorId(c).nick) : '') + '"><button type="button" class="btn btn-ghost btn-sm" data-s="stMas" aria-label="Más">+</button>' + btnLotes + '</span>') + '</div>' +
+      (S.lote === s.id ? loteEditorHtml(s) : '');
+  }
+  /* ---- Lotes (LitleJacob): editor y aviso de lo que vence pronto ---- */
+  function loteEditorHtml(s) {
+    var filas = hayLotes(s) ? s.lotes : [{ vence: "", n: s.stock || 0 }];
+    return '<div class="sc-lotes" data-id="' + s.id + '"><p class="hint">Cada lote = sets que abriste el mismo día. <b>Vence</b> = “Se puede regalar hasta…” de Steam, en <b>hora de Perú</b> (Steam muestra la hora de EE. UU.: súmale 3 horas). Déjalo vacío si no vence. Unidades negativas = sets que debes.</p>' +
+      '<div class="sc-lfilas">' + filas.map(filaLoteHtml).join("") + '</div>' +
+      '<div class="sc-acts"><button type="button" class="btn btn-ghost btn-sm" data-s="ltAgregar">➕ Agregar lote</button>' + (hayLotes(s) ? '<button type="button" class="btn btn-ghost btn-sm" data-s="ltQuitar">Quitar lotes</button>' : '') +
+      '<button type="button" class="btn btn-ghost btn-sm" data-s="ltCancelar">Cancelar</button><button type="button" class="btn btn-fuchsia btn-sm" data-s="ltGuardar">💾 Guardar lotes</button></div><p class="sc-ferr" role="alert"></p></div>';
+  }
+  function filaLoteHtml(l) {
+    return '<div class="sc-lfila"><input type="datetime-local" data-lt="vence" value="' + esc(l.vence || "") + '" aria-label="Vence (hora de Perú)"><input type="number" step="1" inputmode="numeric" data-lt="n" value="' + (Number(l.n) || 0) + '" aria-label="Unidades"><button type="button" class="btn btn-ghost btn-sm" data-s="ltFuera" aria-label="Quitar este lote">✕</button></div>';
+  }
+  function loteGuardar(box) {
+    var s = setPorId(box.getAttribute("data-id")), err = box.querySelector(".sc-ferr"), lotes = [], mal = "";
+    if (!s) return;
+    box.querySelectorAll(".sc-lfila").forEach(function (f) {
+      var vence = f.querySelector('[data-lt="vence"]').value.trim().slice(0, 16), n = parseInt(f.querySelector('[data-lt="n"]').value, 10);
+      if (vence && !LOTE_RE.test(vence)) mal = "Revisa la fecha de vencimiento."; else if (isNaN(n)) mal = "Escribe las unidades de cada lote.";
+      else if (n !== 0) { var ya = lotes.filter(function (l) { return l.vence === vence; })[0]; if (ya) ya.n += n; else lotes.push({ vence: vence, n: n }); }
+    });
+    if (mal) { err.textContent = mal; return; }
+    var copia = JSON.stringify(cat.sets), prev = s.stock;
+    if (lotes.length) { s.lotes = lotes; syncLotes(s); } else { delete s.lotes; s.stock = 0; s.soldOut = true; }
+    if (s.stock > 0 && prev !== null && prev <= 0 && s.soldOut && s.price !== null) s.soldOut = false;
+    S.lote = null;
+    loteGuardarDoc("✔ Lotes de \"" + s.name + "\": " + s.stock + (Math.abs(s.stock) === 1 ? " unidad" : " unidades") + " en total.", copia);
+  }
+  function loteGuardarDoc(msg, copia) {
+    adm.msg = "Guardando…"; adm.msgTipo = ""; pintarStock();
+    guardarDoc(jsonCat()).then(function () { ok(msg); pintarCli(); }).catch(function (e) { try { cat.sets = JSON.parse(copia); } catch (x) { /* nada */ } mal(e); }).then(pintarStock);
+  }
+  function avisoLotesHtml() {
+    if (!TI.setsLotes) return "";
+    var pronto = [], vencidos = [];
+    cat.sets.forEach(function (s) {
+      porVencer(s).forEach(function (l) { pronto.push({ s: s, l: l }); });
+      if (hayLotes(s)) s.lotes.forEach(function (l) { if (l.n > 0 && loteDias(l) <= 0) vencidos.push({ s: s, l: l }); });
+    });
+    if (!pronto.length && !vencidos.length) return "";
+    pronto.sort(function (a, b) { return loteHora(a.l) - loteHora(b.l); });
+    var it = function (x) { return '<li><b>' + esc(x.s.name) + '</b> × ' + x.l.n + ' · ' + esc(loteFecha(x.l)) + ' (' + esc(loteNivel(x.l).txt) + ')</li>'; };
+    return '<div class="sc-lalerta">' + (pronto.length ? '<b>⏰ Ofrece ya: vencen en ' + LOTE_AVISO + ' días o menos</b><ul>' + pronto.map(it).join("") + '</ul>' : '') +
+      (vencidos.length ? '<b>⚠ Lotes vencidos (ya no se pueden regalar): quítalos de sus lotes</b><ul>' + vencidos.map(it).join("") + '</ul>' : '') + '</div>';
   }
   function stListaHtml() {
     var q = sinTildes(S.q).trim(), c = ctaSel();
@@ -1169,14 +1409,16 @@
     if (!cat.cargado || cat.deCache) { admEl.innerHTML = '<p class="hint">Cargando catálogo…</p>'; cargarCat(true); return; }
     if (S.cta && S.cta !== "sin" && !cuentaPorId(S.cta)) S.cta = "";
     var sub = S.sub, tab = function (v, txt) { return '<button type="button" class="subtab" role="tab" data-s="stSub" data-v="' + v + '" aria-selected="' + (sub === v) + '">' + txt + '</button>'; };
-    var h = '<div class="subtabs" role="tablist">' + tab("inv", "📦 Inventario") + tab("ctas", "🎮 Cuentas de Steam") + tab("sold", "🧾 Últimos vendidos") + '</div>';
+    if (!TI.setsPorCuenta && sub === "ctas") sub = S.sub = "inv";
+    var h = '<div class="subtabs" role="tablist">' + tab("inv", "📦 Inventario") + (TI.setsPorCuenta ? tab("ctas", "🎮 Cuentas de Steam") : '') + tab("sold", "🧾 Últimos vendidos") + '</div>';
     if (sub === "sold") { admEl.innerHTML = h + '<div class="sc-sold">' + vendidosHtml() + '</div>'; R().hidratar(); return; }
     if (sub === "ctas") { admEl.innerHTML = h + ctasHtml(); if (S.ctaForm) ctaPrevia(); R().hidratar(); return; }
     var c = ctaSel();
     if (cat.cuentas.length) h += '<div class="sc-sctas" role="group" aria-label="Cuenta de Steam"><span>🎮 Ver stock de:</span>' +
       [["", "Todas (total)"]].concat(cat.cuentas.map(function (x) { return [x.id, x.nick]; }), [["sin", "Sin cuenta"]]).map(function (o) {
         return '<button type="button" class="itab' + (S.cta === o[0] ? ' on' : '') + '" data-s="stCta" data-v="' + esc(o[0]) + '">' + esc(o[1]) + '</button>'; }).join("") + '</div>';
-    else h += '<p class="sc-msg">💡 ¿Tienes los sets repartidos en varias cuentas de Steam? Agrégalas en <b>🎮 Cuentas de Steam</b> y aquí podrás llevar el stock de cada una.</p>';
+    else if (TI.setsPorCuenta) h += '<p class="sc-msg">💡 ¿Tienes los sets repartidos en varias cuentas de Steam? Agrégalas en <b>🎮 Cuentas de Steam</b> y aquí podrás llevar el stock de cada una.</p>';
+    h += avisoLotesHtml();
     if (c) { var cc = cuentaPorId(c); h += '<div class="sc-sctainfo"><b>🎮 ' + esc(cc.nick) + '</b><small>Escribe cuántos tienes de cada set en esta cuenta. Vacío = no está en esta cuenta. El total de cada set es la suma de sus cuentas.</small>' + (cc.perfil ? '<a href="' + esc(cc.perfil) + '" target="_blank" rel="noopener noreferrer">Perfil de Steam ↗</a>' : '') + '</div>'; }
     h += '<div class="sc-stats sc-sstats">' + stStatsHtml() + '</div>' +
       '<div class="sc-pbar sc-sbar"><input type="search" class="sc-sq" placeholder="Buscar set…" value="' + esc(S.q) + '" autocomplete="off">' +
@@ -1185,7 +1427,8 @@
       '<p class="sc-msg sc-smsg ' + esc(adm.msgTipo) + '" role="status">' + esc(adm.msg) + '</p>' +
       '<div class="sc-slist">' + stListaHtml() + '</div>' +
       '<p class="hint">Se guarda y se publica solo. Con 0 o menos unidades el set aparece como AGOTADO (puedes poner números negativos: son sets que ya vendiste y aún debes sacar). Vacío = sin registrar (sin límite).' +
-      (cat.cuentas.length ? ' Los sets repartidos en cuentas muestran su total: para cambiarlo elige la cuenta arriba. Al confirmar un pedido, el stock se descuenta de la cuenta que tiene más unidades de ese set.' : '') + '</p>';
+      (cat.cuentas.length ? ' Los sets repartidos en cuentas muestran su total: para cambiarlo elige la cuenta arriba. Al confirmar un pedido, el stock se descuenta de la cuenta que tiene más unidades de ese set.' : '') +
+      (TI.setsLotes ? ' Con 📅 Lotes separas las unidades por fecha de vencimiento: al confirmar un pedido se descuenta del lote que vence antes y que siga vigente el día de la entrega.' : '') + '</p>';
     admEl.innerHTML = h;
     admEl.querySelector(".sc-sfil").value = S.filtro;
     R().hidratar();
@@ -1228,7 +1471,7 @@
     var copia = stAntes; stAntes = null;
     var j = jsonCat();
     var aviso = function (cls, txt) { adm.msg = txt; adm.msgTipo = cls; var mm = admEl.querySelector(".sc-smsg"); if (mm) { mm.className = "sc-msg sc-smsg " + cls; mm.textContent = txt; } };
-    fsPatch(DOC, { json: JSON.stringify(j), updatedAt: new Date() }).then(function () { aviso("ok", "✔ Stock guardado. Los clientes ya lo ven."); pintarCli(); })
+    guardarDoc(j).then(function () { aviso("ok", "✔ Stock guardado. Los clientes ya lo ven."); pintarCli(); })
       .catch(function (e) { try { cat.sets = JSON.parse(copia); } catch (x) { /* nada */ } aviso("err", errTxt(e)); if (adm.tab === "setsStk") pintarStock(); });
   }
 
@@ -1344,6 +1587,7 @@
       case "quitar": quitar(id); break;
       case "rar": cli.rar = t.getAttribute("data-v") || ""; pintarCli(); break;
       case "cta": cli.cuenta = t.getAttribute("data-v") || ""; pintarCli(); var tope = cliEl.querySelector(".sc-ctas-nav") || cliEl.querySelector(".sc-grid-box"); if (tope && tope.getBoundingClientRect().top < 0) tope.scrollIntoView({ block: "start", behavior: "smooth" }); break;
+      case "cofre": cli.cofre = t.getAttribute("data-v") || ""; pintarCli(); var tc = cliEl.querySelector(".sc-cofres-nav"); if (tc && tc.getBoundingClientRect().top < 0) tc.scrollIntoView({ block: "start", behavior: "smooth" }); break;
       case "carro": abrirMod({ tipo: "carro" }); break;
       case "cerrarMod": cerrarMod(); break;
       case "menos": cambiarQty(id, -1); pintarMod(); break;
@@ -1356,7 +1600,7 @@
       case "wsp": var tw = totales(); if (tw.n) { cerrarMod(); R().waPedir(mensajeWsp(tw)); } break;
       case "wspOk": var mo = mod && mod.msg; cerrarMod(); if (mo) R().waPedir(mo); break;
       case "admAbrir": R().abrirAdmin(t.getAttribute("data-t")); break;
-      case "admNuevo": adm.form = { nuevo: true, s: normSet({ id: nuevoId(), name: "", price: null, stock: 1, rarity: "MÍTICO" }) }; adm.form.s.name = ""; adm.msg = ""; pintarAdmin(); break;
+      case "admNuevo": adm.form = { nuevo: true, s: normSet({ id: nuevoId(), name: "", price: null, stock: 1, rarity: "MÍTICO", cofre: conCofres() ? (cofrePorId(adm.cofre) ? adm.cofre : cat.cofres[0].id) : "" }) }; adm.form.s.name = ""; adm.msg = ""; pintarAdmin(); break;
       case "admEditar":
         var se = setPorId(id); if (!se) break;
         if (!admEl.isConnected || adm.tab !== "setsCat") { adm.tab = ""; R().abrirAdmin("setsCat"); adm.tab = "setsCat"; }
@@ -1371,6 +1615,19 @@
         guardarCat("Set \"" + sb.name + "\" quitado.").catch(function () { cat.sets = antes; pintarAdmin(); }); break;
       case "admStock": cambiarStock(id, Number(t.getAttribute("data-d"))); break;
       case "admImportar": importarLJ(); break;
+      // cofres (LitleJacob)
+      case "admImportarLJ": importarCatLJ(); break;
+      case "admCofres": adm.cofres = true; adm.msg = ""; pintarAdmin(); break;
+      case "cofCerrar": adm.cofres = false; adm.borrarCofre = ""; adm.msg = ""; pintarAdmin(); break;
+      case "cofNuevo": var cc0 = cat.cofres.map(normCofre); cat.cofres.push(normCofre({ id: "c" + Date.now().toString(36), name: "Cofre nuevo" })); cofGuardar("✔ Cofre agregado. Cámbiale el nombre y la foto.", cc0); break;
+      case "cofSubir":
+        var ki = cat.cofres.map(function (x) { return x.id; }).indexOf(t.getAttribute("data-v"));
+        if (ki > 0) { var cc1 = cat.cofres.map(normCofre); cat.cofres.splice(ki - 1, 0, cat.cofres.splice(ki, 1)[0]); cofGuardar("✔ Orden de los cofres guardado.", cc1); }
+        break;
+      case "cofBorrar": adm.borrarCofre = t.getAttribute("data-v"); pintarAdmin(); break;
+      case "cofBorrarSi":
+        var kb = t.getAttribute("data-v"), cc2 = cat.cofres.map(normCofre); if (setsDeCofre(kb).length) break;
+        cat.cofres = cat.cofres.filter(function (x) { return x.id !== kb; }); adm.borrarCofre = ""; cofGuardar("Cofre quitado.", cc2); break;
       // stock
       case "stSub": S.sub = t.getAttribute("data-v"); adm.msg = ""; pintarStock(); break;
       case "stMenos": case "stMas":
@@ -1379,6 +1636,16 @@
         if (fc) { var vc = enCuenta(ss, fc); stPonerCta(ss, fc, (vc === null ? 0 : vc) + (a === "stMas" ? 1 : -1)); }
         else if (!tieneCuentas(ss)) stPoner(ss, (ss.stock === null ? 0 : ss.stock) + (a === "stMas" ? 1 : -1));
         break;
+      // lotes (LitleJacob)
+      case "stLotes": var fl = t.closest(".sc-srow"), il = fl && Number(fl.getAttribute("data-id")); S.lote = S.lote === il ? null : il; adm.msg = ""; pintarStock(); break;
+      case "ltAgregar": var lf = t.closest(".sc-lotes").querySelector(".sc-lfilas"), tmp = document.createElement("div"); tmp.innerHTML = filaLoteHtml({ vence: "", n: 1 }); lf.appendChild(tmp.firstChild); break;
+      case "ltFuera": var lfi = t.closest(".sc-lfila"); if (lfi) lfi.parentNode.removeChild(lfi); break;
+      case "ltCancelar": S.lote = null; pintarStock(); break;
+      case "ltGuardar": loteGuardar(t.closest(".sc-lotes")); break;
+      case "ltQuitar":
+        var sq = setPorId(t.closest(".sc-lotes").getAttribute("data-id")); if (!sq) break;
+        var cq = JSON.stringify(cat.sets); delete sq.lotes; S.lote = null;
+        loteGuardarDoc("\"" + sq.name + "\" vuelve a stock simple (" + (sq.stock === null ? "—" : sq.stock) + ").", cq); break;
       case "stCta": case "stCtaVer": S.cta = t.getAttribute("data-v") || ""; S.sub = "inv"; S.filtro = "all"; adm.msg = ""; pintarStock(); break;
       case "ctaNueva": S.ctaForm = { nueva: true, nick: "", perfil: "", desc: "" }; adm.msg = ""; pintarStock(); var cn = admEl.querySelector('[data-cf="nick"]'); if (cn) cn.focus(); break;
       case "ctaEditar": var ce = cuentaPorId(t.getAttribute("data-v")); if (ce) { S.ctaForm = { nueva: false, id: ce.id, nick: ce.nick, perfil: ce.perfil, desc: ce.desc }; adm.msg = ""; pintarStock(); } break;
@@ -1470,6 +1737,12 @@
       var antes = cat.visible; cat.visible = el.checked;
       guardarCat(cat.visible ? "✔ Sets Caché visible para los clientes." : "Sets Caché oculta: solo tú la ves.").then(function () { R().render(); }).catch(function () { cat.visible = antes; pintarAdmin(); });
     } else if (el.classList.contains("sc-ffile")) { if (el.files && el.files[0]) subirFoto(el.files[0]); el.value = ""; }
+    else if (el.classList.contains("sc-coffile")) { if (el.files && el.files[0]) cofFoto(el.getAttribute("data-cof"), el.files[0]); el.value = ""; }
+    else if (el.classList.contains("sc-cofname")) {
+      var kc = cofrePorId(el.getAttribute("data-cof")), nm = el.value.trim().replace(/\s+/g, " ").slice(0, 80);
+      if (kc && nm && nm !== kc.name) { var cc3 = cat.cofres.map(normCofre); kc.name = nm; cofGuardar("✔ Cofre \"" + nm + "\" guardado.", cc3); }
+    }
+    else if (el.classList.contains("sc-acof")) { adm.cofre = el.value; var la = admEl.querySelector(".sc-alist"); if (la) { la.innerHTML = listaAdmHtml(); R().hidratar(); } }
     else if (el.classList.contains("sc-est")) { var c = el.closest(".sc-ocard"), o = c && pedPorId(c.getAttribute("data-id")); if (o && el.value !== o.status) setEstado(o, el.value, el); }
     else if (el.classList.contains("sc-frd")) { var fr = el.closest(".sc-fr"); if (fr) cambiarAmistad(fr.getAttribute("data-key"), el.value); }
     else if (el.classList.contains("sc-psort")) { P.orden = el.value; pintarListaPed(); }
