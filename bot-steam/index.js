@@ -8,6 +8,7 @@
                                      ↘ fallida / retenida / cancelada
    - Nunca envía nada que el admin no haya aprobado (modo prueba).
    - Cada minuto deja un "latido" en bot_estado/steam para que el panel sepa si está en línea.
+   - v1.2: recibe las ventas de "Vender skins" (trade con código V-XXXXX) y paga en saldo; sube la lista de precios de compra.
    - v1.1: publica su inventario (bot_estado/inventario), un registro de lo que hace (bot_log)
      y obedece comandos del panel (bot_estado/comando): pausar, reanudar, inventario, reconectar.
    ===================================================================== */
@@ -24,7 +25,7 @@ const SteamTotp = require("steam-totp");
 const admin = require("firebase-admin");
 const u = require("./util");
 
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 const E = TradeOfferManager.ETradeOfferState;
 const cfg = u.leerConfig(process.env);
 const mafile = JSON.parse(fs.readFileSync(path.resolve(__dirname, cfg.mafile), "utf8"));
@@ -95,6 +96,7 @@ client.on("webSession", async (sessionID, cookies) => {
     await revisarInterrumpidos();
     publicarInventario();
     despertar();
+    revisarVentasPendientes();
   } catch (e) { log("No se pudo preparar la sesión web:", e.message); }
 });
 community.on("sessionExpired", () => { listo = false; log("Sesión web vencida, renovando…"); client.webLogOn(); });
@@ -237,6 +239,138 @@ async function revisarInterrumpidos() {
   }
 }
 
+/* =====================================================================
+   VENDER SKINS: el cliente le vende items a la tienda.
+   La web crea la venta (colección ventas, estado "esperando", con código V-XXXXX y precios congelados).
+   El cliente manda el trade al bot con el código en el mensaje. El bot lo acepta SOLO si:
+   el código existe y no venció, viene de la misma cuenta de Steam, trae exactamente esos items
+   y el bot no entrega nada. Al completarse el trade, suma el saldo una sola vez (transacción).
+   Ofertas sin código (o que piden items al bot) no se tocan: quedan para que las veas tú.
+   ===================================================================== */
+const ventasEnCurso = new Set();
+async function procesarVenta(oferta) {
+  const code = u.codigoVenta(oferta.message);
+  if (!code || pausado || !listo || ventasEnCurso.has(String(oferta.id))) return;
+  if (oferta.state !== E.Active) return;
+  ventasEnCurso.add(String(oferta.id));
+  const ref = db.doc("ventas/" + code);
+  try {
+    const snap = await ref.get();
+    const v = snap.exists ? snap.data() : null;
+    const datos = v ? { estado: v.estado, steamId: v.steamId, vence: v.vence && v.vence.toMillis ? v.vence.toMillis() : 0, items: v.items } : null;
+    const recibidos = (oferta.itemsToReceive || []).map((i) => ({ market_hash_name: i.market_hash_name || i.name, appid: i.appid }));
+    let motivo = u.revisarVenta(datos, { partnerId: oferta.partner.getSteamID64(), darCount: (oferta.itemsToGive || []).length, recibidos }, Date.now());
+    if (!motivo) {
+      try {
+        const [, ellos] = await p((cb) => oferta.getUserDetails(cb));
+        if (ellos && ellos.escrowDays > 0) motivo = "Tu cuenta no tiene Steam Guard móvil: Steam retendría el trade " + ellos.escrowDays + " días. Actívalo y vuelve a enviarlo.";
+      } catch (e) { motivo = "Steam no dejó revisar el trade (" + e.message + "). Vuelve a enviarlo en unos minutos."; }
+    }
+    if (motivo) {
+      try { await p((cb) => oferta.decline(cb)); } catch (e) { /* ya no estaba activa */ }
+      registrar("aviso", "Venta " + code + ": trade #" + oferta.id + " rechazado. " + motivo, { code, ofertaId: String(oferta.id) });
+      if (v && v.estado === "esperando") {
+        const vencida = /venció/.test(motivo);
+        await ref.update({ motivo: "Rechazamos tu trade: " + motivo, actualizada: AHORA(), ...(vencida ? { estado: "vencida" } : {}) }).catch(() => {});
+      }
+      return;
+    }
+    // Se toma la venta (esperando → aceptando) para que nunca se acepte dos veces.
+    const tomada = await db.runTransaction(async (tx) => {
+      const d = (await tx.get(ref)).data() || {};
+      if (d.estado !== "esperando") return false;
+      tx.update(ref, { estado: "aceptando", ofertaId: String(oferta.id), motivo: "Aceptando tu trade…", actualizada: AHORA() });
+      return true;
+    });
+    if (!tomada) return;
+    let st;
+    try { st = await p((cb) => oferta.accept(true, cb)); }
+    catch (e) {
+      await ref.update({ estado: "esperando", motivo: "No se pudo aceptar tu trade (" + e.message + "). Vuelve a enviarlo.", actualizada: AHORA() }).catch(() => {});
+      return registrar("error", "Venta " + code + ": no se pudo aceptar el trade #" + oferta.id + ": " + e.message, { code });
+    }
+    registrar("info", "Venta " + code + ": trade #" + oferta.id + " aceptado (" + st + "). Esperando que Steam lo complete.", { code, ofertaId: String(oferta.id) });
+    try { await p((cb) => oferta.update(cb)); } catch (e) { /* lo avisará receivedOfferChanged */ }
+    await resultadoVenta(oferta);
+  } catch (e) { log("Error con la venta", code, e.message); }
+  finally { ventasEnCurso.delete(String(oferta.id)); }
+}
+// Cuando Steam termina el trade: paga (una sola vez) o deja la venta como fallida.
+async function resultadoVenta(oferta) {
+  const code = u.codigoVenta(oferta.message);
+  if (!code) return;
+  const ref = db.doc("ventas/" + code);
+  if (oferta.state === E.Accepted) {
+    const r = await db.runTransaction(async (tx) => {
+      const s = await tx.get(ref), v = s.data() || {};
+      if (v.estado !== "aceptando" || v.ofertaId !== String(oferta.id)) return null;
+      const uRef = db.doc("rayas_users/" + v.uid), us = await tx.get(uRef);
+      if (!us.exists) { tx.update(ref, { estado: "fallida", motivo: "La cuenta del cliente ya no existe: revisar a mano.", actualizada: AHORA() }); return { sinCuenta: true, v }; }
+      const saldo = Math.round((Number(us.data().creditos || 0) + Number(v.total)) * 100) / 100;
+      tx.update(uRef, { creditos: saldo });
+      tx.update(ref, { estado: "pagada", pagada: AHORA(), saldoTras: saldo, motivo: "", actualizada: AHORA() });
+      return { v, saldo };
+    });
+    if (!r) return;
+    if (r.sinCuenta) return registrar("error", "Venta " + code + ": se recibieron los items pero la cuenta del cliente no existe. Págalo a mano.", { code });
+    registrar("ok", "Venta " + code + ": recibidos " + r.v.count + " items de " + r.v.nombre + ". Se le sumaron S/ " + Number(r.v.total).toFixed(2) + " (saldo: S/ " + r.saldo.toFixed(2) + ").", { code });
+    publicarInventario();
+  } else if ([E.Declined, E.Canceled, E.InvalidItems, E.Expired, E.Countered, E.InEscrow].includes(oferta.state)) {
+    const r = u.estadoDeOferta(oferta.state, E, oferta.escrowEnds);
+    const ok = await db.runTransaction(async (tx) => {
+      const v = (await tx.get(ref)).data() || {};
+      if (v.estado !== "aceptando" || v.ofertaId !== String(oferta.id)) return false;
+      // Retenido por Steam: no se paga hasta revisarlo (no debería pasar: se revisa Steam Guard antes de aceptar).
+      tx.update(ref, { estado: oferta.state === E.InEscrow ? "retenida" : "fallida", motivo: "El trade no se completó: " + ((r && r.motivo) || "estado " + oferta.state), actualizada: AHORA() });
+      return true;
+    });
+    if (ok) registrar("error", "Venta " + code + ": el trade #" + oferta.id + " no se completó (" + ((r && r.estado) || oferta.state) + ").", { code });
+  }
+}
+manager.on("newOffer", (oferta) => { procesarVenta(oferta).catch((e) => log("newOffer", e.message)); });
+manager.on("receivedOfferChanged", (oferta) => { resultadoVenta(oferta).catch((e) => log("receivedOfferChanged", e.message)); });
+// Al arrancar, al reanudar y cada 5 min: revisa trades de venta que hayan llegado mientras estaba pausado o apagado.
+async function revisarVentasPendientes() {
+  if (!listo || pausado) return;
+  try {
+    const r = await p((cb) => manager.getOffers(TradeOfferManager.EOfferFilter.ActiveOnly, cb));
+    for (const o of (r && r[1]) || []) await procesarVenta(o);
+  } catch (e) { log("No se pudieron revisar los trades recibidos:", e.message); }
+  // Ventas que se están aceptando: por si se perdió el aviso de Steam.
+  try {
+    const q = await db.collection("ventas").where("estado", "==", "aceptando").get();
+    for (const d of q.docs) {
+      const id = d.data().ofertaId; if (!id) continue;
+      try { await resultadoVenta(await p((cb) => manager.getOffer(id, cb))); } catch (e) { /* se reintenta */ }
+    }
+  } catch (e) { /* nada */ }
+  // Ventas que vencieron sin trade.
+  try {
+    const q = await db.collection("ventas").where("estado", "==", "esperando").get();
+    const b = db.batch(); let n = 0;
+    q.docs.forEach((d) => { const ve = d.data().vence; if (ve && ve.toMillis && ve.toMillis() < Date.now() - 5 * 60000) { b.update(d.ref, { estado: "vencida", motivo: "No llegó el trade a tiempo.", actualizada: AHORA() }); n++; } });
+    if (n) await b.commit();
+  } catch (e) { /* nada */ }
+}
+setInterval(revisarVentasPendientes, 5 * 60 * 1000);
+
+/* Lista de precios de compra (motor del bot LIS en este mismo servidor) → live/preciosCompra, cada hora. */
+async function sincronizarPrecios() {
+  if (!cfg.preciosUrl) return;
+  try {
+    const r = await fetch(cfg.preciosUrl, { signal: AbortSignal.timeout(60000) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const lista = u.preciosLivianos(await r.json());
+    if (!lista.items.length) throw new Error("la lista vino vacía");
+    const json = JSON.stringify(lista);
+    if (json.length > 900000) throw new Error("la lista es muy grande (" + json.length + " bytes)");
+    await db.doc("live/preciosCompra").set({ json, total: lista.items.length, actualizado: AHORA() });
+    log("Precios de compra sincronizados:", lista.items.length, "items.");
+  } catch (e) { registrar("aviso", "No se pudo actualizar la lista de precios de compra: " + e.message); }
+}
+setInterval(sincronizarPrecios, 60 * 60 * 1000);
+setTimeout(sincronizarPrecios, 20000);
+
 /* ---------- cola ---------- */
 function encolar(doc) { if (!enCola.has(doc.id)) { enCola.add(doc.id); cola.push(doc.ref); despertar(); } }
 async function despertar() {
@@ -304,6 +438,7 @@ async function ejecutarComando(accion) {
     pausado = false; resultado = "Envíos reanudados.";
     try { (await db.collection("orders").where("bot.estado", "in", ["aprobado", "cancelar"]).get()).docs.forEach(encolar); } catch (e) { /* nada */ }
     despertar();
+    revisarVentasPendientes();
   }
   else if (accion === "inventario") { await publicarInventario(); await leerResumenOfertas(); resultado = "Inventario actualizado."; }
   else if (accion === "reconectar") {

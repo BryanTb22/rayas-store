@@ -13,6 +13,7 @@ const sc = require("./steamcache");
 const { enviarCorreo, CORREOS_ADMIN } = require("./correo");
 const emails = require("./emails");
 const ia = require("./ia");
+const ventas = require("./ventas");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -380,6 +381,22 @@ function ipDeLaPeticion(req) {
   return xf.length ? xf[xf.length - 1] : (req.ip || "desconocida");
 }
 
+/* Lee el inventario de Dota 2 de un steamId (agrupado). Se guarda 10 min: consultas repetidas no vuelven a molestar a Steam. */
+async function inventarioSteam(sid, detalle) {
+  return sc.conCache(db, "inv:" + sid + ":" + (detalle ? "d" : "n"), 10 * 60 * 1000, async () => {
+    const r = await fetch("https://steamcommunity.com/inventory/" + sid + "/570/2?l=english&count=2000", {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; RayasStore/1.0)", "Accept": "application/json" }
+    });
+    if (r.status === 403 || r.status === 401) { const e = new Error("priv"); e.http = 403; throw e; }
+    if (r.status === 429) { const e = new Error("429"); e.limite = true; throw e; }
+    if (r.status === 500) { const e = new Error("nolee"); e.http = 404; throw e; }
+    if (!r.ok) { const e = new Error("steam " + r.status); e.http = 502; throw e; }
+    const data = await r.json();
+    if (!data || !data.assets) return { items: [], noTradables: 0 };
+    return detalle ? inv.agruparDetalle(data) : inv.agrupar(data);
+  });
+}
+
 /* ---------- Vender items: inventario de Dota 2 del cliente (por su trade link) ---------- */
 exports.inventario = onRequest(
   { region: REGION, cors: ORIGENES, maxInstances: 3, timeoutSeconds: 30 },
@@ -393,19 +410,7 @@ exports.inventario = onRequest(
     if (!okIp || !okSid) return res.status(429).json({ error: "Demasiadas consultas seguidas. Espera unos minutos e intenta de nuevo." });
     try {
       const detalle = (req.body || {}).detalle === true;
-      // El inventario de un mismo cliente se guarda 10 min: consultas repetidas no vuelven a molestar a Steam.
-      const x = await sc.conCache(db, "inv:" + sid + ":" + (detalle ? "d" : "n"), 10 * 60 * 1000, async () => {
-        const r = await fetch("https://steamcommunity.com/inventory/" + sid + "/570/2?l=english&count=2000", {
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; RayasStore/1.0)", "Accept": "application/json" }
-        });
-        if (r.status === 403 || r.status === 401) { const e = new Error("priv"); e.http = 403; throw e; }
-        if (r.status === 429) { const e = new Error("429"); e.limite = true; throw e; }
-        if (r.status === 500) { const e = new Error("nolee"); e.http = 404; throw e; }
-        if (!r.ok) { const e = new Error("steam " + r.status); e.http = 502; throw e; }
-        const data = await r.json();
-        if (!data || !data.assets) return { items: [], noTradables: 0 };
-        return detalle ? inv.agruparDetalle(data) : inv.agrupar(data);
-      });
+      const x = await inventarioSteam(sid, detalle);
       return res.json(Object.assign({ ok: true }, x.valor));
     } catch (e) {
       if (e && e.limite) return res.status(429).json({ error: "Steam está limitando las consultas. Intenta de nuevo en unos minutos." });
@@ -414,6 +419,130 @@ exports.inventario = onRequest(
       console.error("inventario", e);
       return res.status(502).json({ error: "No se pudo consultar Steam. Intenta de nuevo en un momento." });
     }
+  }
+);
+
+/* ---------- Vender skins: el cliente vende sus items a la tienda y cobra en saldo ----------
+ * POST { accion: "config" }                         → si puede vender, topes y trade link del bot.
+ * POST { accion: "crear", link, items:[{name,qty}] } → revisa inventario y precios, congela la venta y devuelve el código.
+ * POST { accion: "cancelar", code }                  → cancela una venta que sigue esperando.
+ * POST { accion: "mias" }                            → últimas ventas del cliente (para Transacciones).
+ * El pago lo hace el bot de Steam (bot-steam/index.js) cuando recibe el trade con el código.
+ */
+async function configVentas() {
+  try { const s = await db.doc("live/ventaConfig").get(); return ventas.leerConfig(s.exists ? s.data() : null); }
+  catch (e) { return ventas.leerConfig(null); }
+}
+async function preciosVenta() {
+  const [auto, manual] = await Promise.all([
+    db.doc("live/preciosCompra").get().then((s) => (s.exists ? JSON.parse(String(s.data().json || "{}")) : null)).catch(() => null),
+    db.collection("rayas_compra").get().then((q) => q.docs.map((d) => d.data())).catch(() => []),
+  ]);
+  return ventas.mapaPrecios(auto, manual);
+}
+let cachePreciosVenta = null;
+const diaLima = (ms) => new Date(ms - 5 * 3600e3).toISOString().slice(0, 10);
+const ventaPublica = (d) => ({
+  code: d.code, estado: d.estado, motivo: d.motivo || "", total: d.total, count: d.count, items: d.items, tienda: d.tienda,
+  creada: aFecha(d.creada).toISOString(), vence: aFecha(d.vence).toISOString(), pagada: d.pagada ? aFecha(d.pagada).toISOString() : "",
+});
+exports.venta = onRequest(
+  { region: REGION, cors: ORIGENES, maxInstances: 5, timeoutSeconds: 30 },
+  async (req, res) => {
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido." });
+    const body = req.body || {}, accion = String(body.accion || "");
+    // Lista de precios para la página (pública, sin sesión): automática (motor) + manual (gana la manual).
+    if (accion === "precios") {
+      if (!cachePreciosVenta || Date.now() - cachePreciosVenta.t > 5 * 60000) cachePreciosVenta = { t: Date.now(), m: await preciosVenta() };
+      const lista = []; cachePreciosVenta.m.forEach((p, k) => lista.push([k, p]));
+      res.set("Cache-Control", "public, max-age=300");
+      return res.json({ ok: true, precios: lista, abierto: (await configVentas()).activo });
+    }
+    const uid = await uidDeLaPeticion(req);
+    if (!uid) return res.status(401).json({ error: "Inicia sesión para vender tus skins." });
+    const cfg = await configVentas(), esAdmin = uid === ADMIN_UID;
+    const emailDe = async () => { try { const s = await db.doc("rayas_users/" + uid).get(); return s.exists ? String(s.data().email || "") : ""; } catch (e) { return ""; } };
+    const puede = ventas.puedeVender(cfg, uid, esAdmin, cfg.activo || esAdmin ? "" : await emailDe());
+    const mias = async () => (await db.collection("ventas").where("uid", "==", uid).get()).docs.map((d) => d.data())
+      .sort((a, b) => aFecha(b.creada) - aFecha(a.creada));
+
+    if (accion === "admin" || accion === "guardarConfig") {
+      if (!esAdmin) return res.status(403).json({ error: "Solo el administrador." });
+      if (accion === "guardarConfig") {
+        const c = ventas.leerConfig(Object.assign({}, cfg, body.config || {}));
+        if (c.botTradelink && !inv.steamIdDeTradeLink(c.botTradelink)) return res.status(400).json({ error: "El trade link del bot no es válido." });
+        c.permitidos = c.permitidos.map((x) => x.trim()).filter((x) => /^[\w-]{10,40}$/.test(x) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)).slice(0, 50);
+        await db.doc("live/ventaConfig").set(Object.assign(c, { actualizado: FV.serverTimestamp() }));
+        return res.json({ ok: true });
+      }
+      const q = await db.collection("ventas").orderBy("creada", "desc").limit(60).get();
+      return res.json({ ok: true, config: cfg, ventas: q.docs.map((d) => Object.assign(ventaPublica(d.data()), { nombre: d.data().nombre, email: d.data().email, steamId: d.data().steamId, ofertaId: d.data().ofertaId || "", saldoTras: d.data().saldoTras })) });
+    }
+    if (accion === "config") return res.json({ ok: true, puede, topeVenta: cfg.topeVenta, topeDia: cfg.topeDia, minutos: cfg.minutos, botTradelink: puede ? cfg.botTradelink : "" });
+    if (accion === "mias") return res.json({ ok: true, ventas: (await mias()).slice(0, 50).map(ventaPublica) });
+    if (accion === "cancelar") {
+      const ref = db.doc("ventas/" + String(body.code || "").replace(/[^A-Z0-9-]/gi, "").slice(0, 10));
+      const r = await db.runTransaction(async (tx) => {
+        const s = await tx.get(ref);
+        if (!s.exists || s.data().uid !== uid) return "no";
+        if (s.data().estado !== "esperando") return s.data().estado;
+        tx.update(ref, { estado: "cancelada", motivo: "La cancelaste tú.", actualizada: FV.serverTimestamp() });
+        return "ok";
+      });
+      if (r === "no") return res.status(404).json({ error: "No encontramos esa venta." });
+      if (r !== "ok") return res.status(409).json({ error: "Esa venta ya no se puede cancelar (" + r + ")." });
+      return res.json({ ok: true });
+    }
+    if (accion !== "crear") return res.status(400).json({ error: "Acción no válida." });
+
+    if (!puede) return res.status(403).json({ error: "La venta automática está en prueba. Por ahora véndenos tus items por WhatsApp.", codigo: "NO_DISPONIBLE" });
+    if (!cfg.botTradelink) return res.status(503).json({ error: "El bot todavía no está listo para recibir ventas. Intenta más tarde." });
+    const sid = inv.steamIdDeTradeLink(body.link);
+    if (!sid) return res.status(400).json({ error: "Pega tu trade link completo (debe incluir partner= y token=)." });
+    if (!(await dentroDelLimite("venta:" + uid, 10, 10 * 60 * 1000))) return res.status(429).json({ error: "Demasiados intentos seguidos. Espera unos minutos." });
+
+    const uSnap = await db.doc("rayas_users/" + uid).get();
+    if (!uSnap.exists) return res.status(400).json({ error: "Completa tu perfil antes de vender." });
+    const u = uSnap.data();
+
+    let armada;
+    try {
+      const [invx, precios] = await Promise.all([inventarioSteam(sid, false), preciosVenta()]);
+      armada = ventas.armarVenta(body.items, invx.valor.items, precios);
+    } catch (e) {
+      if (e && e.code === "VACIO") return res.status(400).json({ error: "Elige al menos un item." });
+      if (e && e.code === "ITEM_MALO") return res.status(400).json({ error: "Item no válido." });
+      if (e && e.code === "NO_TIENES") return res.status(400).json({ error: "Ya no tienes «" + e.item + "» (o no tantas unidades) en tu inventario. Vuelve a cargarlo." });
+      if (e && e.code === "SIN_PRECIO") return res.status(400).json({ error: "«" + e.item + "» no lo compramos por ahora. Quítalo de tu venta." });
+      if (e && e.http === 403) return res.status(403).json({ error: "Tu inventario es privado. Ponlo en Público para vender." });
+      if (e && e.limite) return res.status(429).json({ error: "Steam está limitando las consultas. Intenta en unos minutos." });
+      console.error("venta crear", e);
+      return res.status(502).json({ error: "No se pudo revisar tu inventario. Intenta de nuevo." });
+    }
+    if (armada.total > cfg.topeVenta) return res.status(400).json({ error: "Por ahora cada venta puede ser de hasta S/ " + cfg.topeVenta.toFixed(2) + ". Elige menos items." });
+
+    // Tope por día (cuenta lo pagado y lo que se está pagando). Las ventas que seguían esperando se cancelan: solo una a la vez.
+    const ahora = Date.now(), hoy = diaLima(ahora);
+    const anteriores = await mias();
+    let delDia = 0;
+    const b = db.batch();
+    anteriores.forEach((v) => {
+      if (v.estado === "esperando") { b.update(db.doc("ventas/" + v.code), { estado: "cancelada", motivo: "Reemplazada por una venta nueva.", actualizada: FV.serverTimestamp() }); return; }
+      if ((v.estado === "pagada" || v.estado === "aceptando") && diaLima(aFecha(v.creada).getTime()) === hoy) delDia += Number(v.total) || 0;
+    });
+    if (delDia + armada.total > cfg.topeDia + 1e-9) return res.status(400).json({ error: "Con esta venta pasarías el tope de hoy (S/ " + cfg.topeDia.toFixed(2) + "). Vuelve mañana o elige menos items." });
+
+    let code = ventas.nuevoCodigoVenta();
+    for (let i = 0; i < 4 && (await db.doc("ventas/" + code).get()).exists; i++) code = ventas.nuevoCodigoVenta();
+    const vence = ahora + cfg.minutos * 60000;
+    b.create(db.doc("ventas/" + code), {
+      code, uid, tienda: tiendaDeOrigen(req), estado: "esperando", motivo: "",
+      nombre: String(u.nombre || "Cliente").slice(0, 60), email: String(u.email || ""), steamId: sid, tradelink: String(body.link).trim().slice(0, 200),
+      items: armada.lineas, count: armada.count, total: armada.total,
+      creada: FV.serverTimestamp(), vence: admin.firestore.Timestamp.fromMillis(vence),
+    });
+    await b.commit();
+    return res.json({ ok: true, code, total: armada.total, count: armada.count, items: armada.lineas, vence: new Date(vence).toISOString(), botTradelink: cfg.botTradelink });
   }
 );
 
