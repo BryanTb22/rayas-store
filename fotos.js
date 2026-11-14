@@ -36,12 +36,22 @@
       caches.open(CAJA).then(function (c) { return c.put(clave(id), new Response(blob, { headers: { "Content-Type": blob.type } })); }).catch(function () { /* sin espacio: no pasa nada */ });
     } catch (e) { /* nada */ }
   }
-  function bajar(id) {
-    return fetch(DOC + id).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+  var espera = function (ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); };
+  // Baja la foto de Firestore. Si falla por un corte o porque Firestore está ocupado, reintenta (hasta 3 veces).
+  function bajar(id, intento) {
+    intento = intento || 0;
+    return fetch(DOC + id).then(function (r) {
+      if (r.status === 404) return null;
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function (d) {
       var u = d && d.fields && d.fields.data && d.fields.data.stringValue;
       if (!u || !VALIDA.test(u)) return null;
       if (!guarda) return u;
       try { var b = aBlob(u); guardar(id, b); return URL.createObjectURL(b); } catch (e) { return u; }
+    }).catch(function () {
+      if (intento >= 3) return null;
+      return espera([1200, 3000, 7000][intento]).then(function () { return bajar(id, intento + 1); });
     });
   }
   // Devuelve una promesa con la dirección de la foto (o null si no existe). Pide cada foto una sola vez.
@@ -50,8 +60,8 @@
     if (!/^img-[\w\-]+$/.test(id)) return Promise.resolve(null);
     if (MEM[id]) return Promise.resolve(MEM[id]);
     if (!PEND[id]) PEND[id] = leerGuardada(id).then(function (b) { return b ? URL.createObjectURL(b) : bajar(id); })
-      .then(function (u) { if (u) MEM[id] = u; return u || null; })
-      .catch(function () { return null; });
+      .then(function (u) { if (u) MEM[id] = u; else delete PEND[id]; return u || null; })   // si no salió, se puede volver a pedir
+      .catch(function () { delete PEND[id]; return null; });
     return PEND[id];
   };
   // La dirección si ya está lista (para dibujarla de frente sin esperar).
@@ -91,4 +101,48 @@
     ESPERA.set(el, fn); VER.observe(el);
     if (!REVISA) REVISA = setTimeout(revisar, 700);
   };
+  // Red de seguridad: cada pocos segundos busca fotos que están en pantalla y quedaron vacías o rotas
+  // (por un fallo de red o una foto guardada dañada) y las vuelve a poner. Antes quedaban en blanco hasta recargar.
+  var NUEVA = {}, ROTAS = {};   // dirección vieja (rota) → dirección nueva
+  function ponerFoto(id, u) {
+    var t = document.querySelectorAll('img[data-fs="' + id + '"]');
+    for (var i = 0; i < t.length; i++) if (t[i].getAttribute("src") !== u) t[i].src = u;
+  }
+  function arreglarRota(el) {
+    var id = el.getAttribute("data-fs"), viejo = el.getAttribute("src") || "";
+    if (!id) return;
+    if (NUEVA[viejo]) { el.src = NUEVA[viejo]; return; }
+    if (ROTAS[id]) return;   // ya se está arreglando (o ya se intentó)
+    ROTAS[id] = 1;
+    delete MEM[id]; delete PEND[id];
+    var listo = function () { bajar(id).then(function (u) { if (!u) return; MEM[id] = u; if (viejo) NUEVA[viejo] = u; ponerFoto(id, u); }); };
+    if (guarda) caches.open(CAJA).then(function (c) { return c.delete(clave(id)); }).then(listo, listo); else listo();
+  }
+  document.addEventListener("error", function (e) {
+    var el = e.target;
+    if (el && el.tagName === "IMG" && el.hasAttribute("data-fs") && el.getAttribute("src")) arreglarRota(el);
+  }, true);
+  function barrer() {
+    if (document.hidden) return;
+    var alto = window.innerHeight || 800, t = document.querySelectorAll("img[data-fs]");
+    for (var i = 0; i < t.length; i++) (function (el) {
+      var src = el.getAttribute("src");
+      if (src && !(el.complete && el.naturalWidth === 0)) return;   // tiene foto y cargó bien
+      if (el.complete === false && src) return;                       // todavía cargando
+      var r = el.getBoundingClientRect();
+      if (!(r.width || r.height) || r.bottom < -400 || r.top > alto + 400) return;
+      var id = el.getAttribute("data-fs");
+      if (src) { arreglarRota(el); return; }
+      if (MEM[id]) { el.src = MEM[id]; return; }
+      if (ESPERA && ESPERA.has(el)) return;                             // ya está en la fila normal
+      window.fotoFs(id).then(function (u) { if (u) ponerFoto(id, u); });
+    })(t[i]);
+  }
+  setInterval(barrer, 2500);
+  // Mientras una foto no está, no se muestra su texto alternativo (salía cortado encima del fondo).
+  try {
+    var st = document.createElement("style");
+    st.textContent = "img[data-fs]:not([src]){color:transparent;font-size:0}";
+    (document.head || document.documentElement).appendChild(st);
+  } catch (e) { /* nada */ }
 })();
