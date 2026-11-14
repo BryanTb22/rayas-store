@@ -74,6 +74,7 @@
 .c-imp { font-weight: 700; font-size: 14px; }
 .pf-page .r { text-align: right; justify-self: end; }
 .c-sal.neg { color: #ff7f95; font-weight: 600; font-size: 14px; }
+.c-sal.pos { color: #6fe3a0; font-weight: 600; font-size: 14px; }
 .pf-det { display: none; padding: 4px 12px 14px; }
 .pf-tx.open .pf-det { display: block; }
 .pf-dh, .pf-dr { display: grid; grid-template-columns: minmax(220px, 2.6fr) 1fr 1.3fr 1.2fr 1fr; align-items: center; gap: 12px; padding: 0 12px; }
