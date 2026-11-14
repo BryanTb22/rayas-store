@@ -1,17 +1,24 @@
 /* =====================================================================
-   GENERADOR DE PUBLICACIONES (Rayas Store · solo administrador)
-   Arma la imagen de venta 1080x1350 con el estilo de Rayas (azul, amarillo, fucsia) y
+   GENERADOR DE PUBLICACIONES (las dos tiendas · solo administrador)
+   Arma la imagen de venta 1080x1350 con el estilo de cada tienda (Rayas: azul, amarillo, fucsia ·
+   LitleJacob: "Acero y sangre", plata y rojo; se elige con window.TIENDA de tienda.js) y
    3 textos para WhatsApp. Todo en el navegador con <canvas>, sin servidor.
    Se abre desde Panel admin → 🖼 Publicaciones (app.js lo carga).
    ===================================================================== */
 (function () {
   "use strict";
   if (window.rayasPublicador) return;
+  var TD = window.TIENDA || { id: "rayas", nombre: "Rayas Store", logo1: "RAYAS", dominio: "rayas.trade", logo: "img/logo-v2.webp", esLJ: false };
+  var LJ = !!TD.esLJ;
 
   var W = 1080, H = 1350;
   var C = {
     blood: "#ff2d8f", bloodHi: "#ff2d8f", steel: "#ffe08a", steelHi: "#fff4cf",
     steelLo: "#ffc93c", dim: "#9ba7d8", caja: "#0b1430", borde: "#6b5624"
+  };
+  if (LJ) C = {
+    blood: "#c8161f", bloodHi: "#e0202a", steel: "#c4c8ce", steelHi: "#eef0f3",
+    steelLo: "#969aa2", dim: "#8b9097", caja: "#0c0a0d", borde: "#969aa2"
   };
 
   var st = {
@@ -39,12 +46,27 @@
   function fuentes() {
     if (fuentesListas) return fuentesListas;
     var ps = [];
-    try { ps.push(document.fonts.load("600 40px Teko")); } catch (e) { /* nada */ }
-    try { ps.push(document.fonts.load("700 26px Barlow")); } catch (e) { /* nada */ }
+    if (LJ) {
+      try {
+        var f = new FontFace("LJ Oswald", "url(fonts/Oswald-wght.ttf)", { weight: "200 700" });
+        ps.push(f.load().then(function (x) { document.fonts.add(x); }));
+      } catch (e) { /* sin FontFace: se usa la fuente del sistema */ }
+      try { ps.push(document.fonts.load("700 26px Inter")); } catch (e) { /* nada */ }
+    } else {
+      try { ps.push(document.fonts.load("600 40px Teko")); } catch (e) { /* nada */ }
+      try { ps.push(document.fonts.load("700 26px Barlow")); } catch (e) { /* nada */ }
+    }
     fuentesListas = Promise.all(ps.map(function (p) { return p.catch(function () {}); }));
     return fuentesListas;
   }
-  function osw(px, w) { return ((w || 700) >= 700 ? 600 : 500) + " " + Math.round(px * 1.12) + "px Teko, Impact, 'Arial Narrow', sans-serif"; }
+  var K = {   // colores sueltos del dibujo: [Rayas, LitleJacob]
+    fondo: ["#050a1c", "#080608"], velo1: ["rgba(5,10,28,.62)", "rgba(0,0,0,.62)"], velo2: ["rgba(10,20,60,.45)", "rgba(70,4,10,.48)"],
+    vineta: ["rgba(5,10,28,.92)", "rgba(6,4,6,.92)"], marcoLogo: ["#ffc93c", "#6e7076"], brillo: ["rgba(255,45,143,.6)", "rgba(200,22,31,.75)"],
+    caja: ["#0b1430", "#120a0c"], cajaVacia: ["#0f1a3c", "#16111a"], marco: ["#ffc93c", "#aaaeb6"], etiqueta: ["#070d24", "#0c0a0c"],
+    pas1: ["#c2136c", "#a01018"], pas2: ["#ff2d8f", "#e0202a"]
+  };
+  function k(x) { return K[x][LJ ? 1 : 0]; }
+  function osw(px, w) { if (LJ) return (w || 700) + " " + px + "px 'LJ Oswald', Oswald, Impact, 'Arial Narrow', sans-serif"; return ((w || 700) >= 700 ? 600 : 500) + " " + Math.round(px * 1.12) + "px Teko, Impact, 'Arial Narrow', sans-serif"; }
 
   /* ---------- dibujo ---------- */
   function rr(ctx, x, y, w, h, r) {
@@ -71,24 +93,24 @@
     ctx.textBaseline = "middle"; ctx.shadowColor = "transparent";
 
     // fondo: foto difuminada (se reduce y se vuelve a ampliar: funciona en todos los navegadores)
-    ctx.fillStyle = "#050a1c"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = k("fondo"); ctx.fillRect(0, 0, W, H);
     if (base) {
       var t = document.createElement("canvas"); t.width = 54; t.height = 68;
       var tc = t.getContext("2d"); cubrir(tc, base, 0, 0, 54, 68, 50, 50);
       ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
       ctx.drawImage(t, 0, 0, W, H);
-      ctx.fillStyle = "rgba(5,10,28,.62)"; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = k("velo1"); ctx.fillRect(0, 0, W, H);
     }
-    ctx.fillStyle = "rgba(10,20,60,.45)"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = k("velo2"); ctx.fillRect(0, 0, W, H);
     var vg = ctx.createRadialGradient(W / 2, H * 0.45, 200, W / 2, H * 0.5, 900);
-    vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(5,10,28,.92)");
+    vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, k("vineta"));
     ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
-    // cabecera: logo + RAYAS STORE
+    // cabecera: logo + nombre de la tienda
     ctx.font = osw(62, 700);
-    var t1 = "RAYAS ", t2 = "STORE", w1 = ctx.measureText(t1).width, w2 = ctx.measureText(t2).width;
+    var t1 = TD.logo1 + " ", t2 = "STORE", w1 = ctx.measureText(t1).width, w2 = ctx.measureText(t2).width;
     var lx = Math.round((W - (92 + 24 + w1 + w2)) / 2), ly = 52;
-    rr(ctx, lx - 3, ly - 3, 98, 98, 16); ctx.fillStyle = "#ffc93c"; ctx.fill();
+    rr(ctx, lx - 3, ly - 3, 98, 98, 16); ctx.fillStyle = k("marcoLogo"); ctx.fill();
     if (st.img.logo) { ctx.save(); rr(ctx, lx, ly, 92, 92, 14); ctx.clip(); ctx.drawImage(st.img.logo, lx, ly, 92, 92); ctx.restore(); }
     var tx = lx + 116; ctx.textAlign = "left";
     ctx.fillStyle = acero(ctx, ly + 18, ly + 76); ctx.fillText(t1, tx, ly + 48);
@@ -113,19 +135,19 @@
 
     // recuadro con la foto principal
     var ix = 60, iy = 400, iw = 960, ih = 630;
-    ctx.save(); ctx.shadowColor = "rgba(255,45,143,.6)"; ctx.shadowBlur = 60;
-    rr(ctx, ix, iy, iw, ih, 24); ctx.fillStyle = "#0b1430"; ctx.fill(); ctx.restore();
+    ctx.save(); ctx.shadowColor = k("brillo"); ctx.shadowBlur = 60;
+    rr(ctx, ix, iy, iw, ih, 24); ctx.fillStyle = k("caja"); ctx.fill(); ctx.restore();
     ctx.save(); rr(ctx, ix, iy, iw, ih, 24); ctx.clip();
     if (base) cubrir(ctx, base, ix, iy, iw, ih, d.px, d.py);
     else {
-      ctx.fillStyle = "#0f1a3c"; ctx.fillRect(ix, iy, iw, ih);
+      ctx.fillStyle = k("cajaVacia"); ctx.fillRect(ix, iy, iw, ih);
       ctx.fillStyle = C.dim; ctx.font = osw(40, 500); ctx.textAlign = "center"; ctx.fillText("SUBE LA FOTO IN-GAME", W / 2, iy + ih / 2);
     }
     ctx.restore();
-    rr(ctx, ix + 1.5, iy + 1.5, iw - 3, ih - 3, 23); ctx.lineWidth = 3; ctx.strokeStyle = "#ffc93c"; ctx.stroke();
+    rr(ctx, ix + 1.5, iy + 1.5, iw - 3, ih - 3, 23); ctx.lineWidth = 3; ctx.strokeStyle = k("marco"); ctx.stroke();
     if (juego) {
       ctx.font = osw(26, 600); var lab = "VISTA IN GAME", lw = ctx.measureText(lab).width;
-      rr(ctx, ix + 20, iy + 20, lw + 36, 44, 10); ctx.fillStyle = "#070d24"; ctx.fill();
+      rr(ctx, ix + 20, iy + 20, lw + 36, 44, 10); ctx.fillStyle = k("etiqueta"); ctx.fill();
       ctx.fillStyle = C.steelHi; ctx.textAlign = "left"; ctx.fillText(lab, ix + 38, iy + 43);
     }
     // miniatura oficial (solo si hay foto in-game y foto oficial)
@@ -148,21 +170,21 @@
       var swd = ctx.measureText(sv).width; ctx.fillStyle = C.bloodHi; ctx.fillRect(825 - swd / 2 - 6, py + 97, swd + 12, 5);
     }
 
-    // pastilla fucsia
+    // pastilla de color (fucsia en Rayas, roja en LitleJacob)
     var pill = ((d.entrega || "Entrega inmediata") + " · " + (stockN() === 1 ? "Solo 1" : "Stock: " + stockN())).toUpperCase();
     var pyy = 1234, pW = 760;
     ctx.font = osw(34, 700); var psp = 3;
     while (anchoEsp(ctx, pill, psp) > 900) { if (psp > 0) psp--; else { var fz = parseInt(ctx.font, 10) - 2; ctx.font = osw(fz, 700); } }
     pW = Math.max(760, Math.min(980, anchoEsp(ctx, pill, psp) + 90));
-    var pg = ctx.createLinearGradient((W - pW) / 2, 0, (W + pW) / 2, 0); pg.addColorStop(0, "#c2136c"); pg.addColorStop(1, "#ff2d8f");
+    var pg = ctx.createLinearGradient((W - pW) / 2, 0, (W + pW) / 2, 0); pg.addColorStop(0, k("pas1")); pg.addColorStop(1, k("pas2"));
     rr(ctx, (W - pW) / 2, pyy, pW, 70, 35); ctx.fillStyle = pg; ctx.fill();
     ctx.fillStyle = "#fff"; espaciado(ctx, W / 2, pyy + 37, pill, psp);
 
-    ctx.font = "700 26px Barlow, system-ui, sans-serif"; ctx.fillStyle = C.steelHi; espaciado(ctx, W / 2, 1323, "rayas.trade", 4);
+    ctx.font = "700 26px " + (LJ ? "Inter" : "Barlow") + ", system-ui, sans-serif"; ctx.fillStyle = C.steelHi; espaciado(ctx, W / 2, 1323, TD.dominio, 4);
   }
 
   /* ---------- catálogo (Firestore público) e IA (función crearPublicacion, solo admin) ---------- */
-  var TIENDA = "rayas";
+  var TIENDA = TD.id;
   var IA_URL = "https://us-central1-litlejacob-store.cloudfunctions.net/crearPublicacion";
   var CAT_URL = "https://firestore.googleapis.com/v1/projects/litlejacob-store/databases/(default)/documents/rayas_items?pageSize=300";
   var TC = 3.85;   // soles por dólar (igual que la página)
@@ -439,7 +461,7 @@
     if (st.ia && st.ia.length) return st.ia;
     var d = st.d, nom = (d.nombre || "Nombre del item").trim(), tipo = (d.tipo || "").trim(), pr = sol(d.precio) || "S/ --";
     var stl = steamMayor() ? sol(d.steam) : "", n = stockN(), ent = (d.entrega || "Entrega inmediata").trim();
-    var firma = "🛒 *Rayas Store* · rayas.trade";
+    var firma = "🛒 *" + TD.nombre + "* · " + TD.dominio;
     var stockTxt = n === 1 ? "*ÚLTIMA UNIDAD*: solo 1 en stock" : "Stock limitado: *" + n + " unidades*";
     var ef = String(d.efecto || "").trim(), efL = ef ? "✦ Efecto inusual: *" + ef + "*\n" : "";
     var a = "🔥 *" + (tipo ? tipo.toUpperCase() + " – " : "") + nom.toUpperCase() + "* 🔥\n" + efL + "\n" +
@@ -447,7 +469,7 @@
       "⚡ " + ent + "\n⚠️ " + stockTxt + "\n\n" +
       "📩 Escríbeme al privado y es tuyo. ¡El primero que pague se lo lleva!\n" + firma;
     var b = "⚔️ *" + nom + "*" + (ef ? " · " + ef : "") + (tipo ? " (" + tipo + ")" : "") + " – *" + pr + "*\n" +
-      "⚡ " + ent + " | ⚠️ " + (n === 1 ? "Solo 1 en stock" : n + " en stock") + "\n📩 Escríbeme al DM · *Rayas Store*";
+      "⚡ " + ent + " | ⚠️ " + (n === 1 ? "Solo 1 en stock" : n + " en stock") + "\n📩 Escríbeme al DM · *" + TD.nombre + "*";
     var c = "✨ *¿Buscas " + (tipo ? tipo.toLowerCase() : "algo nuevo para tu Dota") + "?* ✨\n\n" +
       "Tengo *" + nom + "*" + (ef ? " con efecto *" + ef + "*" : "") + " a solo *" + pr + "* 💰\n\n" +
       (stl ? "✅ Más barato que en Steam (" + stl + ")\n" : "") + "✅ " + ent + "\n" +
@@ -500,6 +522,13 @@
     "#rayasPub .pb-pub>div:first-child{display:grid;gap:2px;min-width:0}#rayasPub .pb-pub b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#rayasPub .pb-pub small{font-size:12px;opacity:.7}" +
     "#rayasPub .pb-pub-b{display:flex;gap:6px;flex:none}#rayasPub .pb-pub-b .pb-btn{padding:8px 10px}" +
     "@media(max-width:520px){#rayasPub .pb-2{grid-template-columns:1fr}#rayasPub .pb-foto{font-size:11px}}";
+  if (LJ) CSS = [   // LitleJacob: mismos estilos con sus colores y fuentes
+    ["linear-gradient(180deg,#ffe08a,#ffc93c);color:#1d1600;box-shadow:0 4px 16px rgba(255,201,60,.3)", "linear-gradient(180deg,#e0343d,#c8161f 55%,#8e0f16);box-shadow:0 4px 16px rgba(200,22,31,.3)"],
+    ["h3{margin:0;font:600 18px/1.15 Teko,Impact,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#ffc93c}", "h3{margin:0;font:600 18px/1.15 Oswald,Impact,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#ff5a63}"],
+    ["rgba(5,10,28,.84)", "rgba(5,4,6,.82)"], ["#0f1a3c,#0b1430", "#141215,#0d0b0e"], ["#1e2c5c", "#26272b"], ["#2a3a70", "#3d3f45"],
+    ["#070d24", "#0e0c0f"], ["#ffc93c", "#e0202a"], ["#ffe08a", "#c4c8ce"], ["#ff2d8f", "#e0202a"], ["#9ba7d8", "#8b9097"],
+    ["#eef1ff", "#eef0f3"], ["#dfe4ff", "#d6d8dc"], ["Teko", "Oswald"], ["Barlow", "Inter"]
+  ].reduce(function (c, p) { return c.split(p[0]).join(p[1]); }, CSS);
 
   function campo(id, et, tipo, ph) {
     return '<label for="pb-' + id + '">' + et + '<input id="pb-' + id + '" data-k="' + id + '" type="' + (tipo || "text") + '"' +
@@ -525,7 +554,7 @@
       cajaFoto("juego", "Foto in-game", "Toca para subir o pega con Ctrl+V") +
       cajaFoto("oficial", "Foto oficial (opcional)", "Render de Steam") + '</div>' +
       '<div id="pb-web"></div>' +
-      '<p class="pb-hint">Ctrl+V pega en el recuadro marcado en fucsia. Si solo subes la oficial, se usa como foto principal.</p>' +
+      '<p class="pb-hint">Ctrl+V pega en el recuadro marcado en ' + (LJ ? 'rojo' : 'fucsia') + '. Si solo subes la oficial, se usa como foto principal.</p>' +
       '<div class="pb-2"><label>Encuadre horizontal<input type="range" min="0" max="100" data-k="px" value="' + st.d.px + '"></label>' +
       '<label>Encuadre vertical<input type="range" min="0" max="100" data-k="py" value="' + st.d.py + '"></label></div></div>' +
       '<div class="pb-grp"><h3>2 · Datos</h3>' +
@@ -574,7 +603,7 @@
     var cv = document.getElementById("pb-cv");
     return new Promise(function (ok, mal) { dibujar(cv); cv.toBlob(function (b) { b ? ok(b) : mal(new Error("blob")); }, "image/jpeg", 0.92); });
   }
-  function nombreArchivo() { return "rayas-" + slug(st.d.nombre) + ".jpg"; }
+  function nombreArchivo() { return TD.id + "-" + slug(st.d.nombre) + ".jpg"; }
 
   function alClic(e) {
     var t = e.target.closest("[data-pb],[data-slot]"); if (!t) return;
@@ -643,7 +672,7 @@
     r.addEventListener("click", alClic); r.addEventListener("input", alEscribir); r.addEventListener("change", alCambio);
     document.addEventListener("paste", alPegar);
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && st.abierto) cerrar(); });
-    cargarImg("img/logo-v2.webp").then(function (im) { st.img.logo = im; refrescar(); }).catch(function () {});
+    cargarImg(TD.logo).then(function (im) { st.img.logo = im; refrescar(); }).catch(function () {});
   }
   function abrir() {
     montar(); st.abierto = true; st.raiz.hidden = false; document.documentElement.style.overflow = "hidden"; render();

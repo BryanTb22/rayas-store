@@ -4,7 +4,7 @@
    Los datos del negocio se editan SOLO en el bloque DATOS de abajo. */
 (function () {
   "use strict";
-  var T = /litlejacob/i.test(location.hostname) || /[?&]tienda=litlejacob/.test(location.search) ? "litlejacob" : "rayas";
+  var T = window.TIENDA ? window.TIENDA.id : (/litlejacob/i.test(location.hostname) || /[?&]tienda=litlejacob/.test(location.search) ? "litlejacob" : "rayas");   // tienda.js
   document.documentElement.setAttribute("data-t", T);
 
   /* ===== DATOS DEL NEGOCIO (los que pide Culqi / INDECOPI) ===== */
@@ -18,7 +18,7 @@
       redes: [{ n: "WhatsApp", u: "https://wa.me/51900049694" }]
     },
     litlejacob: {
-      nombre: "LitleJacob Store", n1: "LitleJacob", n2: "Store", url: "https://litlejacob.trade", logo: "apple-touch-icon.png",
+      nombre: "LitleJacob Store", n1: "LitleJacob", n2: "Store", url: "https://litlejacob.trade", logo: "lj/apple-touch-icon.png",
       rubro: "Tienda virtual de Dota 2: Sets Caché, compra y venta de items con entrega por Steam, y rifas de items.",
       ofrece: ["Sets Caché de Dota 2 (reserva y entrega por Steam)", "Compra y venta de items de Dota 2 (entrega por Steam, con precio en soles)", "Rifas de items de Dota 2 con tickets pagados con tu saldo"],
       razonSocial: "TIRAPO BUSTILLOS BRYAN DARWIN", ruc: "10712504761", direccion: "Mz A1 Lte 20, Jardines de Shangrila, Puente Piedra, Lima", correo: "pedidos@litlejacob.trade",

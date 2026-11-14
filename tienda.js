@@ -11,6 +11,7 @@
       id: "rayas",
       nombre: "Rayas Store",
       nombreMayus: "RAYAS STORE",
+      logo1: "RAYAS", logo2: "STORE",   // logo en texto de la cabecera
       dominio: "rayas.trade",
       url: "https://rayas.trade",
       wa: "51900049694",
@@ -19,6 +20,7 @@
       clientePrefijo: "r_",         // customers/r_<uid>
       correoPrueba: "prueba.rayas.trade",
       colorTema: "#0a1230",
+      estadisticas: "1e5c6386f46a47bda6fc268f6182b9d4",   // Cloudflare Web Analytics (código público, no es secreto)
       // Claves del navegador: se mantienen las de siempre para que nadie pierda su sesión ni su carrito.
       claves: {
         sesion: "rayas_admin_ses",
@@ -43,14 +45,16 @@
       id: "litlejacob",
       nombre: "LitleJacob Store",
       nombreMayus: "LITLEJACOB STORE",
+      logo1: "LITLEJACOB", logo2: "STORE",
       dominio: "litlejacob.trade",
       url: "https://litlejacob.trade",
       wa: "51952997030",
-      logo: "favicon.png",
+      logo: "lj/favicon.png",
       codigo: "LJ",
       clientePrefijo: "",
       correoPrueba: "prueba.litlejacob.trade",
       colorTema: "#0b0505",
+      estadisticas: "e08cf8b40ae04fa7abbcdbdf29e6cdea",
       claves: {
         sesion: "lj_rifas_ses",
         carro: "lj_carro_items_v1",
@@ -89,4 +93,25 @@
   T.otra = AJUSTES[T.esLJ ? "rayas" : "litlejacob"];
   window.TIENDA = T;
   document.documentElement.setAttribute("data-tienda", T.id);
+
+  /* Estadísticas de Cloudflare: cada tienda tiene su propio código (solo en los dominios reales). */
+  if (/(^|\.)(rayas|litlejacob)\.trade$/i.test(location.hostname)) document.addEventListener("DOMContentLoaded", function () {
+    var b = document.createElement("script"); b.type = "module"; b.defer = true;
+    b.src = "https://static.cloudflareinsights.com/beacon.min.js";
+    b.setAttribute("data-cf-beacon", JSON.stringify({ token: T.estadisticas }));
+    document.body.appendChild(b);
+  });
+
+  /* El index.html trae los datos de Rayas (título, íconos, manifest). En LitleJacob se cambian aquí.
+     OJO: WhatsApp y Google no corren JavaScript; para ellos la vista previa de cada dominio se arregla en Cloudflare. */
+  if (T.esLJ) document.addEventListener("DOMContentLoaded", function () {
+    document.title = document.title.replace(/Rayas Store/g, T.nombre);
+    var cambiar = function (sel, attr, val) { var el = document.querySelector(sel); if (el) el.setAttribute(attr, val); };
+    cambiar('meta[name="theme-color"]', "content", T.colorTema);
+    cambiar('link[rel="manifest"]', "href", "lj/manifest.webmanifest");
+    cambiar('link[rel="canonical"]', "href", T.url + "/");
+    cambiar('link[rel="apple-touch-icon"]', "href", "lj/apple-touch-icon.png");
+    var ic = document.querySelectorAll('link[rel="icon"]');
+    for (var i = 0; i < ic.length; i++) ic[i].setAttribute("href", /192/.test(ic[i].getAttribute("sizes") || "") ? "lj/icon-192.png" : "lj/favicon.png");
+  });
 })();

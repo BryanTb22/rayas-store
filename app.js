@@ -251,7 +251,7 @@
   var TEXTOS_BASE = {
     titulo: "Gana items de Dota 2",
     subtitulo: "Recarga tu saldo, elige el premio que quieres y entra a la rifa. El ganador sale al azar.",
-    logo1: "RAYAS", logo2: "STORE",
+    logo1: TD.logo1 || "RAYAS", logo2: TD.logo2 || "STORE",
     kicker: "Rifas de Dota 2",
     btnRecargarNav: "Recargar",
     inicioKicker: "Tu tienda de Dota 2", inicioTitulo: "Todo para tus items de Dota 2",
@@ -314,7 +314,34 @@
     });
     nt.reglas = Array.isArray(t.reglas) && t.reglas.length ? t.reglas.filter(function (x) { return typeof x === "string" && x.trim(); }) : TEXTOS_BASE.reglas.slice();
     st.textos = nt;
+    if (TD.esLJ) marcaPropia(st);
     return st;
+  }
+
+  /* MARCA DE CADA TIENDA: las dos webs comparten rifas, premios, contactos y textos (rayas/estado), pero el logo,
+     los mensajes que dicen el nombre de la tienda y las fotos son de cada una. Rayas los guarda donde siempre
+     (textos / fotos); LitleJacob los guarda aparte en  marcas.litlejacob  y, al publicar, deja los de Rayas intactos. */
+  var MARCA_TEXTOS = ["logo1", "logo2", "msgCredPerfil", "msgCredVisita"];
+  function marcaPropia(st) {
+    var mc = (st.marcas && st.marcas[TD.id]) || {}, mt = mc.textos || {}, mf = mc.fotos || {};
+    var original = { textos: {}, fotos: st.fotos };   // lo de Rayas, para devolverlo tal cual al publicar
+    st.fotos = {};
+    MARCA_TEXTOS.forEach(function (k) {
+      original.textos[k] = st.textos[k];
+      st.textos[k] = typeof mt[k] === "string" && mt[k].trim() ? mt[k] : TEXTOS_BASE[k];
+    });
+    ["logo", "hero", "lava", "sombra"].forEach(function (k) { st.fotos[k] = /^fs:img-[\w\-]+$/.test(String(mf[k] || "")) ? mf[k] : ""; });
+    st._marca = original;
+  }
+  function marcaAlPublicar(copia) {   // copia = lo que se va a guardar en rayas/estado
+    var mk = copia._marca; delete copia._marca;
+    if (!TD.esLJ || !mk) return copia;
+    copia.marcas = copia.marcas && typeof copia.marcas === "object" ? copia.marcas : {};
+    var propia = { textos: {}, fotos: copia.fotos };
+    MARCA_TEXTOS.forEach(function (k) { propia.textos[k] = copia.textos[k]; copia.textos[k] = mk.textos[k]; });
+    copia.marcas[TD.id] = propia;
+    copia.fotos = mk.fotos;
+    return copia;
   }
 
   var publicado = normalizar(null);
@@ -1864,7 +1891,7 @@
     if (!admin.puede) return;
     var ir = function () { admin.pubMsg = ""; admin.abierto = false; quitarHash(); render(); window.rayasPublicador.abrir(); };
     if (window.rayasPublicador) return ir();
-    var sc = document.createElement("script"); sc.src = "publicador.js?v=11";
+    var sc = document.createElement("script"); sc.src = "publicador.js?v=12";
     sc.onload = function () { if (window.rayasPublicador) ir(); };
     sc.onerror = function () { admin.pubMsg = "No se pudo cargar el generador. Revisa que publicador.js esté subido al repositorio."; render(); };
     document.head.appendChild(sc);
@@ -4047,7 +4074,7 @@
       return fetch(DOC_URL + "?updateMask.fieldPaths=json&updateMask.fieldPaths=actualizado", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
-        body: JSON.stringify({ fields: { json: { stringValue: JSON.stringify(copia) }, actualizado: { timestampValue: new Date().toISOString() } } })
+        body: JSON.stringify({ fields: { json: { stringValue: JSON.stringify(marcaAlPublicar(clone(copia))) }, actualizado: { timestampValue: new Date().toISOString() } } })
       });
     }).then(function (r) {
       if (r.status === 401 || r.status === 403) throw new Error("PERM");
