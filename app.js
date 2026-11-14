@@ -4,7 +4,8 @@
   /* ================= Firebase (mismo proyecto que LitleJacob Store) ================= */
   var FB = { apiKey: "AIzaSyDbyLi7IK3ikwUp7A0VzRRqPucqRXPpL3E", projectId: "litlejacob-store" };
   var DOC_URL = "https://firestore.googleapis.com/v1/projects/" + FB.projectId + "/databases/(default)/documents/rayas/estado";
-  var SES_KEY = "rayas_admin_ses";
+  var TD = window.TIENDA || { id: "rayas", nombre: "Rayas Store", nombreMayus: "RAYAS STORE", dominio: "rayas.trade", logo: "img/logo-v2.webp", correoPrueba: "prueba.rayas.trade", esLJ: false, otra: { id: "litlejacob" }, claves: { sesion: "rayas_admin_ses", carro: "rayas_carro_v1", items: "rayas_items_guardados_v2", mmCostos: "rayas_mm_costos" } }; // ajustes de la tienda (tienda.js)
+  var SES_KEY = TD.claves.sesion;
   var ADMIN_UID = "eLEZkdXiG5b0PpxHQCCei8D0Qxy1";
   var BASE = "https://firestore.googleapis.com/v1/projects/" + FB.projectId + "/databases/(default)/documents/";
 
@@ -261,8 +262,8 @@
     badge1: "Recarga desde S/ 3", badge2: "Ganador al azar", badge3: "Entrega por Steam",
     rifasKicker: "Premios en juego", rifasT1: "Rifas", rifasT2: "activas", rifasSub: "Cada premio indica cuántos soles cuesta entrar.",
     vacioT: "Pronto nuevas rifas", vacioS: "Recarga tu saldo y te avisamos cuando abra la próxima.",
-    msgCredPerfil: "¡Hola! 👋🔥 Soy *{nombre}* (📧 {correo}).\n\n💎 Quiero recargar saldo para participar en las rifas de *RAYAS STORE* 🎁🏆\n\n¿Me ayudas con mi recarga? 🙏✨",
-    msgCredVisita: "¡Hola! 👋🔥 Quiero recargar saldo para las rifas de *RAYAS STORE* 💎🎁\n\n¿Me ayudas? 🙏✨",
+    msgCredPerfil: "¡Hola! 👋🔥 Soy *{nombre}* (📧 {correo}).\n\n💎 Quiero recargar saldo para participar en las rifas de *" + TD.nombreMayus + "* 🎁🏆\n\n¿Me ayudas con mi recarga? 🙏✨",
+    msgCredVisita: "¡Hola! 👋🔥 Quiero recargar saldo para las rifas de *" + TD.nombreMayus + "* 💎🎁\n\n¿Me ayudas? 🙏✨",
     btnParticipar: "Participar", btnPronto: "Muy pronto", lblCreditos: "por ticket",
     comoKicker: "Paso a paso", comoT1: "Cómo", comoT2: "participar",
     paso1T: "Crea tu cuenta", paso1: "Regístrate con tu correo o con Google y deja tu link de intercambio de Steam.",
@@ -463,7 +464,7 @@
         else { modal = { tipo: "error", msg: (C.error && (C.error.user_message || C.error.merchant_message)) || "No se pudo procesar el pago." }; render(); }
       };
       C.publicKey = PAGOS.culqiPk;
-      C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de saldo", amount: Math.round(totalTarjeta(soles) * 100) });
+      C.settings({ title: TD.nombre, currency: "PEN", description: "Recarga de saldo", amount: Math.round(totalTarjeta(soles) * 100) });
       C.options({ lang: "es", installments: false, paymentMethods: { tarjeta: true, yape: true, billetera: false, bancaMovil: false, agente: false, cuotealo: false } });
       modal = null; render(); C.open();
     }).catch(function (e) { modal = { tipo: "error", msg: (e && e.message) || "No se pudo abrir el pago." }; render(); });
@@ -495,7 +496,7 @@
           var C = window.Culqi;
           window.culqi = function () { /* en órdenes no hay token: el pago llega por aviso de Culqi */ };
           C.publicKey = PAGOS.culqiPk;
-          C.settings({ title: "Rayas Store", currency: "PEN", description: "Recarga de saldo", amount: Math.round(totalTarjeta(soles) * 100), order: x.j.ordenId });
+          C.settings({ title: TD.nombre, currency: "PEN", description: "Recarga de saldo", amount: Math.round(totalTarjeta(soles) * 100), order: x.j.ordenId });
           C.options({ lang: "es", installments: false, paymentMethods: { tarjeta: false, yape: false, billetera: true, bancaMovil: true, agente: true, cuotealo: false } });
           modal = { tipo: "efectivoPend", soles: soles }; render(); C.open();
         });
@@ -649,7 +650,7 @@
   var rLogo = null;
   function ruletaDibujar(rotDeg, t) {
     var cv = document.getElementById("ruleta-cv"); if (!cv || !ruleta) return;
-    if (!rLogo) { rLogo = new Image(); rLogo.src = "img/logo-v2.webp"; rLogo.onload = function () { ruletaDibujar(ruleta && ruleta.fin ? ruleta.rot : (ruleta ? ruleta.rotAct || 0 : 0), 0); }; }
+    if (!rLogo) { rLogo = new Image(); rLogo.src = TD.logo; rLogo.onload = function () { ruletaDibujar(ruleta && ruleta.fin ? ruleta.rot : (ruleta ? ruleta.rotAct || 0 : 0), 0); }; }
     var ctx = cv.getContext("2d"), W = cv.width, cx = W / 2, R = W / 2 - 34, rim = R + 22, i, PI = Math.PI;
     t = t || 0; ruleta.rotAct = rotDeg;
     ctx.clearRect(0, 0, W, W);
@@ -896,7 +897,7 @@
     });
     var logos = document.querySelectorAll(".hero-logo, .logo-img");
     if (esFs(F.logo)) cargarFs(F.logo.slice(3)).then(function (u) { if (u) for (var i = 0; i < logos.length; i++) logos[i].src = u; });
-    else for (var i = 0; i < logos.length; i++) if (logos[i].getAttribute("src") !== "img/logo-v2.webp") logos[i].src = "img/logo-v2.webp";
+    else for (var i = 0; i < logos.length; i++) if (logos[i].getAttribute("src") !== TD.logo) logos[i].src = TD.logo;
   }
   var FOTO_TXT = { logo: "Cambiar logo", hero: "Cambiar fondo de portada", lava: "Cambiar fondo (Cómo participar)", sombra: "Cambiar fondo (Ganadores)" };
   function fotoBtn(k) {
@@ -1068,7 +1069,7 @@
   }
   // Catálogo guardado en el navegador: en la siguiente visita se muestra al instante y se actualiza por detrás.
   // Solo para clientes (el admin siempre ve lo último). El precio y el stock reales igual los revisa el servidor al pagar.
-  var ITEMS_GUARDA = "rayas_items_guardados_v2";
+  var ITEMS_GUARDA = TD.claves.items;
   function itemsGuardados() {
     try { var raw = localStorage.getItem(ITEMS_GUARDA) || "", l = raw ? JSON.parse(raw) : null; return Array.isArray(l) && l.length ? { l: l, raw: raw } : null; } catch (e) { return null; }
   }
@@ -1582,11 +1583,11 @@
   }
   function mensajeItem(it) {
     var p = cuenta.perfil;
-    return "¡Hola! 👋🔥 Quiero comprar este item de *RAYAS STORE* 🛒\n\n🎮 *" + it.nombre + "*" + (it.calidad ? " (" + it.calidad + ")" : "") + "\n💰 Precio: " + fmtPrecio(it.precio) +
+    return "¡Hola! 👋🔥 Quiero comprar este item de *" + TD.nombreMayus + "* 🛒\n\n🎮 *" + it.nombre + "*" + (it.calidad ? " (" + it.calidad + ")" : "") + "\n💰 Precio: " + fmtPrecio(it.precio) +
       (p ? "\n\n👤 " + p.nombre + " (📧 " + p.email + ")" : "") + "\n\n¿Sigue disponible? 🙏✨";
   }
   /* ===== Carrito de items ===== */
-  var CARRO_KEY = "rayas_carro_v1";
+  var CARRO_KEY = TD.claves.carro;
   var carro = (function () { try { var j = JSON.parse(localStorage.getItem(CARRO_KEY) || "{}"); return j && typeof j === "object" && !Array.isArray(j) ? j : {}; } catch (e) { return {}; } })();
   function carroGuardar() { try { localStorage.setItem(CARRO_KEY, JSON.stringify(carro)); } catch (e) { /* sin almacenamiento */ } }
   function carroLineas() {
@@ -1635,7 +1636,7 @@
   }
   function mensajeCarro() {
     var p = cuenta.perfil, T = carroTotales();
-    return "¡Hola! 👋🔥 Quiero comprar estos items de *RAYAS STORE* 🛒\n\n" + carroLineas().map(function (x) { return "🎮 " + x.qty + "x *" + x.it.nombre + "* — " + fmtPrecio(x.it.precio * x.qty); }).join("\n") +
+    return "¡Hola! 👋🔥 Quiero comprar estos items de *" + TD.nombreMayus + "* 🛒\n\n" + carroLineas().map(function (x) { return "🎮 " + x.qty + "x *" + x.it.nombre + "* — " + fmtPrecio(x.it.precio * x.qty); }).join("\n") +
       "\n\n💰 Total: " + fmtPrecio(T.sol) + (p ? "\n\n👤 " + p.nombre + " (📧 " + p.email + ")" : "") + "\n\n¿Siguen disponibles? 🙏✨";
   }
   // Items en cooldown: la fecha de entrega del pedido es la más lejana de todos.
@@ -1809,7 +1810,7 @@
       var pr = precioCompra(g.name);
       l.push("• " + c + "x " + g.name + " — " + (pr === null ? "precio a consultar" : fmtPrecio(pr * c)));
     });
-    return "¡Hola! 👋 Quiero *VENDER* estos items a *RAYAS STORE* 💰\n\n" + l.join("\n") + "\n\n🧾 Total: " + fmtPrecio(T.tot) + (T.sinP ? " + " + T.sinP + " a consultar" : "") +
+    return "¡Hola! 👋 Quiero *VENDER* estos items a *" + TD.nombreMayus + "* 💰\n\n" + l.join("\n") + "\n\n🧾 Total: " + fmtPrecio(T.tot) + (T.sinP ? " + " + T.sinP + " a consultar" : "") +
       "\n🔗 Mi trade link: " + String(ven.link).trim() + (p ? "\n\n👤 " + p.nombre + " (📧 " + p.email + ")" : "") + "\n\n¿Me confirmas? 🙏✨";
   }
   function ventaEvento(el) {
@@ -2460,7 +2461,7 @@
     } else if (leerSesion()) der = cesta + '<button class="mk-btn ghost" type="button" data-a="miCuenta">Mi cuenta</button>';
     else der = cesta + '<button class="mk-btn ghost" type="button" data-a="entrar">Entrar</button><button class="mk-btn" type="button" data-a="registro">Crear cuenta</button>';
     return '<header class="topbar mk-head gutter"><div class="wrap">' +
-      '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo mk-logo"><img class="logo-img" src="img/logo-v2.webp" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
+      '<' + (V ? 'span' : 'a href="#inicio"') + ' class="logo mk-logo"><img class="logo-img" src="' + esc(TD.logo) + '" alt="" width="44" height="44">' + tx("span", "logo1") + ' ' + tx("i", "logo2") + '</' + (V ? 'span' : 'a') + '>' +
       '<nav class="mk-nav" aria-label="Secciones">' + nav + '</nav>' +
       '<div class="mk-der">' + der + '</div>' +
       '</div></header>';
@@ -2698,8 +2699,8 @@
   }
   /* "¿Me conviene?": cuenta rápida para no perder plata con el sorteo. Los costos quedan SOLO en este navegador
      (no se publican, porque el estado de las rifas es público). */
-  function mmCostos(m) { try { var o = JSON.parse(localStorage.getItem("rayas_mm_costos") || "{}"); return o[m] || {}; } catch (e) { return {}; } }
-  function mmCostosGuardar(m, k, v) { try { var o = JSON.parse(localStorage.getItem("rayas_mm_costos") || "{}"); o[m] = o[m] || {}; o[m][k] = v; localStorage.setItem("rayas_mm_costos", JSON.stringify(o)); } catch (e) { /* nada */ } }
+  function mmCostos(m) { try { var o = JSON.parse(localStorage.getItem(TD.claves.mmCostos) || "{}"); return o[m] || {}; } catch (e) { return {}; } }
+  function mmCostosGuardar(m, k, v) { try { var o = JSON.parse(localStorage.getItem(TD.claves.mmCostos) || "{}"); o[m] = o[m] || {}; o[m][k] = v; localStorage.setItem(TD.claves.mmCostos, JSON.stringify(o)); } catch (e) { /* nada */ } }
   function recaudadoMes(rk) { return rk.todos.reduce(function (a, r) { return a + r.compras; }, 0); }
   function convieneRes(m, rk) {
     var c = mmCostos(m), g = Number(c.g) || 0, ch = Number(c.c) || 0, mg = Number(c.mg); if (!(mg > 0 && mg <= 100)) mg = 25;
@@ -2820,7 +2821,7 @@
       '</div></section>' +
 
       '@@FIN@@' + '<footer class="footer gutter"><div class="wrap">' +
-      '<span class="logo"><img class="logo-img" src="img/logo-v2.webp" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
+      '<span class="logo"><img class="logo-img" src="' + esc(TD.logo) + '" alt="" width="36" height="36" loading="lazy">' + esc(T.logo1) + ' <i>' + esc(T.logo2) + '</i></span>' +
       '<nav class="fnav" aria-label="Enlaces rápidos"><a href="#inicio">Inicio</a>' +
         (rifasVisible() ? '<a href="#rifas">Rifas</a><a href="#como">Cómo participar</a><a href="#ganadores">Ganadores</a><a href="#reglas">Reglas</a>' : '') +
         (itemsVisible() ? '<a href="#comprar">Comprar items</a><a href="#vender">Vender items</a>' : '') + (setsVisible() ? '<a href="#sets">Sets Caché</a>' : '') + '<a href="#paginas-web">Páginas web</a></nav>' +
@@ -2832,7 +2833,7 @@
     (function () {
       var a = html.split("@@VISTA@@"), b = a[1].split("@@FIN@@");
       var inicioHtml = '<section class="hero gutter" id="inicio">' + fotoBtn("hero") + '<div class="wrap">' +
-        '<img class="hero-logo" src="img/logo-v2.webp" alt="Rayas Store" width="132" height="132">' + fotoBtn("logo") +
+        '<img class="hero-logo" src="' + esc(TD.logo) + '" alt="' + esc(TD.nombre) + '" width="132" height="132">' + fotoBtn("logo") +
         tx("div", "inicioKicker", 'class="kicker"') +
         (V ? '<h1' + ed("t:inicioTitulo", "Título") + '>' + esc(T.inicioTitulo) + '</h1>' : '<h1>' + tituloHtml(T.inicioTitulo) + '</h1>') +
         tx("p", "inicioSub") +
@@ -3154,7 +3155,7 @@
       titulo = "Completa tu perfil";
       var ses0 = leerSesion() || {};
       cuerpo = '<form class="drawer-body form" id="formCompletar">' +
-        '<p class="hint">' + (ses0.email ? 'Entraste con <b>' + esc(ses0.email) + '</b>, pero aún no tienes perfil en Rayas Store.' : '¡Listo, entraste con Steam!') + ' Completa tu perfil (WhatsApp y trade link) para comprar y participar en las rifas.</p>' +
+        '<p class="hint">' + (ses0.email ? 'Entraste con <b>' + esc(ses0.email) + '</b>, pero aún no tienes perfil en ' + esc(TD.nombre) + '.' : '¡Listo, entraste con Steam!') + ' Completa tu perfil (WhatsApp y trade link) para comprar y participar en las rifas.</p>' +
         '<div class="field"><label for="c-nombre">Nombre o apodo</label><input id="c-nombre" maxlength="40" required autocomplete="nickname"' + (steamPre && steamPre.nom ? ' value="' + esc(steamPre.nom) + '"' : '') + '></div>' +
         campoSteam("c-steam", steamPre && steamPre.sid ? steamPre.sid : "") + '<div class="field"><label for="c-trade">Link de intercambio de Steam (trade link)</label><input id="c-trade" inputmode="url" required placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…">' +
         '<p class="hint">' + TRADE_AYUDA + '</p></div>' +
@@ -3327,7 +3328,7 @@
     }).then(function (r) { if (!r.ok) throw new Error(r.status === 403 ? "Firebase no te deja leer los pedidos." : "Error " + r.status); return r.json(); })
       .then(function (j) {
         admin.pedidos = (j || []).filter(function (x) { return x.document; }).map(function (x) { return leerPedidoDoc(x.document); })
-          .filter(function (p) { return p.tienda !== "litlejacob"; })
+          .filter(function (p) { return p.tienda !== TD.otra.id; })
           .sort(function (a, b) { return (b.fecha || 0) - (a.fecha || 0); });
         admin.pedMsg = ""; admin.pedCargando = false; render();
         if (admin.pedidos.some(botVivo)) vigilarBot();
@@ -3659,7 +3660,7 @@
       return '<section class="ped' + (p.estado === "cancelado" ? ' can' : '') + '"><header><div><b>' + esc(p.code) + '</b><small>' + esc(p.fecha ? p.fecha.toLocaleString("es-PE") : "—") + ' · ' + esc(origen) + (p.tienda ? ' · ' + esc(p.tienda === "rayas" ? "Rayas Store" : "LitleJacob Store") : '') + '</small></div>' + chip(p.estado) + '<b class="tot">' + fmtPrecio(p.total) + '</b></header>' + (its || '<p class="sin">Sin detalle de items.</p>') + '</section>';
     }).join("");
     return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-      '<title>Informe de compras · ' + esc(u ? u.nombre : "Cliente") + ' · Rayas Store</title><style>' +
+      '<title>Informe de compras · ' + esc(u ? u.nombre : "Cliente") + ' · ' + esc(TD.nombre) + '</title><style>' +
       ':root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:#0b0e1c;color:#eef1f8;padding:28px 18px 60px}' +
       '.caja{max-width:860px;margin:0 auto}h1{font-size:22px;margin:0}h1 b{color:#ffd34d}.sub{color:#9aa3b5;margin:4px 0 20px;font-size:13px}' +
       '.cli{display:flex;flex-wrap:wrap;gap:8px 22px;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px 16px;background:rgba(255,255,255,.04);margin-bottom:14px;font-size:14px}.cli span{color:#9aa3b5}.cli b{font-weight:700}' +
@@ -3672,7 +3673,7 @@
       '.itn{flex:1;min-width:0}.itq{color:#9aa3b5}.itp{font-variant-numeric:tabular-nums}.sin{color:#9aa3b5;padding:10px 16px;margin:0}' +
       '.pie{color:#9aa3b5;font-size:12px;margin-top:24px;text-align:center}@media print{body{background:#fff;color:#111}}' +
       '</style></head><body><div class="caja">' +
-      '<h1><b>RAYAS STORE</b> · Informe de compras</h1><p class="sub">Generado el ' + esc(new Date().toLocaleString("es-PE")) + '</p>' +
+      '<h1><b>' + esc(TD.nombreMayus) + '</b> · Informe de compras</h1><p class="sub">Generado el ' + esc(new Date().toLocaleString("es-PE")) + '</p>' +
       (u ? '<div class="cli"><b>' + esc(u.nombre || "(sin nombre)") + '</b>' +
         (u.email ? '<span>✉ ' + esc(u.email) + '</span>' : '') +
         (u.whatsapp ? '<span>📱 ' + esc(u.whatsapp) + '</span>' : '') +
@@ -3680,7 +3681,7 @@
         '<span>Saldo actual: <b style="color:#3dd68c">S/ ' + esc(fmtSol(u.creditos)) + '</b></span></div>' : '') +
       '<div class="res"><div><small>Compras</small><b>' + vivos.length + '</b></div><div class="acc"><small>Total gastado</small><b>' + fmtPrecio(gastado) + '</b></div><div><small>Items comprados</small><b>' + nItems + '</b></div><div><small>Primera compra</small><b style="font-size:14px">' + esc(prim ? prim.toLocaleDateString("es-PE") : "—") + '</b></div><div><small>Última compra</small><b style="font-size:14px">' + esc(ult ? ult.toLocaleDateString("es-PE") : "—") + '</b></div></div>' +
       (filas || '<p class="sin">Este cliente todavía no tiene compras.</p>') +
-      '<p class="pie">Rayas Store · rayas.trade · Informe para uso del administrador</p></div></body></html>';
+      '<p class="pie">' + esc(TD.nombre) + ' · ' + esc(TD.dominio) + ' · Informe para uso del administrador</p></div></body></html>';
   }
   function abrirInforme(uid) {
     var u = usuarioPorUid(uid);
@@ -3731,7 +3732,7 @@
     if (ctx && ctx.p) {
       var p = ctx.p, esGan = p.ganadorUid === uid;
       if (esGan && soloDigitos(u.whatsapp)) {
-        var aviso = "¡Felicidades " + u.nombre + "! 🏆 Ganaste la rifa de " + p.nombre + " en RAYAS STORE. Te enviaremos el item por Steam a tu trade link. ¡Gracias por participar! 🎉";
+        var aviso = "¡Felicidades " + u.nombre + "! 🏆 Ganaste la rifa de " + p.nombre + " en " + TD.nombreMayus + ". Te enviaremos el item por Steam a tu trade link. ¡Gracias por participar! 🎉";
         h += '<div class="fbtns"><a class="btn btn-fuchsia btn-sm" target="_blank" rel="noopener" href="' + esc(waLinkA(waNum(u.whatsapp), aviso)) + '">Avisar al ganador por WhatsApp</a></div>';
       }
       h += '<div class="frow"><span>Tickets</span><div class="adjq"><button class="iconbtn" type="button" data-a="cantPart" data-d="-1" data-uid="' + id + '" data-id="' + esc(p.id) + '"' + ((ctx.cantidad || 1) <= 1 ? ' disabled' : '') + ' aria-label="Quitar un ticket">−</button><b>' + (ctx.cantidad || 1) + '</b><button class="iconbtn" type="button" data-a="cantPart" data-d="1" data-uid="' + id + '" data-id="' + esc(p.id) + '" aria-label="Sumar un ticket">+</button><small>Ajuste manual: no cobra ni devuelve saldo.</small></div></div>';
@@ -3818,7 +3819,7 @@
   }
   function crearCuentaPrueba() {
     var n = ((admin.usuarios || []).filter(function (u) { return /^Prueba \d+/.test(u.nombre); }).length) + 1, r = Math.random().toString(36).slice(2, 8);
-    var d = { nombre: "Prueba " + n, email: "prueba" + n + "." + r + "@prueba.rayas.trade", pass: "Prueba-" + r + "9", wsp: "+51900000000", trade: "", cred: "100" };
+    var d = { nombre: "Prueba " + n, email: "prueba" + n + "." + r + "@" + TD.correoPrueba, pass: "Prueba-" + r + "9", wsp: "+51900000000", trade: "", cred: "100" };
     crearCuentaAdmin(d);
   }
   function crearCuentaAdmin(pre) {
@@ -4710,16 +4711,16 @@
   }
   function irASeccion() {
     var h = String(location.hash || "").replace("#", "");
-    if (/^item\//.test(h)) { vistaActual = "comprar"; cargarItems(); render(); hidratarImgs(); window.scrollTo(0, 0); var iq = itemPorId(idItemHash()); document.title = iq ? iq.nombre + " • Rayas Store" : "Rayas Store · Items, Sets y Rifas de Dota 2 en soles"; return; }
+    if (/^item\//.test(h)) { vistaActual = "comprar"; cargarItems(); render(); hidratarImgs(); window.scrollTo(0, 0); var iq = itemPorId(idItemHash()); document.title = iq ? iq.nombre + " • " + TD.nombre : TD.nombre + " · Items, Sets y Rifas de Dota 2 en soles"; return; }
     if (/^comprar\//.test(h)) { vistaActual = "comprar"; aplicarRutaCatalogo(); cargarItems(); render(); hidratarImgs(); window.scrollTo(0, 0); return; }
     if (h === "comprar" && vistaActual === "comprar") { filtros.tipo = ""; filtros.heroe = ""; filtros.pag = 0; }
     if (!VISTA_HASH[h]) return;
     var antes = vistaActual;
     if (/^perfil/.test(h)) { cuenta.msg = ""; cuenta.msgTipo = ""; cuenta.claveAbierta = false; }
     render();
-    if (vistaActual === "perfil") { if (antes !== "perfil") window.scrollTo(0, 0); document.title = "Mi perfil • Rayas Store"; return; }
-    if (vistaActual === "web") { window.scrollTo(0, 0); document.title = "Creación de páginas web • Rayas Store"; return; }
-    if (antes === "perfil" || antes === "web") document.title = "Rayas Store · Items, Sets y Rifas de Dota 2 en soles";
+    if (vistaActual === "perfil") { if (antes !== "perfil") window.scrollTo(0, 0); document.title = "Mi perfil • " + TD.nombre; return; }
+    if (vistaActual === "web") { window.scrollTo(0, 0); document.title = "Creación de páginas web • " + TD.nombre; return; }
+    if (antes === "perfil" || antes === "web") document.title = TD.nombre + " · Items, Sets y Rifas de Dota 2 en soles";
     var el = (h === "inicio" || h === "rifas" && antes !== vistaActual) ? null : document.getElementById(h);
     if (el) el.scrollIntoView(); else if (antes !== vistaActual || h === "inicio") window.scrollTo(0, 0);
   }

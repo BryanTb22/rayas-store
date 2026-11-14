@@ -3,6 +3,7 @@
 <head>
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
 <meta charset="utf-8">
+<script src="tienda.js?v=1"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Rayas Store · Items, Sets y Rifas de Dota 2 en soles</title>
 <meta name="description" content="Compra y vende items de Dota 2, Sets Caché y rifas con precios en soles. Recarga saldo con Yape y recibe tus items por Steam.">
@@ -42,10 +43,11 @@
 /* Interruptor del TEMA NUEVO. Encendido por defecto.
    Para volver al diseño anterior:  rayas.trade/?tema=clasico  (se recuerda en este navegador).  Para el nuevo otra vez:  ?tema=nuevo */
 (function () {
+  var K = (window.TIENDA && window.TIENDA.claves) || { tema: "rayas_tema", temporada: "rayas_temporada" };
   try {
     var q = (location.search.match(/[?&]tema=([a-z]+)/) || [])[1];
-    if (q === "clasico") localStorage.setItem("rayas_tema", "clasico"); else if (q === "nuevo") localStorage.removeItem("rayas_tema");
-    if (localStorage.getItem("rayas_tema") === "clasico") return;
+    if (q === "clasico") localStorage.setItem(K.tema, "clasico"); else if (q === "nuevo") localStorage.removeItem(K.tema);
+    if (localStorage.getItem(K.tema) === "clasico") return;
   } catch (e) { /* sin almacenamiento: se queda el tema nuevo */ }
   document.documentElement.className += " tn";
   /* TEMPORADA HALLOWEEN ("Noche de Diretide"): se prende sola del 1 de octubre al 9 de noviembre y luego vuelve
@@ -54,8 +56,8 @@
   var HW_DESDE = 1001, HW_HASTA = 1109, hoy = new Date(), md = (hoy.getMonth() + 1) * 100 + hoy.getDate(), hw = md >= HW_DESDE && md <= HW_HASTA;
   try {
     var tq = (location.search.match(/[?&]temporada=([a-z]+)/) || [])[1];
-    if (tq === "halloween" || tq === "normal") localStorage.setItem("rayas_temporada", tq); else if (tq === "auto") localStorage.removeItem("rayas_temporada");
-    var tf = localStorage.getItem("rayas_temporada"); if (tf) hw = tf === "halloween";
+    if (tq === "halloween" || tq === "normal") localStorage.setItem(K.temporada, tq); else if (tq === "auto") localStorage.removeItem(K.temporada);
+    var tf = localStorage.getItem(K.temporada); if (tf) hw = tf === "halloween";
   } catch (e) { /* sin almacenamiento: manda la fecha */ }
   var f = document.createElement("link"); f.rel = "stylesheet"; f.href = "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap" + (hw ? "&family=Cinzel+Decorative:wght@700;900&family=Creepster" : ""); document.head.appendChild(f);
   if (hw) {
@@ -78,12 +80,12 @@
 <script id="estado" type="application/json">{"whatsapp":"","premios":[]}</script>
 <div id="app"></div>
 <script src="fotos.js?v=3"></script>
-<script src="sets.js?v=4"></script>
+<script src="sets.js?v=5"></script>
 <script src="previa.js?v=1"></script>
 <script src="bot-panel.js?v=2"></script>
 <script src="servicios.js?v=3"></script>
 <script src="portafolio.js?v=1"></script>
-<script src="app.js?v=179"></script>
+<script src="app.js?v=180"></script>
 <script src="legal.js?v=6" defer></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "1e5c6386f46a47bda6fc268f6182b9d4"}'></script><!-- End Cloudflare Web Analytics -->
 </body>

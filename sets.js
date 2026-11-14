@@ -10,13 +10,14 @@
 (function () {
   "use strict";
   function R() { return window.RY; }
-  var DOC = "live/rayasSets";
+  var TD = window.TIENDA || { id: "rayas", nombre: "Rayas Store", nombreMayus: "RAYAS STORE", dominio: "rayas.trade", codigo: "RY", clientePrefijo: "r_", claves: { setsCarro: "rayas_sets_carrito", setsCat: "rayas_sets_guardados_v1" } }; // ajustes de la tienda (tienda.js)
+  var DOC = "live/rayasSets";   // ETAPA 4 de "una sola web": LitleJacob tendrá su propio documento
   var URL_COMPRAR = "https://us-central1-litlejacob-store.cloudfunctions.net/comprarSets";
   var LJ_WEB = "https://litlejacob.trade/";
   var RAREZAS = ["MÍTICO", "INMORTAL", "ARCANO"];
   var DTO = [], DTO_MAX = 25;   // Rayas NO tiene promo por cantidad (functions/sets.js: sinDescuento para tienda rayas)
-  var CAP = 8, ESPERA = 30, PREF = "r_";                                // igual que functions/recordatorio.js
-  var CARRO_KEY = "rayas_sets_carrito", CAT_KEY = "rayas_sets_guardados_v1";
+  var CAP = 8, ESPERA = 30, PREF = TD.clientePrefijo;                                // igual que functions/recordatorio.js
+  var CARRO_KEY = TD.claves.setsCarro, CAT_KEY = TD.claves.setsCat;
   var ESTADOS = [["pendiente", "⏳ Pendiente"], ["pagado", "💰 Pagado"], ["entregado", "✅ Entregado"], ["cancelado", "✖ Cancelado"]];
 
   /* ---------------- utilidades ---------------- */
@@ -92,7 +93,7 @@
   function waEnlace(tel, texto) { return "https://api.whatsapp.com/send" + (esUsuarioWa(tel) ? (texto ? "?text=" + encodeURIComponent(texto) : "") : "?phone=" + tel + (texto ? "&text=" + encodeURIComponent(texto) : "")); }
   function perfilSteam(id) { return /^\d{1,11}$/.test(id || "") && typeof BigInt === "function" ? "https://steamcommunity.com/profiles/" + (BigInt("76561197960265728") + BigInt(id)).toString() : ""; }
   function claveCli(steam, nombre) { return steam ? "s" + steam : "n-" + (sinTildes(nombre || "cliente").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "cliente"); }
-  function nuevoCodigo(manual) { return "RY-" + (manual ? "M" : "") + Date.now().toString(36).toUpperCase().slice(-5) + Math.random().toString(36).toUpperCase().slice(2, 4); }
+  function nuevoCodigo(manual) { return TD.codigo + "-" + (manual ? "M" : "") + Date.now().toString(36).toUpperCase().slice(-5) + Math.random().toString(36).toUpperCase().slice(2, 4); }
   function colorRar(r) { return R() && R().colorRareza ? R().colorRareza(r) : "#8847ff"; }
   function foto(src, extra) { var h = src && R() ? R().imgTag(src, "", extra || ' loading="lazy"') : ""; return h || '<span class="sc-sinfoto" aria-hidden="true">🎁</span>'; }
 
@@ -408,7 +409,7 @@
   }
   function mensajeWsp(t) {
     var p = R().perfil();
-    return "¡Hola! 👋 Quiero comprar estos *Sets Caché* de *RAYAS STORE* 🎁\n\n" +
+    return "¡Hola! 👋 Quiero comprar estos *Sets Caché* de *" + TD.nombreMayus + "* 🎁\n\n" +
       t.ls.map(function (l, i) { return (i + 1) + ". " + l.s.name + " (" + l.s.rarity + ") — " + (l.qty > 1 ? l.qty + " x " + mon(l.s.price) + " = " : "") + mon(l.s.price * l.qty); }).join("\n") +
       "\n\n" + (t.nivel ? "Subtotal: " + mon(t.sub) + "\nDescuento " + t.nivel.pct + "%: −" + mon(t.dto) + "\n" : "") + "💰 Total: " + mon(t.tot) +
       (p ? "\n\n👤 " + (p.nombre || "") + (p.steam ? " · Steam " + p.steam : "") : "") + "\n\n¿Siguen disponibles? 🙏";
@@ -426,14 +427,14 @@
     abrirMod({ tipo: "cargando" });
     R().token().then(function (tk) {
       return fetch(URL_COMPRAR, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk },
-        body: JSON.stringify({ tienda: "rayas", items: t.ls.map(function (l) { return { id: l.s.id, qty: l.qty, name: l.s.name }; }) }) });
+        body: JSON.stringify({ tienda: TD.id, items: t.ls.map(function (l) { return { id: l.s.id, qty: l.qty, name: l.s.name }; }) }) });
     }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (x) {
         if (!x.ok || !x.j.ok) { abrirMod({ tipo: "error", msg: (x.j && x.j.error) || "No se pudo completar la compra.", volver: true }); cargarCat(true); return; }
         carro = []; guardarCarro(); pintarCli();
         var p = R().perfil();
         abrirMod({ tipo: "ok", code: x.j.code, pago: x.j.creditos, saldo: x.j.saldo,
-          msg: "Hola Rayas Store, pagué con mi saldo el pedido " + x.j.code + " (" + nSets(t.n) + ": " + nombres + "). Mi Steam: " + ((p && p.steam) || "—") + ". ¡Gracias!" });
+          msg: "Hola " + TD.nombre + ", pagué con mi saldo el pedido " + x.j.code + " (" + nSets(t.n) + ": " + nombres + "). Mi Steam: " + ((p && p.steam) || "—") + ". ¡Gracias!" });
         R().recargarPerfil();
       }).catch(function (e) { abrirMod({ tipo: "error", msg: e && e.message === "NO_SESSION" ? "Tu sesión venció. Vuelve a entrar." : "No se pudo completar la compra. No se descontó saldo; intenta de nuevo.", volver: true }); });
   }
@@ -453,7 +454,7 @@
     var msg = adm.msg ? '<p class="sc-msg ' + esc(adm.msgTipo) + '" role="status">' + esc(adm.msg) + '</p>' : '';
     if (!cat.cargado || cat.deCache) { admEl.innerHTML = '<p class="hint">Cargando catálogo…</p>'; cargarCat(true); return; }
     var agot = cat.sets.filter(function (s) { return !disponible(s); }).length, stock = cat.sets.reduce(function (a, s) { return a + (s.stock || 0); }, 0);
-    var h = '<div class="grp"><label class="cfg-row' + (cat.visible ? ' on' : '') + '"><span class="cfg-tx"><b>🎁 Sets Caché</b><small>Sección de sets en el menú de Rayas Store.</small><em>' + (cat.visible ? 'VISIBLE para los clientes' : 'OCULTA: solo tú la ves') + '</em></span><input type="checkbox" class="sc-vis"' + (cat.visible ? ' checked' : '') + '><span class="cfg-sw" aria-hidden="true"></span></label>' + msg + '</div>';
+    var h = '<div class="grp"><label class="cfg-row' + (cat.visible ? ' on' : '') + '"><span class="cfg-tx"><b>🎁 Sets Caché</b><small>Sección de sets en el menú de ' + esc(TD.nombre) + '.</small><em>' + (cat.visible ? 'VISIBLE para los clientes' : 'OCULTA: solo tú la ves') + '</em></span><input type="checkbox" class="sc-vis"' + (cat.visible ? ' checked' : '') + '><span class="cfg-sw" aria-hidden="true"></span></label>' + msg + '</div>';
     if (adm.form) return (admEl.innerHTML = h + formHtml(), void R().hidratar());
     h += '<div class="sc-stats"><div><b>' + cat.sets.length + '</b><span>Sets</span></div><div><b>' + (cat.sets.length - agot) + '</b><span>Disponibles</span></div><div><b>' + agot + '</b><span>Agotados</span></div><div><b>' + stock + '</b><span>Unidades</span></div></div>';
     h += '<div class="sc-acts"><button type="button" class="btn btn-yellow btn-sm" data-s="admNuevo">+ Agregar set</button>' +
@@ -623,9 +624,9 @@
   function nombreBonito(n) { return String(n || "").trim().toLowerCase().replace(/(^|\s)(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }); }
   function msgEntrega(o) {
     return ["✅ *¡PEDIDO ENTREGADO!* ✅", "", "Hola *" + (nombreBonito(o.customerName).split(" ")[0] || "") + "* ⚔️",
-      "Tu pedido *" + (o.code || o._id) + "* de *Rayas Store* ya está en tu inventario de Dota 2 ✨", "", "*Sets entregados:*",
+      "Tu pedido *" + (o.code || o._id) + "* de *" + TD.nombre + "* ya está en tu inventario de Dota 2 ✨", "", "*Sets entregados:*",
       (o.items || []).map(function (it) { return "⚡ " + (it.qty > 1 ? it.qty + " × " : "") + it.name; }).join("\n"), "",
-      "➡️ Abre Dota 2, revisa tu inventario y equípalo.", "⭐ Si te gustó la atención, recomiéndanos con tus amigos.", "❤️ ¡Gracias por tu compra! Cualquier duda, escríbeme por aquí.", "", "— *Rayas Store* · rayas.trade"].join("\n");
+      "➡️ Abre Dota 2, revisa tu inventario y equípalo.", "⭐ Si te gustó la atención, recomiéndanos con tus amigos.", "❤️ ¡Gracias por tu compra! Cualquier duda, escríbeme por aquí.", "", "— *" + TD.nombre + "* · " + TD.dominio].join("\n");
   }
   // Lista de clientes: los de los pedidos + las fichas de Rayas + las cuentas de la web
   function clientes() {
@@ -981,7 +982,7 @@
     var sub = r2(lineas.reduce(function (t, l) { return t + l.price * l.qty; }, 0));
     var code = nuevoCodigo(true);
     var pedido = { code: code, customerName: cli.name, steamId: cli.steamId || "", phone: cli.phone || "", items: lineas, count: lineas.reduce(function (n, l) { return n + l.qty; }, 0),
-      subtotal: sub, discount: 0, total: sub, status: estado, createdAt: cuando, tienda: "rayas" };
+      subtotal: sub, discount: 0, total: sub, status: estado, createdAt: cuando, tienda: TD.id };
     if (estado === "entregado") pedido.entregadoDia = isoDe(cuando);
     if (extra) Object.assign(pedido, extra);
     var conStock = esVenta(pedido) && rastreados(pedido).length && window.confirm("¿Descontar del stock los sets de esta compra (" + rastreados(pedido).map(function (it) { return it.name; }).join(", ") + ")?");
@@ -1255,7 +1256,7 @@
   function ctaFormHtml() {
     var f = S.ctaForm;
     return '<div class="grp sc-form sc-ctaform"><h3>' + (f.nueva ? 'Nueva cuenta de Steam' : 'Editar cuenta') + '</h3>' +
-      '<div class="field"><label for="sc-c-nick">Nick de Steam *</label><input id="sc-c-nick" data-cf="nick" maxlength="40" value="' + esc(f.nick) + '" placeholder="Ej. RAYAS STORE #1"></div>' +
+      '<div class="field"><label for="sc-c-nick">Nick de Steam *</label><input id="sc-c-nick" data-cf="nick" maxlength="40" value="' + esc(f.nick) + '" placeholder="Ej. ' + esc(TD.nombreMayus) + ' #1"></div>' +
       '<div class="field"><label for="sc-c-perfil">Enlace del perfil de Steam</label><input id="sc-c-perfil" data-cf="perfil" maxlength="200" inputmode="url" value="' + esc(f.perfil) + '" placeholder="https://steamcommunity.com/id/…"><small class="hint">En Steam: tu perfil → clic derecho en la página → Copiar dirección (URL).</small></div>' +
       '<div class="field"><label for="sc-c-desc">Frase llamativa (la ven los clientes)</label><input id="sc-c-desc" data-cf="desc" maxlength="160" value="' + esc(f.desc) + '" placeholder="' + esc(FRASES[0].replace("{nick}", f.nick || "esta cuenta")) + '"></div>' +
       '<div class="sc-acts"><button type="button" class="btn btn-ghost btn-sm" data-s="ctaSugerir">✨ Sugerir otra frase</button></div>' +
