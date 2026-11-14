@@ -28,7 +28,9 @@ const REGION = "us-central1";
 const RECORDATORIO_MIN_HORAS = 2;    // no antes de 2 h después de generar el código
 const RECORDATORIO_MAX_HORAS = 20;   // ni después de 20 h (ya casi vence)
 const EXPIRA_HORAS = 25;             // pasadas 25 h la orden ya venció: se marca "expirada"
-const ORIGENES = ["https://rayas.trade", "https://www.rayas.trade", "https://litlejacob.trade", "https://www.litlejacob.trade"];
+// Direcciones desde las que se acepta usar el servidor. prueba.* = web nueva (una sola web) en Cloudflare Pages, para probar antes del cambio.
+const ORIGENES = ["https://rayas.trade", "https://www.rayas.trade", "https://litlejacob.trade", "https://www.litlejacob.trade",
+  "https://prueba.rayas.trade", "https://prueba.litlejacob.trade"];
 
 /* ---------- utilidades ---------- */
 async function uidDeLaPeticion(req) {
