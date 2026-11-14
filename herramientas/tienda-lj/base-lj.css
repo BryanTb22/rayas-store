@@ -1,0 +1,54 @@
+/* Parte A MANO del tema de LitleJacob. Se agrega al final de tema-lj.css al generarlo, así que gana sobre lo generado.
+   Aquí van las variables de la paleta, las fuentes y los detalles que el generador no puede adivinar. */
+:root {
+  --bg: #09080a;
+  --bg-2: #0d0b0e;
+  --panel: #141215;
+  --raised: #1c191d;
+  --line: #3d3f45;
+  --fg: #eef0f3;
+  --muted: #8b9097;
+  --yellow: #e0202a;        /* en Rayas amarillo (comprar)  → en LitleJacob rojo */
+  --yellow-2: #c4c8ce;
+  --on-yellow: #ffffff;
+  --fuchsia: #c4c8ce;       /* en Rayas fucsia (vender)     → en LitleJacob plata (sin fucsia) */
+  --on-fuchsia: #111214;
+  --sangre: #c8161f;
+  --sangre-hi: #e0202a;
+  --acero: #c4c8ce;
+  --acero-hi: #eef0f3;
+  --acero-grad: linear-gradient(180deg, #f4f5f7 0%, #c4c8ce 45%, #8e9299 100%);
+  --num: "Oswald", "Arial Narrow", Impact, sans-serif;
+  --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --art-hero: url("img/art-sombra.jpg");
+}
+body { background: radial-gradient(1200px 600px at 85% -10%, rgba(200, 22, 31, .14), transparent 60%), var(--bg); }
+
+/* Portada: título en acero, "DOTA 2" en rojo, logo en gris como en LitleJacob */
+html.tn .hero h1 { background: linear-gradient(180deg, #ffffff 0%, #d9dce1 55%, #9a9ea6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.tn .hero h1 em { background: linear-gradient(180deg, #ff4048, #c8161f); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.tn .hero::after { filter: none; }
+html.tn .hero .hero-logo, html.tn #inicio .hero-logo { filter: grayscale(1) contrast(1.08) brightness(.95) drop-shadow(0 14px 30px rgba(0, 0, 0, .6)); }
+
+/* Logo en texto: LITLEJACOB en acero, STORE en rojo (como la web original) */
+html.tn .logo span { background: linear-gradient(180deg, #ffffff 0%, #d9dce1 55%, #9a9ea6 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.tn .logo i { background: linear-gradient(180deg, #ff4048, #c8161f 70%, #8e0f16); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* Títulos de sección: segunda palabra en rojo */
+html.tn .sec-title h2 span:not(.t1) { background: linear-gradient(180deg, #ff4048, #c8161f); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* Botón secundario en plata (en Rayas es fucsia): texto oscuro para que se lea */
+.btn-fuchsia, html.tn .btn-fuchsia { background: var(--acero-grad); color: #111214; }
+
+/* Sets Caché: nivel dentro del cofre (como la web original de LitleJacob) y lotes con vencimiento (panel admin) */
+.sc-tier { padding: 0 7px; border-radius: 999px; border: 1px solid currentColor; font-size: 11px; letter-spacing: .04em; }
+.sc-tier.t0 { color: #a8a29e; }
+.sc-tier.t1 { color: #22c55e; }
+.sc-tier.t2 { color: #f0803c; }
+.sc-tier.t3 { color: #fbbf24; }
+.sc-lchip.lt-red { border-color: #e0202a; color: #ff8a8f; background: rgba(224, 32, 42, .12); }
+.sc-lchip.lt-amber { border-color: #d99a1e; color: #f3c564; background: rgba(217, 154, 30, .10); }
+.sc-lchip.lt-ok { border-color: #2f9e5b; color: #7fd8a1; background: rgba(47, 158, 91, .10); }
+.sc-lchip.lt-dead { border-color: #55585e; color: #8b9097; text-decoration: line-through; }
+.sc-lchip.lt-free { color: #c4c8ce; }
+.sc-lalerta { border-color: rgba(224, 32, 42, .5); background: rgba(224, 32, 42, .08); }
+.sc-cofre-tx b { background: var(--acero-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }

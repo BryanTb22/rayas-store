@@ -5,7 +5,7 @@
    Para cambiar textos o el WhatsApp, editar solo el bloque SERV de abajo. */
 (function () {
   "use strict";
-  var LJ = /litlejacob/i.test(location.hostname) || /[?&]tienda=litlejacob/.test(location.search);
+  var LJ = window.TIENDA ? !!window.TIENDA.esLJ : (/litlejacob/i.test(location.hostname) || /[?&]tienda=litlejacob/.test(location.search));   // tienda.js
   var TIENDA = LJ ? "LitleJacob Store" : "Rayas Store";
 
   var SERV = {
