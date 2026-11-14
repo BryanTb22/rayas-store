@@ -1032,7 +1032,9 @@
   var ITEM_CALIDADES = ["Standard", "Genuine", "Unusual", "Inscribed", "Autographed", "Heroic", "Corrupted", "Frozen", "Cursed", "Infused", "Exalted"];
   var items = { lista: [], cargado: false, cargando: false, err: "" };
   var avisoNuevoItem = false;
-  var filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "mayor", pag: 0 };
+  // Filtros de "Comprar items" (estilo LIS Skins, como el Buscador del panel del bot): rareza, calidad y ranura admiten varias a la vez.
+  function filtrosVacios() { return { q: "", min: "", max: "", tipo: "", heroe: "", ranura: [], rareza: [], calidad: [], orden: "mayor", pag: 0 }; }
+  var filtros = filtrosVacios();
   var elegirMsg = null;
   function sinTildes(t) { return String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
   function fmtPrecio(n) { return "S/ " + (Math.round(Number(n) * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
@@ -1133,15 +1135,16 @@
     var exacto = distintos("heroe", HEROES_DOTA).some(function (x) { return sinTildes(x) === f; });
     var v = sinTildes(h || ""); return exacto ? v === f : v.indexOf(f) >= 0;
   }
-  function itemsFiltrados() {
+  // sin = un filtro que no se aplica (para contar cuántos items hay en cada opción de ese filtro)
+  function itemsFiltrados(sin) {
     var q = sinTildes(filtros.q), mn = parseFloat(filtros.min), mx = parseFloat(filtros.max);
     var l = items.lista.filter(function (it) {
       if (!it.activo && !admin.puede) return false;
       if (filtros.tipo && it.tipo !== filtros.tipo) return false;
-      if (filtros.heroe && !heroeCoincide(it.heroe)) return false;
-      if (filtros.ranura && it.ranura !== filtros.ranura) return false;
-      if (filtros.rareza && it.rareza !== filtros.rareza) return false;
-      if (filtros.calidad && it.calidad !== filtros.calidad) return false;
+      if (sin !== "heroe" && filtros.heroe && !heroeCoincide(it.heroe)) return false;
+      if (sin !== "ranura" && filtros.ranura.length && filtros.ranura.indexOf(it.ranura) < 0) return false;
+      if (sin !== "rareza" && filtros.rareza.length && filtros.rareza.indexOf(it.rareza) < 0) return false;
+      if (sin !== "calidad" && filtros.calidad.length && filtros.calidad.indexOf(it.calidad) < 0) return false;
       if (isFinite(mn) && it.precio < mn) return false;
       if (isFinite(mx) && it.precio > mx) return false;
       if (q && sinTildes(it.nombre + " " + it.heroe + " " + it.tipo).indexOf(q) < 0) return false;
@@ -1229,14 +1232,113 @@
     });
     return h + '<button type="button" class="btn btn-ghost btn-sm" data-a="' + accion + '" data-p="' + (act + 1) + '"' + (act >= total - 1 ? ' disabled' : '') + ' aria-label="Página siguiente">›</button></nav>';
   }
-  var filtAbierto = null;   // null = automático (abierto en pantallas anchas, cerrado en celular)
+  /* ===== COLUMNA DE FILTROS estilo LIS Skins (como el Buscador del panel del bot, Bryan 14/11/2026) =====
+     Secciones que se abren y cierran (precio, héroe con retratos, rareza, calidad, ranura) con cuántos items hay en cada opción.
+     En celular la columna sale como ventana lateral con "Ver resultados". */
+  var filtCel = false;   // celular: columna de filtros abierta
+  var mlAbiertos = { precio: true, heroe: true, rareza: true, calidad: false, ranura: false };
+  function mlSec(k, titulo, res, cuerpo) {
+    return '<details class="ml-sec" data-ml="' + k + '"' + (mlAbiertos[k] ? ' open' : '') + '><summary>' + titulo + '<span class="ml-res">' + esc(res || "") + '</span></summary><div class="ml-cuerpo">' + cuerpo + '</div></details>';
+  }
+  // Cuántos items (tarjetas) hay en cada opción de un filtro, con los demás filtros puestos
+  function cuentaPor(k) { var m = {}; itemsFiltrados(k).forEach(function (it) { var v = it[k]; if (v) m[v] = (m[v] || 0) + 1; }); return m; }
+  function mlOpciones(k, lista, colores) {
+    var cnt = cuentaPor(k), sel = filtros[k];
+    var vals = lista.filter(function (v) { return cnt[v] || sel.indexOf(v) >= 0; });
+    if (!vals.length) return '<span class="ml-mini">Ningún item con los filtros de ahora.</span>';
+    return '<div class="ml-lista">' + vals.map(function (v) {
+      var on = sel.indexOf(v) >= 0;
+      return '<label class="ml-op' + (on ? ' sel' : '') + '"><input type="checkbox" class="ml-chk" data-k="' + k + '" value="' + esc(v) + '"' + (on ? ' checked' : '') + '>' +
+        (colores ? '<i class="pt" style="background:' + (colores[v] || '#8b949e') + '"></i>' : '') + '<span>' + esc(v) + '</span><em>' + (cnt[v] || 0) + '</em></label>';
+    }).join("") + '</div>';
+  }
+  function resLista(a) { return !a.length ? "" : a.length === 1 ? a[0] : a.length + " elegidas"; }
+  function filtrosLadoHtml() {
+    var precio = filtros.min && filtros.max ? "S/ " + filtros.min + " – " + filtros.max : filtros.min ? "desde S/ " + filtros.min : filtros.max ? "hasta S/ " + filtros.max : "";
+    var rh = retratoHeroe(filtros.heroe);
+    return '<div class="ml-cab"><b>Filtros</b><button type="button" class="ml-x" data-a="fCel" aria-label="Cerrar filtros">✕</button></div>' +
+      mlSec("precio", "Precio", precio, '<div class="ml-precio"><input id="fi-min" inputmode="decimal" placeholder="Desde S/" value="' + esc(filtros.min) + '" aria-label="Precio desde"><input id="fi-max" inputmode="decimal" placeholder="Hasta S/" value="' + esc(filtros.max) + '" aria-label="Precio hasta"></div>') +
+      mlSec("heroe", "Héroe", filtros.heroe, '<button type="button" class="heroe-btn' + (filtros.heroe ? ' activo' : '') + '" data-a="fHeroe">' +
+        (filtros.heroe ? (rh ? '<img src="' + esc(rh) + '" alt="" referrerpolicy="no-referrer">' : '') + '<span>' + esc(filtros.heroe) + '</span><i aria-label="Quitar héroe">✕</i>' : 'Héroe: Todos') + '</button>' +
+        (filtros.heroe ? '' : '<span class="ml-mini">Toca para elegir el héroe con sus retratos.</span>')) +
+      mlSec("rareza", "Rareza", resLista(filtros.rareza), mlOpciones("rareza", LISTA_RAREZAS.filter(Boolean), COLOR_OPCION)) +
+      mlSec("calidad", "Calidad", resLista(filtros.calidad), '<span class="ml-mini">Sin marcar = todas.</span>' + mlOpciones("calidad", distintos("calidad", ITEM_CALIDADES))) +
+      mlSec("ranura", "Ranura", resLista(filtros.ranura), '<span class="ml-mini">Sin marcar = todas.</span>' + mlOpciones("ranura", distintos("ranura", SLOTS_DOTA))) +
+      '<button type="button" class="ml-reset" data-a="itReset">Reiniciar filtros</button>' +
+      '<button type="button" class="btn btn-yellow ml-ver" data-a="fCel">Ver resultados (' + (items.cargado ? itemsFiltrados().length : 0) + ')</button>';
+  }
+  // Redibuja la columna (conteos, resúmenes) y la lista, sin perder lo que estás escribiendo en el precio
+  function pintarFiltros() {
+    var a = document.querySelector("#comprar .ifilt");
+    if (a) {
+      var ae = document.activeElement, id = ae && a.contains(ae) ? ae.id : "", pos = id ? ae.selectionStart : null, top = a.scrollTop;
+      a.innerHTML = filtrosLadoHtml(); a.scrollTop = top;
+      if (id) { var n = document.getElementById(id); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* nada */ } } }
+    }
+    var mg = document.querySelector("#comprar .ipg-crumb"); if (mg) mg.outerHTML = migaCatalogoHtml(filtros.tipo, filtros.heroe, "");
+    pintarItems();
+  }
+  /* ---- Héroe con retratos (como Buff / el panel del bot): agrupados por atributo, con cuántos items tiene cada uno ---- */
+  var HEROES_ATRIB = {
+    s: "Alchemist:alchemist|Axe:axe|Bristleback:bristleback|Centaur Warrunner:centaur|Chaos Knight:chaos_knight|Dawnbreaker:dawnbreaker|Doom:doom_bringer|Dragon Knight:dragon_knight|Earth Spirit:earth_spirit|Earthshaker:earthshaker|Elder Titan:elder_titan|Huskar:huskar|Kunkka:kunkka|Legion Commander:legion_commander|Lifestealer:life_stealer|Mars:mars|Night Stalker:night_stalker|Ogre Magi:ogre_magi|Omniknight:omniknight|Primal Beast:primal_beast|Pudge:pudge|Slardar:slardar|Spirit Breaker:spirit_breaker|Sven:sven|Tidehunter:tidehunter|Timbersaw:shredder|Tiny:tiny|Treant Protector:treant|Tusk:tusk|Underlord:abyssal_underlord|Undying:undying|Wraith King:skeleton_king",
+    a: "Anti-Mage:antimage|Arc Warden:arc_warden|Bloodseeker:bloodseeker|Bounty Hunter:bounty_hunter|Clinkz:clinkz|Drow Ranger:drow_ranger|Ember Spirit:ember_spirit|Faceless Void:faceless_void|Gyrocopter:gyrocopter|Hoodwink:hoodwink|Juggernaut:juggernaut|Kez:kez|Luna:luna|Medusa:medusa|Meepo:meepo|Monkey King:monkey_king|Morphling:morphling|Naga Siren:naga_siren|Phantom Assassin:phantom_assassin|Phantom Lancer:phantom_lancer|Razor:razor|Riki:riki|Shadow Fiend:nevermore|Slark:slark|Sniper:sniper|Spectre:spectre|Templar Assassin:templar_assassin|Terrorblade:terrorblade|Troll Warlord:troll_warlord|Ursa:ursa|Viper:viper|Weaver:weaver",
+    i: "Ancient Apparition:ancient_apparition|Chen:chen|Crystal Maiden:crystal_maiden|Dark Seer:dark_seer|Dark Willow:dark_willow|Disruptor:disruptor|Enchantress:enchantress|Grimstroke:grimstroke|Invoker:invoker|Jakiro:jakiro|Keeper of the Light:keeper_of_the_light|Leshrac:leshrac|Lich:lich|Lina:lina|Lion:lion|Muerta:muerta|Nature's Prophet:furion|Necrophos:necrolyte|Oracle:oracle|Outworld Destroyer:obsidian_destroyer|Puck:puck|Pugna:pugna|Queen of Pain:queenofpain|Ringmaster:ringmaster|Rubick:rubick|Shadow Demon:shadow_demon|Shadow Shaman:shadow_shaman|Silencer:silencer|Skywrath Mage:skywrath_mage|Storm Spirit:storm_spirit|Tinker:tinker|Warlock:warlock|Witch Doctor:witch_doctor|Zeus:zuus",
+    u: "Abaddon:abaddon|Bane:bane|Batrider:batrider|Beastmaster:beastmaster|Brewmaster:brewmaster|Broodmother:broodmother|Clockwerk:rattletrap|Dazzle:dazzle|Death Prophet:death_prophet|Enigma:enigma|Io:wisp|Lone Druid:lone_druid|Lycan:lycan|Magnus:magnataur|Marci:marci|Mirana:mirana|Nyx Assassin:nyx_assassin|Pangolier:pangolier|Phoenix:phoenix|Sand King:sand_king|Snapfire:snapfire|Techies:techies|Vengeful Spirit:vengefulspirit|Venomancer:venomancer|Visage:visage|Void Spirit:void_spirit|Windranger:windrunner|Winter Wyvern:winter_wyvern",
+  };
+  var HEROE_INFO = (function () {
+    var m = {};
+    Object.keys(HEROES_ATRIB).forEach(function (a) { HEROES_ATRIB[a].split("|").forEach(function (p) { var x = p.split(":"); m[x[0]] = { n: x[0], k: x[1], attr: a }; }); });
+    return m;
+  })();
+  var ATRIB = { s: ["Fuerza", "#e5534b"], a: ["Agilidad", "#3fb950"], i: ["Inteligencia", "#58a6ff"], u: ["Universal", "#d29922"], o: ["Otros", "#8b949e"] };
+  function retratoHeroe(n) { var h = HEROE_INFO[n]; return h && h.k ? "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/" + h.k + ".png" : ""; }
+  var selHeroe = { attr: "", q: "", soloCon: true }, hdlg = null;
+  function abrirHeroes() {
+    selHeroe.q = "";
+    if (!hdlg) { hdlg = document.createElement("div"); hdlg.className = "hdlg"; document.body.appendChild(hdlg); }
+    hdlg.innerHTML = '<div class="scrim scrim-top" data-a="hCerrar"></div><div class="hdlg-box" role="dialog" aria-modal="true" aria-label="Elegir héroe">' +
+      '<div class="h-top"><b class="h-tit">Elige un héroe</b><button type="button" class="btn btn-ghost btn-sm" data-a="hCerrar">Cerrar</button>' +
+      '<input id="h-q" type="search" placeholder="Buscar héroe…" autocomplete="off">' +
+      '<div class="h-attr" role="group" aria-label="Atributo"></div>' +
+      '<label class="h-solo"><input type="checkbox" id="h-solo"' + (selHeroe.soloCon ? ' checked' : '') + '> Solo con items</label></div>' +
+      '<div class="h-cuerpo" id="h-cuerpo"></div></div>';
+    document.body.classList.add("hdlg-on");
+    pintarHeroes();
+    if (window.innerWidth > 820) { var q = document.getElementById("h-q"); if (q) q.focus(); }
+  }
+  function cerrarHeroes() { if (hdlg) hdlg.innerHTML = ""; document.body.classList.remove("hdlg-on"); }
+  function pintarHeroes() {
+    var box = document.getElementById("h-cuerpo"); if (!box) return;
+    var at = hdlg.querySelector(".h-attr");
+    if (at) at.innerHTML = [["", "Todos"], ["s", "Fuerza"], ["a", "Agilidad"], ["i", "Inteligencia"], ["u", "Universal"]].map(function (x) { return '<button type="button" class="itab' + (selHeroe.attr === x[0] ? ' on' : '') + '" data-a="hAttr" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join("");
+    var cnt = cuentaPor("heroe"), q = sinTildes(selHeroe.q).trim(), grupos = { s: [], a: [], i: [], u: [], o: [] };
+    var nombres = Object.keys(HEROE_INFO);
+    Object.keys(cnt).forEach(function (n) { if (!HEROE_INFO[n]) nombres.push(n); });   // héroes que no están en la lista (nuevos o con otro nombre)
+    nombres.forEach(function (n) {
+      var h = HEROE_INFO[n] || { n: n, k: "", attr: "o" }, c = cnt[n] || 0;
+      if (selHeroe.attr && h.attr !== selHeroe.attr) return;
+      if (q && sinTildes(n).indexOf(q) < 0) return;
+      if (selHeroe.soloCon && !c) return;
+      grupos[h.attr].push({ n: n, k: h.k, c: c });
+    });
+    var html = Object.keys(grupos).filter(function (a) { return grupos[a].length; }).map(function (a) {
+      var l = grupos[a].sort(function (x, y) { return x.n.localeCompare(y.n); });
+      return '<h4><i style="background:' + ATRIB[a][1] + '"></i>' + ATRIB[a][0] + ' <small>' + l.filter(function (h) { return h.c; }).length + ' con items</small></h4><div class="h-grid">' +
+        l.map(function (h) {
+          var src = retratoHeroe(h.n);
+          return '<button type="button" class="' + (h.c ? '' : 'cero') + (h.n === filtros.heroe ? ' sel' : '') + '" data-a="hElegir" data-v="' + esc(h.n) + '" title="' + esc(h.n) + ': ' + h.c + (h.c === 1 ? ' item' : ' items') + '">' +
+            (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '<span class="h-sin" aria-hidden="true">' + esc(h.n.charAt(0)) + '</span>') + '<span>' + esc(h.n) + '</span>' + (h.c ? '<em>' + h.c + '</em>' : '') + '</button>';
+        }).join("") + '</div>';
+    }).join("");
+    box.innerHTML = html || '<div class="empty"><strong>Ningún héroe</strong><span>' + (selHeroe.soloCon ? 'Quita "Solo con items" o cambia la búsqueda.' : 'Prueba con otro nombre.') + '</span></div>';
+  }
   function chipsActivos() {
     var l = [];
     if (filtros.tipo) l.push(["tipo", "Tipo", filtros.tipo]);
     if (filtros.heroe) l.push(["heroe", "Héroe", filtros.heroe]);
-    if (filtros.ranura) l.push(["ranura", "Ranura", filtros.ranura]);
-    if (filtros.rareza) l.push(["rareza", "Rareza", filtros.rareza]);
-    if (filtros.calidad) l.push(["calidad", "Calidad", filtros.calidad]);
+    filtros.rareza.forEach(function (v) { l.push(["rareza:" + v, "Rareza", v]); });
+    filtros.calidad.forEach(function (v) { l.push(["calidad:" + v, "Calidad", v]); });
+    filtros.ranura.forEach(function (v) { l.push(["ranura:" + v, "Ranura", v]); });
     if (filtros.min || filtros.max) l.push(["precio", "Precio", filtros.min && filtros.max ? "S/ " + filtros.min + " – S/ " + filtros.max : filtros.min ? "desde S/ " + filtros.min : "hasta S/ " + filtros.max]);
     if (filtros.q) l.push(["q", "Búsqueda", filtros.q]);
     return l;
@@ -1250,7 +1352,7 @@
   function pintarItems() {
     var g = document.getElementById("itemsGrid"); if (!g) return;
     var ch = document.getElementById("itemsChips"); if (ch) ch.innerHTML = chipsHtml();
-    var fc = document.getElementById("filtCount"); if (fc) { var n = chipsActivos().filter(function (c) { return c[0] !== "q"; }).length; fc.textContent = n ? " (" + n + ")" : ""; }
+    var fc = document.getElementById("filtCount"); if (fc) { var n = chipsActivos().filter(function (c) { return c[0] !== "q"; }).length; fc.textContent = n ? n : ""; }
     g.innerHTML = gridItemsHtml(); hidratarImgs();
     var c = document.getElementById("itemsCuenta"); if (c) c.textContent = items.cargado ? itemsFiltrados().length + " items" : "";
   }
@@ -1300,29 +1402,35 @@
       return '<button type="button" class="itab' + (filtros.tipo === t ? ' on' : '') + '" data-a="itTipo" data-v="' + esc(t) + '">' + esc(t) + '</button>';
     })).join("");
     var nFilt = chipsActivos().filter(function (c) { return c[0] !== "q"; }).length;
-    var filt = '<aside class="ifilt"><details' + ((filtAbierto === null ? window.innerWidth > 820 : filtAbierto) ? ' open' : '') + '><summary>Filtros<span id="filtCount">' + (nFilt ? ' (' + nFilt + ')' : '') + '</span></summary>' +
-      '<div class="ff"><label>Precio (S/)</label><div class="ff2"><input id="fi-min" inputmode="decimal" placeholder="Desde" value="' + esc(filtros.min) + '"><input id="fi-max" inputmode="decimal" placeholder="Hasta" value="' + esc(filtros.max) + '"></div></div>' +
-      '<div class="ff"><label for="fi-heroe">Héroe</label><input id="fi-heroe" type="search" list="dl-fheroe" autocomplete="off" placeholder="Escribe o elige un héroe" value="' + esc(filtros.heroe) + '"><datalist id="dl-fheroe">' + distintos("heroe", HEROES_DOTA).map(function (h) { return '<option value="' + esc(h) + '">'; }).join("") + '</datalist></div>' +
-      '<div class="ff"><label for="fi-ranura">Ranura</label><select id="fi-ranura">' + opciones(distintos("ranura", SLOTS_DOTA), filtros.ranura, "Todas") + '</select></div>' +
-      '<div class="ff"><label for="fi-rareza">Rareza</label><select id="fi-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), filtros.rareza, "Todas") + '</select></div>' +
-      '<div class="ff"><label for="fi-calidad">Calidad</label><select id="fi-calidad">' + opciones(distintos("calidad", ITEM_CALIDADES), filtros.calidad, "Todas") + '</select></div>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-a="itReset" style="width:100%">Restablecer filtros</button></details></aside>';
+    var filt = '<div class="ml-fondo" data-a="fCel" aria-hidden="true"></div><aside class="ifilt ml' + (filtCel ? ' abierto' : '') + '" aria-label="Filtros">' + filtrosLadoHtml() + '</aside>';
     return '<section class="section gutter" id="comprar"><div class="wrap">' + migaCatalogoHtml(filtros.tipo, filtros.heroe, "") +
       '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><p>Elige tu item y págalo con tu saldo o por WhatsApp.</p><div class="orn">◆</div></div>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala con el interruptor de abajo cuando esté lista.</p>') + switchItems() +
       (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkAbrir">📦 Stock de items</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + importarHtml() : '') +
       '<div class="itabs">' + tabs + '</div>' +
-      '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar items…" value="' + esc(filtros.q) + '" autocomplete="off">' +
+      '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar item o héroe…" value="' + esc(filtros.q) + '" autocomplete="off">' +
+      '<button type="button" class="btn btn-ghost btn-sm ibar-filt" data-a="fCel" aria-label="Abrir filtros">⚙ Filtros<b id="filtCount">' + (nFilt ? nFilt : '') + '</b></button>' +
       '<select id="fi-orden" aria-label="Ordenar">' + [["nuevo", "Más nuevos"], ["menor", "Precio: menor a mayor"], ["mayor", "Precio: mayor a menor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (filtros.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
       '<span class="icount" id="itemsCuenta">' + (items.cargado ? itemsFiltrados().length + ' items' : '') + '</span></div><div class="fchips" id="itemsChips">' + chipsHtml() + '</div>' + (avisoNuevoItem ? '<div class="itaviso" role="status">✔ Item agregado. Mantuve tus filtros, así que quizá no lo veas en la lista. <button type="button" class="fchip limpiar" data-a="itReset">Quitar filtros</button></div>' : '') + '<div id="itemsGrid">' + gridItemsHtml() + '</div></div></div></div></section>';
   }
-  document.addEventListener("toggle", function (ev) { var d = ev.target; if (d && d.tagName === "DETAILS" && d.closest && d.closest("#comprar .ifilt")) filtAbierto = d.open; }, true);
+  // Se recuerda qué secciones de la columna de filtros están abiertas (para que no se cierren al redibujar)
+  document.addEventListener("toggle", function (ev) { var d = ev.target; if (d && d.tagName === "DETAILS" && d.classList.contains("ml-sec")) mlAbiertos[d.getAttribute("data-ml")] = d.open; }, true);
+  document.addEventListener("change", function (ev) {
+    var el = ev.target;
+    if (el && el.classList && el.classList.contains("ml-chk")) {   // casillas de rareza / calidad / ranura
+      var k = el.getAttribute("data-k"), v = el.value;
+      filtros[k] = el.checked ? filtros[k].concat([v]) : filtros[k].filter(function (x) { return x !== v; });
+      filtros.pag = 0; pintarFiltros();
+    } else if (el && el.id === "h-solo") { selHeroe.soloCon = el.checked; pintarHeroes(); }
+  });
+  document.addEventListener("input", function (ev) { if (ev.target && ev.target.id === "h-q") { selHeroe.q = ev.target.value; pintarHeroes(); } });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && document.body.classList.contains("hdlg-on")) cerrarHeroes(); });
   function filtroEvento(el) {
     var id = el.id;
-    var mapa = { "fi-q": "q", "fi-min": "min", "fi-max": "max", "fi-heroe": "heroe", "fi-ranura": "ranura", "fi-rareza": "rareza", "fi-calidad": "calidad", "fi-orden": "orden" };
+    var mapa = { "fi-q": "q", "fi-min": "min", "fi-max": "max", "fi-orden": "orden" };
     if (!mapa[id]) return false;
     if (filtros[mapa[id]] === el.value) return true;   // al salir del campo no se vuelve a pintar (si no, el primer clic en una tarjeta se pierde)
-    filtros[mapa[id]] = el.value; filtros.pag = 0; pintarItems(); if (id === "fi-heroe") sincHash(); return true;
+    filtros[mapa[id]] = el.value; filtros.pag = 0; if (id === "fi-orden") pintarItems(); else pintarFiltros(); return true;
   }
   function itemPorId(id) { for (var k = 0; k < items.lista.length; k++) if (items.lista[k].id === id) return items.lista[k]; return null; }
   /* ===== Página de un item (#item/<id>) ===== */
@@ -4140,8 +4248,19 @@
       case "cantPart": var xq = (partes[t.getAttribute("data-id")] || []).filter(function (y) { return y.uid === t.getAttribute("data-uid"); })[0]; if (xq) guardarCantidad(t.getAttribute("data-id"), xq.uid, xq.cantidad + Number(t.getAttribute("data-d"))); break;
       case "relMov": var rf = t.closest(".ofr").querySelector(".rel-fila"); if (rf) rf.scrollBy({ left: Number(t.getAttribute("data-d")) * Math.max(220, rf.clientWidth * 0.8), behavior: "smooth" }); break;
       case "itTipo": filtros.tipo = t.getAttribute("data-v") || ""; filtros.pag = 0; render(); sincHash(); break;
-      case "itQuitar": var kq = t.getAttribute("data-k"); if (kq === "precio") { filtros.min = ""; filtros.max = ""; } else if (kq && filtros.hasOwnProperty(kq)) filtros[kq] = ""; filtros.pag = 0; render(); sincHash(); break;
-      case "itReset": avisoNuevoItem = false; filtros = { q: "", min: "", max: "", tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", orden: "mayor", pag: 0 }; render(); sincHash(); break;
+      case "itQuitar":
+        var kq = t.getAttribute("data-k") || "", kv = kq.split(":");
+        if (kq === "precio") { filtros.min = ""; filtros.max = ""; }
+        else if (kv.length > 1 && Array.isArray(filtros[kv[0]])) { var vq = kq.slice(kv[0].length + 1); filtros[kv[0]] = filtros[kv[0]].filter(function (x) { return x !== vq; }); }
+        else if (kq && filtros.hasOwnProperty(kq)) filtros[kq] = "";
+        filtros.pag = 0; render(); sincHash(); break;
+      case "itReset": avisoNuevoItem = false; var ordenR = filtros.orden; filtros = filtrosVacios(); filtros.orden = ordenR; filtCel = false; render(); sincHash(); break;
+      // columna de filtros estilo LIS Skins
+      case "fHeroe": if (filtros.heroe) { filtros.heroe = ""; filtros.pag = 0; pintarFiltros(); sincHash(); } else abrirHeroes(); break;
+      case "fCel": filtCel = !filtCel; var fa = document.querySelector("#comprar .ifilt"); if (fa) fa.classList.toggle("abierto", filtCel); document.body.classList.toggle("ifilt-on", filtCel); break;
+      case "hElegir": filtros.heroe = t.getAttribute("data-v") || ""; filtros.pag = 0; cerrarHeroes(); pintarFiltros(); sincHash(); break;
+      case "hAttr": selHeroe.attr = t.getAttribute("data-v") || ""; pintarHeroes(); break;
+      case "hCerrar": cerrarHeroes(); break;
       case "itPag": filtros.pag = Math.max(0, Number(t.getAttribute("data-p")) || 0); pintarItems(); var gp = document.getElementById("itemsGrid"); if (gp && gp.scrollIntoView) gp.scrollIntoView({ block: "start", behavior: "smooth" }); break;
       case "stRefrescar": steamRefrescar(); break;
       case "irSteam": break; // el enlace se abre solo; no abre la ficha del item
