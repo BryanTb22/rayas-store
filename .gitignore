@@ -5,3 +5,4 @@ bot-steam/.env
 bot-steam/secretos/
 bot-steam/poll.json
 *.maFile
+.wrangler/
