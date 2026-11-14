@@ -44,10 +44,17 @@
    Para volver al diseño anterior:  rayas.trade/?tema=clasico  (se recuerda en este navegador).  Para el nuevo otra vez:  ?tema=nuevo */
 (function () {
   var K = (window.TIENDA && window.TIENDA.claves) || { tema: "rayas_tema", temporada: "rayas_temporada" };
+  var LJ = !!(window.TIENDA && window.TIENDA.esLJ);
+  /* LitleJacob: mismas hojas de Rayas + tema-lj.css (sus colores y fuentes), siempre al final. */
+  function temaLJ() {
+    if (!LJ) return;
+    var fl = document.createElement("link"); fl.rel = "stylesheet"; fl.href = "https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"; document.head.appendChild(fl);
+    var tl = document.createElement("link"); tl.rel = "stylesheet"; tl.href = "tema-lj.css?v=1"; document.head.appendChild(tl);
+  }
   try {
     var q = (location.search.match(/[?&]tema=([a-z]+)/) || [])[1];
     if (q === "clasico") localStorage.setItem(K.tema, "clasico"); else if (q === "nuevo") localStorage.removeItem(K.tema);
-    if (localStorage.getItem(K.tema) === "clasico") return;
+    if (localStorage.getItem(K.tema) === "clasico") { temaLJ(); return; }
   } catch (e) { /* sin almacenamiento: se queda el tema nuevo */ }
   document.documentElement.className += " tn";
   /* TEMPORADA HALLOWEEN ("Noche de Diretide"): se prende sola del 1 de octubre al 9 de noviembre y luego vuelve
@@ -59,6 +66,7 @@
     if (tq === "halloween" || tq === "normal") localStorage.setItem(K.temporada, tq); else if (tq === "auto") localStorage.removeItem(K.temporada);
     var tf = localStorage.getItem(K.temporada); if (tf) hw = tf === "halloween";
   } catch (e) { /* sin almacenamiento: manda la fecha */ }
+  if (LJ) hw = false;   // PENDIENTE (antes del 1/10/2027): Halloween de LitleJacob en el código único (temporada.js / HW_CONFIG)
   var f = document.createElement("link"); f.rel = "stylesheet"; f.href = "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap" + (hw ? "&family=Cinzel+Decorative:wght@700;900&family=Creepster" : ""); document.head.appendChild(f);
   if (hw) {
     document.documentElement.className += " hw";
@@ -67,8 +75,9 @@
   }
   var l = document.createElement("link"); l.rel = "stylesheet"; l.href = hw ? "hw-tema-nuevo.css?v=1" : "tema-nuevo.css?v=27"; document.head.appendChild(l);
   if (hw) { var th = document.createElement("link"); th.rel = "stylesheet"; th.href = "tema-halloween.css?v=1"; document.head.appendChild(th); }
+  temaLJ();
   document.addEventListener("DOMContentLoaded", function () {
-    var s = document.createElement("script"); s.src = "tema-nuevo.js?v=7"; document.body.appendChild(s);
+    var s = document.createElement("script"); s.src = "tema-nuevo.js?v=8"; document.body.appendChild(s);
     if (!hw) return;
     var lg = document.createElement("link"); lg.rel = "stylesheet"; lg.href = "hw-legal.css?v=2"; document.head.appendChild(lg);
     var h = document.createElement("script"); h.src = "tema-halloween.js?v=1"; document.body.appendChild(h);

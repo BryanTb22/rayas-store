@@ -8,10 +8,12 @@
   document.body.insertBefore(cv, document.body.firstChild); document.body.insertBefore(fondo, cv);
   var ctx = cv.getContext("2d"), W = 0, H = 0, ps = [], vivo = true, reducir = false;
   try { reducir = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { /* sin matchMedia */ }
+  var LJ = !!(window.TIENDA && window.TIENDA.esLJ);   // LitleJacob: brasas rojas y chispas de acero
   function nueva(abajo) {
-    var f = Math.random() > .35;   // amarillo dorado o fucsia
+    var f = Math.random() > .35;   // Rayas: amarillo dorado o fucsia · LitleJacob: rojo o acero
+    var h = LJ ? (f ? 354 + Math.random() * 8 : 220) : (f ? 44 + Math.random() * 8 : 328 + Math.random() * 14);
     return { x: Math.random() * W, y: abajo ? H + 10 : Math.random() * H, r: Math.random() * 2.1 + .6, vy: -(Math.random() * .42 + .1), vx: (Math.random() - .5) * .28,
-      a: Math.random() * .6 + .2, t: Math.random() * 6.28, ts: Math.random() * .03 + .008, h: f ? 44 + Math.random() * 8 : 328 + Math.random() * 14 };
+      a: Math.random() * .6 + .2, t: Math.random() * 6.28, ts: Math.random() * .03 + .008, h: h, s: LJ && !f ? "8%" : "95%" };
   }
   function medir() {
     W = cv.width = window.innerWidth; H = cv.height = window.innerHeight;
@@ -37,8 +39,8 @@
       if (p.y < -10) ps[i] = nueva(true); else if (p.x < -10) p.x = W + 10; else if (p.x > W + 10) p.x = -10;
       var al = p.a * (.55 + .45 * Math.sin(p.t * 3));
       // Brillo con un halo tenue (barato); shadowBlur por partícula era lo más pesado del dibujo.
-      ctx.fillStyle = "hsla(" + p.h + ",95%,55%," + (al * .22) + ")"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3.4, 0, 6.2832); ctx.fill();
-      ctx.fillStyle = "hsla(" + p.h + ",95%,62%," + al + ")"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = "hsla(" + p.h + "," + p.s + ",55%," + (al * .22) + ")"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 3.4, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = "hsla(" + p.h + "," + p.s + ",62%," + al + ")"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
     }
   }
   if (!reducir) requestAnimationFrame(cuadro);
