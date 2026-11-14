@@ -13,6 +13,16 @@ Entrega por Steam los items que compran en **Comprar items** (las dos tiendas).
 
 Estados que verás en el pedido: ⏳ en cola → 📤 enviando → 📨 oferta enviada → ✅ aceptada · ✖ fallida · ⏸ retenida · 🚫 cancelada.
 
+## Vender skins (el cliente le vende items a la tienda) — v1.2
+1. En la web (Vender skins) el cliente elige sus items y toca **Vender ahora**: el servidor congela los precios 30 min y le da un código **V-XXXXX**.
+2. El cliente le manda un trade al bot con ese código en el mensaje.
+3. El bot lo acepta **solo si**: el código existe y no venció, viene de la misma cuenta de Steam del trade link, trae **exactamente** esos items, el bot no entrega nada y el cliente tiene Steam Guard móvil. Si no, lo rechaza y la web le dice por qué.
+4. Cuando Steam completa el trade, le suma el saldo **una sola vez** (venta → pagada). Todo queda en el registro del panel.
+5. Trades sin código o que le piden items al bot **no se tocan**.
+6. Cada hora sube la lista de precios del motor del bot LIS a `live/preciosCompra` (`PRECIOS_COMPRA_URL` en el .env).
+- Piloto: en la página Vender skins → panel admin → **💰 Vender skins** se elige quién puede vender, los topes y el trade link del bot.
+- Si pausas el bot desde el panel, tampoco acepta ventas (los trades esperan hasta que lo reanudes).
+
 ## Reglas importantes
 - **No juegues ni inicies sesión con bryanmax007 en otro lado**: Steam cierra la sesión del bot (se reconecta solo en ~10 minutos).
 - En esa cuenta deja **solo los items que vendes**: el bot puede enviar cualquier item de su inventario.

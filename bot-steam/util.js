@@ -92,7 +92,46 @@ function leerConfig(env) {
     mafile: env.MAFILE,
     credenciales: env.FIREBASE_CREDENCIALES,
     vencerHoras: Math.max(1, Number(env.VENCER_OFERTA_HORAS) || 48),
+    // Lista de precios de compra del panel del bot LIS (mismo servidor). Vacío = no sincroniza.
+    preciosUrl: env.PRECIOS_COMPRA_URL === undefined ? "http://127.0.0.1:8787/api/precios-compra" : String(env.PRECIOS_COMPRA_URL),
   };
+}
+
+/* ---------- Vender skins (el cliente le vende items a la tienda) ---------- */
+// Código de la venta en el mensaje del trade: "V-ABC12" (igual que functions/ventas.js).
+function codigoVenta(msg) {
+  const m = /\bV\s*-\s*([A-Z0-9]{5})\b/i.exec(String(msg || ""));
+  return m ? "V-" + m[1].toUpperCase() : "";
+}
+// ¿El trade trae exactamente los items de la venta? recibidos: [{ market_hash_name, appid }] · lineas: [{ name, qty }]
+function comparaRecibidos(recibidos, lineas) {
+  const falta = new Map(), sobra = [];
+  for (const l of lineas || []) falta.set(normalizar(l.name), (falta.get(normalizar(l.name)) || 0) + Number(l.qty || 0));
+  for (const it of recibidos || []) {
+    const k = normalizar(it.market_hash_name || it.name);
+    if (Number(it.appid) !== 570 || !falta.get(k)) { sobra.push(it.market_hash_name || it.name || "?"); continue; }
+    falta.set(k, falta.get(k) - 1);
+  }
+  const faltan = [];
+  falta.forEach((n, k) => { if (n > 0) faltan.push(n + " × " + k); });
+  return { ok: !faltan.length && !sobra.length, faltan, sobra };
+}
+// Revisa una oferta recibida contra su venta. Devuelve "" si está bien o el motivo del rechazo.
+// venta: { estado, steamId, vence (ms), items } · oferta: { partnerId, darCount, recibidos } · ahora (ms)
+function revisarVenta(venta, oferta, ahora) {
+  if (!venta) return "No existe una venta con ese código.";
+  if (venta.estado !== "esperando") return "La venta ya no está esperando (" + venta.estado + ").";
+  if (venta.vence && ahora > venta.vence) return "La venta venció (los precios duran poco). Crea una nueva en la web.";
+  if (String(oferta.partnerId) !== String(venta.steamId)) return "El trade viene de otra cuenta de Steam (no la del trade link de la venta).";
+  if (oferta.darCount > 0) return "El trade le pide items al bot; en una venta el bot no entrega nada.";
+  const c = comparaRecibidos(oferta.recibidos, venta.items);
+  if (!c.ok) return "Los items no coinciden con la venta" + (c.faltan.length ? ". Faltan: " + c.faltan.join(", ") : "") + (c.sobra.length ? ". Sobran: " + c.sobra.slice(0, 5).join(", ") : "") + ".";
+  return "";
+}
+// Achica la lista de /api/precios-compra para guardarla en un solo documento de Firestore.
+function preciosLivianos(r) {
+  const items = ((r && r.items) || []).filter((i) => i && i.n && Number(i.pen) > 0).map((i) => ({ n: String(i.n), pen: Number(i.pen) }));
+  return { ts: (r && r.ts) || "", tc: (r && r.tc) || null, provisional: !!(r && r.provisional), items };
 }
 
 // Agrupa el inventario por nombre para mostrarlo en el panel: [{ nombre, cantidad, icono, color, rareza }]
@@ -110,4 +149,4 @@ function agruparInventario(items) {
   return [...m.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
 
-module.exports = { agruparInventario, leerTradelink, normalizar, elegirItems, estadoDeOferta, mensajeOferta, codigoDeMensaje, leerConfig, fechaPeru };
+module.exports = { agruparInventario, leerTradelink, normalizar, elegirItems, estadoDeOferta, mensajeOferta, codigoDeMensaje, leerConfig, fechaPeru, codigoVenta, comparaRecibidos, revisarVenta, preciosLivianos };

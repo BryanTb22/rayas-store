@@ -61,3 +61,28 @@ test("agruparInventario suma unidades y arma el ícono", () => {
   assert.match(g[1].icono, /economy\/image\/abc\//);
   assert.strictEqual(g[1].color, "#D2D2D2"); assert.strictEqual(g[1].rareza, "Mythical");
 });
+
+test("codigoVenta: lee V-XXXXX del mensaje", () => {
+  assert.strictEqual(u.codigoVenta("mi codigo es v-ab3cd"), "V-AB3CD");
+  assert.strictEqual(u.codigoVenta("Pedido RY-123 · Rayas"), "");
+});
+
+test("revisarVenta: acepta solo lo exacto, a tiempo y de la misma cuenta", () => {
+  const venta = { estado: "esperando", steamId: "7656", vence: 1000, items: [{ name: "Golden Moonfall", qty: 2 }] };
+  const it = (n, appid) => ({ market_hash_name: n, appid: appid || 570 });
+  const ok = { partnerId: "7656", darCount: 0, recibidos: [it("Golden Moonfall"), it("Golden Moonfall")] };
+  assert.strictEqual(u.revisarVenta(venta, ok, 500), "");
+  assert.match(u.revisarVenta(null, ok, 500), /No existe/);
+  assert.match(u.revisarVenta({ ...venta, estado: "pagada" }, ok, 500), /ya no está esperando/);
+  assert.match(u.revisarVenta(venta, ok, 2000), /venció/);
+  assert.match(u.revisarVenta(venta, { ...ok, partnerId: "999" }, 500), /otra cuenta/);
+  assert.match(u.revisarVenta(venta, { ...ok, darCount: 1 }, 500), /no entrega nada/);
+  assert.match(u.revisarVenta(venta, { ...ok, recibidos: [it("Golden Moonfall")] }, 500), /Faltan: 1 × golden moonfall/);
+  assert.match(u.revisarVenta(venta, { ...ok, recibidos: [it("Golden Moonfall"), it("Golden Moonfall"), it("Arcana X")] }, 500), /Sobran: Arcana X/);
+  assert.match(u.revisarVenta(venta, { ...ok, recibidos: [it("Golden Moonfall"), it("Golden Moonfall", 730)] }, 500), /no coinciden/);
+});
+
+test("preciosLivianos: solo nombre y soles", () => {
+  const r = u.preciosLivianos({ ts: "t", tc: 3.4, provisional: true, items: [{ n: "A", ref: 1, pct: 0.5, usd: 0.5, pen: 1.7, v30: 9 }, { n: "B", pen: null }] });
+  assert.deepStrictEqual(r, { ts: "t", tc: 3.4, provisional: true, items: [{ n: "A", pen: 1.7 }] });
+});
