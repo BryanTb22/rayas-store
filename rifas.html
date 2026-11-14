@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Redirigiendo…</title>
+<script>
+/* Página vieja de LitleJacob (rifas.html): ahora todo está en la página principal. Se redirige conservando a dónde iba. */
+(function () {
+  var h = location.hash.replace(/^#/, ""), q = location.search;
+  var mapa = { "": "rifas", misrifas: "misrifas", sorteo: "sorteo", como: "como", ganadores: "ganadores", reglas: "reglas", admin: "admin" };
+  location.replace("./" + q.replace(/([?&])recargar=1(&|$)/, "$1").replace(/[?&]$/, "") + "#" + (/[?&]recargar=1/.test(q) ? "recargar" : (mapa[h] || mapa[""])));
+})();
+</script></head><body><p style="font-family:sans-serif;padding:24px">Redirigiendo… <a href="./#rifas">continuar</a></p></body></html>

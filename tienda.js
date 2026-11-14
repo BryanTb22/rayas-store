@@ -35,6 +35,7 @@
       // Secciones y opciones que existen solo en una tienda.
       tiene: {
         compro: false,
+        rifasPausa: false,
         setsPorCuenta: true,
         setsPromo: false,
         setsLotes: false,
@@ -46,6 +47,7 @@
       nombre: "LitleJacob Store",
       nombreMayus: "LITLEJACOB STORE",
       logo1: "LITLEJACOB", logo2: "STORE",
+      inicioSub: "Sets Caché, compra y venta de items y rifas de Dota 2. Precios en soles y entrega por Steam.",   // frase de la portada (se puede cambiar en el panel)
       dominio: "litlejacob.trade",
       url: "https://litlejacob.trade",
       wa: "51952997030",
@@ -67,6 +69,7 @@
       },
       tiene: {
         compro: true,
+        rifasPausa: true,          // si se apagan las rifas, página "Rifas en pausa"
         setsPorCuenta: false,
         setsPromo: true,
         setsLotes: true,

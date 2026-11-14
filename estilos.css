@@ -1413,3 +1413,11 @@ html { scroll-padding-top: 84px; }
 .field.cdf { grid-column: 1 / -1; }
 .cdf > .chk { text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 600; }
 
+
+/* Compro inventarios y cuentas (solo LitleJacob, ver tienda.js) */
+.cards2.compro { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.compro-card .kicker { margin-top: 10px; font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+.compro-lista { margin: 4px 0 18px; padding-left: 20px; color: var(--muted); text-align: left; line-height: 1.8; }
+.compro-card .btn { cursor: pointer; }
+#compro .steps { margin-top: 22px; }
+#compro .sec-title .sub { max-width: 560px; margin: 10px auto 0; color: var(--muted); }

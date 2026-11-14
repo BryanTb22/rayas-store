@@ -255,7 +255,7 @@
     kicker: "Rifas de Dota 2",
     btnRecargarNav: "Recargar",
     inicioKicker: "Tu tienda de Dota 2", inicioTitulo: "Todo para tus items de Dota 2",
-    inicioSub: "Participa en rifas de items de Dota 2 usando tu saldo. El ganador sale al azar y la entrega es por Steam.",
+    inicioSub: TD.inicioSub || "Participa en rifas de items de Dota 2 usando tu saldo. El ganador sale al azar y la entrega es por Steam.",
     cardRifasT: "Rifas", cardRifasD: "Gana items de Dota 2 con tu saldo. El ganador sale al azar.", cardRifasBtn: "Ver rifas",
     cardItemsT: "Venta de items", cardItemsD: "Compra y vende items de Dota 2 de forma segura.", cardItemsBtn: "Ver items",
     btnVer: "Ver rifas", btnCreditos: "Recargar saldo",
@@ -314,20 +314,20 @@
     });
     nt.reglas = Array.isArray(t.reglas) && t.reglas.length ? t.reglas.filter(function (x) { return typeof x === "string" && x.trim(); }) : TEXTOS_BASE.reglas.slice();
     st.textos = nt;
-    if (TD.esLJ) marcaPropia(st);
+    if (TD.esLJ) marcaPropia(st, t);
     return st;
   }
 
   /* MARCA DE CADA TIENDA: las dos webs comparten rifas, premios, contactos y textos (rayas/estado), pero el logo,
      los mensajes que dicen el nombre de la tienda y las fotos son de cada una. Rayas los guarda donde siempre
      (textos / fotos); LitleJacob los guarda aparte en  marcas.litlejacob  y, al publicar, deja los de Rayas intactos. */
-  var MARCA_TEXTOS = ["logo1", "logo2", "msgCredPerfil", "msgCredVisita"];
-  function marcaPropia(st) {
+  var MARCA_TEXTOS = ["logo1", "logo2", "msgCredPerfil", "msgCredVisita", "inicioSub"];
+  function marcaPropia(st, crudo) {   // crudo = textos tal como venían guardados (sin completar)
     var mc = (st.marcas && st.marcas[TD.id]) || {}, mt = mc.textos || {}, mf = mc.fotos || {};
     var original = { textos: {}, fotos: st.fotos };   // lo de Rayas, para devolverlo tal cual al publicar
     st.fotos = {};
     MARCA_TEXTOS.forEach(function (k) {
-      original.textos[k] = st.textos[k];
+      original.textos[k] = typeof crudo[k] === "string" ? crudo[k] : null;
       st.textos[k] = typeof mt[k] === "string" && mt[k].trim() ? mt[k] : TEXTOS_BASE[k];
     });
     ["logo", "hero", "lava", "sombra"].forEach(function (k) { st.fotos[k] = /^fs:img-[\w\-]+$/.test(String(mf[k] || "")) ? mf[k] : ""; });
@@ -338,7 +338,7 @@
     if (!TD.esLJ || !mk) return copia;
     copia.marcas = copia.marcas && typeof copia.marcas === "object" ? copia.marcas : {};
     var propia = { textos: {}, fotos: copia.fotos };
-    MARCA_TEXTOS.forEach(function (k) { propia.textos[k] = copia.textos[k]; copia.textos[k] = mk.textos[k]; });
+    MARCA_TEXTOS.forEach(function (k) { propia.textos[k] = copia.textos[k]; if (mk.textos[k] === null) delete copia.textos[k]; else copia.textos[k] = mk.textos[k]; });
     copia.marcas[TD.id] = propia;
     copia.fotos = mk.fotos;
     return copia;
@@ -2403,6 +2403,7 @@
   }
 
   var VISTA_HASH = { sets: "sets", inicio: "inicio", rifas: "rifas", sorteo: "rifas", como: "rifas", ganadores: "rifas", reglas: "rifas", comprar: "comprar", vender: "vender", perfil: "perfil", "perfil/transacciones": "perfil", "perfil/seguridad": "perfil", "paginas-web": "web" };
+  if (TD.tiene && TD.tiene.compro) VISTA_HASH.compro = "compro";   // "Compro inventarios y cuentas": solo LitleJacob
   var vistaActual = "inicio";
   function switchItems() {
     if (!admin.puede) return "";
@@ -2432,7 +2433,7 @@
     else if (vistaActual === "perfil") vistaActual = "inicio";
     if (/^item\//.test(h) || /^comprar\//.test(h)) vistaActual = "comprar";
     if ((vistaActual === "comprar" || vistaActual === "vender") && !itemsVisible()) vistaActual = "inicio";
-    if (vistaActual === "rifas" && !rifasVisible()) vistaActual = itemsVisible() ? "comprar" : "inicio";
+    if (vistaActual === "rifas" && !rifasVisible()) vistaActual = TD.tiene && TD.tiene.rifasPausa ? "rifasPausa" : itemsVisible() ? "comprar" : "inicio";
     return vistaActual;
   }
   // Menú desplegable de usuario (en todas las secciones): datos de la cuenta, recargar, perfil, transacciones y cerrar sesión.
@@ -2466,6 +2467,7 @@
     var nav = lk("inicio", "inicio", "Inicio", true) +
       lk("comprar", "comprar", "Comprar<span class=\"mk-lg\"> items</span>" + (estado.secciones.items ? '' : ' 🔒'), itemsVisible()) +
       lk("vender", "vender", "Vender<span class=\"mk-lg\"> items</span>" + (estado.secciones.items ? '' : ' 🔒'), itemsVisible()) +
+      (VISTA_HASH.compro ? lk("compro", "compro", "Compro", true) : '') +
       lk("sets", "sets", "Sets<span class=\"mk-lg\"> Caché</span>" + (setsOn() ? '' : ' 🔒'), setsVisible()) +
       lk("rifas", "rifas", "Rifas" + (rifasOn() ? '' : ' 🔒'), rifasVisible(), ' rifas') +
       (window.portafolioWeb ? lk("paginas-web", "web", "Páginas web", true, ' web') : '');
@@ -2877,6 +2879,7 @@
           return '<a class="svc frame' + (estado.secciones.items ? ' gold' : '') + '" href="#' + v + '"><div class="in">' + (estado.secciones.items ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">' + (c ? '🛒' : '💰') + '</span><h3>' + (c ? 'Comprar items' : 'Vender items') + '</h3><p>' + (c ? 'Compra items de Dota 2 de forma segura.' : 'Vende tus items de Dota 2 de forma segura.') + '</p><span class="btn btn-fuchsia">' + (c ? 'Ver items' : 'Vender') + '</span></div></a>';
         }).join("") : '') +
         (setsVisible() ? '<a class="svc frame' + (setsOn() ? ' gold' : '') + '" href="#sets"><div class="in">' + (setsOn() ? '' : '<span class="oculto-tag">🔒 Oculto para clientes</span>') + '<span class="ico">🎁</span><h3>Sets Caché</h3><p>Sets de cofres de Dota 2 a buen precio, con entrega por Steam.</p><span class="btn btn-yellow">Ver sets</span></div></a>' : '') +
+        (VISTA_HASH.compro ? '<a class="svc frame gold" href="#compro"><div class="in"><span class="ico">💼</span><h3>Compro</h3><p>Compro inventarios de Dota 2 y cuentas con items exclusivos. Te hago una oferta por WhatsApp.</p><span class="btn btn-fuchsia">Quiero vender</span></div></a>' : '') +
         '</div></div></section>' + (window.serviciosDig ? window.serviciosDig.html() : '') + ultimosGanadoresHtml(cerradas);
       if (vista === "comprar") cargarItems();
       if (vista === "vender") cargarPrecios();
@@ -2886,8 +2889,9 @@
         '<div class="empty frame"><div class="in"><strong>Estamos preparando esta sección</strong><span>Muy pronto podrás ' + (vista === "vender" ? 'vender' : 'comprar') + ' items de Dota 2 aquí.</span></div></div>' +
         '</div></section>';
       var setsHtml = '<section class="section gutter" id="sets"><div class="wrap"><div id="setsSlot"></div></div></section>';
+      var comproHtml = vista === "compro" ? comproPaginaHtml() : '', pausaHtml = vista === "rifasPausa" ? rifasPausaHtml() : '';
       var webHtml = '<section class="section gutter" id="paginas-web"><div class="wrap">' + (window.portafolioWeb ? window.portafolioWeb.html() : '') + '</div></section>';
-      html = a[0] + (vista === "web" ? webHtml : vista === "sets" ? setsHtml : vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : vista === "perfil" ? perfilPaginaHtml() : inicioHtml) + b[1];
+      html = a[0] + (vista === "web" ? webHtml : vista === "compro" ? comproHtml : vista === "rifasPausa" ? pausaHtml : vista === "sets" ? setsHtml : vista === "rifas" ? (rifasOn() ? '' : '<p class="hint oculto-aviso" style="text-align:center;margin:18px auto 0;max-width:760px">🔒 Las rifas están ocultas: solo tú (administrador) las ves. Actívalas en Panel admin → Configuración.</p>') + b[0] : (vista === "comprar" || vista === "vender") ? itemsHtml : vista === "perfil" ? perfilPaginaHtml() : inicioHtml) + b[1];
     })();
     if (ruleta) html += modalRuleta();
     else if (modal && modal.tipo === "stock") html += stkPanelHtml();
@@ -4731,6 +4735,61 @@
       if (!sucio) { estado = clone(publicado); render(); }
     }).catch(function () { /* se queda con los datos incluidos en la página */ });
   }
+  /* ===== COMPRO (solo LitleJacob): compra de inventarios y cuentas, todo por WhatsApp al número de la tienda ===== */
+  function comproPaginaHtml() {
+    var wa = function (t) { return waLinkA(TD.wa, t); };
+    var tarjeta = function (ico, kicker, titulo, texto, lista, msg, boton, clase) {
+      return '<div class="svc frame gold compro-card"><div class="in"><span class="ico">' + ico + '</span><div class="kicker">' + kicker + '</div><h3>' + titulo + '</h3><p>' + texto + '</p>' +
+        '<ul class="compro-lista">' + lista.map(function (x) { return '<li>' + x + '</li>'; }).join("") + '</ul>' +
+        '<a class="btn ' + clase + '" href="' + esc(wa(msg)) + '" target="_blank" rel="noopener noreferrer">💬 ' + boton + '</a></div></div>';
+    };
+    var pasos = [["Escríbeme por WhatsApp", "Toca el botón de lo que quieres vender."], ["Muéstrame lo que tienes", "Tu inventario o los exclusivos de tu cuenta."], ["Recibe mi oferta", "Te respondo por el mismo chat."]];
+    return '<section class="section gutter" id="compro"><div class="wrap">' +
+      '<div class="ipg-crumb"><a href="#inicio">Inicio</a> <span>›</span> <span>Compro inventarios y cuentas</span></div>' +
+      '<div class="sec-title"><div class="kicker">Vende con ' + esc(TD.logo1 === "LITLEJACOB" ? "LitleJacob" : TD.nombre) + '</div><h2><span class="t1">Compro</span> <span>inventarios y cuentas</span></h2><div class="orn">◆</div>' +
+      '<p class="sub">¿Tienes items o una cuenta de Dota 2 que ya no usas? Escríbeme por WhatsApp y te hago una oferta.</p></div>' +
+      '<div class="cards2 compro">' +
+      tarjeta("🎒", "Inventarios", "Vende tu inventario", "Compro tus items tradeables de Dota 2. Envíame tu inventario y lo reviso.",
+        ["Solo items tradeables", "Envíame el enlace de tu inventario de Steam", "Te respondo por WhatsApp"],
+        "Hola " + (TD.logo1 === "LITLEJACOB" ? "LitleJacob" : TD.nombre) + ", estoy interesado en venderte mi inventario de ítems tradeables de Dota 2.", "Quiero vender mi inventario", "btn-yellow") +
+      tarjeta("👑", "Cuentas", "Vende tu cuenta", "Compro cuentas de Dota 2 que tengan items exclusivos.",
+        ["Arcanas exclusivas", "Sets exclusivos", "Otros cosméticos exclusivos de Dota 2"],
+        "Hola " + (TD.logo1 === "LITLEJACOB" ? "LitleJacob" : TD.nombre) + ", quiero venderte mi cuenta de Dota 2, que tiene ítems exclusivos como arcanas y sets exclusivos.", "Quiero vender mi cuenta", "btn-fuchsia") +
+      '</div>' +
+      '<div class="steps">' + pasos.map(function (p, i) { return '<div class="step frame"><div class="in"><span class="n">' + (i + 1) + '</span><h3>' + p[0] + '</h3><p>' + p[1] + '</p></div></div>'; }).join("") + '</div>' +
+      '</div></section>';
+  }
+  /* ===== RIFAS EN PAUSA (LitleJacob): si el admin apaga las rifas, el cliente ve este aviso en vez de otra sección ===== */
+  function rifasPausaHtml() {
+    return '<section class="section gutter" id="rifas"><div class="wrap"><div class="sec-title"><div class="kicker">Rifas de Dota 2</div><h2><span class="t1">Rifas</span> <span>en pausa</span></h2><div class="orn">◆</div></div>' +
+      '<div class="empty frame"><div class="in"><strong>Por ahora no hay rifas</strong><span>Estamos preparando las próximas. Mientras tanto, mira los Sets Caché y los items.</span>' +
+      '<p style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' + (setsOn() ? '<a class="btn btn-yellow" href="#sets">Ver Sets Caché</a>' : '') + (estado.secciones.items ? '<a class="btn btn-fuchsia" href="#comprar">Ver items</a>' : '') + '</p></div></div></div></section>';
+  }
+  /* ===== ENLACES VIEJOS de LitleJacob (de cuando tenía varias páginas): se traducen a las rutas de ahora =====
+     #items → #comprar · #items/… → #comprar/… · #sets-cache → #sets · #recargar(-wsp/-qr) · #cuenta · #misrifas · ?carrito=1 */
+  function enlacesViejos() {
+    var h = String(location.hash || "").replace(/^#\/?/, ""), q = location.search, nuevo = null, acc = null;
+    if (h === "items") nuevo = "comprar";
+    else if (/^items\//.test(h)) nuevo = "comprar/" + h.slice(6);
+    else if (h === "sets-cache") nuevo = "sets";
+    else if (h === "recargar" || h === "recargar-qr") { nuevo = "inicio"; acc = "recargar"; }
+    else if (h === "recargar-wsp") { nuevo = "inicio"; acc = "masWsp"; }
+    else if (h === "cuenta") { nuevo = "inicio"; acc = cuenta.perfil ? "miCuenta" : "entrar"; }
+    else if (h === "misrifas") { nuevo = "rifas"; acc = "misRifas"; }
+    if (/[?&]carrito=1(&|$)/.test(q)) { acc = "carAbrir"; q = q.replace(/([?&])carrito=1(&|$)/, "$1").replace(/[?&]$/, ""); }
+    if (nuevo !== null || q !== location.search) try { history.replaceState(null, "", location.pathname + q + "#" + (nuevo !== null ? nuevo : h)); } catch (e) { /* nada */ }
+    return acc;
+  }
+  function hacerAccion(a) {   // dispara la misma acción que un botón con data-a
+    if (!a) return;
+    setTimeout(function () {
+      var raiz = document.getElementById("app"); if (!raiz) return;
+      var b = document.createElement("button"); b.type = "button"; b.hidden = true; b.setAttribute("data-a", a);
+      raiz.appendChild(b); b.click(); if (b.parentNode) b.parentNode.removeChild(b);
+    }, 600);
+  }
+  var accionInicial = enlacesViejos();
+
   function revisarHash() {
     if (location.hash !== "#admin") return;
     if (admin.puede) admin.abierto = true; else cuenta.modo = "login";
@@ -4751,13 +4810,14 @@
     var el = (h === "inicio" || h === "rifas" && antes !== vistaActual) ? null : document.getElementById(h);
     if (el) el.scrollIntoView(); else if (antes !== vistaActual || h === "inicio") window.scrollTo(0, 0);
   }
-  window.addEventListener("hashchange", function () { revisarHash(); irASeccion(); });
+  window.addEventListener("hashchange", function () { var acc = enlacesViejos(); revisarHash(); irASeccion(); hacerAccion(acc); });
 
 
   /* Anuncio de promo de primera recarga: quitado (11/11/2026). */
   aplicarRutaCatalogo();
   render();
   cargarRemoto();
+  hacerAccion(accionInicial);
   cargarParts();
   revisarHash();
   (function () { var h = String(location.hash || "").replace("#", ""); var el = (h === "como" || h === "ganadores" || h === "reglas" || h === "sorteo") ? document.getElementById(h) : null; if (el) el.scrollIntoView(); })();
