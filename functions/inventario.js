@@ -31,6 +31,26 @@ function etiquetas(d) {
 }
 
 /* Agrupa por market_hash_name; solo cuenta los intercambiables. */
+// Steam a veces sigue marcando "no intercambiable" un item cuyo bloqueo ya terminó (la lista pública tarda en
+// actualizarse). Si dice "On Trade Cooldown Until: <fecha>" / "Tradable After <fecha>" y esa fecha (GMT) ya pasó, cuenta como intercambiable.
+const MESES = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+function fechaCooldown(texto) {
+  const t = String(texto || "");
+  let m = t.match(/(?:After|Until:?)\s+(?:[A-Z][a-z]{2},?\s+)?([A-Z][a-z]{2})\s+(\d{1,2}),\s+(\d{4})(?:\s*\((\d{1,2}):(\d{2})(?::(\d{2}))?\))?/);
+  if (m && MESES[m[1]] !== undefined) return Date.UTC(+m[3], MESES[m[1]], +m[2], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+  m = t.match(/(?:After|Until:?)\s+(?:[A-Z][a-z]{2}\s+)?([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s+(\d{4})/);
+  if (m && MESES[m[1]] !== undefined) return Date.UTC(+m[6], MESES[m[1]], +m[2], +m[3], +m[4], +(m[5] || 0));
+  return null;
+}
+function tradableYa(d, ahora) {
+  if (Number(d.tradable) === 1) return true;
+  const textos = [...(d.owner_descriptions || []), ...(d.descriptions || [])].map((x) => String((x && x.value) || ""));
+  const linea = textos.find((v) => /Trade Cooldown Until|Tradable After/i.test(v));
+  if (!linea) return false;
+  const hasta = fechaCooldown(linea);
+  return hasta !== null && hasta <= (ahora || Date.now());
+}
+
 function agrupar(data) {
   const desc = {};
   (data.descriptions || []).forEach((d) => { desc[d.classid + "_" + d.instanceid] = d; });
@@ -39,7 +59,7 @@ function agrupar(data) {
   (data.assets || []).forEach((a) => {
     const d = desc[a.classid + "_" + a.instanceid];
     if (!d) return;
-    if (!d.tradable) { noTradables += Number(a.amount || 1); return; }
+    if (!tradableYa(d)) { noTradables += Number(a.amount || 1); return; }
     const k = d.market_hash_name || d.name;
     if (!k) return;
     const g = grupos[k] || (grupos[k] = Object.assign({
@@ -88,7 +108,7 @@ function agruparDetalle(data) {
   (data.assets || []).forEach((a) => {
     const d = desc[a.classid + "_" + a.instanceid];
     if (!d) return;
-    if (!d.tradable) { noTradables += Number(a.amount || 1); return; }
+    if (!tradableYa(d)) { noTradables += Number(a.amount || 1); return; }
     const nombre = d.market_hash_name || d.name;
     if (!nombre) return;
     const g0 = gemasDe(d);
@@ -105,4 +125,4 @@ function agruparDetalle(data) {
   return { items: Object.keys(grupos).map((k) => grupos[k]).sort((x, y) => x.name.localeCompare(y.name)), noTradables, diag };
 }
 
-module.exports = { steamIdDeTradeLink, agrupar, agruparDetalle, etiquetas, gemasDe };
+module.exports = { steamIdDeTradeLink, agrupar, agruparDetalle, etiquetas, gemasDe, fechaCooldown, tradableYa };
