@@ -908,6 +908,8 @@
       return '<img data-fs="' + esc(id) + '"' + (ya ? ' src="' + ya + '"' : '') + ' alt="' + esc(alt) + '"' + (extra || '') + '>';
     }
     var u = safeImg(src);
+    // Fotos de Steam: pedir la original (256×170, misma forma que la tarjeta). Con tamaño (ej. 360fx360f) Steam agrega bordes transparentes.
+    if (u && /steamstatic\.com\/economy\/image\//.test(u)) u = u.replace(/\/\d+fx\d+f?$/, "");
     return u ? '<img src="' + esc(u) + '" alt="' + esc(alt) + '" decoding="async"' + (extra || '') + '>' : '';
   }
   // Pide una foto subida. Con fotos.js sale guardada del navegador (y como enlace corto); sin él, como antes.
@@ -942,6 +944,13 @@
     return '<div class="fotobtns fb-' + k + '"><button type="button" class="imgbtn" data-a="foto" data-k="' + k + '">📷 ' + esc(st || FOTO_TXT[k]) + '</button>' +
       (estado.fotos[k] ? '<button type="button" class="imgbtn" data-a="fotoQuitar" data-k="' + k + '">↺ Original</button>' : '') + '</div>';
   }
+  // Fotos cuadradas guardadas desde Steam (360×360): el item ocupa solo el centro y el resto es borde transparente.
+  // En las tarjetas y la ficha se acercan para que llenen el recuadro como las demás.
+  document.addEventListener("load", function (ev) {
+    var im = ev.target;
+    if (!im || im.tagName !== "IMG" || !im.naturalWidth || im.naturalWidth !== im.naturalHeight) return;
+    if (im.closest && im.closest(".ithumb, .ipg-foto")) im.classList.add("cuad");
+  }, true);
   function hidratarImgs() {
     var els = document.querySelectorAll("img[data-fs]:not([src])");
     for (var k = 0; k < els.length; k++) (function (el) {
