@@ -21,16 +21,16 @@
     ],
     // Trabajos (la foto va en img/studio/). "yo" = la tienda donde se está viendo.
     trabajos: [
-      { id: "ropa", t: "Tienda de ropa", real: false, tag: "Tienda completa",
+      { id: "ropa", ver: 2, t: "Tienda de ropa", real: false, tag: "Tienda completa",
         d: "Tienda online de moda con catálogo por categorías, filtros por talla y precio, buscador, favoritos y carrito con pago con tarjeta o por WhatsApp.",
         chips: ["Catálogo", "Filtros", "Carrito", "Cupones", "WhatsApp"], href: STUDIO + "/demo-ropa/" },
       { id: "marinera", t: "Alis Marinera", real: true, tag: "Catálogo",
         d: "Catálogo de faldas y trajes de marinera con tallas, galería, guía de medidas y pedidos por WhatsApp.",
         chips: ["Catálogo", "Tallas", "Galería", "WhatsApp"], href: "https://bryantb22.github.io/diseno-pagina-web-cliente-marinera/" },
-      { id: "maquillajefx", t: "Estudio de maquillaje FX", real: false, tag: "Tienda completa",
+      { id: "maquillajefx", ver: 2, t: "Estudio de maquillaje FX", real: false, tag: "Tienda completa",
         d: "Portada en video, portafolio con antes y después, cursos con temario y cupos, membresía y pago con tarjeta, Yape y Plin.",
         chips: ["Video", "Cursos", "Membresía", "Yape y Plin"], href: STUDIO + "/demo-maquillaje-fx/", vid: "maquillaje" },
-      { id: "asesor", t: "Asesor de equipos de impresión", real: false, tag: "Catálogo",
+      { id: "asesor", ver: 2, t: "Asesor de equipos de impresión", real: false, tag: "Catálogo",
         d: "Catálogo de impresoras y escáneres, recomendador según cuánto imprimes, tabla comparativa y cotización rápida por WhatsApp.",
         chips: ["Catálogo", "Recomendador", "Comparador", "WhatsApp"], href: STUDIO + "/demo-asesor/" },
       { id: "litlejacob", t: "LitleJacob Store", real: true, tag: "Plataforma propia",
@@ -105,9 +105,9 @@
   }
   // Recorrido en video de cada web (los mismos de studio.litlejacob.trade, en img/studio/casos/). Solo se reproduce cuando se ve en pantalla.
   function videoHtml(p) {
-    var v = "img/studio/casos/" + (p.vid || p.id) + "-pc";
-    return '<video class="pfw-vid" muted loop playsinline preload="none" poster="' + v + '.webp" width="1200" height="750" aria-label="Recorrido por ' + esc(p.t) + '">' +
-      '<source src="' + v + '.webm" type="video/webm"><source src="' + v + '.mp4" type="video/mp4"></video>';
+    var v = "img/studio/casos/" + (p.vid || p.id) + "-pc", q = p.ver ? "?v=" + p.ver : ""; // ver: subirlo cuando se regraba el video
+    return '<video class="pfw-vid" muted loop playsinline preload="none" poster="' + v + '.webp' + q + '" width="1200" height="750" aria-label="Recorrido por ' + esc(p.t) + '">' +
+      '<source src="' + v + '.webm' + q + '" type="video/webm"><source src="' + v + '.mp4' + q + '" type="video/mp4"></video>';
   }
   var quieto = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var obsVid = !quieto && "IntersectionObserver" in window ? new IntersectionObserver(function (ents) {
