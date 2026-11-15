@@ -918,6 +918,9 @@
       return '<img data-fs="' + esc(id) + '"' + (ya ? ' src="' + ya + '"' : '') + ' alt="' + esc(alt) + '"' + (extra || '') + '>';
     }
     var u = safeImg(src);
+    // Fotos guardadas con la dirección de LitleJacob ("https://litlejacob.trade/img/…"): las dos tiendas tienen los mismos archivos,
+    // así que se piden a la web donde se está (si una red bloquea litlejacob.trade, en rayas.trade igual se ven).
+    if (u) u = u.replace(/^https:\/\/(www\.)?litlejacob\.trade\/img\//i, "img/");
     // Fotos de Steam: pedir la original (256×170, misma forma que la tarjeta). Con tamaño (ej. 360fx360f) Steam agrega bordes transparentes.
     if (u && /steamstatic\.com\/economy\/image\//.test(u)) u = u.replace(/\/\d+fx\d+f?$/, "");
     return u ? '<img src="' + esc(u) + '" alt="' + esc(alt) + '" decoding="async"' + (extra || '') + '>' : '';
