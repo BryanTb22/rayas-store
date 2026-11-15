@@ -1,0 +1,211 @@
+/* ===== Catálogo con la interfaz de LIS Skins (Bryan, 15/11/2026) =====
+   Comprar items, Vender skins y la ficha de un item. Se carga al final (después del tema nuevo y del tema de LitleJacob),
+   así que manda sobre lo anterior. Solo usa las variables de color de cada tienda (--bg, --panel, --raised, --fg, --muted,
+   --yellow, --fuchsia…): Rayas sale en azul noche/amarillo/fucsia y LitleJacob en negro/rojo/plata.
+   Para volver al diseño anterior basta con quitar la línea que carga este archivo en index.html. */
+
+/* ---------- Letra de toda la web: IBM Plex Sans (los logos y la portada mantienen la suya) ---------- */
+:root, html.tn {
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --num: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --tn-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --tn-price: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { font-family: var(--body); }
+.sec-title h2, html.tn .sec-title h2 { font-family: var(--body); font-weight: 600; text-transform: uppercase; letter-spacing: .01em; }
+html.tn .btn, html.tn .svc-tab, html.tn .kicker { letter-spacing: .04em; }
+
+/* ---------- Medidas y colores del catálogo ---------- */
+.cat {
+  --c-panel: color-mix(in srgb, var(--panel) 82%, var(--bg));
+  --c-card: color-mix(in srgb, var(--raised) 50%, var(--bg));
+  --c-card-hi: color-mix(in srgb, var(--raised) 80%, var(--bg));
+  --c-borde: color-mix(in srgb, var(--fg) 9%, transparent);
+  --c-campo: color-mix(in srgb, var(--bg) 55%, transparent);
+  --c-txt2: color-mix(in srgb, var(--fg) 72%, var(--bg));
+  --c-acento: var(--yellow);
+  --c-on: var(--on-yellow);
+  --c-rad: 8px;
+}
+#vender.cat { --c-acento: var(--fuchsia); --c-on: var(--on-fuchsia); }
+html section.cat{ padding-top: 26px; }
+
+/* Título y ruta */
+html :is(#comprar, #vender).cat .cat-t { margin: 4px 0 22px; font: 600 28px/1.2 var(--body); letter-spacing: .01em; text-transform: uppercase; color: var(--fg); }
+html :is(#comprar, #vender).cat .ipg-crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; font: 400 14px var(--body); color: var(--muted); }
+html :is(#comprar, #vender).cat .ipg-crumb a { color: var(--muted); text-decoration: none; }
+html :is(#comprar, #vender).cat .ipg-crumb a:hover { color: var(--c-acento); }
+html :is(#comprar, #vender).cat .ipg-crumb .sep { opacity: .6; }
+html :is(#comprar, #vender).cat .ipg-crumb .act { color: var(--c-txt2); font-weight: 400; }
+
+/* Franja de tipos: texto con punto, el elegido en el color de la tienda */
+html :is(#comprar, #vender).cat .itabs { display: flex; flex-wrap: nowrap; gap: 4px 22px; overflow-x: auto; margin: 0 0 8px; padding: 13px 18px; border: 0; border-radius: var(--c-rad); background: var(--c-panel); box-shadow: none; backdrop-filter: none; scrollbar-width: none; }
+html :is(#comprar, #vender).cat .itabs::-webkit-scrollbar { display: none; }
+html :is(#comprar, #vender).cat .itab { position: relative; flex: none; padding: 2px 0 2px 12px; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--c-txt2); font: 400 15px/1.3 var(--body); letter-spacing: 0; text-transform: none; cursor: pointer; }
+html :is(#comprar, #vender).cat .itab::before { content: ""; position: absolute; left: 0; top: 50%; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%; background: currentColor; opacity: .55; }
+html :is(#comprar, #vender).cat .itab:hover { color: var(--fg); background: none; }
+html :is(#comprar, #vender).cat .itab.on { color: var(--c-acento); background: none; box-shadow: none; }
+html :is(#comprar, #vender).cat .itab.on::before { opacity: 1; }
+
+/* Estructura: filtros | catálogo (| panel de venta) */
+html :is(#comprar, #vender).cat .ishop { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 8px; align-items: start; }
+html :is(#comprar, #vender).cat .ishop.ven3 { grid-template-columns: 230px minmax(0, 1fr) 290px; }
+html :is(#comprar, #vender).cat .imain { min-width: 0; }
+
+/* Columna de filtros (secciones que se abren y cierran) */
+html :is(#comprar, #vender).cat .ifilt.ml { position: sticky; top: 74px; max-height: calc(100vh - 90px); overflow: auto; overscroll-behavior: contain; padding: 0 14px 14px; border: 0; border-radius: var(--c-rad); background: var(--c-panel); box-shadow: none; backdrop-filter: none; }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-sec { border-bottom: 1px solid var(--c-borde); }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-sec > summary { list-style: none; display: flex; align-items: center; gap: 8px; min-height: 0; padding: 15px 0; font: 400 15px/1.2 var(--body); letter-spacing: 0; text-transform: none; color: var(--fg); cursor: pointer; }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-sec > summary::-webkit-details-marker { display: none; }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-sec > summary::after { content: ""; flex: none; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); margin: -3px 4px 0 6px; transition: transform .15s; }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-sec[open] > summary::after { transform: rotate(-135deg); margin-top: 3px; }
+html :is(#comprar, #vender).cat .ml-res { color: var(--c-acento); font-weight: 500; }
+html :is(#comprar, #vender).cat .ml-mini { color: var(--muted); }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-precio { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--c-borde); border-radius: var(--c-rad); background: var(--c-campo); overflow: hidden; }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-precio input { width: 100%; min-width: 0; height: 42px; padding: 0 12px; border: 0; border-radius: 0; background: transparent; color: var(--fg); font: 400 14px var(--body); }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-precio input + input { border-left: 1px solid var(--c-borde); }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-precio input:focus { outline: none; background: color-mix(in srgb, var(--c-acento) 6%, transparent); }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-op { font: 400 14px var(--body); color: var(--c-txt2); border-radius: 6px; }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-op:hover, html :is(#comprar, #vender).cat .ifilt.ml .ml-op.sel { color: var(--fg); }
+html :is(#comprar, #vender).cat .ifilt.ml .ml-op input { flex: none; width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; accent-color: var(--c-acento); }
+html :is(#comprar, #vender).cat .heroe-btn { border: 1px solid var(--c-borde); border-radius: var(--c-rad); background: var(--c-campo); font: 400 14px var(--body); color: var(--fg); }
+html :is(#comprar, #vender).cat .heroe-btn:hover { border-color: var(--c-acento); }
+html :is(#comprar, #vender).cat .heroe-btn.activo { border-color: var(--c-acento); background: color-mix(in srgb, var(--c-acento) 12%, transparent); }
+html :is(#comprar, #vender).cat .ml-reset { margin-top: 16px; padding: 13px; border: 1px solid var(--c-borde); border-radius: var(--c-rad); background: transparent; color: var(--fg); font: 500 13px var(--body); letter-spacing: .05em; text-transform: uppercase; }
+html :is(#comprar, #vender).cat .ml-reset:hover { border-color: var(--fg); }
+
+/* Barra: ⟳ · buscador con lupa · orden (· seleccionar todo) */
+html :is(#comprar, #vender).cat .ibar { display: grid; grid-template-columns: 46px minmax(0, 1fr) 230px; gap: 8px; align-items: center; margin: 0 0 8px; padding: 8px; border-radius: var(--c-rad); background: var(--c-panel); }
+html #vender.cat .ibar { grid-template-columns: 46px minmax(0, 1fr) 210px auto; }
+html :is(#comprar, #vender).cat .ibar input, html :is(#comprar, #vender).cat .ibar select { width: 100%; height: 46px; min-height: 0; padding: 0 14px; border: 1px solid var(--c-borde); border-radius: var(--c-rad); background-color: var(--c-campo); color: var(--fg); font: 400 15px var(--body); }
+html :is(#comprar, #vender).cat .ibar input[type="search"] { padding-left: 42px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 14px center; }
+html :is(#comprar, #vender).cat .ibar input:focus, html :is(#comprar, #vender).cat .ibar select:focus { outline: none; border-color: var(--c-acento); }
+html :is(#comprar, #vender).cat .ibar-rec { width: 46px; height: 46px; padding: 0; border: 1px solid var(--c-borde); border-radius: var(--c-rad); background: transparent; color: var(--fg); font-size: 20px; line-height: 1; cursor: pointer; }
+html :is(#comprar, #vender).cat .ibar-rec:hover { border-color: var(--c-acento); color: var(--c-acento); }
+html :is(#comprar, #vender).cat .ibar-todo { height: 46px; padding: 0 16px; border: 1px solid var(--c-borde); border-radius: var(--c-rad); background: transparent; color: var(--fg); font: 500 14px var(--body); white-space: nowrap; cursor: pointer; }
+html :is(#comprar, #vender).cat .ibar-todo:hover { border-color: var(--c-acento); color: var(--c-acento); }
+html :is(#comprar, #vender).cat .ibar .icount { grid-column: 1 / -1; margin: 0 4px; }
+html :is(#comprar, #vender).cat .icount { display: block; margin: 0 0 8px 4px; font: 400 13px var(--body); color: var(--muted); }
+html :is(#comprar, #vender).cat .fchips:not(:empty) { margin: 0 0 8px; }
+
+/* Tarjetas: panel plano, brillo arriba del color de la rareza, nombre y precio */
+html :is(#comprar, #vender).cat .igrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+html :is(#comprar, #vender).cat .icard { position: relative; display: flex; flex-direction: column; min-height: 0; border: 1px solid transparent; border-radius: var(--c-rad); background: var(--c-card); overflow: hidden; box-shadow: none; backdrop-filter: none; transform: none; filter: none; transition: background-color .15s, border-color .15s; cursor: pointer; }
+html :is(#comprar, #vender).cat .icard:hover, html :is(#comprar, #vender).cat .icard:focus-visible { transform: none; box-shadow: none; outline: none; background: var(--c-card-hi); border-color: var(--c-borde); }
+html :is(#comprar, #vender).cat .ithumb { position: relative; aspect-ratio: 3 / 2; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; overflow: hidden; background: radial-gradient(120% 70% at 50% -10%, color-mix(in srgb, var(--rar, transparent) 30%, transparent), transparent 75%), color-mix(in srgb, var(--bg) 60%, transparent); }
+html :is(#comprar, #vender).cat .ithumb::after { content: ""; display: block; position: absolute; left: 0; right: 0; top: 0; bottom: auto; height: 2px; background: linear-gradient(90deg, transparent, var(--rar, transparent), transparent); box-shadow: none; opacity: .9; }
+html :is(#comprar, #vender).cat .ithumb img { object-fit: cover; }
+html :is(#comprar, #vender).cat .ithumb img { width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; }
+html :is(#comprar, #vender).cat .itag { position: absolute; z-index: 1; top: 8px; right: 8px; padding: 1px 7px; border: 0; border-radius: 4px; background: rgba(0, 0, 0, .55); font: 500 12px var(--body); color: #fff; }
+html :is(#comprar, #vender).cat .itag.agotado, html :is(#comprar, #vender).cat .itag.cdtag, html :is(#comprar, #vender).cat .itag.oc { right: auto; left: 8px; padding: 2px 8px; border-radius: 4px; font-size: 11px; color: #fff; }
+html :is(#comprar, #vender).cat .itag.agotado { background: color-mix(in srgb, var(--danger) 80%, #000); }
+html :is(#comprar, #vender).cat .itag.cdtag { top: auto; bottom: 6px; background: rgba(0, 0, 0, .65); }
+html :is(#comprar, #vender).cat .itag.oc { top: auto; bottom: 6px; background: rgba(0, 0, 0, .65); }
+html :is(#comprar, #vender).cat .ibody { display: flex; flex: 1; flex-direction: column; gap: 8px; padding: 10px 12px 12px; }
+html :is(#comprar, #vender).cat .ibody h4 { margin: 0; min-height: 2.5em; font: 400 15px/1.25 var(--body); letter-spacing: 0; color: var(--fg); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html :is(#comprar, #vender).cat .iprice { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; height: auto; margin-top: auto; padding: 0; }
+html :is(#comprar, #vender).cat .iprice b { display: inline; flex: none; font: 600 16px/1 var(--body); letter-spacing: 0; color: var(--fg); white-space: nowrap; font-variant-numeric: tabular-nums; background: none; -webkit-text-fill-color: currentColor; }
+html :is(#comprar, #vender).cat .iprice b .desde { display: inline; margin: 0; font: 400 11px var(--body); letter-spacing: 0; text-transform: none; color: var(--muted); }
+html :is(#comprar, #vender).cat .idto { flex: none; padding: 1px 6px; border-radius: 16px 2px 2px 16px; background: color-mix(in srgb, var(--yellow-2) 13%, transparent); color: color-mix(in srgb, var(--yellow-2) 85%, transparent); font: 500 11px/1.4 var(--body); }
+html :is(#comprar, #vender).cat .icart { margin-left: auto; width: 32px; height: 32px; padding: 0; border: 0; border-radius: var(--c-rad); background: var(--c-acento); color: var(--c-on); font-size: 14px; opacity: 0; transition: opacity .15s; cursor: pointer; }
+html :is(#comprar, #vender).cat .icard:hover .icart, html :is(#comprar, #vender).cat .icart:focus-visible { opacity: 1; }
+@media (hover: none) { html :is(#comprar, #vender).cat .icart { opacity: 1; } }
+html :is(#comprar, #vender).cat .icard.agot { opacity: .5; filter: none; }
+html :is(#comprar, #vender).cat .icard.oculto { border-style: dashed; border-color: var(--c-borde); }
+
+/* Esqueleto mientras carga (solo opacidad, sin sombras animadas) */
+html :is(#comprar, #vender).cat .icard.sk { min-height: 250px; cursor: default; }
+html :is(#comprar, #vender).cat .icard.sk .ithumb { background: color-mix(in srgb, var(--fg) 5%, transparent); margin: 12px; border-radius: 6px; }
+html :is(#comprar, #vender).cat .icard.sk .sk-l { animation: catPulso 1.2s ease-in-out infinite; }
+@keyframes catPulso { 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { html :is(#comprar, #vender).cat .icard.sk .sk-l { animation: none; } }
+
+/* Paginado */
+html :is(#comprar, #vender).cat .pager .btn { min-width: 40px; height: 40px; border-radius: var(--c-rad); font: 500 14px var(--body); letter-spacing: 0; }
+
+/* ---------- Vender ---------- */
+html #vender.cat .vlink { max-width: none; margin: 0 0 8px; padding: 14px 16px; border: 0; border-radius: var(--c-rad); background: var(--c-panel); }
+html #vender.cat .vlink label { display: block; margin-bottom: 8px; font: 500 14px var(--body); color: var(--c-txt2); }
+html #vender.cat .vrow input { height: 46px; padding: 0 14px; border: 1px solid var(--c-borde); border-radius: var(--c-rad); background: var(--c-campo); font: 400 14px var(--body); }
+html #vender.cat .vrow input:focus { border-color: var(--c-acento); }
+html #vender.cat .vrow .btn { height: 46px; border-radius: var(--c-rad); }
+html #vender.cat .vayuda { margin-top: 8px; }
+html #vender.cat .vayuda summary { display: inline; font: 400 13px var(--body); color: var(--c-acento); text-decoration: underline; cursor: pointer; }
+html #vender.cat .vayuda .hint { margin: 8px 0 0; text-align: left; }
+html #vender.cat .vmio { margin-top: 8px; }
+html #vender.cat .vcard.vsel { border-color: var(--c-acento); background: color-mix(in srgb, var(--c-acento) 9%, var(--c-card)); outline: none; }
+html #vender.cat .vcheck { position: absolute; top: 8px; left: 8px; width: 20px; height: 20px; border-radius: 5px; background: var(--c-acento); color: var(--c-on); font: 700 13px/20px var(--body); text-align: center; }
+html #vender.cat .vcard:not(.vsel):not(.voff) .ithumb::before { content: ""; position: absolute; top: 8px; left: 8px; width: 18px; height: 18px; border: 1.5px solid color-mix(in srgb, var(--fg) 35%, transparent); border-radius: 5px; opacity: 0; transition: opacity .15s; }
+html #vender.cat .vcard:not(.vsel):not(.voff):hover .ithumb::before { opacity: 1; }
+html #vender.cat .vstep { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
+html #vender.cat .vstep button { width: 30px; height: 30px; padding: 0; border: 1px solid var(--c-borde); border-radius: 6px; background: transparent; color: var(--fg); font-size: 16px; cursor: pointer; }
+html #vender.cat .vstep button:hover:not(:disabled) { border-color: var(--c-acento); color: var(--c-acento); }
+html #vender.cat .vstep button:disabled { opacity: .35; cursor: default; }
+html #vender.cat .vstep span { font: 500 13px var(--body); color: var(--c-txt2); }
+html #vender.cat .icard.voff { opacity: .45; cursor: default; }
+html #vender.cat .icard.voff:hover { background: var(--c-card); border-color: transparent; }
+html #vender.cat .icard.voff .iprice b { font-size: 13px; font-weight: 400; color: var(--muted); }
+html #vender.cat .ven-off { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 12px 0 8px; padding: 13px; border: 1px dashed var(--c-borde); border-radius: var(--c-rad); background: transparent; color: var(--c-txt2); font: 500 14px var(--body); cursor: pointer; }
+html #vender.cat .ven-off:hover { border-color: var(--c-acento); color: var(--fg); }
+html #vender.cat .ven-off i { font-style: normal; }
+
+/* Panel derecho de la venta (PC) */
+html #vender.cat .vpanel { position: sticky; top: 74px; display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: var(--c-rad); background: var(--c-panel); }
+html #vender.cat .vp-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 400 14px var(--body); color: var(--c-txt2); }
+html #vender.cat .vp-n::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: var(--c-acento); vertical-align: middle; }
+html #vender.cat .vp-limpiar { padding: 0; border: 0; background: none; color: var(--muted); font: 400 13px var(--body); text-decoration: underline; cursor: pointer; }
+html #vender.cat .vp-tot small, html #vender.cat .vp-metodo small { display: block; margin-bottom: 6px; font: 400 13px var(--body); color: var(--muted); }
+html #vender.cat .vp-tot b { display: block; font: 600 32px/1.1 var(--body); color: var(--fg); font-variant-numeric: tabular-nums; }
+html #vender.cat .vp-tot em { display: block; margin-top: 4px; font: normal 400 12px var(--body); color: var(--muted); }
+html #vender.cat .vp-op { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--c-acento); border-radius: var(--c-rad); background: color-mix(in srgb, var(--c-acento) 8%, transparent); }
+html #vender.cat .vp-op > span { font-size: 20px; }
+html #vender.cat .vp-op b { display: block; font: 500 14px var(--body); color: var(--fg); }
+html #vender.cat .vp-op em { font: normal 400 12px var(--body); color: var(--ok); }
+html #vender.cat .vpanel .btn { width: 100%; height: 50px; border-radius: var(--c-rad); font: 600 15px var(--body); letter-spacing: .04em; }
+html #vender.cat .vp-nota { margin: 0; font: 400 12px var(--body); color: var(--muted); text-align: center; }
+html #vender.cat .vaviso { margin: 0; padding: 8px 10px; border-radius: 6px; background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--fg); font: 400 13px/1.4 var(--body); }
+/* Barra de abajo (celular y tablet) */
+html #vender.cat .vbar { border: 1px solid var(--c-borde); border-radius: var(--c-rad); background: var(--panel); backdrop-filter: none; box-shadow: 0 -8px 24px rgba(0, 0, 0, .35); font: 400 14px var(--body); }
+html #vender.cat .vbar .vaviso { margin-top: 6px; }
+@media (min-width: 1101px) { html #vender.cat .vbar { display: none; } }
+@media (max-width: 1100px) {
+  html :is(#comprar, #vender).cat .ishop.ven3 { grid-template-columns: 230px minmax(0, 1fr); }
+  html #vender.cat .vpanel { display: none; }
+}
+
+/* ---------- Ficha de un item ---------- */
+html #comprar.cat-item .ipg-t { margin: 4px 0 20px; font: 600 28px/1.2 var(--body); letter-spacing: .01em; color: var(--fg); }
+html #comprar.cat-item .ipg-foto { border: 0; border-radius: var(--c-rad); background: radial-gradient(90% 60% at 50% -5%, color-mix(in srgb, var(--rar, transparent) 30%, transparent), transparent 70%), var(--c-card); box-shadow: none; backdrop-filter: none; }
+html #comprar.cat-item .ipg-foto.zoomable:hover { box-shadow: none; border-color: transparent; }
+html #comprar.cat-item .ipg-foto { aspect-ratio: 3 / 2; }
+html #comprar.cat-item .ipg-foto img { width: 88%; height: auto; max-width: 88%; max-height: 92%; object-fit: contain; border-radius: 6px; }
+html #comprar.cat-item .ipg-tag { border-radius: 4px; backdrop-filter: none; font: 500 12px var(--body); }
+html #comprar.cat-item .ipg-attrs > div { border-bottom-color: var(--c-borde); font: 400 15px var(--body); }
+html #comprar.cat-item .ipg-attrs dt { font: 400 13px var(--body); letter-spacing: 0; text-transform: none; color: var(--muted); }
+html #comprar.cat-item .ipg-attrs dd { font-weight: 500; }
+html #comprar.cat-item .ipg-precio { border: 0; border-radius: var(--c-rad); background: var(--c-panel); box-shadow: none; }
+html #comprar.cat-item .pp-top b { font: 600 34px/1 var(--body); color: var(--fg); font-variant-numeric: tabular-nums; }
+html #comprar.cat-item .pp-dto { padding: 2px 8px; border-radius: 16px 2px 2px 16px; background: color-mix(in srgb, var(--yellow-2) 13%, transparent); color: color-mix(in srgb, var(--yellow-2) 85%, transparent); font: 500 13px var(--body); }
+html #comprar.cat-item .pp-btns .btn, html #comprar.cat-item .ipg-sticky .btn { border-radius: var(--c-rad); font: 600 14px var(--body); letter-spacing: .04em; }
+html #comprar.cat-item .ofr-t, html #comprar.cat-item .idesc, html #comprar.cat-item .ofr { border-color: var(--c-borde); border-radius: var(--c-rad); backdrop-filter: none; box-shadow: none; }
+html #comprar.cat-item .ofr-top h3 { font: 600 17px var(--body); letter-spacing: 0; }
+html #comprar.cat-item .rel-fila .icard { flex: 0 0 190px; }
+
+/* ---------- Celular ---------- */
+@media (max-width: 820px) {
+  html :is(#comprar, #vender).cat .cat-t { font-size: 22px; margin-bottom: 14px; }
+  html :is(#comprar, #vender).cat .ishop, html :is(#comprar, #vender).cat .ishop.ven3 { display: block; }
+  html :is(#comprar, #vender).cat .itabs { padding: 11px 14px; gap: 4px 18px; }
+  html :is(#comprar, #vender).cat .ibar, html #vender.cat .ibar { grid-template-columns: 46px minmax(0, 1fr) auto; }
+  html :is(#comprar, #vender).cat .ibar input[type="search"] { grid-column: 2; width: 100%; }
+  html #comprar.cat .ibar #fi-q { grid-column: 2; }
+  html #comprar.cat .ibar #itemsCuenta { grid-column: 1 / -1; }
+  html :is(#comprar, #vender).cat .ibar .ibar-filt { grid-column: 3; display: inline-flex; align-items: center; gap: 4px; width: auto; height: 46px; padding: 0 12px; border-radius: var(--c-rad); white-space: nowrap; font: 500 13px var(--body); letter-spacing: 0; text-transform: none; }
+  html :is(#comprar, #vender).cat .ibar select, html #vender.cat .ibar .ibar-todo { grid-column: 1 / -1; width: 100%; }
+  html :is(#comprar, #vender).cat .ibar .icount { grid-column: 1 / -1; }
+  html :is(#comprar, #vender).cat .igrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  html :is(#comprar, #vender).cat .ibody h4 { font-size: 14px; }
+  html :is(#comprar, #vender).cat .ifilt.ml { position: fixed; top: 0; bottom: 0; left: 0; z-index: 130; width: min(340px, 88vw); max-height: none; margin: 0; padding: 0 16px; border-radius: 0 16px 16px 0; background: var(--panel); transform: translateX(-105%); visibility: hidden; transition: transform .2s, visibility .2s; }
+  html :is(#comprar, #vender).cat .ifilt.ml.abierto { transform: none; visibility: visible; }
+  html #comprar.cat-item .ipg-t { font-size: 22px; }
+}

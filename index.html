@@ -29,7 +29,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800&family=Cinzel:wght@700;900&family=Teko:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Barlow:wght@400;600;700;800&family=Cinzel:wght@700;900&family=Teko:wght@500;600&display=swap">
 <link rel="stylesheet" href="estilos.css?v=114">
 <link rel="stylesheet" href="perfil.css?v=5">
 <link rel="stylesheet" href="ancho.css?v=1">
@@ -51,10 +51,12 @@
     var fl = document.createElement("link"); fl.rel = "stylesheet"; fl.href = "https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"; document.head.appendChild(fl);
     var tl = document.createElement("link"); tl.rel = "stylesheet"; tl.href = "tema-lj.css?v=5"; document.head.appendChild(tl);
   }
+  /* Catálogo con la interfaz de LIS Skins (comprar, vender, ficha de item) y letra IBM Plex Sans: siempre la última hoja. */
+  function catalogo() { var cl = document.createElement("link"); cl.rel = "stylesheet"; cl.href = "catalogo.css?v=1"; document.head.appendChild(cl); }
   try {
     var q = (location.search.match(/[?&]tema=([a-z]+)/) || [])[1];
     if (q === "clasico") localStorage.setItem(K.tema, "clasico"); else if (q === "nuevo") localStorage.removeItem(K.tema);
-    if (localStorage.getItem(K.tema) === "clasico") { temaLJ(); return; }
+    if (localStorage.getItem(K.tema) === "clasico") { temaLJ(); catalogo(); return; }
   } catch (e) { /* sin almacenamiento: se queda el tema nuevo */ }
   document.documentElement.className += " tn";
   /* TEMPORADA HALLOWEEN ("Noche de Diretide"): se prende sola del 1 de octubre al 9 de noviembre y luego vuelve
@@ -76,6 +78,7 @@
   var l = document.createElement("link"); l.rel = "stylesheet"; l.href = hw ? "hw-tema-nuevo.css?v=1" : "tema-nuevo.css?v=27"; document.head.appendChild(l);
   if (hw) { var th = document.createElement("link"); th.rel = "stylesheet"; th.href = "tema-halloween.css?v=1"; document.head.appendChild(th); }
   temaLJ();
+  catalogo();
   document.addEventListener("DOMContentLoaded", function () {
     var s = document.createElement("script"); s.src = "tema-nuevo.js?v=8"; document.body.appendChild(s);
     if (!hw) return;
@@ -94,7 +97,7 @@
 <script src="bot-panel.js?v=2"></script>
 <script src="servicios.js?v=4"></script>
 <script src="portafolio.js?v=2"></script>
-<script src="app.js?v=183"></script>
+<script src="app.js?v=184"></script>
 <script src="legal.js?v=7" defer></script>
 </body>
 </html>
