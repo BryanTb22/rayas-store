@@ -2797,6 +2797,16 @@
       '<div class="mk-der">' + der + '</div>' +
       '</div></header>';
   }
+  // Cabecera: si las secciones no caben en una fila con el logo y los botones (laptops, sesión de admin, saldo largo), van a una segunda fila.
+  function mkAjustar() {
+    var h = document.querySelector(".topbar.mk-head"), nav = h && h.querySelector(".mk-nav");
+    if (!nav) return;
+    h.classList.remove("mk-2f");
+    if (getComputedStyle(nav).order === "3") return;   // ya está en dos filas (pantalla chica)
+    if (nav.scrollWidth > nav.clientWidth + 1) h.classList.add("mk-2f");
+  }
+  var mkT; window.addEventListener("resize", function () { clearTimeout(mkT); mkT = setTimeout(mkAjustar, 120); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(mkAjustar);   // las letras cambian el ancho al terminar de cargar
   // Ventanita del "+": formas de recargar (WhatsApp, QR de Yape y, si está activo, Culqi).
   function masMenuHtml(linkCreditos) {
     var c = cuenta.perfil, primera = false;   // sin promo de recarga
@@ -3209,6 +3219,7 @@
     var top = scrollDrawer ? scrollDrawer.scrollTop : 0;
     var boxPrev = document.querySelector(".itm-box"), boxTop = boxPrev ? boxPrev.scrollTop : 0;
     app.innerHTML = html;
+    mkAjustar();   // si las secciones no caben junto a los botones, pasan a una segunda fila
     var mkOn = document.querySelector(".mk-nav .mk-lk.on"), mkNav = mkOn && mkOn.parentNode;   // en celular, la sección actual a la vista
     if (mkNav && mkNav.scrollWidth > mkNav.clientWidth + 2) mkNav.scrollLeft = Math.max(0, mkOn.offsetLeft - mkNav.offsetLeft - (mkNav.clientWidth - mkOn.offsetWidth) / 2);
     var boxNew = document.querySelector(".itm-box"); if (boxNew && boxTop) boxNew.scrollTop = boxTop;

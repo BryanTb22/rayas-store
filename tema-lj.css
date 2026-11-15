@@ -227,6 +227,13 @@ html.tn .iult::after { box-shadow: 0 4px 22px rgba(198, 200, 204, .85); }
 .pfw-pc { background: #100c0d; }
 .pfw-nav i:nth-child(2) { background: #d31d26; }
 .pfw-shot { background: #100c0d; }
+.pfw-shot video.pfw-vid { background: #0d0a0a; }
+.fcredito { color: var(--muted, #b5b8be); }
+.fcredito em { color: var(--yellow, #de1e28); }
+.fcredito:hover { border-color: var(--yellow, #de1e28); }
+.aviso-web { border: 1px dashed color-mix(in srgb, var(--yellow, #de1e28) 55%, transparent); background: color-mix(in srgb, var(--yellow, #de1e28) 7%, transparent); }
+.aviso-web small { color: var(--muted, #b5b8be); }
+.aviso-web em { color: var(--yellow, #de1e28); }
 
 /* ===== tema-nuevo.css ===== */
 html.tn { --tn-glow-y: rgba(222, 30, 40, .35); --tn-glow-f: rgba(198, 200, 204, .32); --tn-cristal: rgba(31, 23, 24, .62); --tn-cristal-2: rgba(41, 31, 32, .55); --tn-borde: rgba(200, 203, 208, .16); }
