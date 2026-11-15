@@ -209,3 +209,7 @@ html #comprar.cat-item .rel-fila .icard { flex: 0 0 190px; }
   html :is(#comprar, #vender).cat .ifilt.ml.abierto { transform: none; visibility: visible; }
   html #comprar.cat-item .ipg-t { font-size: 22px; }
 }
+
+/* Fotos cuadradas de Steam (360×360 con borde transparente): se acercan para llenar el recuadro (app.js les pone .cuad) */
+html :is(#comprar, #vender).cat .ithumb img.cuad { object-fit: cover; transform: scale(1.4); }
+html #comprar.cat-item .ipg-foto img.cuad { width: 100%; max-width: 100%; height: 100%; max-height: 100%; object-fit: cover; transform: scale(1.35); }
