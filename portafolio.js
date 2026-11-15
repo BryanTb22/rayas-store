@@ -15,27 +15,48 @@
     links: [
       { k: "web", t: "Mi web de proyectos", v: "studio.litlejacob.trade", href: STUDIO },
       { k: "wa", t: "WhatsApp", v: "+51 952 997 030", href: "" },
-      { k: "fb", t: "Facebook", v: "LitleJacob Studio Web", href: "https://www.facebook.com/profile.php?id=61595819503217" },
+      { k: "fb", t: "Facebook", v: "LitleJacob Studio Web", href: "https://www.facebook.com/profile.php?id=61596612929082" },
       { k: "tt", t: "TikTok", v: "@litlejacob", href: "https://www.tiktok.com/@litlejacob" },
       { k: "ig", t: "Instagram", v: "@litlejacob.studio", href: "https://www.instagram.com/litlejacob.studio" }
     ],
     // Trabajos (la foto va en img/studio/). "yo" = la tienda donde se está viendo.
     trabajos: [
-      { id: "marinera", t: "Alis Marinera", tag: "Catálogo · Cliente",
+      { id: "ropa", t: "Tienda de ropa", real: false, tag: "Tienda completa",
+        d: "Tienda online de moda con catálogo por categorías, filtros por talla y precio, buscador, favoritos y carrito con pago con tarjeta o por WhatsApp.",
+        chips: ["Catálogo", "Filtros", "Carrito", "Cupones", "WhatsApp"], href: STUDIO + "/demo-ropa/" },
+      { id: "marinera", t: "Alis Marinera", real: true, tag: "Catálogo",
         d: "Catálogo de faldas y trajes de marinera con tallas, galería, guía de medidas y pedidos por WhatsApp.",
-        href: "https://bryantb22.github.io/diseno-pagina-web-cliente-marinera/" },
-      { id: "maquillajefx", t: "Estudio de maquillaje FX", tag: "Tienda completa",
-        d: "Portada en video, portafolio con antes y después, cursos con cupos, membresía, carrito y pago con tarjeta, Yape y Plin.",
-        href: STUDIO + "/demo-maquillaje-fx/" },
-      { id: "asesor", t: "Asesor de equipos de impresión", tag: "Catálogo",
-        d: "Catálogo de impresoras y escáneres, recomendador según cuánto imprimes, tabla comparativa y cotización por WhatsApp.",
-        href: STUDIO + "/demo-asesor/" },
-      { id: "litlejacob", t: "LitleJacob Store", tag: "Plataforma propia",
-        d: "Tienda de Dota 2 con cuentas, saldo recargable por Yape, rifas con ruleta, Sets Caché y panel de administración.",
-        href: "https://litlejacob.trade", yo: LJ },
-      { id: "rayas", t: "Rayas Store", tag: "Plataforma propia",
-        d: "Rifas e items de Dota 2 con cuentas, saldo recargable, pagos con tarjeta, ganadores en vivo y panel de premios.",
-        href: "https://rayas.trade", yo: !LJ }
+        chips: ["Catálogo", "Tallas", "Galería", "WhatsApp"], href: "https://bryantb22.github.io/diseno-pagina-web-cliente-marinera/" },
+      { id: "maquillajefx", t: "Estudio de maquillaje FX", real: false, tag: "Tienda completa",
+        d: "Portada en video, portafolio con antes y después, cursos con temario y cupos, membresía y pago con tarjeta, Yape y Plin.",
+        chips: ["Video", "Cursos", "Membresía", "Yape y Plin"], href: STUDIO + "/demo-maquillaje-fx/" },
+      { id: "asesor", t: "Asesor de equipos de impresión", real: false, tag: "Catálogo",
+        d: "Catálogo de impresoras y escáneres, recomendador según cuánto imprimes, tabla comparativa y cotización rápida por WhatsApp.",
+        chips: ["Catálogo", "Recomendador", "Comparador", "WhatsApp"], href: STUDIO + "/demo-asesor/" },
+      { id: "litlejacob", t: "LitleJacob Store", real: true, tag: "Plataforma propia",
+        d: "Tienda con cuentas de usuario, saldo recargable por Yape, rifas con ruleta, catálogo y panel de administración.",
+        chips: ["Cuentas", "Saldo con Yape", "Rifas", "Panel"], href: "https://litlejacob.trade", yo: LJ },
+      { id: "rayas", t: "Rayas Store", real: true, tag: "Plataforma propia",
+        d: "Plataforma de rifas con cuentas, saldo recargable, pagos con tarjeta, ganadores y panel de premios.",
+        chips: ["Cuentas", "Pago con tarjeta", "Rifas", "Panel"], href: "https://rayas.trade", yo: !LJ }
+    ],
+    // Rubros (como la web del studio): para que cada visitante se vea reflejado
+    rubros: [
+      ["Restaurantes", "Carta digital y pedidos por WhatsApp."], ["Tiendas de ropa", "Catálogo con tallas, colores y carrito."],
+      ["Barberías y salones", "Servicios, precios y reservas."], ["Gimnasios", "Planes, horarios y clases."],
+      ["Profesionales", "Abogados, doctores, contadores: confianza y contacto."], ["Tecnología", "Catálogo, comparador y cotizaciones."],
+      ["Emprendimientos", "Vende desde Instagram con una web propia."], ["Eventos", "Galería, paquetes y fechas disponibles."]
+    ],
+    // Garantías (sin precios: la regla de las tiendas)
+    garantias: ["Con RUC: emito boleta", "2 rondas de cambios incluidas", "Hosting gratis, sin mensualidad", "50% al empezar y 50% al entregar", "Dominio propio opcional", "Pensada primero para celular"],
+    faq: [
+      ["¿Tengo que pagar una mensualidad?", "No. El hosting es gratis, así que pagas tu web una sola vez. El mantenimiento mensual es opcional, por si quieres que yo actualice tus productos y precios."],
+      ["¿Necesito un dominio propio (.com o .pe)?", "No es obligatorio: tu web funciona con un link gratuito desde el primer día. Si quieres un dominio propio, lo compras aparte y yo lo conecto."],
+      ["¿Puedo editar mi web yo mismo?", "Con la tienda completa tienes un panel para cambiar productos, precios y fotos sin tocar código. En las demás me escribes y lo actualizo."],
+      ["¿Cuánto demora?", "Una web de presentación o catálogo está lista en 3 a 5 días; una tienda completa, de 1 a 2 semanas. El plazo empieza cuando me envías logo, fotos y precios."],
+      ["¿Qué pasa si quiero cambios después?", "Incluye 2 rondas de cambios. Después de la entrega puedes tomar el mantenimiento mensual o pedirme un cambio puntual."],
+      ["¿Cómo se paga?", "50% de adelanto para empezar y 50% al entregar. Por Yape, Plin, PayPal o Binance."],
+      ["¿Se verá bien en celular?", "Sí. Todas las webs se diseñan primero para celular, que es desde donde entra la mayoría de tus clientes."]
     ],
     servicios: [
       { t: "Páginas web", d: "De presentación, catálogo de productos o tienda completa con panel propio.", svg: '<rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M3 8h18M8 21h8M12 18v3"></path>' },
@@ -48,8 +69,8 @@
       ["Revisas en tu celular", "Te muestro avances y ajustamos."],
       ["Publicamos", "En 3 a 5 días. Tiendas, de 1 a 2 semanas."]
     ],
-    opinion: { txt: "Quedó tal cual yo quería, con la paleta de colores que le pedí. Muy buena atención: me hizo ver cada parte y cómo iba avanzando. La página se ve estética y fluida.",
-      quien: "Valentín Condezo Chura", de: "Rayas Store · venta de intangibles gaming" }
+    opinion: { txt: "Me gustó demasiado: quedó tal cual yo quería, con la paleta de colores que le pedí. Muy buena atención, me hizo ver cada parte y cómo iba avanzando el proyecto. La página se ve estética y fluida. Ya lo recomendé a otra emprendedora.",
+      quien: "Valentín Condezo Chura", de: "Rayas Store · venta de intangibles gaming por internet", web: "https://rayas.trade" }
   };
 
   var IC = {
@@ -77,8 +98,10 @@
       '<div class="pfw-nav" aria-hidden="true"><i></i><i></i><i></i><span>' + esc(p.href.replace(/^https?:\/\//, "").replace(/\/$/, "")) + '</span></div>' +
       '<div class="pfw-shot"><img src="img/studio/' + p.id + '.webp" alt="Página de inicio de ' + esc(p.t) + '" width="1200" height="750" loading="lazy" decoding="async">' +
       (p.yo ? '<span class="pfw-yo">Estás aquí</span>' : '') + '</div>' +
-      '<div class="pfw-meta"><span class="pfw-tag">' + esc(p.tag) + '</span><h3>' + esc(p.t) + '</h3><p>' + esc(p.d) + '</p>' +
-      '<span class="pfw-ver">Ver proyecto ' + svg(IC.fl) + '</span></div></a>';
+      '<div class="pfw-meta"><div class="pfw-tags"><span class="pfw-tipo' + (p.real ? ' real' : '') + '">' + (p.real ? 'Proyecto real' : 'Diseño de ejemplo') + '</span><span class="pfw-tag">' + esc(p.tag) + '</span></div>' +
+      '<h3>' + esc(p.t) + '</h3><p>' + esc(p.d) + '</p>' +
+      (p.chips ? '<ul class="pfw-chips">' + p.chips.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join("") + '</ul>' : '') +
+      '<span class="pfw-ver">' + (p.yo ? 'Estás viéndola' : 'Abrir y probar') + ' ' + svg(IC.fl) + '</span></div></a>';
   }
   function enlace(l) {
     var href = l.k === "wa" ? wa(MSG) : l.href;
@@ -95,17 +118,17 @@
         '<p>Hice esta tienda y también páginas para otros negocios. Diseño webs rápidas, pensadas para celular y con botón directo a tu WhatsApp, para cualquier rubro.</p>' +
         '<div class="pfw-ctas"><a class="pfw-btn pri" href="' + esc(wa(MSG)) + '" target="_blank" rel="noopener">' + svg(IC.wa) + 'Cotizar por WhatsApp</a>' +
         '<a class="pfw-btn sec" href="#pfw-trabajos">Ver mis trabajos</a></div>' +
-        '<ul class="pfw-trust"><li>' + svg(IC.ok) + 'Lista en 3 a 5 días</li><li>' + svg(IC.ok) + 'Hosting gratis</li><li>' + svg(IC.ok) + 'Se ve bien en celular</li><li>' + svg(IC.ok) + 'Trato directo conmigo</li></ul>' +
+        '<ul class="pfw-trust"><li>' + svg(IC.ok) + 'Lista en 3 a 5 días</li><li>' + svg(IC.ok) + 'Hosting gratis, sin mensualidad</li><li>' + svg(IC.ok) + 'Se ve bien en celular</li><li>' + svg(IC.ok) + 'Trato directo conmigo</li></ul>' +
       '</div>' +
       '<div class="pfw-hero-art" aria-hidden="true">' +
         '<div class="pfw-pc"><div class="pfw-nav"><i></i><i></i><i></i><span>' + (LJ ? 'litlejacob.trade' : 'rayas.trade') + '</span></div><img src="img/studio/' + (LJ ? 'litlejacob' : 'rayas') + '.webp" alt="" width="1200" height="750" decoding="async"></div>' +
-        '<div class="pfw-pc b"><div class="pfw-nav"><i></i><i></i><i></i></div><img src="img/studio/marinera.webp" alt="" width="1200" height="750" decoding="async"></div>' +
+        '<div class="pfw-pc b"><div class="pfw-nav"><i></i><i></i><i></i></div><img src="img/studio/ropa.webp" alt="" width="1200" height="750" decoding="async"></div>' +
         '<div class="pfw-pc c"><div class="pfw-nav"><i></i><i></i><i></i></div><img src="img/studio/maquillajefx.webp" alt="" width="1200" height="750" decoding="async"></div>' +
       '</div></div>' +
-      '<div class="pfw-stats"><div><b>' + t.length + '</b><span>páginas hechas</span></div><div><b>2</b><span>tiendas propias en línea</span></div><div><b>Yape</b><span>y tarjeta integrados</span></div><div><b>1 a 1</b><span>sin agencia ni intermediarios</span></div></div>';
+      '<div class="pfw-stats"><div><b>' + t.length + '</b><span>páginas y demos</span></div><div><b>2</b><span>tiendas propias en línea</span></div><div><b>Yape</b><span>y tarjeta integrados</span></div><div><b>1 a 1</b><span>sin agencia ni intermediarios</span></div></div>';
 
     var trabajos = '<div class="pfw-sec" id="pfw-trabajos">' + titulo("Portafolio", "Mis", "trabajos") +
-      '<p class="pfw-sub">Páginas reales funcionando. Toca cualquiera para verla en vivo.</p>' +
+      '<p class="pfw-sub">Webs reales de clientes y diseños de ejemplo. Ábrelos y pruébalos en tu celular.</p>' +
       '<div class="pfw-grid">' + t.map(tarjeta).join("") +
       '<a class="pfw-trab pfw-tuyo" href="' + esc(wa(MSG)) + '" target="_blank" rel="noopener"><span class="pfw-ic">' + svg('<path d="M12 5v14M5 12h14"></path>') + '</span>' +
       '<b>Tu negocio aquí</b><p>Restaurantes, tiendas de ropa, barberías, gimnasios, profesionales, eventos… Cuéntame qué vendes y armamos tu página.</p>' +
@@ -117,25 +140,37 @@
         return '<div class="pfw-serv"><span class="pfw-ic">' + svg(s.svg) + '</span><b>' + esc(s.t) + '</b><p>' + esc(s.d) + '</p></div>';
       }).join("") + '</div></div>';
 
-    var proceso = '<div class="pfw-sec">' + titulo("Así trabajamos", "Cómo", "funciona") +
+    var rubros = '<div class="pfw-sec">' + titulo("Para tu negocio", "¿Qué", "vendes?") +
+      '<p class="pfw-sub">Hago webs para cualquier rubro. Toca el tuyo y cotiza por WhatsApp.</p>' +
+      '<div class="pfw-rubros">' + PF.rubros.map(function (r) {
+        return '<a class="pfw-rubro" href="' + esc(wa("Hola, vi en " + TIENDA + " tus trabajos de páginas web. Tengo un negocio de " + r[0].toLowerCase() + " y quiero cotizar mi web.")) + '" target="_blank" rel="noopener"><b>' + esc(r[0]) + '</b><span>' + esc(r[1]) + '</span></a>';
+      }).join("") + '</div>' +
+      '<ul class="pfw-gar">' + PF.garantias.map(function (g) { return '<li>' + svg(IC.ok) + esc(g) + '</li>'; }).join("") + '</ul></div>';
+
+    var faq = '<div class="pfw-sec">' + titulo("Dudas", "Preguntas", "frecuentes") +
+      '<p class="pfw-sub">Si tienes otra duda, escríbeme por WhatsApp.</p>' +
+      '<div class="pfw-faq">' + PF.faq.map(function (f) { return '<details><summary>' + esc(f[0]) + '</summary><p>' + esc(f[1]) + '</p></details>'; }).join("") + '</div></div>';
+
+    var proceso = '<div class="pfw-sec">' + titulo("Así trabajamos", "Cómo", "funciona") + '<p class="pfw-sub">Todo por WhatsApp, sin reuniones largas.</p>' +
       '<ol class="pfw-pasos">' + PF.pasos.map(function (p, i) {
         return '<li><span class="pfw-n">' + (i + 1) + '</span><b>' + esc(p[0]) + '</b><p>' + esc(p[1]) + '</p></li>';
       }).join("") + '</ol></div>';
 
     var opinion = '<figure class="pfw-op"><span class="pfw-q" aria-hidden="true">“</span><blockquote>' + esc(PF.opinion.txt) + '</blockquote>' +
-      '<figcaption><b>' + esc(PF.opinion.quien) + '</b><span>' + esc(PF.opinion.de) + '</span></figcaption></figure>';
+      '<figcaption><b>' + esc(PF.opinion.quien) + '</b><span>' + esc(PF.opinion.de) + '</span>' +
+      (PF.opinion.web && LJ ? '<a class="pfw-opweb" href="' + esc(PF.opinion.web) + '" target="_blank" rel="noopener">Ver su web: rayas.trade ' + svg(IC.fl) + '</a>' : '') + '</figcaption></figure>';
 
     var links = '<div class="pfw-sec pfw-cont" id="pfw-links">' + titulo("Contacto", "Mis", "enlaces") +
       '<div class="pfw-links">' + PF.links.map(enlace).join("") + '</div>' +
       '<div class="pfw-final"><div><b>¿Quieres tu página web?</b><span>Escríbeme y te cotizo sin compromiso. Pagos por Yape, Plin, PayPal o Binance.</span></div>' +
       '<a class="pfw-btn pri" href="' + esc(wa(MSG)) + '" target="_blank" rel="noopener">' + svg(IC.wa) + 'Escribir por WhatsApp</a></div></div>';
 
-    return '<div class="pfw ' + (LJ ? 'lj' : 'ry') + '">' + hero + trabajos + opinion + servicios + proceso + links + '</div>';
+    return '<div class="pfw ' + (LJ ? 'lj' : 'ry') + '">' + hero + trabajos + opinion + rubros + servicios + proceso + faq + links + '</div>';
   }
 
   function cargarCss() {
     if (document.querySelector('link[href^="portafolio.css"]')) return;
-    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "portafolio.css?v=1"; document.head.appendChild(l);
+    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "portafolio.css?v=2"; document.head.appendChild(l);
   }
   // LitleJacob: llena el bloque #view-web del index (la ruta #paginas-web la maneja el index).
   function pegarLJ() {
