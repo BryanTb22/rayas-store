@@ -29,7 +29,7 @@
         chips: ["Catálogo", "Tallas", "Galería", "WhatsApp"], href: "https://bryantb22.github.io/diseno-pagina-web-cliente-marinera/" },
       { id: "maquillajefx", t: "Estudio de maquillaje FX", real: false, tag: "Tienda completa",
         d: "Portada en video, portafolio con antes y después, cursos con temario y cupos, membresía y pago con tarjeta, Yape y Plin.",
-        chips: ["Video", "Cursos", "Membresía", "Yape y Plin"], href: STUDIO + "/demo-maquillaje-fx/" },
+        chips: ["Video", "Cursos", "Membresía", "Yape y Plin"], href: STUDIO + "/demo-maquillaje-fx/", vid: "maquillaje" },
       { id: "asesor", t: "Asesor de equipos de impresión", real: false, tag: "Catálogo",
         d: "Catálogo de impresoras y escáneres, recomendador según cuánto imprimes, tabla comparativa y cotización rápida por WhatsApp.",
         chips: ["Catálogo", "Recomendador", "Comparador", "WhatsApp"], href: STUDIO + "/demo-asesor/" },
@@ -96,13 +96,25 @@
   function tarjeta(p, i) {
     return '<a class="pfw-trab' + (i === 0 ? ' dest' : '') + '" href="' + esc(p.href) + '" target="_blank" rel="noopener">' +
       '<div class="pfw-nav" aria-hidden="true"><i></i><i></i><i></i><span>' + esc(p.href.replace(/^https?:\/\//, "").replace(/\/$/, "")) + '</span></div>' +
-      '<div class="pfw-shot"><img src="img/studio/' + p.id + '.webp" alt="Página de inicio de ' + esc(p.t) + '" width="1200" height="750" loading="lazy" decoding="async">' +
+      '<div class="pfw-shot">' + videoHtml(p) +
       (p.yo ? '<span class="pfw-yo">Estás aquí</span>' : '') + '</div>' +
       '<div class="pfw-meta"><div class="pfw-tags"><span class="pfw-tipo' + (p.real ? ' real' : '') + '">' + (p.real ? 'Proyecto real' : 'Diseño de ejemplo') + '</span><span class="pfw-tag">' + esc(p.tag) + '</span></div>' +
       '<h3>' + esc(p.t) + '</h3><p>' + esc(p.d) + '</p>' +
       (p.chips ? '<ul class="pfw-chips">' + p.chips.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join("") + '</ul>' : '') +
       '<span class="pfw-ver">' + (p.yo ? 'Estás viéndola' : 'Abrir y probar') + ' ' + svg(IC.fl) + '</span></div></a>';
   }
+  // Recorrido en video de cada web (los mismos de studio.litlejacob.trade, en img/studio/casos/). Solo se reproduce cuando se ve en pantalla.
+  function videoHtml(p) {
+    var v = "img/studio/casos/" + (p.vid || p.id) + "-pc";
+    return '<video class="pfw-vid" muted loop playsinline preload="none" poster="' + v + '.webp" width="1200" height="750" aria-label="Recorrido por ' + esc(p.t) + '">' +
+      '<source src="' + v + '.webm" type="video/webm"><source src="' + v + '.mp4" type="video/mp4"></video>';
+  }
+  var quieto = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var obsVid = !quieto && "IntersectionObserver" in window ? new IntersectionObserver(function (ents) {
+    ents.forEach(function (e) { var v = e.target; if (e.isIntersecting) { var pr = v.play(); if (pr && pr.catch) pr.catch(function () { /* el navegador no dejó: queda la imagen */ }); } else v.pause(); });
+  }, { threshold: 0.35 }) : null;
+  function vigilarVideos() { if (obsVid) document.querySelectorAll("video.pfw-vid:not([data-obs])").forEach(function (v) { v.setAttribute("data-obs", "1"); obsVid.observe(v); }); }
+  if (obsVid && "MutationObserver" in window) new MutationObserver(function () { vigilarVideos(); }).observe(document.documentElement, { childList: true, subtree: true });
   function enlace(l) {
     var href = l.k === "wa" ? wa(MSG) : l.href;
     return '<a class="pfw-link ' + l.k + '" href="' + esc(href) + '" target="_blank" rel="noopener"><span class="pfw-ic">' + svg(IC[l.k]) + '</span>' +
@@ -170,7 +182,7 @@
 
   function cargarCss() {
     if (document.querySelector('link[href^="portafolio.css"]')) return;
-    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "portafolio.css?v=2"; document.head.appendChild(l);
+    var l = document.createElement("link"); l.rel = "stylesheet"; l.href = "portafolio.css?v=3"; document.head.appendChild(l);
   }
   // LitleJacob: llena el bloque #view-web del index (la ruta #paginas-web la maneja el index).
   function pegarLJ() {
