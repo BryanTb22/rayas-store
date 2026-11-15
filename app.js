@@ -1197,16 +1197,16 @@
       '<a class="isteam-go" data-a="irSteam" href="' + esc(urlSteam(it)) + '" target="_blank" rel="noopener noreferrer" title="Ver en el Mercado de Steam" aria-label="Ver ' + esc(it.nombre) + ' en el Mercado de Steam">' +
       '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>';
   }
+  function dtoSteam(it) { var sol = steamSoles(it); return sol && it.precio > 0 && it.precio < sol ? Math.round((1 - it.precio / sol) * 100) : 0; }
   function itemCardHtml(it) {
-    var agot = it.stock <= 0, col = colorRareza(it.rareza), cd = !agot && enCooldown(it);   // cd = todas sus unidades disponibles están en cooldown
+    var agot = it.stock <= 0, col = colorRareza(it.rareza), cd = !agot && enCooldown(it), n = it._tot || it.stock, dto = agot ? 0 : dtoSteam(it);   // cd = todas sus unidades disponibles están en cooldown
     return '<article class="icard' + (agot ? ' agot' : '') + (cd ? ' cd' : '') + (it.activo ? '' : ' oculto') + '" data-a="itVer" data-id="' + esc(it.id) + '" tabindex="0" role="button" aria-label="Ver ' + esc(it.nombre) + '">' +
       '<div class="ithumb" style="--rar:' + col + '">' + (imgTag(it.img, it.nombre, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') +
-      (agot ? '<span class="itag agotado">Agotado</span>' : ((it._tot || it.stock) > 1 ? '<span class="itag">x' + (it._tot || it.stock) + '</span>' : '')) + (cd ? '<span class="itag cdtag">🔒 Cooldown</span>' : '') + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
+      (agot ? '<span class="itag agotado">Agotado</span>' : (n > 1 ? '<span class="itag">x' + n + '</span>' : '')) + (cd ? '<span class="itag cdtag">🔒 Cooldown</span>' : '') + (it.activo ? '' : '<span class="itag oc">Oculto</span>') + '</div>' +
       (admin.puede ? '<div class="itadmb"><button type="button" class="btn btn-ghost btn-sm" data-a="itEditar" data-id="' + esc(it.id) + '" aria-label="Editar">✎</button>' + (admin.itemDel === it.id ? '<button type="button" class="btn btn-sm itdel" data-a="itBorrarSi" data-id="' + esc(it.id) + '">¿Quitar? Sí</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-a="itBorrar" data-id="' + esc(it.id) + '" aria-label="Quitar">🗑</button>') + '</div>' : '') +
-      '<div class="ibody"><h4>' + esc(it.nombre) + '</h4>' +
-      '<div class="imeta">' + (it.rareza ? '<span style="color:' + col + '">' + esc(it.rareza) + '</span>' : '') + (it.calidad ? '<span>' + esc(it.calidad) + '</span>' : '') + (it.heroe ? '<span>' + esc(it.heroe) + '</span>' : '') + (it.descripcion ? '<span class="gem">💎 ' + (efectoUnusual(it) ? esc(efectoUnusual(it)) : lineasDesc(it).length) + '</span>' : '') + '</div>' +
-      (cd ? '<div class="icd">' + cdChipHtml(it, true) + '</div>' : '') +
-      '<div class="iprice"><b>' + (it._desde ? '<small class="desde">desde</small> ' : '') + fmtPrecio(it.precio) + '</b><span class="iacts">' + (agot ? '' : '<button type="button" class="icart" data-a="carAdd" data-id="' + esc(it.id) + '" aria-label="Agregar ' + esc(it.nombre) + ' al carrito" title="Agregar al carrito">🛒<span> Al carrito</span></button>') + '<span class="ibuy">' + (agot ? 'Agotado' : 'Comprar') + '</span></span></div>' + steamHtml(it) + '</div></article>';
+      '<div class="ibody"><h4 title="' + esc(it.nombre) + '">' + esc(it.nombre) + '</h4>' +
+      '<div class="iprice"><b>' + (it._desde ? '<small class="desde">desde</small> ' : '') + fmtPrecio(it.precio) + '</b>' + (dto ? '<span class="idto" title="Más barato que en el Mercado de Steam">-' + dto + '%</span>' : '') +
+      (agot ? '' : '<button type="button" class="icart" data-a="carAdd" data-id="' + esc(it.id) + '" aria-label="Agregar ' + esc(it.nombre) + ' al carrito" title="Agregar al carrito">🛒</button>') + '</div></div></article>';
   }
   // Items por página = columnas que caben × filas, para que las filas salgan completas (sin huecos al final).
   var GRID_COLS = 0, GRID_SEL = ".igrid:not(.sk-grid)";
@@ -1251,29 +1251,32 @@
   }
   // Cuántos items (tarjetas) hay en cada opción de un filtro, con los demás filtros puestos
   function cuentaPor(k) { var m = {}; itemsFiltrados(k).forEach(function (it) { var v = it[k]; if (v) m[v] = (m[v] || 0) + 1; }); return m; }
-  function mlOpciones(k, lista, colores) {
-    var cnt = cuentaPor(k), sel = filtros[k];
+  function mlOpcionesGen(k, lista, colores, sel, cnt, cls) {
     var vals = lista.filter(function (v) { return cnt[v] || sel.indexOf(v) >= 0; });
     if (!vals.length) return '<span class="ml-mini">Ningún item con los filtros de ahora.</span>';
     return '<div class="ml-lista">' + vals.map(function (v) {
       var on = sel.indexOf(v) >= 0;
-      return '<label class="ml-op' + (on ? ' sel' : '') + '"><input type="checkbox" class="ml-chk" data-k="' + k + '" value="' + esc(v) + '"' + (on ? ' checked' : '') + '>' +
+      return '<label class="ml-op' + (on ? ' sel' : '') + '"><input type="checkbox" class="' + cls + '" data-k="' + k + '" value="' + esc(v) + '"' + (on ? ' checked' : '') + '>' +
         (colores ? '<i class="pt" style="background:' + (colores[v] || '#8b949e') + '"></i>' : '') + '<span>' + esc(v) + '</span><em>' + (cnt[v] || 0) + '</em></label>';
     }).join("") + '</div>';
   }
+  function mlOpciones(k, lista, colores) { return mlOpcionesGen(k, lista, colores, filtros[k], cuentaPor(k), "ml-chk"); }
+  function heroeBtnHtml(heroe, accion) {
+    var rh = retratoHeroe(heroe);
+    return '<button type="button" class="heroe-btn' + (heroe ? ' activo' : '') + '" data-a="' + accion + '">' +
+      (heroe ? (rh ? '<img src="' + esc(rh) + '" alt="" referrerpolicy="no-referrer">' : '') + '<span>' + esc(heroe) + '</span><i aria-label="Quitar héroe">✕</i>' : 'Héroe: Todos') + '</button>' +
+      (heroe ? '' : '<span class="ml-mini">Toca para elegir el héroe con sus retratos.</span>');
+  }
+  function precioResumen(mn, mx) { return mn && mx ? "S/ " + mn + " – " + mx : mn ? "desde S/ " + mn : mx ? "hasta S/ " + mx : ""; }
   function resLista(a) { return !a.length ? "" : a.length === 1 ? a[0] : a.length + " elegidas"; }
   function filtrosLadoHtml() {
-    var precio = filtros.min && filtros.max ? "S/ " + filtros.min + " – " + filtros.max : filtros.min ? "desde S/ " + filtros.min : filtros.max ? "hasta S/ " + filtros.max : "";
-    var rh = retratoHeroe(filtros.heroe);
     return '<div class="ml-cab"><b>Filtros</b><button type="button" class="ml-x" data-a="fCel" aria-label="Cerrar filtros">✕</button></div>' +
-      mlSec("precio", "Precio", precio, '<div class="ml-precio"><input id="fi-min" inputmode="decimal" placeholder="Desde S/" value="' + esc(filtros.min) + '" aria-label="Precio desde"><input id="fi-max" inputmode="decimal" placeholder="Hasta S/" value="' + esc(filtros.max) + '" aria-label="Precio hasta"></div>') +
-      mlSec("heroe", "Héroe", filtros.heroe, '<button type="button" class="heroe-btn' + (filtros.heroe ? ' activo' : '') + '" data-a="fHeroe">' +
-        (filtros.heroe ? (rh ? '<img src="' + esc(rh) + '" alt="" referrerpolicy="no-referrer">' : '') + '<span>' + esc(filtros.heroe) + '</span><i aria-label="Quitar héroe">✕</i>' : 'Héroe: Todos') + '</button>' +
-        (filtros.heroe ? '' : '<span class="ml-mini">Toca para elegir el héroe con sus retratos.</span>')) +
+      mlSec("precio", "Precio", precioResumen(filtros.min, filtros.max), '<div class="ml-precio"><input id="fi-min" inputmode="decimal" placeholder="Desde S/" value="' + esc(filtros.min) + '" aria-label="Precio desde"><input id="fi-max" inputmode="decimal" placeholder="Hasta S/" value="' + esc(filtros.max) + '" aria-label="Precio hasta"></div>') +
+      mlSec("heroe", "Héroe", filtros.heroe, heroeBtnHtml(filtros.heroe, "fHeroe")) +
+      mlSec("ranura", "Ranura", resLista(filtros.ranura), mlOpciones("ranura", distintos("ranura", SLOTS_DOTA))) +
       mlSec("rareza", "Rareza", resLista(filtros.rareza), mlOpciones("rareza", LISTA_RAREZAS.filter(Boolean), COLOR_OPCION)) +
-      mlSec("calidad", "Calidad", resLista(filtros.calidad), '<span class="ml-mini">Sin marcar = todas.</span>' + mlOpciones("calidad", distintos("calidad", ITEM_CALIDADES))) +
-      mlSec("ranura", "Ranura", resLista(filtros.ranura), '<span class="ml-mini">Sin marcar = todas.</span>' + mlOpciones("ranura", distintos("ranura", SLOTS_DOTA))) +
-      '<button type="button" class="ml-reset" data-a="itReset">Reiniciar filtros</button>' +
+      mlSec("calidad", "Calidad", resLista(filtros.calidad), mlOpciones("calidad", distintos("calidad", ITEM_CALIDADES))) +
+      '<button type="button" class="ml-reset" data-a="itReset">Restablecer filtros</button>' +
       '<button type="button" class="btn btn-yellow ml-ver" data-a="fCel">Ver resultados (' + (items.cargado ? itemsFiltrados().length : 0) + ')</button>';
   }
   // Redibuja la columna (conteos, resúmenes) y la lista, sin perder lo que estás escribiendo en el precio
@@ -1301,7 +1304,7 @@
   })();
   var ATRIB = { s: ["Fuerza", "#e5534b"], a: ["Agilidad", "#3fb950"], i: ["Inteligencia", "#58a6ff"], u: ["Universal", "#d29922"], o: ["Otros", "#8b949e"] };
   function retratoHeroe(n) { var h = HEROE_INFO[n]; return h && h.k ? "https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/" + h.k + ".png" : ""; }
-  var selHeroe = { attr: "", q: "", soloCon: true }, hdlg = null;
+  var selHeroe = { attr: "", q: "", soloCon: true, modo: "comprar" }, hdlg = null;
   function abrirHeroes() {
     selHeroe.q = "";
     if (!hdlg) { hdlg = document.createElement("div"); hdlg.className = "hdlg"; document.body.appendChild(hdlg); }
@@ -1320,7 +1323,8 @@
     var box = document.getElementById("h-cuerpo"); if (!box) return;
     var at = hdlg.querySelector(".h-attr");
     if (at) at.innerHTML = [["", "Todos"], ["s", "Fuerza"], ["a", "Agilidad"], ["i", "Inteligencia"], ["u", "Universal"]].map(function (x) { return '<button type="button" class="itab' + (selHeroe.attr === x[0] ? ' on' : '') + '" data-a="hAttr" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join("");
-    var cnt = cuentaPor("heroe"), q = sinTildes(selHeroe.q).trim(), grupos = { s: [], a: [], i: [], u: [], o: [] };
+    var esVen = selHeroe.modo === "vender", heroeAct = esVen ? ven.f.heroe : filtros.heroe;
+    var cnt = esVen ? venCuentaPor("heroe") : cuentaPor("heroe"), q = sinTildes(selHeroe.q).trim(), grupos = { s: [], a: [], i: [], u: [], o: [] };
     var nombres = Object.keys(HEROE_INFO);
     Object.keys(cnt).forEach(function (n) { if (!HEROE_INFO[n]) nombres.push(n); });   // héroes que no están en la lista (nuevos o con otro nombre)
     nombres.forEach(function (n) {
@@ -1335,7 +1339,7 @@
       return '<h4><i style="background:' + ATRIB[a][1] + '"></i>' + ATRIB[a][0] + ' <small>' + l.filter(function (h) { return h.c; }).length + ' con items</small></h4><div class="h-grid">' +
         l.map(function (h) {
           var src = retratoHeroe(h.n);
-          return '<button type="button" class="' + (h.c ? '' : 'cero') + (h.n === filtros.heroe ? ' sel' : '') + '" data-a="hElegir" data-v="' + esc(h.n) + '" title="' + esc(h.n) + ': ' + h.c + (h.c === 1 ? ' item' : ' items') + '">' +
+          return '<button type="button" class="' + (h.c ? '' : 'cero') + (h.n === heroeAct ? ' sel' : '') + '" data-a="hElegir" data-v="' + esc(h.n) + '" title="' + esc(h.n) + ': ' + h.c + (h.c === 1 ? ' item' : ' items') + '">' +
             (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '<span class="h-sin" aria-hidden="true">' + esc(h.n.charAt(0)) + '</span>') + '<span>' + esc(h.n) + '</span>' + (h.c ? '<em>' + h.c + '</em>' : '') + '</button>';
         }).join("") + '</div>';
     }).join("");
@@ -1412,12 +1416,12 @@
     })).join("");
     var nFilt = chipsActivos().filter(function (c) { return c[0] !== "q"; }).length;
     var filt = '<div class="ml-fondo" data-a="fCel" aria-hidden="true"></div><aside class="ifilt ml' + (filtCel ? ' abierto' : '') + '" aria-label="Filtros">' + filtrosLadoHtml() + '</aside>';
-    return '<section class="section gutter" id="comprar"><div class="wrap">' + migaCatalogoHtml(filtros.tipo, filtros.heroe, "") +
-      '<div class="sec-title"><div class="kicker">Catálogo</div><h2><span class="t1">Comprar</span> <span>items</span></h2><p>Elige tu item y págalo con tu saldo o por WhatsApp.</p><div class="orn">◆</div></div>' +
+    return '<section class="section gutter cat" id="comprar"><div class="wrap">' + migaCatalogoHtml(filtros.tipo, filtros.heroe, "") +
+      '<h1 class="cat-t">Comprar items de Dota 2</h1>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala con el interruptor de abajo cuando esté lista.</p>') + switchItems() +
       (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkAbrir">📦 Stock de items</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + importarHtml() : '') +
       '<div class="itabs">' + tabs + '</div>' +
-      '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><input id="fi-q" type="search" placeholder="Buscar item o héroe…" value="' + esc(filtros.q) + '" autocomplete="off">' +
+      '<div class="ishop">' + filt + '<div class="imain"><div class="ibar"><button type="button" class="ibar-rec" data-a="itRecargar" aria-label="Recargar items" title="Recargar">⟳</button><input id="fi-q" type="search" placeholder="Buscar item o héroe…" value="' + esc(filtros.q) + '" autocomplete="off">' +
       '<button type="button" class="btn btn-ghost btn-sm ibar-filt" data-a="fCel" aria-label="Abrir filtros">⚙ Filtros<b id="filtCount">' + (nFilt ? nFilt : '') + '</b></button>' +
       '<select id="fi-orden" aria-label="Ordenar">' + [["nuevo", "Más nuevos"], ["menor", "Precio: menor a mayor"], ["mayor", "Precio: mayor a menor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (filtros.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
       '<span class="icount" id="itemsCuenta">' + (items.cargado ? itemsFiltrados().length + ' items' : '') + '</span></div><div class="fchips" id="itemsChips">' + chipsHtml() + '</div>' + (avisoNuevoItem ? '<div class="itaviso" role="status">✔ Item agregado. Mantuve tus filtros, así que quizá no lo veas en la lista. <button type="button" class="fchip limpiar" data-a="itReset">Quitar filtros</button></div>' : '') + '<div id="itemsGrid">' + gridItemsHtml() + '</div></div></div></div></section>';
@@ -1430,6 +1434,10 @@
       var k = el.getAttribute("data-k"), v = el.value;
       filtros[k] = el.checked ? filtros[k].concat([v]) : filtros[k].filter(function (x) { return x !== v; });
       filtros.pag = 0; pintarFiltros();
+    } else if (el && el.classList && el.classList.contains("vml-chk")) {   // casillas de Vender
+      var vk = el.getAttribute("data-k"), vv = el.value;
+      ven.f[vk] = el.checked ? ven.f[vk].concat([vv]) : ven.f[vk].filter(function (x) { return x !== vv; });
+      venPintar();
     } else if (el && el.id === "h-solo") { selHeroe.soloCon = el.checked; pintarHeroes(); }
   });
   document.addEventListener("input", function (ev) { if (ev.target && ev.target.id === "h-q") { selHeroe.q = ev.target.value; pintarHeroes(); } });
@@ -1446,7 +1454,7 @@
   function idItemHash() { var m = String(location.hash || "").match(/^#\/?item\/(.+)$/); if (!m) return null; try { return decodeURIComponent(m[1]); } catch (e) { return null; } }
   function paginaItemHtml(id) {
     var miga = function (tipo, n, heroe) { return migaCatalogoHtml(tipo, heroe, n); };
-    var envol = function (h) { return '<section class="section gutter" id="comprar"><div class="wrap">' + h + '</div></section>'; };
+    var envol = function (h) { return '<section class="section gutter cat cat-item" id="comprar"><div class="wrap">' + h + '</div></section>'; };
     if (!items.cargado && !items.err) return envol(miga("") + '<div class="empty frame"><div class="in"><strong>Cargando item…</strong></div></div>');
     var it = itemPorId(id);
     if (!it || (!it.activo && !admin.puede)) return envol(miga("") + '<div class="empty frame"><div class="in"><strong>Este item no está disponible</strong><span>Puede que ya se haya vendido o que aún no esté publicado.</span><a class="btn btn-yellow btn-sm" href="#comprar" style="margin-top:12px">Ver todos los items</a></div></div>');
@@ -1824,7 +1832,8 @@
      Precios: lista manual (rayas_compra, panel → Compras) y lista automática del motor (función venta, accion "precios"); la manual gana.
      "Vender ahora" crea la venta en el servidor (precios congelados + código V-XXXXX) y el bot de Steam la paga al recibir el trade. */
   var INV_URL = "https://inventario-seqcayr4iq-uc.a.run.app";
-  var ven = { link: "", cargando: false, err: "", lista: null, noTrad: 0, sel: {}, precios: [], auto: {}, cfg: null, cfgPidiendo: false, pCargado: false, pCargando: false, q: "", f: { tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", min: "", max: "", orden: "mayor" } };
+  var ven = { link: "", cargando: false, err: "", lista: null, noTrad: 0, sel: {}, precios: [], auto: {}, cfg: null, cfgPidiendo: false, pCargado: false, pCargando: false, q: "", verOff: false, aviso: "", f: venFiltrosVacios() };
+  function venFiltrosVacios() { return { tipo: "", heroe: "", ranura: [], rareza: [], calidad: [], min: "", max: "", orden: "mayor" }; }
   function claveCompra(n) { return sinTildes(n).replace(/\s+/g, " ").trim(); }
   function slugCompra(n) { return claveCompra(n).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || ("x" + Date.now().toString(36)); }
   function cargarPrecios(forzar) {
@@ -1878,23 +1887,24 @@
   function venderCardHtml(g, idx) {
     var p = precioCompra(g.name), c = ven.sel[g.k] || 0;
     var off = p === null && ventaAuto();
-    return '<article class="icard' + (c ? ' vsel' : '') + (off ? ' voff' : '') + '"><div class="ithumb" style="--rar:' + esc(g.color || "#8a8fb0") + '">' + (imgTag(g.icon, g.name, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') +
-      (g.n > 1 ? '<span class="itag">x' + g.n + '</span>' : '') + '</div>' +
-      '<div class="ibody"><h4>' + esc(g.name) + '</h4>' +
+    return '<article class="icard vcard' + (c ? ' vsel' : '') + (off ? ' voff' : '') + '"' + (off ? '' : ' data-a="venTocar" data-i="' + idx + '" tabindex="0" role="button" aria-pressed="' + (c ? 'true' : 'false') + '"') + ' aria-label="' + esc(g.name) + '">' +
+      '<div class="ithumb" style="--rar:' + esc(g.color || "#8a8fb0") + '">' + (imgTag(g.icon, g.name, ' loading="lazy"') || '<span class="sinfoto">Sin foto</span>') +
+      (g.n > 1 ? '<span class="itag">x' + g.n + '</span>' : '') + (c ? '<span class="vcheck" aria-hidden="true">✓</span>' : '') + '</div>' +
+      '<div class="ibody"><h4 title="' + esc(g.name) + '">' + esc(g.name) + '</h4>' +
       '<div class="iprice"><b>' + (p === null ? (ventaAuto() ? 'No lo compramos' : 'Consultar') : fmtPrecio(p)) + '</b></div>' +
-      '<div class="vstep"><button type="button" class="btn btn-ghost btn-sm" data-a="venMenos" data-i="' + idx + '" aria-label="Quitar uno"' + (c ? '' : ' disabled') + '>−</button>' +
-      '<span>' + c + '</span><button type="button" class="btn btn-ghost btn-sm" data-a="venMas" data-i="' + idx + '" aria-label="Agregar uno"' + (c >= g.n || off ? ' disabled' : '') + '>+</button></div></div></article>';
+      (c && g.n > 1 ? '<div class="vstep"><button type="button" data-a="venMenos" data-i="' + idx + '" aria-label="Quitar uno">−</button><span>' + c + ' / ' + g.n + '</span>' +
+        '<button type="button" data-a="venMas" data-i="' + idx + '" aria-label="Agregar uno"' + (c >= g.n ? ' disabled' : '') + '>+</button></div>' : '') + '</div></article>';
   }
-  function venFiltrados() {
+  function venFiltrados(sin) {
     var f = ven.f, q = sinTildes(ven.q), mn = parseFloat(f.min), mx = parseFloat(f.max);
     var vis = (ven.lista || []).map(function (g, i) { return { g: g, i: i, p: precioCompra(g.name) }; }).filter(function (o) {
       var g = o.g;
       if (q && sinTildes(g.name).indexOf(q) < 0) return false;
       if (f.tipo && g.tipo !== f.tipo) return false;
-      if (f.heroe && g.heroe !== f.heroe) return false;
-      if (f.ranura && g.ranura !== f.ranura) return false;
-      if (f.rareza && g.rareza !== f.rareza) return false;
-      if (f.calidad && g.calidad !== f.calidad) return false;
+      if (sin !== "heroe" && f.heroe && g.heroe !== f.heroe) return false;
+      if (sin !== "ranura" && f.ranura.length && f.ranura.indexOf(g.ranura) < 0) return false;
+      if (sin !== "rareza" && f.rareza.length && f.rareza.indexOf(g.rareza) < 0) return false;
+      if (sin !== "calidad" && f.calidad.length && f.calidad.indexOf(g.calidad) < 0) return false;
       if (isFinite(mn) && (o.p === null || o.p < mn)) return false;
       if (isFinite(mx) && (o.p === null || o.p > mx)) return false;
       return true;
@@ -1906,6 +1916,7 @@
     });
     return vis;
   }
+  function venCuentaPor(k) { var m = {}; venFiltrados(k).forEach(function (o) { var v = o.g[k]; if (v) m[v] = (m[v] || 0) + 1; }); return m; }
   function venDistintos(k, base) {
     var set = {}, out = [];
     (base || []).concat((ven.lista || []).map(function (x) { return x[k]; })).forEach(function (v) { if (v && !set[v]) { set[v] = 1; out.push(v); } });
@@ -1916,45 +1927,104 @@
     var tabs = ['<button type="button" class="itab' + (!f.tipo ? ' on' : '') + '" data-a="venTipo" data-v="">Todos</button>'].concat(ITEM_TIPOS.map(function (t) {
       return '<button type="button" class="itab' + (f.tipo === t ? ' on' : '') + '" data-a="venTipo" data-v="' + esc(t) + '">' + esc(t) + '</button>';
     })).join("");
-    var filt = '<aside class="ifilt"><details' + (window.innerWidth > 820 ? ' open' : '') + '><summary>Filtros</summary>' +
-      '<div class="ff"><label>Precio (S/)</label><div class="ff2"><input id="vf-min" inputmode="decimal" placeholder="Desde" value="' + esc(f.min) + '"><input id="vf-max" inputmode="decimal" placeholder="Hasta" value="' + esc(f.max) + '"></div></div>' +
-      '<div class="ff"><label for="vf-heroe">Héroe</label><select id="vf-heroe">' + opciones(venDistintos("heroe", HEROES_DOTA), f.heroe, "Todos") + '</select></div>' +
-      '<div class="ff"><label for="vf-ranura">Ranura</label><select id="vf-ranura">' + opciones(venDistintos("ranura", SLOTS_DOTA), f.ranura, "Todas") + '</select></div>' +
-      '<div class="ff"><label for="vf-rareza">Rareza</label><select id="vf-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), f.rareza, "Todas") + '</select></div>' +
-      '<div class="ff"><label for="vf-calidad">Calidad</label><select id="vf-calidad">' + opciones(venDistintos("calidad", ITEM_CALIDADES), f.calidad, "Todas") + '</select></div>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-a="venReset" style="width:100%">Restablecer filtros</button></details></aside>';
+    var filt = '<div class="ml-fondo" data-a="fCel" aria-hidden="true"></div><aside class="ifilt ml' + (filtCel ? ' abierto' : '') + '" aria-label="Filtros">' + venFiltrosLadoHtml() + '</aside>';
     return { tabs: '<div class="itabs">' + tabs + '</div>', filt: filt };
+  }
+  function venFiltrosLadoHtml() {
+    var f = ven.f;
+    return '<div class="ml-cab"><b>Filtros</b><button type="button" class="ml-x" data-a="fCel" aria-label="Cerrar filtros">✕</button></div>' +
+      mlSec("precio", "Precio", precioResumen(f.min, f.max), '<div class="ml-precio"><input id="vf-min" inputmode="decimal" placeholder="Desde S/" value="' + esc(f.min) + '" aria-label="Precio desde"><input id="vf-max" inputmode="decimal" placeholder="Hasta S/" value="' + esc(f.max) + '" aria-label="Precio hasta"></div>') +
+      mlSec("heroe", "Héroe", f.heroe, heroeBtnHtml(f.heroe, "vHeroe")) +
+      mlSec("ranura", "Ranura", resLista(f.ranura), mlOpcionesGen("ranura", venDistintos("ranura", SLOTS_DOTA), null, f.ranura, venCuentaPor("ranura"), "vml-chk")) +
+      mlSec("rareza", "Rareza", resLista(f.rareza), mlOpcionesGen("rareza", LISTA_RAREZAS.filter(Boolean), COLOR_OPCION, f.rareza, venCuentaPor("rareza"), "vml-chk")) +
+      mlSec("calidad", "Calidad", resLista(f.calidad), mlOpcionesGen("calidad", venDistintos("calidad", ITEM_CALIDADES), null, f.calidad, venCuentaPor("calidad"), "vml-chk")) +
+      '<button type="button" class="ml-reset" data-a="venReset">Restablecer filtros</button>' +
+      '<button type="button" class="btn btn-fuchsia ml-ver" data-a="fCel">Ver resultados (' + (ven.lista ? venFiltrados().length : 0) + ')</button>';
+  }
+  // Grilla de Vender: primero lo que compramos; lo demás detrás de "Ver N que no compramos"
+  function venGridHtml() {
+    var vis = venFiltrados(), si = vis, no = [];
+    if (ventaAuto()) { si = vis.filter(function (o) { return o.p !== null; }); no = vis.filter(function (o) { return o.p === null; }); }
+    if (!vis.length) return '<div class="empty frame"><div class="in"><strong>Ningún item coincide</strong><span>Prueba con otros filtros.</span></div></div>';
+    return (si.length ? '<div class="igrid">' + si.map(function (o) { return venderCardHtml(o.g, o.i); }).join("") + '</div>' : '<div class="empty frame"><div class="in"><strong>Ninguno de estos items lo compramos</strong><span>Prueba con otros filtros.</span></div></div>') +
+      (no.length ? '<button type="button" class="ven-off" data-a="venVerOff" aria-expanded="' + (ven.verOff ? 'true' : 'false') + '">' + (ven.verOff ? 'Ocultar' : 'Ver') + ' ' + no.length + ' que no compramos <i aria-hidden="true">' + (ven.verOff ? '▴' : '▾') + '</i></button>' +
+        (ven.verOff ? '<div class="igrid igrid-off">' + no.map(function (o) { return venderCardHtml(o.g, o.i); }).join("") + '</div>' : '') : '');
+  }
+  function topeVenta() { var t = ven.cfg && Number(ven.cfg.topeVenta); return t > 0 ? t : 0; }
+  // Resumen de la venta: panel a la derecha (PC) y barra de abajo (celular)
+  function venResumenHtml(panel) {
+    var T = ventaTotales(), auto = ventaAuto(), tope = topeVenta(), pasa = auto && tope && T.tot > tope;
+    var btn = auto ? '<button class="btn btn-fuchsia" type="button" data-a="venVender"' + (T.n && !pasa ? '' : ' disabled') + '>💰 Vender ahora</button>'
+      : '<button class="btn btn-yellow" type="button" data-a="venWsp"' + (T.n && contactos().length ? '' : ' disabled') + '>💬 Vender por WhatsApp</button>';
+    var aviso = pasa ? '<p class="vaviso" role="alert">El tope por venta es ' + fmtPrecio(tope) + '. Quita algunos items o haz otra venta después.</p>' : (ven.aviso ? '<p class="vaviso" role="status">' + esc(ven.aviso) + '</p>' : '');
+    if (panel) return '<div class="vp-cab"><span class="vp-n">' + T.n + ' item' + (T.n === 1 ? '' : 's') + ' elegido' + (T.n === 1 ? '' : 's') + '</span>' + (T.n ? '<button type="button" class="vp-limpiar" data-a="venLimpiar">Quitar todo</button>' : '') + '</div>' +
+      '<div class="vp-tot"><small>' + (auto ? 'Recibes' : 'Total') + '</small><b>' + fmtPrecio(T.tot) + '</b>' + (T.sinP ? '<em>+ ' + T.sinP + ' a consultar</em>' : '') + '</div>' +
+      (auto ? '<div class="vp-metodo"><small>Cómo cobras</small><div class="vp-op"><span>💰</span><div><b>Saldo de la tienda</b><em>⚡ Pago al instante</em></div></div></div>' : '<div class="vp-metodo"><small>Cómo cobras</small><div class="vp-op"><span>💬</span><div><b>Por WhatsApp</b><em>Te confirmamos el pago</em></div></div></div>') +
+      aviso + btn + (tope && auto ? '<p class="vp-nota">Máximo ' + fmtPrecio(tope) + ' por venta.</p>' : '');
+    return '<div><div><b>' + T.n + '</b> item' + (T.n === 1 ? '' : 's') + ' elegido' + (T.n === 1 ? '' : 's') + (T.n ? ' · ' + (auto ? 'Recibes' : 'Total') + ': <b>' + fmtPrecio(T.tot) + '</b>' + (T.sinP ? ' + ' + T.sinP + ' a consultar' : '') : '') + '</div>' +
+      (auto ? '<div class="vpago"><span class="vchip">⚡ Pago al instante</span> como saldo de la tienda</div>' : '') + aviso + '</div>' + btn;
+  }
+  // Redibuja solo lo que cambia en Vender (sin rehacer la página): filtros, grilla, conteo y resumen
+  function venPintar() {
+    var a = document.querySelector("#vender .ifilt");
+    if (a) {
+      var ae = document.activeElement, id = ae && a.contains(ae) ? ae.id : "", pos = id ? ae.selectionStart : null, top = a.scrollTop;
+      a.innerHTML = venFiltrosLadoHtml(); a.scrollTop = top;
+      if (id) { var nd = document.getElementById(id); if (nd) { nd.focus(); try { nd.setSelectionRange(pos, pos); } catch (e) { /* nada */ } } }
+    }
+    var g = document.getElementById("venGrid"); if (g) g.innerHTML = venGridHtml();
+    var c = document.getElementById("venCuenta"); if (c) c.textContent = venCuentaTexto();
+    var p = document.getElementById("venPanel"); if (p) p.innerHTML = venResumenHtml(true);
+    var b = document.getElementById("venBar"); if (b) b.innerHTML = venResumenHtml(false);
+    var tb = document.getElementById("venTodoBtn"); if (tb) tb.textContent = venTodoTexto();
+    hidratarImgs();
+  }
+  function venCuentaTexto() { var n = venFiltrados().length; return n + ' de ' + (ven.lista || []).length + ' tipos de item' + (ven.noTrad ? ' · ' + ven.noTrad + ' no intercambiables' : ''); }
+  function venElegibles() { return venFiltrados().filter(function (o) { return o.p !== null || !ventaAuto(); }); }
+  function venTodoTexto() { var l = venElegibles(); return l.length && l.every(function (o) { return (ven.sel[o.g.k] || 0) >= o.g.n; }) ? "Quitar todo" : "Seleccionar todo"; }
+  // "Seleccionar todo": elige todo lo visible que compramos, sin pasarse del tope por venta
+  function venSeleccionarTodo() {
+    var l = venElegibles();
+    if (venTodoTexto() === "Quitar todo") { l.forEach(function (o) { delete ven.sel[o.g.k]; }); ven.aviso = ""; venPintar(); return; }
+    var tope = ventaAuto() ? topeVenta() : 0, tot = ventaTotales().tot, corto = false;
+    l.forEach(function (o) {
+      var ya = ven.sel[o.g.k] || 0, quiero = o.g.n;
+      if (tope && o.p !== null) { var caben = Math.floor((tope - tot + 1e-9) / o.p) + ya; if (caben < quiero) { corto = true; quiero = Math.max(ya, caben); } }
+      if (quiero > ya) { if (o.p !== null) tot += (quiero - ya) * o.p; ven.sel[o.g.k] = quiero; }
+    });
+    ven.aviso = corto ? "Elegimos hasta llegar al tope de " + fmtPrecio(tope) + " por venta." : "";
+    venPintar();
   }
   function venderHtml() {
     var cuerpo;
     if (uidSesion()) pedirConfigVenta();
-    if (ven.cargando) cuerpo = '<div class="empty frame"><div class="in"><strong>Leyendo tu inventario…</strong><span>Puede tardar unos segundos.</span></div></div>';
+    if (ven.cargando) cuerpo = '<div class="igrid sk-grid" aria-busy="true" aria-label="Leyendo tu inventario">' + new Array(13).join('<article class="icard sk" aria-hidden="true"><div class="ithumb"></div><div class="ibody"><i class="sk-l w80"></i><i class="sk-l w50"></i></div></article>') + '</div>';
     else if (ven.lista === null) cuerpo = '<div class="empty frame"><div class="in"><strong>Pega tu trade link para empezar</strong><span>Verás tus items de Dota 2 que se pueden intercambiar y el precio al que te los compramos.</span></div></div>';
     else if (!ven.lista.length) cuerpo = '<div class="empty frame"><div class="in"><strong>No hay items intercambiables</strong><span>Revisa que tu inventario de Dota 2 sea público y tenga items que puedas tradear.</span></div></div>';
     else {
-      var vis = venFiltrados(), T = ventaTotales(), F = venFiltrosHtml();
-      cuerpo = F.tabs + '<div class="ishop">' + F.filt + '<div class="imain">' +
-        '<div class="ibar"><input id="ven-q" type="search" placeholder="Buscar en tu inventario…" value="' + esc(ven.q) + '" autocomplete="off">' +
+      var F = venFiltrosHtml(), nF = (ven.f.heroe ? 1 : 0) + ven.f.rareza.length + ven.f.calidad.length + ven.f.ranura.length + (ven.f.min || ven.f.max ? 1 : 0);
+      cuerpo = F.tabs + '<div class="ishop ven3">' + F.filt + '<div class="imain">' +
+        '<div class="ibar"><button type="button" class="ibar-rec" data-a="venVer" aria-label="Volver a leer mi inventario" title="Volver a leer mi inventario">⟳</button>' +
+        '<input id="ven-q" type="search" placeholder="Buscar en tu inventario…" value="' + esc(ven.q) + '" autocomplete="off">' +
+        '<button type="button" class="btn btn-ghost btn-sm ibar-filt" data-a="fCel" aria-label="Abrir filtros">⚙ Filtros<b>' + (nF ? nF : '') + '</b></button>' +
         '<select id="vf-orden" aria-label="Ordenar">' + [["mayor", "Precio: mayor a menor"], ["menor", "Precio: menor a mayor"], ["nombre", "Nombre A-Z"]].map(function (o) { return '<option value="' + o[0] + '"' + (ven.f.orden === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
-        '<span class="icount">' + vis.length + ' de ' + ven.lista.length + ' tipos de item' + (ven.noTrad ? ' · ' + ven.noTrad + ' no intercambiables' : '') + '</span></div>' +
-        (vis.length ? '<div class="igrid">' + vis.map(function (o) { return venderCardHtml(o.g, o.i); }).join("") + '</div>' : '<div class="empty frame"><div class="in"><strong>Ningún item coincide</strong><span>Prueba con otros filtros.</span></div></div>') +
-        '</div></div>' +
-        '<div class="vbar"><div><div><b>' + T.n + '</b> item' + (T.n === 1 ? '' : 's') + ' elegido' + (T.n === 1 ? '' : 's') + (T.n ? ' · ' + (ventaAuto() ? 'Recibes' : 'Total') + ': <b>' + fmtPrecio(T.tot) + '</b>' + (T.sinP ? ' + ' + T.sinP + ' a consultar' : '') : '') + '</div>' +
-        (ventaAuto() ? '<div class="vpago"><span class="vchip">⚡ Pago al instante</span> como saldo de la tienda</div>' : '') + '</div>' +
-        (ventaAuto() ? '<button class="btn btn-fuchsia" type="button" data-a="venVender"' + (T.n ? '' : ' disabled') + '>💰 Vender ahora</button>'
-          : '<button class="btn btn-yellow" type="button" data-a="venWsp"' + (T.n && contactos().length ? '' : ' disabled') + '>💬 Vender por WhatsApp</button>') + '</div>';
+        '<button type="button" class="ibar-todo" id="venTodoBtn" data-a="venTodo">' + venTodoTexto() + '</button></div>' +
+        '<p class="icount" id="venCuenta">' + venCuentaTexto() + '</p>' +
+        '<div id="venGrid">' + venGridHtml() + '</div></div>' +
+        '<aside class="vpanel" id="venPanel" aria-label="Tu venta">' + venResumenHtml(true) + '</aside></div>' +
+        '<div class="vbar" id="venBar">' + venResumenHtml(false) + '</div>';
     }
-    return '<section class="section gutter" id="vender"><div class="wrap">' +
-      '<div class="ipg-crumb"><a href="#inicio">Inicio</a> <span>›</span> <span>Vender skins</span></div>' +
-      '<div class="sec-title"><div class="kicker">Tus items</div><h2><span class="t1">Vender</span> <span>skins</span></h2><p>' + (ventaAuto() ? 'Pega tu trade link, elige tus skins y recibe el pago al instante como saldo de la tienda.' : 'Pega tu trade link, elige lo que quieres vender y mira cuánto te pagamos.') + '</p><div class="orn">◆</div></div>' +
+    return '<section class="section gutter cat" id="vender"><div class="wrap">' +
+      '<nav class="ipg-crumb" aria-label="Ruta"><a href="#inicio">Inicio</a><span class="sep" aria-hidden="true">/</span><span class="act" aria-current="page">Vender skins</span></nav>' +
+      '<h1 class="cat-t">Vender skins de Dota 2</h1>' +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala con el interruptor de abajo cuando esté lista.</p>') + switchItems() +
-      '<div class="vlink frame"><div class="in"><label for="ven-link">Tu trade link de Steam</label>' +
+      '<div class="vlink"><label for="ven-link">Tu trade link de Steam</label>' +
       '<div class="vrow"><input id="ven-link" type="url" inputmode="url" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…" value="' + esc(ven.link) + '" autocomplete="off">' +
       '<button class="btn btn-fuchsia" type="button" data-a="venVer"' + (ven.cargando ? ' disabled' : '') + '>Ver mi inventario</button></div>' +
-      '<p class="hint">' + TRADE_AYUDA + '</p>' +
-      '<p class="hint">Tu inventario de Dota 2 debe estar en <b>Público</b>. Tu trade link lo encuentras en Steam → Inventario → Ofertas de intercambio → "¿Quién puede enviarme ofertas?".' +
-      (cuenta.perfil && cuenta.perfil.tradelink && !ven.link ? ' <button type="button" class="btn btn-ghost btn-sm" data-a="venMio">Usar el de mi cuenta</button>' : '') + '</p>' +
-      (ven.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(ven.err) + '</p>' : '') + '</div></div>' + cuerpo + '</div></section>';
+      '<details class="vayuda"><summary>¿Dónde encuentro mi link?</summary><p class="hint">' + TRADE_AYUDA + '</p>' +
+      '<p class="hint">Tu inventario de Dota 2 debe estar en <b>Público</b>. Tu trade link lo encuentras en Steam → Inventario → Ofertas de intercambio → "¿Quién puede enviarme ofertas?".</p></details>' +
+      (cuenta.perfil && cuenta.perfil.tradelink && !ven.link ? '<button type="button" class="btn btn-ghost btn-sm vmio" data-a="venMio">Usar el de mi cuenta</button>' : '') +
+      (ven.err ? '<p class="hint" style="color:var(--danger)" role="alert">' + esc(ven.err) + '</p>' : '') + '</div>' + cuerpo + '</div></section>';
   }
   function mensajeVenta() {
     var p = cuenta.perfil, T = ventaTotales(), l = [];
@@ -2046,19 +2116,9 @@
       var bt = document.getElementById("imp-subir"); if (bt) { bt.textContent = impTextoSubir(Is); bt.disabled = !!Is.subiendo || !impCuenta(Is); }
       return true;
     }
-    if (el.id === "ven-q") {
-      ven.q = el.value; var pos = el.selectionStart; render();
-      var nq = document.getElementById("ven-q"); if (nq) { nq.focus(); try { nq.setSelectionRange(pos, pos); } catch (e) { /* nada */ } }
-      hidratarImgs(); return true;
-    }
-    var VF = { "vf-min": "min", "vf-max": "max", "vf-heroe": "heroe", "vf-ranura": "ranura", "vf-rareza": "rareza", "vf-calidad": "calidad", "vf-orden": "orden" };
-    if (VF[el.id]) {
-      var vid = el.id, vpos = el.selectionStart;
-      ven.f[VF[vid]] = el.value; render();
-      var vn = document.getElementById(vid);
-      if (vn && vn.tagName === "INPUT") { vn.focus(); try { vn.setSelectionRange(vpos, vpos); } catch (e) { /* nada */ } }
-      hidratarImgs(); return true;
-    }
+    if (el.id === "ven-q") { if (ven.q !== el.value) { ven.q = el.value; venPintar(); } return true; }
+    var VF = { "vf-min": "min", "vf-max": "max", "vf-orden": "orden" };
+    if (VF[el.id]) { if (ven.f[VF[el.id]] !== el.value) { ven.f[VF[el.id]] = el.value; venPintar(); } return true; }
     if (el.id && el.id.indexOf("vs-") === 0) { var VS = admin.vs = admin.vs || {}; VS.form = VS.form || {}; VS.form[el.id.slice(3)] = el.type === "checkbox" ? el.checked : el.value; return true; }
     if (el.id === "cp-nombre" || el.id === "cp-precio" || el.id === "cp-bulk") {
       admin.cp = admin.cp || {}; admin.cp[el.id.slice(3)] = el.value; return true;
@@ -4379,9 +4439,13 @@
         filtros.pag = 0; render(); sincHash(); break;
       case "itReset": avisoNuevoItem = false; var ordenR = filtros.orden; filtros = filtrosVacios(); filtros.orden = ordenR; filtCel = false; render(); sincHash(); break;
       // columna de filtros estilo LIS Skins
-      case "fHeroe": if (filtros.heroe) { filtros.heroe = ""; filtros.pag = 0; pintarFiltros(); sincHash(); } else abrirHeroes(); break;
-      case "fCel": filtCel = !filtCel; var fa = document.querySelector("#comprar .ifilt"); if (fa) fa.classList.toggle("abierto", filtCel); document.body.classList.toggle("ifilt-on", filtCel); break;
-      case "hElegir": filtros.heroe = t.getAttribute("data-v") || ""; filtros.pag = 0; cerrarHeroes(); pintarFiltros(); sincHash(); break;
+      case "fHeroe": if (filtros.heroe) { filtros.heroe = ""; filtros.pag = 0; pintarFiltros(); sincHash(); } else { selHeroe.modo = "comprar"; abrirHeroes(); } break;
+      case "vHeroe": if (ven.f.heroe) { ven.f.heroe = ""; venPintar(); } else { selHeroe.modo = "vender"; abrirHeroes(); } break;
+      case "fCel": filtCel = !filtCel; var fa = document.querySelector(".cat .ifilt.ml"); if (fa) fa.classList.toggle("abierto", filtCel); document.body.classList.toggle("ifilt-on", filtCel); break;
+      case "hElegir":
+        if (selHeroe.modo === "vender") { ven.f.heroe = t.getAttribute("data-v") || ""; cerrarHeroes(); venPintar(); break; }
+        filtros.heroe = t.getAttribute("data-v") || ""; filtros.pag = 0; cerrarHeroes(); pintarFiltros(); sincHash(); break;
+      case "itRecargar": cargarItems(true); render(); break;
       case "hAttr": selHeroe.attr = t.getAttribute("data-v") || ""; pintarHeroes(); break;
       case "hCerrar": cerrarHeroes(); break;
       case "itPag": filtros.pag = Math.max(0, Number(t.getAttribute("data-p")) || 0); pintarItems(); var gp = document.getElementById("itemsGrid"); if (gp && gp.scrollIntoView) gp.scrollIntoView({ block: "start", behavior: "smooth" }); break;
@@ -4412,10 +4476,14 @@
         if (modal && modal.tipo === "ventaCodigo") { var vc = modal.code; llamarVenta({ accion: "cancelar", code: vc }).then(function () { if (modal && modal.code === vc) { modal.estado = "cancelada"; modal.motivo = "La cancelaste tú."; render(); } }).catch(function (e) { if (modal && modal.code === vc) { modal.motivo = e.message; render(); } }); }
         break;
       case "venTipo": ven.f.tipo = t.getAttribute("data-v") || ""; render(); hidratarImgs(); break;
-      case "venReset": ven.f = { tipo: "", heroe: "", ranura: "", rareza: "", calidad: "", min: "", max: "", orden: "mayor" }; ven.q = ""; render(); hidratarImgs(); break;
+      case "venReset": var ordV = ven.f.orden; ven.f = venFiltrosVacios(); ven.f.orden = ordV; ven.q = ""; filtCel = false; document.body.classList.remove("ifilt-on"); render(); hidratarImgs(); break;
+      case "venTocar": var gt = ven.lista && ven.lista[Number(t.getAttribute("data-i"))]; if (gt) { if (ven.sel[gt.k]) delete ven.sel[gt.k]; else ven.sel[gt.k] = 1; ven.aviso = ""; venPintar(); } break;
+      case "venTodo": venSeleccionarTodo(); break;
+      case "venLimpiar": ven.sel = {}; ven.aviso = ""; venPintar(); break;
+      case "venVerOff": ven.verOff = !ven.verOff; venPintar(); break;
       case "venMio": if (cuenta.perfil) { ven.link = cuenta.perfil.tradelink || ""; render(); } break;
-      case "venMas": var gm = ven.lista && ven.lista[Number(t.getAttribute("data-i"))]; if (gm) { ven.sel[gm.k] = Math.min(gm.n, (ven.sel[gm.k] || 0) + 1); render(); hidratarImgs(); } break;
-      case "venMenos": var gn = ven.lista && ven.lista[Number(t.getAttribute("data-i"))]; if (gn) { ven.sel[gn.k] = Math.max(0, (ven.sel[gn.k] || 0) - 1); render(); hidratarImgs(); } break;
+      case "venMas": var gm = ven.lista && ven.lista[Number(t.getAttribute("data-i"))]; if (gm) { ven.sel[gm.k] = Math.min(gm.n, (ven.sel[gm.k] || 0) + 1); venPintar(); } break;
+      case "venMenos": var gn = ven.lista && ven.lista[Number(t.getAttribute("data-i"))]; if (gn) { var cn = Math.max(0, (ven.sel[gn.k] || 0) - 1); if (cn) ven.sel[gn.k] = cn; else delete ven.sel[gn.k]; venPintar(); } break;
       case "venWsp":
         if (modal && modal.tipo === "error") modal = null;
         var cv = contactos();
