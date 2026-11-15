@@ -170,3 +170,43 @@
   .pfw-trab.dest .pfw-shot img { height: 100%; aspect-ratio: auto; }
   .pfw-trab.dest .pfw-meta { flex: none; }
 }
+
+/* ===== Al día con studio.litlejacob.trade (15/11/2026): real / ejemplo, lo que trae cada web, rubros, garantías y preguntas ===== */
+.pfw-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.pfw-tipo { align-self: flex-start; padding: 4px 10px; border-radius: 999px; font: 700 11px var(--bf); letter-spacing: .08em; text-transform: uppercase; color: var(--mut); background: color-mix(in srgb, var(--fg) 7%, transparent); border: 1px solid color-mix(in srgb, var(--fg) 16%, transparent); }
+.pfw-tipo.real { color: #7fe0a7; background: rgba(46, 204, 113, .12); border-color: rgba(46, 204, 113, .4); }
+.pfw-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; padding: 0; list-style: none; }
+.pfw-chips li { padding: 3px 9px; border-radius: 6px; font-size: 12px; color: var(--mut); background: color-mix(in srgb, var(--fg) 6%, transparent); }
+.pfw-opweb { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 14px; color: var(--a); text-decoration: none; }
+.pfw-opweb svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+.pfw-rubros { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.pfw-rubro { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); color: var(--fg); text-decoration: none; transition: border-color .2s, transform .2s; }
+.pfw-rubro:hover { border-color: var(--line-hi); transform: translateY(-2px); }
+.pfw-rubro b { font-size: 16px; }
+.pfw-rubro span { font-size: 13.5px; color: var(--mut); line-height: 1.45; }
+.pfw-gar { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 18px; margin: 22px 0 0; padding: 0; list-style: none; }
+.pfw-gar li { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--fg); }
+.pfw-gar svg { width: 16px; height: 16px; fill: none; stroke: var(--a); stroke-width: 2.4; }
+.pfw-faq { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.pfw-faq details { border-radius: 14px; background: var(--card); border: 1px solid var(--line); }
+.pfw-faq summary { cursor: pointer; list-style: none; padding: 16px 18px; font-weight: 600; color: var(--fg); display: flex; justify-content: space-between; gap: 12px; }
+.pfw-faq summary::-webkit-details-marker { display: none; }
+.pfw-faq summary::after { content: "+"; color: var(--a); font-weight: 700; }
+.pfw-faq details[open] summary::after { content: "−"; }
+.pfw-faq p { margin: 0; padding: 0 18px 16px; color: var(--mut); line-height: 1.6; font-size: 14.5px; }
+
+/* Videos de cada proyecto (15/11/2026) */
+.pfw-shot video.pfw-vid { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; background: #0b0d14; }
+
+/* Pie de página: crédito con enlace a Páginas web */
+.fcredito { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 8px; margin-top: 10px; padding: 8px 14px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--fg, #fff) 14%, transparent); color: var(--muted, #9ba7d8); font-size: 13px; text-decoration: none; transition: border-color .2s, color .2s; }
+.fcredito b { color: var(--fg, #fff); font-weight: 600; }
+.fcredito em { font-style: normal; color: var(--yellow, #ffc93c); font-weight: 600; }
+.fcredito:hover { border-color: var(--yellow, #ffc93c); color: var(--fg, #fff); }
+
+/* Aviso en la ventana de compra/recarga lista (una sola vez por navegador) */
+.aviso-web { display: flex; align-items: center; gap: 12px; width: 100%; margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; border: 1px dashed color-mix(in srgb, var(--yellow, #ffc93c) 55%, transparent); background: color-mix(in srgb, var(--yellow, #ffc93c) 7%, transparent); color: var(--fg, #fff); font: inherit; font-size: 14px; line-height: 1.4; text-align: left; cursor: pointer; }
+.aviso-web > span:first-child { font-size: 24px; flex: none; }
+.aviso-web small { display: block; margin-top: 2px; color: var(--muted, #9ba7d8); font-size: 12.5px; }
+.aviso-web em { font-style: normal; color: var(--yellow, #ffc93c); font-weight: 600; white-space: nowrap; }
+.aviso-web:hover { border-style: solid; }

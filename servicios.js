@@ -18,7 +18,7 @@
     items: [
       { ico: "🌐", svg: '<rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M3 8h18M8 21h8M12 18v3"></path>',
         t: "Páginas web para tu negocio",
-        d: "Hago tu página: de presentación, catálogo de productos o tienda completa con panel propio. Hosting gratis el primer año.",
+        d: "Hago tu página: de presentación, catálogo de productos o tienda completa con panel propio. Hosting gratis, sin mensualidad.",
         b: "Quiero mi página",
         msg: "Hola, vi en " + TIENDA + " que hacen páginas web. Quiero información para mi negocio." },
       { ico: "💬", svg: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z"></path><path d="M8.5 10.5h7M8.5 13.5h4.5"></path>',

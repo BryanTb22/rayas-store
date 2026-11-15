@@ -605,14 +605,14 @@
     } else if (m.tipo === "ventaCodigo") {
       var vm = ventaModalHtml(m); h = vm.h; btns = vm.btns;
     } else if (m.tipo === "ventaOk") {
-      h = '<h3>¡Venta lista! 🎉</h3><p class="hint">Recibimos tus ' + (m.count === 1 ? 'skin' : m.count + ' skins') + ' (venta <b>' + esc(m.code) + '</b>). Se sumaron <b>' + fmtPrecio(m.total) + '</b> a tu saldo' + (c ? ': ahora tienes <b>' + fmtSol(c.creditos) + '</b> soles' : '') + '.</p>';
+      h = '<h3>¡Venta lista! 🎉</h3><p class="hint">Recibimos tus ' + (m.count === 1 ? 'skin' : m.count + ' skins') + ' (venta <b>' + esc(m.code) + '</b>). Se sumaron <b>' + fmtPrecio(m.total) + '</b> a tu saldo' + (c ? ': ahora tienes <b>' + fmtSol(c.creditos) + '</b> soles' : '') + '.</p>' + avisoWebHtml(m);
       btns = cerrar;
     } else if (m.tipo === "error" && m.wsp) {
       h = '<h3>Venta por WhatsApp</h3><p class="hint">' + esc(m.msg) + '</p>';
       btns = '<button class="btn btn-yellow" type="button" data-a="venWsp">💬 Vender por WhatsApp</button>' + cerrar;
     } else if (m.tipo === "itemOk") {
       h = '<h3>¡Compra lista! 🎉</h3><p class="hint">Compraste <b>' + esc(m.nombre) + '</b>. Pedido <b>' + esc(m.code) + '</b>. Te quedan <b>' + fmtSol(m.saldo) + '</b> soles. ' +
-        (m.entrega ? 'Tu item está en <b>cooldown de Steam</b>: lo recibes el <b>' + esc(fechaEntrega(m.entrega)) + '</b>. Ese día te avisaremos por correo y te escribiremos para entregártelo por Steam.' : 'Te escribiremos para entregártelo por Steam.') + ' Asegúrate de tener tu link de intercambio en tu cuenta.</p>';
+        (m.entrega ? 'Tu item está en <b>cooldown de Steam</b>: lo recibes el <b>' + esc(fechaEntrega(m.entrega)) + '</b>. Ese día te avisaremos por correo y te escribiremos para entregártelo por Steam.' : 'Te escribiremos para entregártelo por Steam.') + ' Asegúrate de tener tu link de intercambio en tu cuenta.</p>' + avisoWebHtml(m);
       btns = cerrar;
     } else if (m.tipo === "cdAviso") {
       h = '<h3>🔒 Item en cooldown</h3><p class="hint">' + (m.items.length === 1 ? 'Este item está' : 'Estos items están') + ' en <b>cooldown de Steam</b>. Puedes pagar ahora, pero lo recibirás el <b>' + esc(fechaEntrega(m.hasta)) + '</b>, cuando Steam permita intercambiarlo. Ese día te avisaremos por correo.</p>' +
@@ -630,7 +630,7 @@
         '<p class="hint">Tienes <b>' + fmtSol(c ? c.creditos : 0) + '</b> soles ahora.</p>';
       btns = '<button class="btn btn-fuchsia" type="button" data-a="refrescarSaldo">🔄 Ya pagué · actualizar mi saldo</button>' + cerrar;
     } else if (m.tipo === "recargaOk") {
-      h = '<h3>¡Recarga lista! 🎉</h3><p class="hint">Se sumaron <b>' + m.creditos + '</b> soles' + (m.promo ? ' (incluye tu regalo de primera recarga 🎁)' : '') + '. Ahora tienes <b>' + (c ? c.creditos : 0) + '</b>.</p>';
+      h = '<h3>¡Recarga lista! 🎉</h3><p class="hint">Se sumaron <b>' + m.creditos + '</b> soles' + (m.promo ? ' (incluye tu regalo de primera recarga 🎁)' : '') + '. Ahora tienes <b>' + (c ? c.creditos : 0) + '</b>.</p>' + avisoWebHtml(m);
       btns = '<button class="btn btn-yellow" type="button" data-a="cerrarModal">Ver rifas</button>';
     } else if (m.tipo === "confirmar") {
       var tot = m.qty * m.p.cred;
@@ -642,7 +642,7 @@
     } else if (m.tipo === "cargando") {
       h = '<h3>Procesando…</h3><p class="hint">Un momento por favor.</p>';
     } else if (m.tipo === "ok") {
-      h = '<h3>¡Ya estás participando! 🎉</h3><p class="hint">Tomaste <b>' + m.qty + '</b> ' + (m.qty === 1 ? 'ticket' : 'tickets') + ' en la rifa de <b>' + esc(m.p.nombre) + '</b> (en total tienes <b>' + m.mio + '</b>). Te quedan <b>' + (c ? c.creditos : 0) + '</b> soles. ¡Mucha suerte! 🍀🏆</p>';
+      h = '<h3>¡Ya estás participando! 🎉</h3><p class="hint">Tomaste <b>' + m.qty + '</b> ' + (m.qty === 1 ? 'ticket' : 'tickets') + ' en la rifa de <b>' + esc(m.p.nombre) + '</b> (en total tienes <b>' + m.mio + '</b>). Te quedan <b>' + (c ? c.creditos : 0) + '</b> soles. ¡Mucha suerte! 🍀🏆</p>' + avisoWebHtml(m);
       btns = cerrar;
     } else {
       h = '<h3>Ups 😕</h3><p class="hint">' + esc(errSimple(m.msg || "No se pudo completar.")) + '</p>';
@@ -650,6 +650,16 @@
     }
     var pasoN = pasoDe(m);
     return '<div class="scrim scrim-top" data-a="' + (m.tipo === "cargando" ? "" : "cerrarModal") + '"></div><div class="elegir" role="dialog" aria-label="Participar">' + (pasoN ? pasosHtml(pasoN) : '') + h + '<div class="mbtns">' + btns + '</div></div>';
+  }
+  // Aviso de Páginas web en la ventana de "¡Compra/Recarga lista!": una sola vez por navegador.
+  var AVISO_WEB = "aviso_paginas_web";
+  function avisoWebHtml(m) {
+    if (m._aw === undefined) {
+      var visto = false; try { visto = !!localStorage.getItem(AVISO_WEB); } catch (e) { visto = true; }
+      m._aw = !visto;
+      if (m._aw) { try { localStorage.setItem(AVISO_WEB, String(Date.now())); } catch (e) { /* nada */ } }
+    }
+    return m._aw ? '<button type="button" class="aviso-web" data-a="irWeb"><span aria-hidden="true">💻</span><span><b>¿Tienes un negocio o tu familia vende algo?</b><small>Esta página la hizo LitleJacob Studio Web. Te hago una igual para tu negocio.</small></span><em>Ver →</em></button>' : '';
   }
   function avatar(c) {
     var im = imgTag(c.foto, c.nombre, "");
@@ -3149,6 +3159,7 @@
       (V ? '<button type="button" class="btn btn-ghost btn-sm" data-a="editContactos">✎ Editar contactos de WhatsApp</button>'
          : (contactos().length ? '<span>WhatsApp: ' + contactos().map(function (c) { return esc(c.nombre) + ' <span class="wa">' + esc(waBonito(c.numero)) + '</span>'; }).join(' · ') + '</span>' : '')) +
       tx("span", "pie") +
+      '<a class="fcredito" href="#paginas-web">Página hecha por <b>LitleJacob Studio Web</b> <em>¿Quieres una para tu negocio? →</em></a>' +
       '</div></footer>';
 
     (function () {
@@ -4477,6 +4488,7 @@
         else if (iw && cw.length === 1) window.open(waLinkA(cw[0].numero, mensajeItem(iw)), "_blank", "noopener");
         break;
       case "venVer": verInventario(); break;
+      case "irWeb": modal = null; location.hash = "paginas-web"; render(); window.scrollTo(0, 0); break;
       case "venVender": venderAhora(); break;
       case "venCopiar":
         if (modal && modal.code) { var cc = modal.code; try { navigator.clipboard.writeText(cc); } catch (e) { /* sin portapapeles */ } modal.copiado = true; render(); }
