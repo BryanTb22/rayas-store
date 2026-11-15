@@ -382,18 +382,29 @@ function ipDeLaPeticion(req) {
 }
 
 /* Lee el inventario de Dota 2 de un steamId (agrupado). Se guarda 10 min: consultas repetidas no vuelven a molestar a Steam. */
+// Steam entrega el inventario por páginas de hasta 2000 items: se piden todas (máx. 10 páginas = 20 000 items).
 async function inventarioSteam(sid, detalle) {
-  return sc.conCache(db, "inv:" + sid + ":" + (detalle ? "d" : "n"), 10 * 60 * 1000, async () => {
-    const r = await fetch("https://steamcommunity.com/inventory/" + sid + "/570/2?l=english&count=2000", {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; RayasStore/1.0)", "Accept": "application/json" }
-    });
-    if (r.status === 403 || r.status === 401) { const e = new Error("priv"); e.http = 403; throw e; }
-    if (r.status === 429) { const e = new Error("429"); e.limite = true; throw e; }
-    if (r.status === 500) { const e = new Error("nolee"); e.http = 404; throw e; }
-    if (!r.ok) { const e = new Error("steam " + r.status); e.http = 502; throw e; }
-    const data = await r.json();
-    if (!data || !data.assets) return { items: [], noTradables: 0 };
-    return detalle ? inv.agruparDetalle(data) : inv.agrupar(data);
+  return sc.conCache(db, "inv2:" + sid + ":" + (detalle ? "d" : "n"), 10 * 60 * 1000, async () => {
+    const todo = { assets: [], descriptions: [] };
+    const vistas = new Set();
+    let desde = "";
+    for (let pagina = 0; pagina < 10; pagina++) {
+      const r = await fetch("https://steamcommunity.com/inventory/" + sid + "/570/2?l=english&count=2000" + (desde ? "&start_assetid=" + desde : ""), {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; RayasStore/1.0)", "Accept": "application/json" }
+      });
+      if (r.status === 403 || r.status === 401) { const e = new Error("priv"); e.http = 403; throw e; }
+      if (r.status === 429) { const e = new Error("429"); e.limite = true; throw e; }
+      if (r.status === 500) { const e = new Error("nolee"); e.http = 404; throw e; }
+      if (!r.ok) { const e = new Error("steam " + r.status); e.http = 502; throw e; }
+      const data = await r.json();
+      if (!data || !data.assets) break;
+      todo.assets.push(...data.assets);
+      (data.descriptions || []).forEach((d) => { const k = d.classid + "_" + d.instanceid; if (!vistas.has(k)) { vistas.add(k); todo.descriptions.push(d); } });
+      if (!data.more_items || !data.last_assetid || String(data.last_assetid) === desde) break;
+      desde = String(data.last_assetid);
+    }
+    if (!todo.assets.length) return { items: [], noTradables: 0 };
+    return detalle ? inv.agruparDetalle(todo) : inv.agrupar(todo);
   });
 }
 
