@@ -65,3 +65,30 @@ test("puedeVender: el piloto acepta correos (sin importar mayúsculas)", () => {
   assert.equal(v.puedeVender(c, "uid1", false, "otro@correo.com"), false);
   assert.equal(v.puedeVender(c, "uid1", false, ""), false);
 });
+
+test("avisosVenta: cliente solo al pagarse; admin al pagarse o si se traba después de aceptar", () => {
+  assert.deepEqual(v.avisosVenta({ estado: "aceptando" }, { estado: "pagada" }), { cliente: true, admin: "pagada" });
+  assert.deepEqual(v.avisosVenta({ estado: "pagada" }, { estado: "pagada", correos: { cliente: true } }), { cliente: false, admin: null }); // marcar no reenvía
+  assert.deepEqual(v.avisosVenta({ estado: "aceptando" }, { estado: "retenida" }), { cliente: false, admin: "retenida" });
+  assert.deepEqual(v.avisosVenta({ estado: "aceptando" }, { estado: "fallida" }), { cliente: false, admin: "fallida" });
+  assert.deepEqual(v.avisosVenta({ estado: "esperando" }, { estado: "cancelada" }), { cliente: false, admin: null });
+  assert.deepEqual(v.avisosVenta({ estado: "esperando" }, { estado: "vencida" }), { cliente: false, admin: null });
+  assert.deepEqual(v.avisosVenta({ estado: "esperando" }, { estado: "aceptando" }), { cliente: false, admin: null });
+});
+
+test("correos de venta: cliente y admin en las dos tiendas, sin HTML inyectado", () => {
+  const emails = require("./emails");
+  const p = { code: "V-AB3CD", nombre: "<b>Ana</b>", email: "a@b.com", steamId: "765", ofertaId: "9", items: [{ name: "Golden Moonfall", qty: 2, price: 10.5 }], count: 2, total: 21, saldo: 30.25, fecha: new Date("2026-11-20T18:00:00Z"), motivo: "estado 7" };
+  for (const t of ["rayas", "litlejacob"]) {
+    const c = emails.ventaCliente(t, p);
+    assert.match(c.subject, /V-AB3CD lista: \+S\/ 21\.00/);
+    assert.match(c.html, /S\/ 30\.25/);
+    assert.ok(!c.html.includes("<b>Ana</b>") && c.html.includes("&lt;b&gt;Ana"));
+    assert.match(c.text, /2 × Golden Moonfall: S\/ 21\.00/);
+    assert.match(emails.ventaAdmin(t, p, "pagada").subject, /^📥 Venta V-AB3CD pagada/);
+    const r = emails.ventaAdmin(t, p, "retenida");
+    assert.match(r.subject, /^⚠️ Revisar venta V-AB3CD \(retenida\)/);
+    assert.match(r.html, /estado 7/);
+  }
+  assert.match(emails.ventaCliente("litlejacob", p).from, /litlejacob\.trade/);
+});

@@ -497,4 +497,78 @@ function recordatorioEntregas(tienda, p) {
   return { from: m.remitente, subject, html, text };
 }
 
-module.exports = { MARCAS, confirmacion, recordatorio, pedidoNuevo, compraCliente, pedidoLiberado, itemLiberado, recordatorioEntregas };
+// ---------------------------------------------------------------------------
+// Vender skins (20/11/2026). p = { code, nombre, email, steamId, ofertaId, items:[{name,qty,price}], count, total,
+// saldo (saldo del cliente después de pagar), fecha(Date), motivo }
+// ---------------------------------------------------------------------------
+const urlTransacciones = (tienda, m) => m.url + (tienda === "litlejacob" ? "/perfil.html#transacciones" : "/#perfil/transacciones");
+const cuantos = (p) => p.count || (p.items || []).reduce((s, it) => s + (Number(it.qty) || 0), 0);
+
+// Correo 7 (para el cliente): ya le pagamos sus skins con saldo.
+function ventaCliente(tienda, p) {
+  const m = marca(tienda);
+  const saludo = p.nombre ? `Hola ${esc(p.nombre)},` : "Hola,";
+  const filas = [
+    ["Venta", p.code],
+    ["Items recibidos", String(cuantos(p))],
+    ["Fecha", fecha(p.fecha)],
+  ];
+  const stats = [{ valor: "+" + soles(p.total), etiqueta: "Sumado a tu saldo" }];
+  if (p.saldo != null) stats.push({ valor: soles(p.saldo), etiqueta: "Tu saldo ahora" });
+  const titulo = "¡Venta lista!";
+  const boton = { texto: "Ver mis transacciones", url: urlTransacciones(tienda, m) };
+  const subject = `💰 Venta ${p.code} lista: +${soles(p.total)} en tu saldo · ${m.nombre}`;
+  const html = layout(m, {
+    titulo,
+    preheader: `Recibimos tus skins y te sumamos ${soles(p.total)} a tu saldo de ${m.nombre}.`,
+    chip: { texto: "✓ Pagado", color: m.ok },
+    intro: `${saludo}<br>recibimos tus skins por Steam y <b>ya te sumamos ${esc(soles(p.total))} a tu saldo</b>. Puedes usarlo en la tienda cuando quieras. Este es tu resumen:`,
+    stats,
+    bloque: bloqueItems(m, p.items),
+    filas,
+    boton,
+    aviso: `Guarda este correo como comprobante. Si no reconoces esta venta, escríbenos por WhatsApp cuanto antes.`,
+    pie: `Recibes este correo porque vendiste skins en ${esc(m.nombre)}.`,
+  });
+  const text = aTexto(m, titulo + " " + p.code, [p.nombre ? `Hola ${p.nombre},` : "Hola,", `recibimos tus skins y ya te sumamos ${soles(p.total)} a tu saldo.`, "", ...(p.items || []).map((it) => `${it.qty} × ${it.name}: ${soles(it.price * it.qty)}`), ...filas.map(([k, v]) => `${k}: ${v}`), ...(p.saldo != null ? [`Tu saldo ahora: ${soles(p.saldo)}`] : [])], boton);
+  return { from: m.remitente, subject, html, text };
+}
+
+// Correo 8 (para el administrador): una venta se pagó (tipo "pagada") o se trabó después de aceptar el trade
+// ("retenida" / "fallida": puede que el bot tenga los items y el cliente no tenga su saldo: revisar a mano).
+function ventaAdmin(tienda, p, tipo) {
+  const m = marca(tienda);
+  const ok = tipo === "pagada";
+  const filas = [
+    ["Cliente", p.nombre || "—"],
+    ["Correo", p.email || "—"],
+    ["ID de Steam", p.steamId || "—"],
+    ["Trade", p.ofertaId ? "#" + p.ofertaId : "—"],
+    ...(ok && p.saldo != null ? [["Saldo del cliente ahora", soles(p.saldo)]] : []),
+    ...(!ok ? [["Motivo", p.motivo || "—"]] : []),
+    ["Fecha", fecha(p.fecha)],
+  ];
+  const stats = [{ valor: soles(p.total), etiqueta: ok ? "Pagado con saldo" : "Valor de la venta" }, { valor: String(cuantos(p)), etiqueta: "Items" }];
+  const titulo = ok ? "Compraste skins" : "Venta para revisar";
+  const subject = ok
+    ? `📥 Venta ${p.code} pagada: ${p.nombre || "cliente"} (${soles(p.total)}) · ${m.nombre}`
+    : `⚠️ Revisar venta ${p.code} (${tipo}): ${p.nombre || "cliente"} · ${m.nombre}`;
+  const boton = { texto: "Abrir el panel", url: m.url };
+  const html = layout(m, {
+    titulo,
+    preheader: ok ? `${p.nombre || "Un cliente"} te vendió ${cuantos(p)} items por ${soles(p.total)}.` : `La venta ${p.code} quedó ${tipo} después de aceptar el trade.`,
+    chip: ok ? { texto: "📥 Items recibidos", color: m.ok } : { texto: "⚠ Revisar", color: m.aviso },
+    intro: ok
+      ? `El bot recibió los items de la venta <b>${esc(p.code)}</b> en <b>${esc(m.nombre)}</b> y ya le sumó el saldo al cliente. Los items están en el inventario del bot.`
+      : `La venta <b>${esc(p.code)}</b> quedó <b>${esc(tipo)}</b> después de que el bot aceptó el trade. Revisa en el panel (💰 Vender skins) y en el inventario del bot si llegaron los items; si llegaron y el cliente no tiene su saldo, págaselo a mano.`,
+    stats,
+    bloque: bloqueItems(m, p.items),
+    filas,
+    boton,
+    pie: `Aviso automático de Vender skins de ${esc(m.nombre)}.`,
+  });
+  const text = aTexto(m, titulo + " " + p.code, [...(p.items || []).map((it) => `${it.qty} × ${it.name}: ${soles(it.price * it.qty)}`), ...filas.map(([k, v]) => `${k}: ${v}`), `Total: ${soles(p.total)}`], boton);
+  return { from: m.remitente, subject, html, text };
+}
+
+module.exports = { MARCAS, ventaCliente, ventaAdmin, confirmacion, recordatorio, pedidoNuevo, compraCliente, pedidoLiberado, itemLiberado, recordatorioEntregas };

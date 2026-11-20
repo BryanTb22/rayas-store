@@ -98,4 +98,16 @@ function comparaRecibidos(recibidos, lineas) {
   return { ok: !faltan.length && !sobra.length, faltan, sobra };
 }
 
-module.exports = { CONFIG_DEFECTO, nuevoCodigoVenta, codigoDeMensaje, claveNombre, mapaPrecios, leerConfig, puedeVender, armarVenta, comparaRecibidos };
+/* Qué correos manda un cambio de estado de una venta (función avisoVenta, 20/11/2026).
+   - cliente: solo cuando pasa a "pagada" (comprobante con su saldo nuevo).
+   - admin: cuando se paga, o si se trabó DESPUÉS de aceptar el trade ("retenida" / "fallida"): ahí puede haber items
+     recibidos sin pagar y hay que revisarlo a mano. Lo demás (cancelada, vencida…) no avisa. */
+function avisosVenta(antes, despues) {
+  const a = (antes && antes.estado) || "", d = (despues && despues.estado) || "";
+  if (!d || a === d) return { cliente: false, admin: null };
+  if (d === "pagada") return { cliente: true, admin: "pagada" };
+  if (a === "aceptando" && (d === "retenida" || d === "fallida")) return { cliente: false, admin: d };
+  return { cliente: false, admin: null };
+}
+
+module.exports = { avisosVenta, CONFIG_DEFECTO, nuevoCodigoVenta, codigoDeMensaje, claveNombre, mapaPrecios, leerConfig, puedeVender, armarVenta, comparaRecibidos };

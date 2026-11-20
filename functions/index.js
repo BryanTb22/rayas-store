@@ -2,6 +2,7 @@
 const crypto = require("crypto");
 const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const rec = require("./recordatorio");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
@@ -557,6 +558,40 @@ exports.venta = onRequest(
   }
 );
 
+/* ---------- Vender skins: correos cuando el bot paga una venta (20/11/2026) ----------
+ * Se dispara sola cuando cambia un documento de ventas/. Va en southamerica-east1 porque ahí está la base de datos
+ * (los avisos de Firestore tienen que estar en la misma región). Cliente: comprobante al pagarse. Admin: al pagarse,
+ * o si se trabó después de aceptar el trade (retenida / fallida). Nunca toca el saldo: solo avisa.
+ * Si un correo falla queda en el registro; la clave de Resend evita duplicados si se reintenta.
+ */
+const CORREO_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+exports.avisoVenta = onDocumentUpdated(
+  { document: "ventas/{code}", region: "southamerica-east1", secrets: [RESEND_KEY], maxInstances: 3, timeoutSeconds: 60 },
+  async (event) => {
+    const antes = event.data.before.data(), d = event.data.after.data();
+    const av = ventas.avisosVenta(antes, d);
+    if (!av.cliente && !av.admin) return;
+    const tienda = d.tienda === "litlejacob" ? "litlejacob" : "rayas";
+    const p = {
+      code: d.code, nombre: d.nombre, email: d.email, steamId: d.steamId, ofertaId: d.ofertaId || "", items: d.items || [], count: d.count,
+      total: Number(d.total) || 0, saldo: d.saldoTras != null ? Number(d.saldoTras) : null, fecha: aFecha(d.pagada || d.actualizada), motivo: d.motivo || "",
+    };
+    const hecho = {};
+    if (av.cliente && CORREO_VALIDO.test(String(d.email || ""))) {
+      const c = emails.ventaCliente(tienda, p);
+      try { await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: d.email, subject: c.subject, html: c.html, text: c.text, clave: "venta-" + d.code + "-cliente" }); hecho["correos.cliente"] = true; }
+      catch (e) { console.error("avisoVenta cliente", d.code, e); }
+    }
+    if (av.admin) {
+      const c = emails.ventaAdmin(tienda, p, av.admin);
+      try { await enviarCorreo(RESEND_KEY.value(), { from: c.from, to: CORREOS_ADMIN, subject: c.subject, html: c.html, text: c.text, clave: "venta-" + d.code + "-admin-" + av.admin }); hecho["correos.admin"] = av.admin; }
+      catch (e) { console.error("avisoVenta admin", d.code, e); }
+    }
+    // Marcar que se envió (este cambio vuelve a disparar la función, pero el estado ya no cambia: no reenvía)
+    if (Object.keys(hecho).length) await event.data.after.ref.update(hecho).catch((e) => console.error("avisoVenta marcar", d.code, e));
+  }
+);
+
 /* ---------- 1c) Pagar en efectivo / QR / billeteras: se crea una ORDEN en Culqi ----------
  * El cliente recibe el código (CIP) o QR en la ventana de Culqi y paga cuando quiera (hasta 24 h).
  * Los créditos se suman cuando Culqi avisa por el webhook (orden "paid"). Aquí no se suma nada.
@@ -768,7 +803,9 @@ exports.probarCorreos = onRequest(
         ["confirmacion", emails.confirmacion(tienda, { id: "prueba" + tienda, nombre: "Bryan", soles: 10, creditos: 12, tipo: "tarjeta", pagadoEn: ahora, saldo: 15 })],
         ["pendiente", emails.recordatorio(tienda, { id: "prueba" + tienda, nombre: "Bryan", soles: 10, creditos: 12, expiraEn: venc })],
         ["cooldown", emails.compraCliente(tienda, { code: "PRUEBA-CD", nombre: "Bryan", items: [{ name: "Dragonclaw Hook", qty: 1, price: 1050, cooldownHasta: enCd.toISOString(), img: fotoPrueba }], total: 1050, creditos: 1050, saldo: 20, creadoEn: ahora, entrega: enCd })],
-        ["liberado", emails.itemLiberado(tienda, { code: "PRUEBA-CD", nombre: "Bryan", items: [{ name: "Dragonclaw Hook", qty: 1, price: 1050, img: fotoPrueba }], total: 1050, creditos: 1050, creadoEn: ahora, entrega: ahora })]
+        ["liberado", emails.itemLiberado(tienda, { code: "PRUEBA-CD", nombre: "Bryan", items: [{ name: "Dragonclaw Hook", qty: 1, price: 1050, img: fotoPrueba }], total: 1050, creditos: 1050, creadoEn: ahora, entrega: ahora })],
+        ["venta", emails.ventaCliente(tienda, { code: "V-PRUEB", nombre: "Bryan", items: [{ name: "Golden Moonfall", qty: 1, price: 22.4 }, { name: "Silent Wake", qty: 2, price: 12.5 }], count: 3, total: 47.4, saldo: 62.4, fecha: ahora })],
+        ["ventaAdmin", emails.ventaAdmin(tienda, { code: "V-PRUEB", nombre: "Bryan", email: "cliente@ejemplo.com", steamId: "76561198000000000", ofertaId: "123456789", items: [{ name: "Golden Moonfall", qty: 1, price: 22.4 }, { name: "Silent Wake", qty: 2, price: 12.5 }], count: 3, total: 47.4, saldo: 62.4, fecha: ahora }, "pagada")]
       ];
       for (const [nombre, c] of lista) {
         try {
