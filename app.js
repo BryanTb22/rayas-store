@@ -288,6 +288,10 @@
     { id: "lj", nombre: "LitleJacob", numero: "51952997030", activo: true, foto: "" },
     { id: "ra", nombre: "Rayas", numero: "51900049694", activo: true, foto: "" }
   ];
+  function limpiarYape(yp) {
+    yp = yp && typeof yp === "object" ? yp : {};
+    return { qr: /^fs:img-[\w\-]+$/.test(String(yp.qr || "")) ? yp.qr : "", numero: String(yp.numero || "").replace(/\D+/g, "").slice(0, 12), nombre: typeof yp.nombre === "string" ? yp.nombre.slice(0, 40) : "" };
+  }
   function normalizar(st) {
     st = st && typeof st === "object" ? st : {};
     if (typeof st.whatsapp !== "string") st.whatsapp = "";
@@ -298,8 +302,7 @@
     });
     st.pagos = { culqi: !!(st.pagos && st.pagos.culqi) };
     st.secciones = { items: !!(st.secciones && st.secciones.items), rifas: !(st.secciones && st.secciones.rifas === false) };
-    var yp = st.yape && typeof st.yape === "object" ? st.yape : {};
-    st.yape = { qr: /^fs:img-[\w\-]+$/.test(String(yp.qr || "")) ? yp.qr : "", numero: String(yp.numero || "").replace(/\D+/g, "").slice(0, 12), nombre: typeof yp.nombre === "string" ? yp.nombre.slice(0, 40) : "" };
+    st.yape = limpiarYape(st.yape);
     (function () { // Todo en soles: limpia textos guardados que aún digan "créditos"
       var lim = function (x) { return typeof x !== "string" ? x : x.replace(/\(S\/ ?1 ?= ?1 cr[eé]ditos?\)/gi, "").replace(/(\d+) cr[eé]ditos?/gi, "$1 soles").replace(/\bTus cr[eé]ditos/g, "Tu saldo").replace(/\btus cr[eé]ditos/g, "tu saldo").replace(/\bLos cr[eé]ditos/g, "El saldo").replace(/\blos cr[eé]ditos/g, "el saldo").replace(/\bcr[eé]ditos?\b/gi, "saldo").replace(/\bcupos\b/g, "tickets").replace(/\bcupo\b/g, "ticket").replace(/\bCupos\b/g, "Tickets").replace(/\bCupo\b/g, "Ticket").replace(/ {2,}/g, " "); };
       if (st.textos && typeof st.textos === "object") Object.keys(st.textos).forEach(function (k) { var v = st.textos[k]; if (typeof v === "string") st.textos[k] = lim(v); else if (Array.isArray(v)) st.textos[k] = v.map(lim); });
@@ -320,13 +323,15 @@
   }
 
   /* MARCA DE CADA TIENDA: las dos webs comparten rifas, premios, contactos y textos (rayas/estado), pero el logo,
-     los mensajes que dicen el nombre de la tienda y las fotos son de cada una. Rayas los guarda donde siempre
-     (textos / fotos); LitleJacob los guarda aparte en  marcas.litlejacob  y, al publicar, deja los de Rayas intactos. */
+     los mensajes que dicen el nombre de la tienda, las fotos y el Yape de las recargas son de cada una. Rayas los guarda
+     donde siempre (textos / fotos / yape); LitleJacob los guarda aparte en  marcas.litlejacob  y, al publicar, deja los
+     de Rayas intactos. De los contactos de WhatsApp, LitleJacob muestra solo el suyo (ver contactos()). */
   var MARCA_TEXTOS = ["logo1", "logo2", "msgCredPerfil", "msgCredVisita", "inicioSub"];
   function marcaPropia(st, crudo) {   // crudo = textos tal como venían guardados (sin completar)
     var mc = (st.marcas && st.marcas[TD.id]) || {}, mt = mc.textos || {}, mf = mc.fotos || {};
-    var original = { textos: {}, fotos: st.fotos };   // lo de Rayas, para devolverlo tal cual al publicar
+    var original = { textos: {}, fotos: st.fotos, yape: st.yape };   // lo de Rayas, para devolverlo tal cual al publicar
     st.fotos = {};
+    st.yape = limpiarYape(mc.yape);   // el Yape de LitleJacob (vacío hasta que se suba desde su panel)
     MARCA_TEXTOS.forEach(function (k) {
       original.textos[k] = typeof crudo[k] === "string" ? crudo[k] : null;
       st.textos[k] = typeof mt[k] === "string" && mt[k].trim() ? mt[k] : TEXTOS_BASE[k];
@@ -338,10 +343,11 @@
     var mk = copia._marca; delete copia._marca;
     if (!TD.esLJ || !mk) return copia;
     copia.marcas = copia.marcas && typeof copia.marcas === "object" ? copia.marcas : {};
-    var propia = { textos: {}, fotos: copia.fotos };
+    var propia = { textos: {}, fotos: copia.fotos, yape: copia.yape };
     MARCA_TEXTOS.forEach(function (k) { propia.textos[k] = copia.textos[k]; if (mk.textos[k] === null) delete copia.textos[k]; else copia.textos[k] = mk.textos[k]; });
     copia.marcas[TD.id] = propia;
     copia.fotos = mk.fotos;
+    copia.yape = mk.yape;
     return copia;
   }
 
@@ -372,7 +378,10 @@
   var RAREZAS = { "ARCANO": "#ade55c", "INMORTAL": "#e4ae39", "LEGENDARIO": "#d32ce6", "MÍTICO": "#8847ff", "RARO": "#4b69ff", "POCO COMÚN": "#5e98d9", "COMÚN": "#b0c3d9" };
   function colorRareza(r) { return RAREZAS[String(r || "").toUpperCase()] || "#ff2d8f"; }
 
-  function contactos() { return (estado.contactos || []).filter(function (c) { return c.activo && soloDigitos(c.numero); }); }
+  /* Contactos de WhatsApp activos. Rayas muestra los dos (el cliente elige); LitleJacob muestra solo el suyo
+     (id "lj"), así sus botones de WhatsApp abren directo el chat de LitleJacob. */
+  function esContactoDeTienda(c) { return !TD.esLJ || c.id === "lj"; }
+  function contactos() { return (estado.contactos || []).filter(function (c) { return c.activo && soloDigitos(c.numero) && esContactoDeTienda(c); }); }
   var MOVIL = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   /* La app de WhatsApp para Windows daña los emojis que vienen en el enlace, así que en PC se envía sin emojis. */
   function sinEmojis(t) {
@@ -4248,8 +4257,9 @@
 
   function yapeAdminHtml() {
     var y = estado.yape || {};
-    return '<div class="grp"><h3>💜 Yape para recargas por WhatsApp</h3>' +
-      '<p class="hint">Sube tu QR de Yape. Los clientes que elijan <b>Yape / WhatsApp</b> lo ven al recargar (sin comisión) y te mandan la captura por WhatsApp.</p>' +
+    return '<div class="grp"><h3>💜 Yape para recargas' + (TD.esLJ ? ' de LitleJacob' : ' por WhatsApp') + '</h3>' +
+      '<p class="hint">Sube tu QR de Yape. Los clientes que elijan <b>Yape / WhatsApp</b> lo ven al recargar (sin comisión) y te mandan la captura por WhatsApp.' +
+      (TD.esLJ ? ' <b>Este Yape es solo de LitleJacob</b>: el de Rayas no cambia. Mientras no lo subas, en LitleJacob no sale la opción "Yape con QR".' : '') + '</p>' +
       (y.qr ? '<div class="yapeqr"><img data-fs="' + esc(y.qr.slice(3)) + '" alt="QR de Yape" width="160" height="160"></div>' : '<p class="hint">Aún no subes tu QR.</p>') +
       '<div class="cav"><label class="btn btn-ghost btn-sm" for="yape-file">' + (admin.subiendo === "yape" ? "Subiendo…" : (y.qr ? "Cambiar QR" : "Subir mi QR de Yape")) + '</label>' +
       '<input id="yape-file" class="yapefile" type="file" accept="image/*" hidden>' +
@@ -4291,6 +4301,7 @@
     var T = estado.textos;
     return yapeAdminHtml() +
       (estado.contactos || []).map(function (c, k) {
+      if (!esContactoDeTienda(c)) return "";   // en LitleJacob solo se edita (y se muestra) el contacto LitleJacob
       return '<div class="grp contacto-ed"><h3>Contacto ' + (k + 1) + ' · ' + esc(c.nombre || "sin nombre") + '</h3>' +
         '<div class="cav">' + avatar(c) +
         '<label class="btn btn-ghost btn-sm" for="cf-' + k + '">' + (admin.subiendo === "c" + k ? "Subiendo…" : "Subir foto") + '</label>' +
@@ -4301,7 +4312,8 @@
         '<label class="chk"><input type="checkbox" class="c-activo" data-i="' + k + '"' + (c.activo ? ' checked' : '') + '> Activo (recibe mensajes de clientes)</label></div>';
     }).join("") +
       (admin.imgErr ? '<p class="hint" style="color:var(--danger)">' + esc(admin.imgErr) + '</p>' : '') +
-      '<p class="hint">Si los dos están activos, el cliente elige con quién hablar. Si solo hay uno activo, el botón abre directo su WhatsApp. Si ninguno, se ocultan los botones de recarga. Perú: 51 + 9 dígitos.</p>' +
+      (TD.esLJ ? '<p class="hint">En LitleJacob solo sale este contacto: los botones de WhatsApp abren directo su chat. El contacto de Rayas solo se muestra en rayas.trade. Si lo desactivas, se ocultan los botones de WhatsApp en las dos tiendas. Perú: 51 + 9 dígitos.</p>'
+        : '<p class="hint">Si los dos están activos, el cliente elige con quién hablar. Si solo hay uno activo, el botón abre directo su WhatsApp. Si ninguno, se ocultan los botones de recarga. En LitleJacob solo sale el contacto LitleJacob. Perú: 51 + 9 dígitos.</p>') +
       '<div class="grp"><h3>Mensajes de WhatsApp</h3>' +
       '<div class="field"><label for="f-msg1">Cuando pide saldo con cuenta</label><textarea id="f-msg1" rows="6" maxlength="600">' + esc(T.msgCredPerfil) + '</textarea></div>' +
       '<p class="hint">Usa {nombre} y {correo} para poner los datos del usuario.</p>' +
