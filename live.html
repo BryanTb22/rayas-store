@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Rayas Store · Live</title>
+<!--
+  Carrusel de precios para el live de TikTok (26/11/2026).
+  En TikTok LIVE Studio: Agregar fuente → "Enlace" → https://rayas.trade/live.html
+  Lee los items de la web (Firestore rayas_items) y los vuelve a leer cada 5 minutos:
+  si cambias un precio o el stock en el panel, el carrusel se actualiza solo.
+  Muestra solo items activos con stock; si un item tiene varias versiones, sale una vez con el precio más bajo.
+  Opciones en la dirección (opcionales, se juntan con &):
+    ?seg=6          segundos por item (por defecto 6)
+    ?rareza=ARCANO,INMORTAL   solo esas rarezas (ARCANO, INMORTAL, MITICO, LEGENDARIO, RARO…)
+    ?min=20         solo items desde S/ 20
+    ?max=100        solo items hasta S/ 100
+    ?heroe=pudge    solo items de ese héroe (también vale parte del nombre)
+    ?orden=azar     mezclados (también: mayor, menor, nuevo). Por defecto: del más caro al más barato
+    ?fondo=no       fondo transparente
+    ?steam=no       sin el precio de Steam ni el % de descuento
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root { --noche: #070d24; --panel: #0f1a3c; --naranja: #ff8a1f; --celeste: #3ec7ff; --fg: #eef1ff; --muted: #9ba7d8; --rz: #e4ae39; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; color: var(--fg); font-family: Oswald, Impact, sans-serif;
+  background: radial-gradient(ellipse at 30% 20%, #13214f, var(--noche) 70%); }
+body.sinfondo { background: transparent; }
+#escena { position: absolute; inset: 0; container-type: size; }
+.slide { position: absolute; inset: 0; display: flex; align-items: center; gap: 4cqmin; padding: 5cqmin 5cqmin 9cqmin;
+  opacity: 0; transform: translateX(8%); transition: opacity .6s ease, transform .6s ease; }
+.slide.on { opacity: 1; transform: none; }
+.slide.fuera { opacity: 0; transform: translateX(-8%); }
+.foto { position: relative; flex: 0 0 auto; width: min(58%, calc((100cqh - 14cqmin) * 1.5)); aspect-ratio: 3 / 2;
+  border-radius: 2.5cqmin; overflow: hidden; border: .5cqmin solid var(--rz);
+  background: radial-gradient(circle at 50% 40%, #1d2c5e, #0a1130 75%);
+  box-shadow: 0 0 4cqmin color-mix(in srgb, var(--rz) 45%, transparent); }
+.foto img { width: 100%; height: 100%; object-fit: cover; }
+.foto img.logo { object-fit: contain; padding: 12%; }
+.foto em { position: absolute; left: 2cqmin; bottom: 2cqmin; font-style: normal; font-weight: 700;
+  font-size: 4.2cqmin; letter-spacing: .3cqmin; padding: .3cqmin 2.4cqmin; border-radius: 9cqmin; color: #fff; background: #1a8a3a; }
+.foto em.cd { background: #0a1130; border: .3cqmin solid var(--celeste); color: var(--celeste); }
+.dto { position: absolute; right: 2cqmin; top: 2cqmin; font-weight: 700; font-size: 5cqmin; padding: .2cqmin 2cqmin;
+  border-radius: 1.5cqmin; color: #fff; background: #e0202a; transform: rotate(4deg); box-shadow: 0 .6cqmin 2cqmin rgba(0,0,0,.5); }
+.texto { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1.4cqmin; }
+.rz { align-self: flex-start; font-weight: 700; font-size: 4.6cqmin; letter-spacing: .8cqmin; padding: .2cqmin 2.5cqmin;
+  border-radius: 9cqmin; color: var(--noche); background: var(--rz); }
+.heroe { color: var(--celeste); font-weight: 600; font-size: 5.5cqmin; letter-spacing: .5cqmin; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nom { font-weight: 700; font-size: 8.5cqmin; line-height: 1.05; background: linear-gradient(#ffffff, #aab3d6);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.extra { color: #ffd2a8; font-weight: 500; font-size: 4.2cqmin; letter-spacing: .4cqmin; text-transform: uppercase; }
+.precio { font-weight: 700; font-size: 15cqmin; line-height: 1.05; white-space: nowrap; color: var(--naranja);
+  text-shadow: 0 0 3cqmin color-mix(in srgb, var(--naranja) 45%, transparent); }
+.precio small { font-size: .45em; color: var(--muted); text-shadow: none; margin-right: 1cqmin; }
+.steam { font-weight: 500; font-size: 4.6cqmin; color: var(--muted); letter-spacing: .2cqmin; }
+.steam s { text-decoration-thickness: .4cqmin; text-decoration-color: #e0202a; }
+/* Cuadro alto o cuadrado (celular vertical): foto arriba, texto abajo */
+@container (max-aspect-ratio: 7/5) {
+  .slide { flex-direction: column; justify-content: center; text-align: center; gap: 2.5cqmin; }
+  .foto { width: min(100%, calc(52cqh * 1.5)); }
+  .texto { align-items: center; flex: 0 1 auto; }
+  .rz { align-self: center; }
+  .nom { font-size: 7cqmin; -webkit-line-clamp: 2; }
+  .precio { font-size: 12cqmin; }
+}
+#pie { position: absolute; left: 0; right: 0; bottom: 0; height: 8cqmin; display: flex; align-items: center; gap: 2cqmin;
+  padding: 0 4cqmin; background: linear-gradient(90deg, rgba(7,13,36,.92), rgba(15,26,60,.92)); border-top: .3cqmin solid var(--naranja); }
+#pie img { height: 6.4cqmin; width: 6.4cqmin; border-radius: 50%; object-fit: cover; }
+#pie b { font-weight: 700; font-size: 4.4cqmin; letter-spacing: .4cqmin; color: var(--fg); }
+#pie span { margin-left: auto; font-weight: 600; font-size: 4.2cqmin; letter-spacing: .3cqmin; color: var(--celeste); white-space: nowrap; }
+#barra { position: absolute; left: 0; bottom: 8cqmin; height: .7cqmin; background: var(--naranja); width: 0; }
+#aviso { position: absolute; inset: 0 0 8cqmin; display: flex; align-items: center; justify-content: center;
+  font-size: 6cqmin; color: var(--muted); letter-spacing: .5cqmin; text-align: center; padding: 5cqmin; }
+</style>
+</head>
+<body>
+<div id="escena">
+  <div id="aviso">Cargando items…</div>
+  <div id="barra"></div>
+  <div id="pie"><img src="img/logo-v2.webp" alt=""><b>RAYAS STORE</b><span>rayas.trade</span></div>
+</div>
+<script>
+const P = new URLSearchParams(location.search);
+const SEG = Math.max(2, Number(P.get('seg')) || 6);
+const sinTildes = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
+const RAREZAS = sinTildes(P.get('rareza')).split(',').map((s) => s.trim()).filter(Boolean);
+const MIN = Number(P.get('min')) || 0;
+const MAX = Number(P.get('max')) || Infinity;
+const HEROE = sinTildes(P.get('heroe'));
+const ORDEN = (P.get('orden') || 'mayor').toLowerCase();
+const STEAM = P.get('steam') !== 'no';
+if (P.get('fondo') === 'no') document.body.classList.add('sinfondo');
+
+const BASE = 'https://firestore.googleapis.com/v1/projects/litlejacob-store/databases/(default)/documents/';
+const TC_STEAM = 3.85;   // el mismo tipo de cambio con el que la web muestra el precio de Steam
+const COLORES = { 'ARCANO': '#ade55c', 'INMORTAL': '#e4ae39', 'LEGENDARIO': '#e455f5', 'MITICO': '#a37dff', 'RARO': '#6f8aff', 'POCO COMUN': '#7db3ec', 'COMUN': '#c3d2e3' };
+const sol = (n) => 'S/ ' + (Math.round(Number(n) * 100) / 100).toFixed(2).replace(/\.00$/, '');   // igual que la web
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const escena = document.getElementById('escena'), aviso = document.getElementById('aviso'), barra = document.getElementById('barra');
+
+// Un documento de Firestore → item simple
+function deDoc(d) {
+  const f = d.fields || {}, s = (k) => (f[k] && f[k].stringValue) || '';
+  const n = (k) => { const v = f[k]; return v ? Number(v.integerValue ?? v.doubleValue ?? 0) : 0; };
+  return { nombre: s('nombre'), heroe: s('heroe'), rareza: s('rareza'), calidad: s('calidad'), img: s('img'),
+    precio: n('precio'), stock: n('stock'), steamUsd: n('steamUsd'), activo: !(f.activo && f.activo.booleanValue === false),
+    cooldown: (f.cooldownHasta && f.cooldownHasta.timestampValue) || '', creado: (f.creado && f.creado.timestampValue) || '' };
+}
+const enCd = (x) => x.cooldown && Date.parse(x.cooldown) > Date.now();
+
+// Foto: las de Steam en su tamaño original (3:2); las subidas a la web ("fs:img-…") se piden a Firestore
+const FOTOS = {};
+function urlFoto(src) {
+  if (/^fs:img-[\w-]+$/.test(src)) {
+    const id = src.slice(3);
+    return FOTOS[id] ||= fetch(BASE + 'rayas/' + id).then((r) => r.ok ? r.json() : null)
+      .then((d) => { const u = d && d.fields && d.fields.data && d.fields.data.stringValue; return /^data:image\//.test(u || '') ? u : ''; })
+      .catch(() => '');
+  }
+  if (/^https:\/\//.test(src)) return Promise.resolve(src.replace(/(steamstatic\.com\/economy\/image\/[^/]+)\/\d+fx\d+f?$/, '$1'));
+  if (/^img\//.test(src)) return Promise.resolve(src);
+  return Promise.resolve('');
+}
+
+// Espera a que la foto termine de bajar (hasta 5 s) para que la tarjeta no salga vacía.
+// Si la de Steam en tamaño original falla, prueba la dirección tal como está guardada; si tampoco, sale el logo.
+function bajar(u) {
+  return new Promise((ok) => {
+    if (!u) return ok(false);
+    const im = new Image(), t = setTimeout(() => ok(true), 5000);
+    im.onload = () => { clearTimeout(t); ok(true); }; im.onerror = () => { clearTimeout(t); ok(false); };
+    im.src = u;
+  });
+}
+async function fotoLista(src) {
+  const u = await urlFoto(src);
+  if (await bajar(u)) return u;
+  if (u !== src && /^https:\/\//.test(src) && await bajar(src)) return src;
+  return '';
+}
+
+let items = [], i = -1, actual = null;
+
+async function cargar() {
+  try {
+    const todos = [];
+    let token = '';
+    do {
+      const r = await fetch(BASE + 'rayas_items?pageSize=300' + (token ? '&pageToken=' + encodeURIComponent(token) : ''), { cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status);
+      const j = await r.json();
+      (j.documents || []).forEach((d) => todos.push(deDoc(d)));
+      token = j.nextPageToken || '';
+    } while (token && todos.length < 3000);
+
+    // Solo lo que el cliente puede comprar, con los filtros de la dirección
+    const ok = todos.filter((x) => x.activo && x.stock > 0 && x.precio > 0 && x.img && x.precio >= MIN && x.precio <= MAX &&
+      (!RAREZAS.length || RAREZAS.includes(sinTildes(x.rareza))) &&
+      (!HEROE || sinTildes(x.heroe + ' ' + x.nombre).includes(HEROE)));
+
+    // Mismo item con varias versiones (gemas, estilos): una sola tarjeta con el precio más bajo (primero las libres)
+    const grupos = new Map();
+    for (const x of ok) {
+      const k = sinTildes(x.nombre), g = grupos.get(k);
+      if (!g) { grupos.set(k, { ...x, total: x.stock, precios: new Set([x.precio]) }); continue; }
+      g.total += x.stock; g.precios.add(x.precio);
+      const mejor = (enCd(g) && !enCd(x)) || (enCd(g) === enCd(x) && x.precio < g.precio);
+      if (mejor) Object.assign(g, { precio: x.precio, img: x.img, cooldown: x.cooldown, steamUsd: x.steamUsd || g.steamUsd, calidad: x.calidad });
+    }
+    let lista = [...grupos.values()].map((g) => ({ ...g, desde: g.precios.size > 1 }));
+
+    if (ORDEN === 'azar') for (let k = lista.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [lista[k], lista[j]] = [lista[j], lista[k]]; }
+    else if (ORDEN === 'menor') lista.sort((a, b) => a.precio - b.precio);
+    else if (ORDEN === 'nuevo') lista.sort((a, b) => b.creado.localeCompare(a.creado));
+    else lista.sort((a, b) => b.precio - a.precio);
+
+    if (lista.length) {
+      const antes = items[i] && sinTildes(items[i].nombre);
+      items = lista; aviso.style.display = 'none';
+      // Sigue desde el item que estaba en pantalla (no vuelve a empezar al actualizar)
+      const pos = antes ? items.findIndex((x) => sinTildes(x.nombre) === antes) : -1;
+      i = pos >= 0 ? pos : Math.min(i, items.length - 1);
+    } else if (!items.length) aviso.textContent = 'No hay items para mostrar';
+  } catch { if (!items.length) aviso.textContent = 'Sin conexión con la tienda… reintentando'; }
+}
+
+async function tarjeta(x) {
+  const color = COLORES[sinTildes(x.rareza)] || '#c3d2e3';
+  const steamSol = STEAM && x.steamUsd > 0 ? x.steamUsd * TC_STEAM : 0;
+  const dto = steamSol && x.precio < steamSol ? Math.round((1 - x.precio / steamSol) * 100) : 0;
+  const cd = enCd(x), fecha = cd ? new Date(x.cooldown) : null;
+  const estado = cd ? `<em class="cd">ENTREGA ${String(fecha.getDate()).padStart(2, '0')}/${String(fecha.getMonth() + 1).padStart(2, '0')}</em>`
+    : `<em>EN STOCK${x.total > 1 ? ' · ' + x.total : ''}</em>`;
+  const extra = [x.calidad && !/^(standard|sta)$/i.test(x.calidad) ? x.calidad : '', x.desde ? 'Varias versiones' : ''].filter(Boolean).join(' · ');
+  const foto = await fotoLista(x.img);
+  const el = document.createElement('div');
+  el.className = 'slide';
+  el.style.setProperty('--rz', color);
+  el.innerHTML = `<div class="foto"><img src="${esc(foto || 'img/logo-v2.webp')}"${foto ? '' : ' class="logo"'} alt="">${estado}${dto >= 5 ? `<span class="dto">-${dto}%</span>` : ''}</div>
+    <div class="texto">${x.rareza ? `<span class="rz">${esc(x.rareza)}</span>` : ''}
+      ${x.heroe ? `<div class="heroe">${esc(x.heroe)}</div>` : ''}
+      <div class="nom">${esc(x.nombre)}</div>${extra ? `<div class="extra">${esc(extra)}</div>` : ''}
+      <div class="precio">${x.desde ? '<small>desde</small>' : ''}${sol(x.precio)}</div>
+      ${dto >= 5 ? `<div class="steam">En Steam <s>${sol(Math.round(steamSol))}</s></div>` : ''}</div>`;
+  return el;
+}
+
+async function siguiente() {
+  if (!items.length) return setTimeout(siguiente, 3000);
+  i = (i + 1) % items.length;
+  const nuevo = await tarjeta(items[i]);
+  escena.insertBefore(nuevo, barra);
+  // Precarga la foto del que viene
+  const prox = items[(i + 1) % items.length];
+  if (prox) fotoLista(prox.img);
+  requestAnimationFrame(() => requestAnimationFrame(() => nuevo.classList.add('on')));
+  if (actual) { const viejo = actual; viejo.classList.remove('on'); viejo.classList.add('fuera'); setTimeout(() => viejo.remove(), 700); }
+  actual = nuevo;
+  barra.style.transition = 'none'; barra.style.width = '0';
+  requestAnimationFrame(() => requestAnimationFrame(() => { barra.style.transition = `width ${SEG}s linear`; barra.style.width = '100%'; }));
+  setTimeout(siguiente, SEG * 1000);
+}
+
+cargar().then(siguiente);
+setInterval(cargar, 5 * 60 * 1000);
+</script>
+</body>
+</html>
