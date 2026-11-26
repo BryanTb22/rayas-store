@@ -14,10 +14,13 @@
   Opciones en la dirección (opcionales, se juntan con &):
     ?seg=6          segundos por item (por defecto 6)
     ?rareza=ARCANO,INMORTAL   solo esas rarezas (ARCANO, INMORTAL, MITICO, LEGENDARIO, RARO…)
-    ?min=20         solo items desde S/ 20
+    ?min=20         solo items desde S/ 20 (por defecto desde S/ 10; ?min=0 muestra todos)
     ?max=100        solo items hasta S/ 100
     ?heroe=pudge    solo items de ese héroe (también vale parte del nombre)
-    ?orden=azar     mezclados (también: mayor, menor, nuevo). Por defecto: del más caro al más barato
+    ?orden=azar     aleatorio (cada vuelta completa se vuelve a mezclar)
+    ?orden=menor    de menos a más (del más barato al más caro)
+    ?orden=mayor    de más a menos (del más caro al más barato) ← el de siempre si no se pone nada
+    ?orden=nuevo    los últimos que se agregaron primero
     ?fondo=no       fondo transparente
     ?steam=no       sin el precio de Steam ni el % de descuento
 -->
@@ -89,10 +92,12 @@ const P = new URLSearchParams(location.search);
 const SEG = Math.max(2, Number(P.get('seg')) || 6);
 const sinTildes = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
 const RAREZAS = sinTildes(P.get('rareza')).split(',').map((s) => s.trim()).filter(Boolean);
-const MIN = Number(P.get('min')) || 0;
+const MIN = P.has('min') && isFinite(parseFloat(P.get('min'))) ? parseFloat(P.get('min')) : 10;   // por defecto desde S/ 10
 const MAX = Number(P.get('max')) || Infinity;
 const HEROE = sinTildes(P.get('heroe'));
-const ORDEN = (P.get('orden') || 'mayor').toLowerCase();
+// Acepta también palabras sueltas: aleatorio / menos / mas
+const ORDEN = { aleatorio: 'azar', random: 'azar', menos: 'menor', barato: 'menor', mas: 'mayor', 'más': 'mayor', caro: 'mayor' }[(P.get('orden') || '').toLowerCase()]
+  || (P.get('orden') || 'mayor').toLowerCase();
 const STEAM = P.get('steam') !== 'no';
 if (P.get('fondo') === 'no') document.body.classList.add('sinfondo');
 
@@ -144,6 +149,12 @@ async function fotoLista(src) {
   return '';
 }
 
+function mezclar(l) {
+  l = l.slice();
+  for (let k = l.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [l[k], l[j]] = [l[j], l[k]]; }
+  return l;
+}
+
 let items = [], i = -1, actual = null;
 
 async function cargar() {
@@ -174,7 +185,7 @@ async function cargar() {
     }
     let lista = [...grupos.values()].map((g) => ({ ...g, desde: g.precios.size > 1 }));
 
-    if (ORDEN === 'azar') for (let k = lista.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [lista[k], lista[j]] = [lista[j], lista[k]]; }
+    if (ORDEN === 'azar') lista = mezclar(lista);
     else if (ORDEN === 'menor') lista.sort((a, b) => a.precio - b.precio);
     else if (ORDEN === 'nuevo') lista.sort((a, b) => b.creado.localeCompare(a.creado));
     else lista.sort((a, b) => b.precio - a.precio);
@@ -213,6 +224,12 @@ async function tarjeta(x) {
 async function siguiente() {
   if (!items.length) return setTimeout(siguiente, 3000);
   i = (i + 1) % items.length;
+  // Aleatorio: al terminar una vuelta completa se vuelve a mezclar (sin repetir el que acaba de salir)
+  if (ORDEN === 'azar' && i === 0 && actual && items.length > 2) {
+    const ultimo = items[items.length - 1];
+    items = mezclar(items);
+    if (items[0] === ultimo) items.push(items.shift());
+  }
   const nuevo = await tarjeta(items[i]);
   escena.insertBefore(nuevo, barra);
   // Precarga la foto del que viene
