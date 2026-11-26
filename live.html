@@ -143,6 +143,18 @@ function medirBarra() {
 }
 if (BARRA) { medirBarra(); addEventListener('resize', medirBarra); }
 
+// ?debug=1 → muestra arriba la versión de esta página y qué navegador la abre (para revisar TikTok LIVE Studio)
+const VERSION = 'v6 · 26/11 barra franja';
+if (P.get('debug')) {
+  const sup = (p, v) => { try { return CSS.supports(p, v) ? 'sí' : 'NO'; } catch (e) { return '?'; } };
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9;background:#000;color:#0f0;font:16px/1.4 monospace;padding:8px;white-space:pre-wrap';
+  d.textContent = 'Página ' + VERSION + '\nNavegador: ' + navigator.userAgent + '\nCuadro: ' + innerWidth + ' x ' + innerHeight +
+    '\nmin(): ' + sup('width', 'min(1px, 2px)') + ' · aspect-ratio: ' + sup('aspect-ratio', '3 / 2') + ' · inset: ' + sup('inset', '0') +
+    ' · clip texto: ' + sup('-webkit-background-clip', 'text');
+  document.body.appendChild(d);
+}
+
 const BASE = 'https://firestore.googleapis.com/v1/projects/litlejacob-store/databases/(default)/documents/';
 const TC_STEAM = 3.85;   // el mismo tipo de cambio con el que la web muestra el precio de Steam
 const COLORES = { 'ARCANO': '#ade55c', 'INMORTAL': '#e4ae39', 'LEGENDARIO': '#e455f5', 'MITICO': '#a37dff', 'RARO': '#6f8aff', 'POCO COMUN': '#7db3ec', 'COMUN': '#c3d2e3' };
