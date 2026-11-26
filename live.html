@@ -89,8 +89,8 @@ body.barra { background: transparent; }
 body.barra.confondo { background: var(--noche); }
 .barra #pie { display: none; }
 .barra #barra { bottom: calc(4 * var(--ch)); left: calc(3 * var(--ch)); height: calc(3 * var(--ch)); border-radius: calc(3 * var(--ch)); max-width: calc(100% - calc(6 * var(--ch))); }
-.barra #aviso { inset: 0; font-size: min(calc(28 * var(--ch)), calc(4 * var(--cw))); }
-.barra .slide.b { inset: calc(4 * var(--ch)) 0; padding: 0 min(calc(4 * var(--ch)), calc(1.5 * var(--cw))) 0 0; gap: min(calc(5 * var(--ch)), calc(2 * var(--cw))); flex-direction: row; text-align: left;
+.barra #aviso { top: auto; left: 0; right: 0; bottom: 0; height: calc(100 * var(--ch)); font-size: min(calc(28 * var(--ch)), calc(4 * var(--cw))); }
+.barra .slide.b { top: auto; left: 0; right: 0; bottom: calc(4 * var(--ch)); height: calc(92 * var(--ch)); padding: 0 min(calc(4 * var(--ch)), calc(1.5 * var(--cw))) 0 0; gap: min(calc(5 * var(--ch)), calc(2 * var(--cw))); flex-direction: row; text-align: left;
   background: linear-gradient(90deg, rgba(7,13,36,.94), rgba(15,26,60,.9)); border: calc(.8 * var(--ch)) solid var(--rz); border-radius: calc(18 * var(--ch));
   overflow: hidden; transform: translateY(35%); box-shadow: 0 0 calc(6 * var(--ch)) var(--rzs); }
 .barra .slide.b.on { transform: none; transition-delay: .35s; }
@@ -135,6 +135,13 @@ const BARRA = P.get('modo') === 'barra';
 if (BARRA) document.body.classList.add('barra');
 if (BARRA && P.get('fondo') === 'si') document.body.classList.add('confondo');
 if (P.get('fondo') === 'no' || (BARRA && P.get('fondo') !== 'si')) document.documentElement.style.background = 'transparent';
+// Barra: siempre con forma de franja (alto máximo = 1/5 del ancho), pegada abajo, aunque el cuadro o la ventana sean altos.
+// --ch pasa a ser 1% del alto de la franja (no de la ventana).
+function medirBarra() {
+  const alto = Math.min(innerHeight, innerWidth / 5);
+  document.documentElement.style.setProperty('--ch', alto / 100 + 'px');
+}
+if (BARRA) { medirBarra(); addEventListener('resize', medirBarra); }
 
 const BASE = 'https://firestore.googleapis.com/v1/projects/litlejacob-store/databases/(default)/documents/';
 const TC_STEAM = 3.85;   // el mismo tipo de cambio con el que la web muestra el precio de Steam
