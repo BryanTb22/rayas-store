@@ -22,6 +22,9 @@
     ?orden=mayor    de más a menos (del más caro al más barato) ← el de siempre si no se pone nada
     ?orden=nuevo    los últimos que se agregaron primero
     ?fondo=no       fondo transparente
+    ?modo=barra     franja delgada (foto chica, nombre y precio) con fondo transparente, para poner
+                    abajo encima del juego o la cámara. En LIVE Studio dale al cuadro forma de franja
+                    (ej. 1080×220 en vertical, o 1280×130 en horizontal).
     ?steam=no       sin el precio de Steam ni el % de descuento
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -79,6 +82,31 @@ body.sinfondo { background: transparent; }
 #barra { position: absolute; left: 0; bottom: 8cqmin; height: .7cqmin; background: var(--naranja); width: 0; }
 #aviso { position: absolute; inset: 0 0 8cqmin; display: flex; align-items: center; justify-content: center;
   font-size: 6cqmin; color: var(--muted); letter-spacing: .5cqmin; text-align: center; padding: 5cqmin; }
+/* ===== Modo barra (?modo=barra): franja delgada para poner encima del juego o la cámara ===== */
+body.barra { background: transparent; }
+body.barra.confondo { background: var(--noche); }
+.barra #pie { display: none; }
+.barra #barra { bottom: 4cqh; left: 3cqh; height: 3cqh; border-radius: 3cqh; max-width: calc(100% - 6cqh); }
+.barra #aviso { inset: 0; font-size: min(28cqh, 4cqw); }
+.barra .slide.b { inset: 4cqh 0; padding: 0 min(4cqh, 1.5cqw) 0 0; gap: min(5cqh, 2cqw); flex-direction: row; text-align: left;
+  background: linear-gradient(90deg, rgba(7,13,36,.94), rgba(15,26,60,.9)); border: .8cqh solid var(--rz); border-radius: 18cqh;
+  overflow: hidden; transform: translateY(35%); box-shadow: 0 0 6cqh color-mix(in srgb, var(--rz) 35%, transparent); }
+.barra .slide.b.on { transform: none; }
+.barra .slide.b.fuera { transform: translateY(-35%); }
+.b .bfoto { flex: 0 0 auto; height: 100%; aspect-ratio: 3 / 2; background: radial-gradient(circle at 50% 40%, #1d2c5e, #0a1130 75%); }
+.b .bfoto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.b .bfoto img.logo { object-fit: contain; padding: 10%; }
+.b .bmid { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3cqh; }
+.b .blinea { display: flex; align-items: center; gap: min(4cqh, 1.5cqw); min-width: 0; }
+.b .rz { font-size: min(13cqh, 2.4cqw); padding: .5cqh min(5cqh, 1.6cqw); letter-spacing: min(1cqh, .3cqw); flex: 0 0 auto; }
+.b .heroe { font-size: min(14cqh, 2.6cqw); min-width: 0; }
+.b .nom { font-size: min(24cqh, 4.2cqw); -webkit-line-clamp: 2; line-height: 1.05; }
+.b .nom.largo { font-size: min(19cqh, 3.4cqw); }
+.b .bprecio { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 1cqh; }
+.b .precio { font-size: min(40cqh, 7.5cqw); line-height: 1; }
+.b .bsub { font-weight: 600; font-size: min(13cqh, 2.4cqw); letter-spacing: .2cqw; color: var(--celeste); white-space: nowrap; }
+.b .bsub i { font-style: normal; color: #fff; background: #e0202a; border-radius: 3cqh; padding: 0 min(3cqh, 1cqw); margin-right: min(2cqh, .6cqw); }
+.b .blogo { flex: 0 0 auto; height: 62%; aspect-ratio: 1; border-radius: 50%; object-fit: cover; }
 </style>
 </head>
 <body>
@@ -100,6 +128,11 @@ const ORDEN = { aleatorio: 'azar', random: 'azar', menos: 'menor', barato: 'meno
   || (P.get('orden') || 'mayor').toLowerCase();
 const STEAM = P.get('steam') !== 'no';
 if (P.get('fondo') === 'no') document.body.classList.add('sinfondo');
+// Transparente de verdad: el fondo también está en <html>
+const BARRA = P.get('modo') === 'barra';
+if (BARRA) document.body.classList.add('barra');
+if (BARRA && P.get('fondo') === 'si') document.body.classList.add('confondo');
+if (P.get('fondo') === 'no' || (BARRA && P.get('fondo') !== 'si')) document.documentElement.style.background = 'transparent';
 
 const BASE = 'https://firestore.googleapis.com/v1/projects/litlejacob-store/databases/(default)/documents/';
 const TC_STEAM = 3.85;   // el mismo tipo de cambio con el que la web muestra el precio de Steam
@@ -211,6 +244,17 @@ async function tarjeta(x) {
   const foto = await fotoLista(x.img);
   const el = document.createElement('div');
   el.className = 'slide';
+  if (BARRA) {
+    el.className = 'slide b';
+    el.style.setProperty('--rz', color);
+    const sub = dto >= 5 ? `<i>-${dto}%</i>vs Steam` : cd ? `Entrega ${estado.replace(/<[^>]+>/g, '').replace('ENTREGA ', '')}` : 'rayas.trade';
+    el.innerHTML = `<div class="bfoto"><img src="${esc(foto || 'img/logo-v2.webp')}"${foto ? '' : ' class="logo"'} alt=""></div>
+      <div class="bmid"><div class="blinea">${x.rareza ? `<span class="rz">${esc(x.rareza)}</span>` : ''}${x.heroe ? `<span class="heroe">${esc(x.heroe)}</span>` : ''}</div>
+        <div class="nom${x.nombre.length > 22 ? ' largo' : ''}">${esc(x.nombre)}</div></div>
+      <div class="bprecio"><div class="precio">${x.desde ? '<small>desde</small>' : ''}${sol(x.precio)}</div><div class="bsub">${sub}</div></div>
+      <img class="blogo" src="img/logo-v2.webp" alt="">`;
+    return el;
+  }
   el.style.setProperty('--rz', color);
   el.innerHTML = `<div class="foto"><img src="${esc(foto || 'img/logo-v2.webp')}"${foto ? '' : ' class="logo"'} alt="">${estado}${dto >= 5 ? `<span class="dto">-${dto}%</span>` : ''}</div>
     <div class="texto">${x.rareza ? `<span class="rz">${esc(x.rareza)}</span>` : ''}
