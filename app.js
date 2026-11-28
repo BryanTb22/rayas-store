@@ -297,7 +297,7 @@
     a = a && typeof a === "object" ? a : {};
     var s = function (v, n) { return typeof v === "string" ? v.trim().slice(0, n) : ""; };
     return { id: s(a.id, 20) || "a" + Math.random().toString(36).slice(2, 9), nombre: s(a.nombre, 24), img: /^fs:img-[\w\-]+$/.test(String(a.img || "")) ? a.img : "",
-      color: /^#[0-9a-f]{6}$/i.test(String(a.color || "")) ? a.color : "#e5484d", q: s(a.q, 40), tipo: s(a.tipo, 30), heroe: s(a.heroe, 40), rareza: s(a.rareza, 20) };
+      color: /^#[0-9a-f]{6}$/i.test(String(a.color || "")) ? a.color : "#e5484d", q: s(a.q, 40), tipo: s(a.tipo, 30), heroe: s(a.heroe, 40), rareza: s(a.rareza, 20), sin: s(a.sin, 80) };
   }
   function normalizar(st) {
     st = st && typeof st === "object" ? st : {};
@@ -1081,9 +1081,11 @@
   var items = { lista: [], cargado: false, cargando: false, err: "" };
   var avisoNuevoItem = false;
   // Filtros de "Comprar items" (estilo LIS Skins, como el Buscador del panel del bot): rareza, calidad y ranura admiten varias a la vez.
-  function filtrosVacios() { return { q: "", min: "", max: "", tipo: "", heroe: "", ranura: [], rareza: [], calidad: [], orden: "mayor", pag: 0 }; }
+  function filtrosVacios() { return { q: "", sin: "", min: "", max: "", tipo: "", heroe: "", ranura: [], rareza: [], calidad: [], orden: "mayor", pag: 0 }; }
   var filtros = filtrosVacios();
   var elegirMsg = null;
+  // "Sin": palabras separadas por coma; el item que tenga alguna en su nombre no sale (lo usan los atajos).
+  function tieneExcluida(sin, nombre) { var nm = sinTildes(nombre); return String(sin || "").split(",").some(function (p) { p = sinTildes(p).trim(); return p && nm.indexOf(p) >= 0; }); }
   function sinTildes(t) { return String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
   function fmtPrecio(n) { return "S/ " + (Math.round(Number(n) * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
   function itemDeDoc(d) {
@@ -1196,6 +1198,7 @@
       if (isFinite(mn) && it.precio < mn) return false;
       if (isFinite(mx) && it.precio > mx) return false;
       if (q && sinTildes(it.nombre + " " + it.heroe + " " + it.tipo).indexOf(q) < 0) return false;
+      if (filtros.sin && tieneExcluida(filtros.sin, it.nombre)) return false;
       return true;
     });
     // Mismo item con distintas versiones (gemas, precio): una sola tarjeta con el precio más bajo, como lis-skins.
@@ -1393,6 +1396,7 @@
     filtros.ranura.forEach(function (v) { l.push(["ranura:" + v, "Ranura", v]); });
     if (filtros.min || filtros.max) l.push(["precio", "Precio", filtros.min && filtros.max ? "S/ " + filtros.min + " – S/ " + filtros.max : filtros.min ? "desde S/ " + filtros.min : "hasta S/ " + filtros.max]);
     if (filtros.q) l.push(["q", "Búsqueda", filtros.q]);
+    if (filtros.sin) l.push(["sin", "Sin", filtros.sin]);
     return l;
   }
   function chipsHtml() {
@@ -1455,6 +1459,7 @@
     if (a.heroe && sinTildes(it.heroe) !== sinTildes(a.heroe)) return false;
     if (a.rareza && it.rareza !== a.rareza) return false;
     if (a.q && sinTildes(it.nombre + " " + it.heroe + " " + it.tipo).indexOf(sinTildes(a.q)) < 0) return false;
+    if (a.sin && tieneExcluida(a.sin, it.nombre)) return false;
     return true;
   }
   // Sin foto propia, el atajo muestra la del item más caro que encuentra.
@@ -1465,7 +1470,7 @@
     return m ? m.img : "";
   }
   function atajoActivo(a) {
-    return filtros.q === a.q && filtros.tipo === a.tipo && sinTildes(filtros.heroe) === sinTildes(a.heroe) && filtros.rareza.join("|") === (a.rareza || "") && !filtros.calidad.length && !filtros.ranura.length && !filtros.min && !filtros.max;
+    return filtros.q === a.q && filtros.sin === (a.sin || "") && filtros.tipo === a.tipo && sinTildes(filtros.heroe) === sinTildes(a.heroe) && filtros.rareza.join("|") === (a.rareza || "") && !filtros.calidad.length && !filtros.ranura.length && !filtros.min && !filtros.max;
   }
   function atajoTexto(hex) {   // letra oscura sobre colores claros
     var n = parseInt(hex.slice(1), 16), l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
@@ -1500,6 +1505,7 @@
       c("atj-tipo", "Tipo", '<select id="atj-tipo">' + opciones(ITEM_TIPOS, F.tipo, "Todos") + '</select>') +
       c("atj-heroe", "Héroe", '<select id="atj-heroe">' + opciones(distintos("heroe", HEROES_DOTA), F.heroe, "Todos") + '</select>') +
       c("atj-q", "Palabra en el nombre", '<input id="atj-q" type="text" maxlength="40" placeholder="Ej. crimson" value="' + esc(F.q) + '">') +
+      c("atj-sin", "No mostrar los que digan", '<input id="atj-sin" type="text" maxlength="80" placeholder="Ej. pique, otro nombre" value="' + esc(F.sin) + '">') +
       '</div></div>' +
       '<p class="hint atj-cuenta">' + (F.q || F.tipo || F.heroe || F.rareza ? 'Con esto salen <b>' + n + '</b> items.' + (n ? '' : ' Revisa las opciones: ahora mismo no saldría ninguno.') : 'Todavía no eliges qué muestra.') + '</p>' +
       (A.msg ? '<p class="msg err">' + esc(A.msg) + '</p>' : '') +
@@ -1511,7 +1517,7 @@
   function atajoLeer() {
     var A = admin.atj; if (!A) return;
     var v = function (id) { var el = document.getElementById(id); return el ? el.value : null; };
-    ["nombre", "color", "q", "tipo", "heroe", "rareza"].forEach(function (k) { var x = v("atj-" + k); if (x !== null) A.F[k] = x; });
+    ["nombre", "color", "q", "sin", "tipo", "heroe", "rareza"].forEach(function (k) { var x = v("atj-" + k); if (x !== null) A.F[k] = x; });
     A.F = limpiarAtajo(A.F);
   }
   function atajoClick(a, t) {
@@ -1520,7 +1526,7 @@
       var at = estado.atajos[i]; if (!at) return true;
       var act = atajoActivo(at), ord = filtros.orden;
       filtros = filtrosVacios(); filtros.orden = ord; avisoNuevoItem = false;
-      if (!act) { filtros.q = at.q; filtros.tipo = at.tipo; filtros.heroe = at.heroe; filtros.rareza = at.rareza ? [at.rareza] : []; }
+      if (!act) { filtros.q = at.q; filtros.sin = at.sin || ""; filtros.tipo = at.tipo; filtros.heroe = at.heroe; filtros.rareza = at.rareza ? [at.rareza] : []; }
       render(); sincHash(); return true;
     }
     if (a.indexOf("atj") !== 0) return false;
@@ -1559,10 +1565,10 @@
   }
   // Nombre y palabra: se actualiza la muestra mientras escribe, sin redibujar (redibujar al salir del campo se comería el clic en "Guardar").
   document.addEventListener("input", function (ev) {
-    var el = ev.target; if (!admin.atj || !el || (el.id !== "atj-nombre" && el.id !== "atj-q")) return;
+    var el = ev.target; if (!admin.atj || !el || (el.id !== "atj-nombre" && el.id !== "atj-q" && el.id !== "atj-sin")) return;
     if (el.id === "atj-nombre") { var n = document.querySelector(".atj-prev .atj-n"); if (n) n.textContent = el.value.trim() || "Nombre"; return; }
-    var F = limpiarAtajo(Object.assign({}, admin.atj.F, { q: el.value, nombre: "x" })), c = document.querySelector(".atj-cuenta");
-    ["tipo", "heroe", "rareza"].forEach(function (k) { var s = document.getElementById("atj-" + k); if (s) F[k] = s.value; });
+    var F = limpiarAtajo(Object.assign({}, admin.atj.F, { nombre: "x" })), c = document.querySelector(".atj-cuenta");
+    ["q", "sin", "tipo", "heroe", "rareza"].forEach(function (k) { var s = document.getElementById("atj-" + k); if (s) F[k] = s.value; });
     if (c) c.innerHTML = F.q || F.tipo || F.heroe || F.rareza ? 'Con esto salen <b>' + items.lista.filter(function (it) { return it.activo && atajoCoincide(F, it); }).length + '</b> items.' : 'Todavía no eliges qué muestra.';
   });
   function comprarHtml() {
