@@ -213,3 +213,35 @@ html #comprar.cat-item .rel-fila .icard { flex: 0 0 190px; }
 /* Fotos cuadradas de Steam (360×360 con borde transparente): se acercan para llenar el recuadro (app.js les pone .cuad) */
 html :is(#comprar, #vender).cat .ithumb img.cuad { object-fit: cover; transform: scale(1.4); }
 html #comprar.cat-item .ipg-foto img.cuad { width: 100%; max-width: 100%; height: 100%; max-height: 100%; object-fit: cover; transform: scale(1.35); }
+
+/* ---------- Atajos del catálogo (cuadros con foto arriba de los items, como en la app de BUFF) ---------- */
+.atj-fila { display: flex; gap: 12px; margin: 0 0 18px; padding: 2px 2px 6px; overflow-x: auto; scrollbar-width: none; }
+.atj-fila::-webkit-scrollbar { display: none; }
+.atj-w { position: relative; flex: 0 0 168px; }
+.atj { display: flex; flex-direction: column; width: 100%; padding: 0; border: 0; border-radius: 8px; overflow: hidden; background: color-mix(in srgb, var(--raised) 60%, var(--bg)); color: inherit; cursor: pointer; text-align: center; transition: transform .15s, box-shadow .15s; }
+.atj:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.atj.on { box-shadow: 0 0 0 2px var(--yellow); }
+.atj-f { display: flex; align-items: center; justify-content: center; aspect-ratio: 3 / 2; width: 100%; overflow: hidden; background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--atj, #888) 35%, transparent), transparent 75%); font-size: 34px; color: var(--muted); }
+.atj-f img { width: 100%; height: 100%; object-fit: cover; }
+.atj-n { display: flex; align-items: center; justify-content: center; min-height: 38px; padding: 5px 8px; background: var(--atj, #444); color: var(--atj-t, #fff); font: 600 15px/1.15 var(--body); }
+.atj-mas { border: 1px dashed color-mix(in srgb, var(--fg) 30%, transparent); background: none; }
+.atj-mas .atj-n { background: none; color: var(--muted); }
+.atj-ed { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(5,8,25,.85); color: #fff; font-size: 15px; cursor: pointer; }
+.atj-form { margin: 0 0 18px; }
+.atj-form > .in { padding: 14px 16px; }
+.atj-form .hint { margin: 4px 0 12px; text-align: left; }
+.atj-cols { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+.atj-prev { flex: 0 0 168px; display: flex; flex-direction: column; gap: 8px; align-items: stretch; text-align: center; }
+.atj-prev .atj { cursor: default; pointer-events: none; }
+.atj-campos { flex: 1 1 320px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px 14px; }
+.atj-campos .field { margin: 0; }
+.atj-campos input[type="color"] { width: 100%; height: 40px; padding: 2px; }
+.atj-sub { grid-column: 1 / -1; margin-top: 4px; font-weight: 600; color: var(--yellow); }
+.atj-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.atj-borrar { color: #ff8a8a; }
+@media (max-width: 640px) {
+  .atj-w { flex-basis: 118px; }
+  .atj-n { font-size: 13px; min-height: 34px; }
+  .atj-prev { flex-basis: 100%; align-items: center; }
+  .atj-prev .atj-w { width: 150px; }
+}
