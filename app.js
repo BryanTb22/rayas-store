@@ -1578,8 +1578,8 @@
     })).join("");
     var nFilt = chipsActivos().filter(function (c) { return c[0] !== "q"; }).length;
     var filt = '<div class="ml-fondo" data-a="fCel" aria-hidden="true"></div><aside class="ifilt ml' + (filtCel ? ' abierto' : '') + '" aria-label="Filtros">' + filtrosLadoHtml() + '</aside>';
-    return '<section class="section gutter cat" id="comprar"><div class="wrap">' + migaCatalogoHtml(filtros.tipo, filtros.heroe, "") +
-      '<h1 class="cat-t">Comprar items de Dota 2</h1>' + atajosHtml() +
+    return '<section class="section gutter cat cat-lista" id="comprar"><div class="wrap">' + (filtros.tipo || filtros.heroe ? migaCatalogoHtml(filtros.tipo, filtros.heroe, "") : '') +
+      '<h1 class="cat-t cat-oculto">Comprar items de Dota 2</h1>' + atajosHtml() +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala con el interruptor de abajo cuando esté lista.</p>') + switchItems() +
       (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkAbrir">📦 Stock de items</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + importarHtml() : '') +
       '<div class="itabs">' + tabs + '</div>' +
