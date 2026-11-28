@@ -292,6 +292,13 @@
     yp = yp && typeof yp === "object" ? yp : {};
     return { qr: /^fs:img-[\w\-]+$/.test(String(yp.qr || "")) ? yp.qr : "", numero: String(yp.numero || "").replace(/\D+/g, "").slice(0, 12), nombre: typeof yp.nombre === "string" ? yp.nombre.slice(0, 40) : "" };
   }
+  // Atajo de "Comprar items": un cuadro con foto y nombre que aplica filtros (búsqueda, tipo, héroe, rareza).
+  function limpiarAtajo(a) {
+    a = a && typeof a === "object" ? a : {};
+    var s = function (v, n) { return typeof v === "string" ? v.trim().slice(0, n) : ""; };
+    return { id: s(a.id, 20) || "a" + Math.random().toString(36).slice(2, 9), nombre: s(a.nombre, 24), img: /^fs:img-[\w\-]+$/.test(String(a.img || "")) ? a.img : "",
+      color: /^#[0-9a-f]{6}$/i.test(String(a.color || "")) ? a.color : "#e5484d", q: s(a.q, 40), tipo: s(a.tipo, 30), heroe: s(a.heroe, 40), rareza: s(a.rareza, 20) };
+  }
   function normalizar(st) {
     st = st && typeof st === "object" ? st : {};
     if (typeof st.whatsapp !== "string") st.whatsapp = "";
@@ -303,6 +310,7 @@
     st.pagos = { culqi: !!(st.pagos && st.pagos.culqi) };
     st.secciones = { items: !!(st.secciones && st.secciones.items), rifas: !(st.secciones && st.secciones.rifas === false) };
     st.yape = limpiarYape(st.yape);
+    st.atajos = (Array.isArray(st.atajos) ? st.atajos : []).map(limpiarAtajo).filter(function (a) { return a.nombre; }).slice(0, 12);
     (function () { // Todo en soles: limpia textos guardados que aún digan "créditos"
       var lim = function (x) { return typeof x !== "string" ? x : x.replace(/\(S\/ ?1 ?= ?1 cr[eé]ditos?\)/gi, "").replace(/(\d+) cr[eé]ditos?/gi, "$1 soles").replace(/\bTus cr[eé]ditos/g, "Tu saldo").replace(/\btus cr[eé]ditos/g, "tu saldo").replace(/\bLos cr[eé]ditos/g, "El saldo").replace(/\blos cr[eé]ditos/g, "el saldo").replace(/\bcr[eé]ditos?\b/gi, "saldo").replace(/\bcupos\b/g, "tickets").replace(/\bcupo\b/g, "ticket").replace(/\bCupos\b/g, "Tickets").replace(/\bCupo\b/g, "Ticket").replace(/ {2,}/g, " "); };
       if (st.textos && typeof st.textos === "object") Object.keys(st.textos).forEach(function (k) { var v = st.textos[k]; if (typeof v === "string") st.textos[k] = lim(v); else if (Array.isArray(v)) st.textos[k] = v.map(lim); });
@@ -1440,6 +1448,123 @@
     if (!out.length) return '';
     return '<div class="ofr"><div class="ofr-top"><h3>✨ También te puede interesar</h3><div class="rel-flechas"><button type="button" class="rel-f" data-a="relMov" data-d="-1" aria-label="Anterior">←</button><button type="button" class="rel-f" data-a="relMov" data-d="1" aria-label="Siguiente">→</button></div></div><div class="rel-fila">' + out.map(itemCardHtml).join("") + '</div></div>';
   }
+  /* ===== Atajos del catálogo (como los cuadros de arriba en la app de BUFF). Se guardan en estado.atajos; el admin los crea desde aquí mismo. ===== */
+  var ATJ_COLORES = ["#e5484d", "#2bb8b0", "#8a1f2b", "#e4ae39", "#8847ff", "#3d7bff"];
+  function atajoCoincide(a, it) {
+    if (a.tipo && it.tipo !== a.tipo) return false;
+    if (a.heroe && sinTildes(it.heroe) !== sinTildes(a.heroe)) return false;
+    if (a.rareza && it.rareza !== a.rareza) return false;
+    if (a.q && sinTildes(it.nombre + " " + it.heroe + " " + it.tipo).indexOf(sinTildes(a.q)) < 0) return false;
+    return true;
+  }
+  // Sin foto propia, el atajo muestra la del item más caro que encuentra.
+  function atajoFoto(a) {
+    if (a.img) return a.img;
+    var m = null;
+    items.lista.forEach(function (it) { if (it.img && it.activo && it.stock > 0 && atajoCoincide(a, it) && (!m || it.precio > m.precio)) m = it; });
+    return m ? m.img : "";
+  }
+  function atajoActivo(a) {
+    return filtros.q === a.q && filtros.tipo === a.tipo && sinTildes(filtros.heroe) === sinTildes(a.heroe) && filtros.rareza.join("|") === (a.rareza || "") && !filtros.calidad.length && !filtros.ranura.length && !filtros.min && !filtros.max;
+  }
+  function atajoTexto(hex) {   // letra oscura sobre colores claros
+    var n = parseInt(hex.slice(1), 16), l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+    return l > 0.62 ? "#14161f" : "#fff";
+  }
+  function atajoCuadro(a, k) {
+    var f = atajoFoto(a);
+    return '<div class="atj-w"><button type="button" class="atj' + (k >= 0 && atajoActivo(a) ? ' on' : '') + '"' + (k >= 0 ? ' data-a="atajo" data-i="' + k + '"' : ' tabindex="-1"') + ' style="--atj:' + esc(a.color) + ';--atj-t:' + atajoTexto(a.color) + '">' +
+      '<span class="atj-f">' + (f ? imgTag(f, "", ' loading="lazy"') : '') + '</span><span class="atj-n">' + esc(a.nombre || "Nombre") + '</span></button>' +
+      (admin.puede && k >= 0 ? '<button type="button" class="atj-ed" data-a="atjEditar" data-i="' + k + '" aria-label="Editar atajo ' + esc(a.nombre) + '" title="Editar">✎</button>' : '') + '</div>';
+  }
+  function atajosHtml() {
+    var l = estado.atajos || [];
+    if (!l.length && !admin.puede) return '';
+    return '<div class="atj-fila" aria-label="Atajos">' + l.map(atajoCuadro).join("") +
+      (admin.puede && l.length < 12 ? '<div class="atj-w"><button type="button" class="atj atj-mas" data-a="atjNuevo"><span class="atj-f">＋</span><span class="atj-n">Agregar atajo</span></button></div>' : '') + '</div>' +
+      (admin.puede && admin.atj ? atajoFormHtml() : '');
+  }
+  function atajoFormHtml() {
+    var A = admin.atj, F = A.F, nuevo = A.i < 0, n = items.lista.filter(function (it) { return it.activo && atajoCoincide(F, it); }).length;
+    var c = function (id, lab, h) { return '<div class="field"><label for="' + id + '">' + lab + '</label>' + h + '</div>'; };
+    return '<div class="atj-form frame"><div class="in"><b>' + (nuevo ? 'Nuevo atajo' : 'Editar atajo') + '</b>' +
+      '<p class="hint">El atajo es un botón con foto. Al tocarlo, el cliente ve solo los items que cumplen lo que elijas aquí. Llena al menos una de las 4 opciones de "Qué muestra".</p>' +
+      '<div class="atj-cols"><div class="atj-prev">' + atajoCuadro(F, -1) +
+      '<label class="btn btn-ghost btn-sm">' + (A.subiendo ? 'Subiendo…' : '📷 Subir foto') + '<input type="file" class="atjfile" accept="image/*" hidden' + (A.subiendo ? ' disabled' : '') + '></label>' +
+      (F.img ? '<button type="button" class="btn btn-ghost btn-sm" data-a="atjSinFoto">Quitar foto</button>' : '<span class="hint">Sin foto usa la del item más caro.</span>') + '</div>' +
+      '<div class="atj-campos">' +
+      c("atj-nombre", "Nombre del atajo", '<input id="atj-nombre" type="text" maxlength="24" placeholder="Ej. Arcanas" value="' + esc(F.nombre) + '">') +
+      c("atj-color", "Color", '<input id="atj-color" type="color" value="' + esc(F.color) + '">') +
+      '<div class="atj-sub">Qué muestra</div>' +
+      c("atj-rareza", "Rareza", '<select id="atj-rareza">' + opciones(LISTA_RAREZAS.filter(Boolean), F.rareza, "Todas") + '</select>') +
+      c("atj-tipo", "Tipo", '<select id="atj-tipo">' + opciones(ITEM_TIPOS, F.tipo, "Todos") + '</select>') +
+      c("atj-heroe", "Héroe", '<select id="atj-heroe">' + opciones(distintos("heroe", HEROES_DOTA), F.heroe, "Todos") + '</select>') +
+      c("atj-q", "Palabra en el nombre", '<input id="atj-q" type="text" maxlength="40" placeholder="Ej. crimson" value="' + esc(F.q) + '">') +
+      '</div></div>' +
+      '<p class="hint atj-cuenta">' + (F.q || F.tipo || F.heroe || F.rareza ? 'Con esto salen <b>' + n + '</b> items.' + (n ? '' : ' Revisa las opciones: ahora mismo no saldría ninguno.') : 'Todavía no eliges qué muestra.') + '</p>' +
+      (A.msg ? '<p class="msg err">' + esc(A.msg) + '</p>' : '') +
+      '<div class="atj-btns"><button type="button" class="btn btn-yellow btn-sm" data-a="atjGuardar">Guardar y publicar</button>' +
+      (nuevo ? '' : '<button type="button" class="btn btn-ghost btn-sm" data-a="atjMover" data-d="-1"' + (A.i <= 0 ? ' disabled' : '') + '>← Mover</button><button type="button" class="btn btn-ghost btn-sm" data-a="atjMover" data-d="1"' + (A.i >= estado.atajos.length - 1 ? ' disabled' : '') + '>Mover →</button><button type="button" class="btn btn-ghost btn-sm atj-borrar" data-a="atjBorrar">🗑 Borrar</button>') +
+      '<button type="button" class="btn btn-ghost btn-sm" data-a="atjCancelar">Cancelar</button></div></div></div>';
+  }
+  // Pasa lo escrito en el formulario a admin.atj.F (antes de redibujar o guardar).
+  function atajoLeer() {
+    var A = admin.atj; if (!A) return;
+    var v = function (id) { var el = document.getElementById(id); return el ? el.value : null; };
+    ["nombre", "color", "q", "tipo", "heroe", "rareza"].forEach(function (k) { var x = v("atj-" + k); if (x !== null) A.F[k] = x; });
+    A.F = limpiarAtajo(A.F);
+  }
+  function atajoClick(a, t) {
+    var A = admin.atj, i = Number(t.getAttribute("data-i"));
+    if (a === "atajo") {
+      var at = estado.atajos[i]; if (!at) return true;
+      var act = atajoActivo(at), ord = filtros.orden;
+      filtros = filtrosVacios(); filtros.orden = ord; avisoNuevoItem = false;
+      if (!act) { filtros.q = at.q; filtros.tipo = at.tipo; filtros.heroe = at.heroe; filtros.rareza = at.rareza ? [at.rareza] : []; }
+      render(); sincHash(); return true;
+    }
+    if (a.indexOf("atj") !== 0) return false;
+    if (!admin.puede) return true;
+    if (a === "atjNuevo") admin.atj = { i: -1, F: limpiarAtajo({ color: ATJ_COLORES[estado.atajos.length % ATJ_COLORES.length] }), msg: "" };
+    else if (a === "atjEditar") admin.atj = estado.atajos[i] ? { i: i, F: clone(estado.atajos[i]), msg: "" } : null;
+    else if (a === "atjCancelar") admin.atj = null;
+    else if (A && a === "atjSinFoto") { atajoLeer(); admin.atj.F.img = ""; }
+    else if (A && a === "atjBorrar") { estado.atajos.splice(A.i, 1); admin.atj = null; marcarSucio(); publicar(); return true; }
+    else if (A && a === "atjMover") {
+      var d = Number(t.getAttribute("data-d")), j = A.i + d;
+      if (j >= 0 && j < estado.atajos.length) { var tmp = estado.atajos[A.i]; estado.atajos[A.i] = estado.atajos[j]; estado.atajos[j] = tmp; A.i = j; marcarSucio(); publicar(); return true; }
+    }
+    else if (A && a === "atjGuardar") {
+      atajoLeer(); A = admin.atj; var F = A.F;
+      if (!F.nombre) A.msg = "Ponle un nombre al atajo.";
+      else if (!(F.q || F.tipo || F.heroe || F.rareza)) A.msg = "Elige qué muestra: rareza, tipo, héroe o una palabra.";
+      else if (A.subiendo) A.msg = "Espera a que termine de subir la foto.";
+      else { if (A.i < 0) estado.atajos.push(F); else estado.atajos[A.i] = F; admin.atj = null; marcarSucio(); publicar(); return true; }
+    }
+    render(); return true;
+  }
+  function atajoEvento(el) {
+    if (!admin.atj || !el) return false;
+    if (el.classList && el.classList.contains("atjfile") && el.files && el.files[0]) {
+      var fi = el.files[0]; el.value = ""; atajoLeer();
+      editorFoto(fi).then(function (listo) {
+        if (!listo || !admin.atj) return;
+        admin.atj.subiendo = true; admin.atj.msg = ""; render();
+        return subirImagen(listo, 640).then(function (ref) { if (admin.atj) { admin.atj.F.img = ref; admin.atj.subiendo = false; } render(); });
+      }).catch(function (e) { if (admin.atj) { admin.atj.subiendo = false; admin.atj.msg = (e && e.message) || "No se pudo subir la foto."; } render(); });
+      return true;
+    }
+    if (/^atj-(color|tipo|heroe|rareza)$/.test(el.id || "")) { atajoLeer(); render(); return true; }
+    return false;
+  }
+  // Nombre y palabra: se actualiza la muestra mientras escribe, sin redibujar (redibujar al salir del campo se comería el clic en "Guardar").
+  document.addEventListener("input", function (ev) {
+    var el = ev.target; if (!admin.atj || !el || (el.id !== "atj-nombre" && el.id !== "atj-q")) return;
+    if (el.id === "atj-nombre") { var n = document.querySelector(".atj-prev .atj-n"); if (n) n.textContent = el.value.trim() || "Nombre"; return; }
+    var F = limpiarAtajo(Object.assign({}, admin.atj.F, { q: el.value, nombre: "x" })), c = document.querySelector(".atj-cuenta");
+    ["tipo", "heroe", "rareza"].forEach(function (k) { var s = document.getElementById("atj-" + k); if (s) F[k] = s.value; });
+    if (c) c.innerHTML = F.q || F.tipo || F.heroe || F.rareza ? 'Con esto salen <b>' + items.lista.filter(function (it) { return it.activo && atajoCoincide(F, it); }).length + '</b> items.' : 'Todavía no eliges qué muestra.';
+  });
   function comprarHtml() {
     if (idItemHash()) return paginaItemHtml(idItemHash());
     var tabs = ['<button type="button" class="itab' + (!filtros.tipo ? ' on' : '') + '" data-a="itTipo" data-v="">Todos</button>'].concat(ITEM_TIPOS.map(function (t) {
@@ -1448,7 +1573,7 @@
     var nFilt = chipsActivos().filter(function (c) { return c[0] !== "q"; }).length;
     var filt = '<div class="ml-fondo" data-a="fCel" aria-hidden="true"></div><aside class="ifilt ml' + (filtCel ? ' abierto' : '') + '" aria-label="Filtros">' + filtrosLadoHtml() + '</aside>';
     return '<section class="section gutter cat" id="comprar"><div class="wrap">' + migaCatalogoHtml(filtros.tipo, filtros.heroe, "") +
-      '<h1 class="cat-t">Comprar items de Dota 2</h1>' +
+      '<h1 class="cat-t">Comprar items de Dota 2</h1>' + atajosHtml() +
       (estado.secciones.items ? '' : '<p class="hint" style="text-align:center">🔒 Esta sección está oculta: solo tú (administrador) la ves. Actívala con el interruptor de abajo cuando esté lista.</p>') + switchItems() +
       (admin.puede ? '<div class="itadm frame"><div class="in"><b>Modo administrador</b><button type="button" class="btn btn-yellow btn-sm" data-a="itNuevo">+ Agregar item</button><button type="button" class="btn btn-ghost btn-sm" data-a="stkAbrir">📦 Stock de items</button><button type="button" class="btn btn-ghost btn-sm" data-a="stRefrescar"' + (admin.st && admin.st.corriendo ? ' disabled' : '') + '>' + (admin.st && admin.st.corriendo ? 'Actualizando…' : '↻ Precios de Steam') + '</button><span class="hint">' + esc(admin.st && admin.st.msg || '') + '</span><span class="hint">Pasa por una tarjeta y usa ✎ para editar o 🗑 para quitarla. Los cambios se guardan al instante.</span></div></div>' + importarHtml() : '') +
       '<div class="itabs">' + tabs + '</div>' +
@@ -4457,6 +4582,7 @@
     if (!t) return;
     var a = t.getAttribute("data-a");
     var i = Number(t.getAttribute("data-i"));
+    if (atajoClick(a, t)) return;
     switch (a) {
       case "admin":
         if (admin.puede) admin.abierto = true; else { cuenta.modo = "login"; cuenta.msg = ""; cuenta.msgTipo = ""; }
@@ -4845,6 +4971,7 @@
     }
     if (ev.target.id === "pf-tipo") { cuenta.tTipo = ev.target.value; pfFiltrar(); return; }
     if (ev.target.id === "it-nombre" && admin.itemForm && !admin.itemForm.id && !admin.itemForm.soloCambios) { admin.itemForm.nombre = ev.target.value; render(); hidratarImgs(); return; }
+    if (atajoEvento(ev.target)) return;
     if (filtroEvento(ev.target) || stockEvento(ev.target, ev.type) || formItemEvento(ev.target) || ventaEvento(ev.target)) return;
     if (ev.target.id === "sk-file" && ev.target.files && ev.target.files[0]) { stkFoto(ev.target); return; }
     if (ev.target.id === "it-pvfile" && ev.target.files && ev.target.files.length) { var pvf = ev.target.files; pvSubir(pvf); ev.target.value = ""; return; }

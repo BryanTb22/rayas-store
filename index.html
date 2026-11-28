@@ -52,7 +52,7 @@
     var tl = document.createElement("link"); tl.rel = "stylesheet"; tl.href = "tema-lj.css?v=6"; document.head.appendChild(tl);
   }
   /* Catálogo con la interfaz de LIS Skins (comprar, vender, ficha de item) y letra IBM Plex Sans: siempre la última hoja. */
-  function catalogo() { var cl = document.createElement("link"); cl.rel = "stylesheet"; cl.href = "catalogo.css?v=2"; document.head.appendChild(cl); }
+  function catalogo() { var cl = document.createElement("link"); cl.rel = "stylesheet"; cl.href = "catalogo.css?v=3"; document.head.appendChild(cl); }
   try {
     var q = (location.search.match(/[?&]tema=([a-z]+)/) || [])[1];
     if (q === "clasico") localStorage.setItem(K.tema, "clasico"); else if (q === "nuevo") localStorage.removeItem(K.tema);
@@ -97,7 +97,7 @@
 <script src="bot-panel.js?v=2"></script>
 <script src="servicios.js?v=5"></script>
 <script src="portafolio.js?v=5"></script>
-<script src="app.js?v=189"></script>
+<script src="app.js?v=190"></script>
 <script src="legal.js?v=7" defer></script>
 </body>
 </html>
