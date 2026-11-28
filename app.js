@@ -2685,7 +2685,7 @@
       ? '<form class="imgform" data-id="' + id + '">' +
         '<label class="btn btn-fuchsia btn-sm upl" for="up-' + id + '">' + (admin.subiendo === p.id ? 'Subiendo…' : 'Subir desde mi PC') + '</label>' +
         '<input id="up-' + id + '" class="upfile" data-id="' + id + '" type="file" accept="image/*" hidden>' +
-        '<label for="img-' + id + '">o pega un link</label><input id="img-' + id + '" inputmode="url" placeholder="https://…" value="' + esc(esFs(p.img) ? "" : p.img) + '">' +
+        '<label for="img-' + id + '">o pega la imagen (Ctrl + V) o un link</label><input id="img-' + id + '" inputmode="url" placeholder="https://…" value="' + esc(esFs(p.img) ? "" : p.img) + '">' +
         '<div class="imgacts"><button class="btn btn-yellow btn-sm" type="submit">Usar link</button><button class="btn btn-ghost btn-sm" type="button" data-a="imgCancel">Cerrar</button></div>' +
         (admin.imgErr ? '<p class="imgerr">' + esc(admin.imgErr) + '</p>' : '') + '</form>'
       : (V ? '<button type="button" class="imgbtn" data-a="imgEdit" data-id="' + id + '">Cambiar imagen</button>' : '');
@@ -2995,7 +2995,7 @@
       '<div class="grp"><h3>Premio de ' + esc(nombreMes(m)) + '</h3>' +
       '<div class="field"><label for="mm-nombre">Nombre del premio</label><input id="mm-nombre" class="mm-f" data-k="nombre" maxlength="80" value="' + esc(pr.nombre || "") + '" placeholder="Ej. Arcana de Phantom Assassin"></div>' +
       '<div class="field"><label for="mm-img">Foto del premio (link https://…)</label><input id="mm-img" class="mm-f" data-k="img" inputmode="url" placeholder="https://…" value="' + esc(pr.img || "") + '">' +
-      '<p class="hint">Copia la imagen del item (clic derecho → Copiar dirección de imagen) desde el Mercado de Steam y pégala aquí.</p></div>' +
+      '<p class="hint">Copia la imagen del item (clic derecho → <b>Copiar imagen</b>) y pulsa <b>Ctrl + V</b> en esta casilla: se sube sola. También puedes pegar su link (Copiar dirección de imagen).</p></div>' +
       '<div class="field"><label for="mm-desc">Descripción (opcional)</label><textarea id="mm-desc" class="mm-f" data-k="descripcion" maxlength="200" rows="2">' + esc(pr.descripcion || "") + '</textarea></div>' +
       '<div class="field"><label for="mm-tope">Tope de probabilidad</label><select id="mm-tope" class="mm-tope"' + (info.ganador ? ' disabled' : '') + '>' +
         [[35, "35 %"], [40, "40 % (recomendado)"], [50, "50 %"], [60, "60 %"], [100, "Sin tope"]].map(function (o) { return '<option value="' + o[0] + '"' + (topeMes(m) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join("") + '</select>' +
@@ -4331,10 +4331,10 @@
     var p = admin.editando.p;
     var img = imgTag(p.img, "");
     return '<div class="form">' +
-      '<div class="field"><label for="f-img">Imagen del premio (link https://…)</label>' +
+      '<div class="field"><label for="f-img">Imagen del premio (pégala con Ctrl + V)</label>' +
       '<div class="imgprev"><div class="box" id="prevBox">' + (img || 'Sin imagen') + '</div>' +
-      '<p class="hint">Copia la imagen del item (clic derecho → Copiar dirección de imagen), por ejemplo desde el Mercado de Steam o la tienda de Dota 2, y pégala aquí.</p></div>' +
-      '<input id="f-img" inputmode="url" placeholder="https://…" value="' + esc(p.img) + '"></div>' +
+      '<p class="hint">Copia la imagen del item (clic derecho → <b>Copiar imagen</b>) o haz una captura, y pulsa <b>Ctrl + V</b>: se sube sola. También puedes pegar su link (clic derecho → Copiar dirección de imagen).</p></div>' +
+      '<input id="f-img" inputmode="url" placeholder="https://… o Ctrl + V con la imagen copiada" value="' + esc(p.img) + '"></div>' +
       '<div class="field"><label for="f-nombre">Nombre del premio</label><input id="f-nombre" maxlength="80" value="' + esc(p.nombre) + '"></div>' +
       '<div class="row2">' +
       '<div class="field"><label for="f-rareza">Rareza</label><select id="f-rareza">' +
@@ -4861,15 +4861,7 @@
     if (ev.target.getAttribute && ev.target.getAttribute("data-a") === "pedEstado") { cambiarEstadoPedido(ev.target.getAttribute("data-id"), ev.target.value); return; }
     if (ev.target.classList && ev.target.classList.contains("credset")) { guardarCreditos(ev.target.getAttribute("data-uid"), Number(ev.target.value) || 0); return; }
     if (ev.target.classList && ev.target.classList.contains("upfile") && ev.target.files && ev.target.files[0]) {
-      var pid = ev.target.getAttribute("data-id");
-      admin.subiendo = pid; admin.imgErr = ""; render();
-      subirImagen(ev.target.files[0]).then(function (ref) {
-        var k = buscarPremio(pid);
-        if (k >= 0) { estado.premios[k].img = ref; marcarSucio(); }
-        admin.subiendo = null; admin.imgEdit = null; render();
-      }).catch(function (e) {
-        admin.subiendo = null; admin.imgErr = (e && e.message) || "No se pudo subir la imagen."; render();
-      });
+      subirFotoPremio(ev.target.getAttribute("data-id"), ev.target.files[0]);
       return;
     }
     var tc = ev.target;
@@ -5048,9 +5040,67 @@
     else if (admin.abierto && !admin.editando) { admin.abierto = false; quitarHash(); render(); }
   });
 
+  // Foto de un premio desde la tarjeta (modo edición): la sube y la deja puesta.
+  function subirFotoPremio(pid, file) {
+    admin.subiendo = pid; admin.imgErr = ""; render();
+    subirImagen(file).then(function (ref) {
+      var k = buscarPremio(pid);
+      if (k >= 0) { estado.premios[k].img = ref; marcarSucio(); }
+      admin.subiendo = null; admin.imgEdit = null; render();
+    }).catch(function (e) {
+      admin.subiendo = null; admin.imgErr = (e && e.message) || "No se pudo subir la imagen."; render();
+    });
+  }
+  /* Ctrl + V con una imagen copiada (clic derecho → Copiar imagen, o una captura) en las fotos de premios de Rifas:
+     se sube igual que "Subir desde mi PC". Si lo copiado trae texto (un link, un nombre), se pega normal. */
+  function imgPegada(ev) {
+    var cd = ev.clipboardData; if (!cd) return null;
+    if (String(cd.getData("text/plain") || "").trim()) return null;
+    var it = cd.items || [], fl = cd.files || [], k;
+    for (k = 0; k < it.length; k++) if (it[k].kind === "file" && /^image\//.test(it[k].type)) return it[k].getAsFile();
+    for (k = 0; k < fl.length; k++) if (/^image\//.test(fl[k].type)) return fl[k];
+    return null;
+  }
+  function pegarFotoPremio(ev) {
+    if (!admin.puede) return;
+    var pub = document.getElementById("rayasPub"); if (pub && !pub.hidden) return;   // el generador de publicaciones tiene su propio pegado
+    var t = ev.target, enCampo = !!(t && /^(INPUT|TEXTAREA)$/.test(t.tagName));
+    var ed = admin.editando && document.getElementById("f-img") ? admin.editando : null;                                      // panel → "Editar premio"
+    var mm = !ed && enCampo && t.getAttribute("data-k") === "img" && /(^|\s)mm-f2?(\s|$)/.test(t.className) ? t : null;       // panel → "Sorteo del mes"
+    var pid = !ed && !mm && vivo() && admin.imgEdit && (!enCampo || (t.closest && t.closest(".imgform"))) ? admin.imgEdit : null;   // sobre la tarjeta
+    if (!ed && !mm && !pid) return;
+    var file = imgPegada(ev); if (!file) return;
+    ev.preventDefault();
+    if (pid) { if (admin.subiendo !== pid) subirFotoPremio(pid, file); return; }
+    var inp = mm || document.getElementById("f-img"), cid = inp.id;
+    if (inp.disabled) return;   // ya hay una subiendo
+    var antes = inp.value, ph = inp.getAttribute("placeholder") || "";
+    var caja = function (h) { var b = ed && document.getElementById("prevBox"); if (b) b.innerHTML = h; };
+    var aviso = function (m) { var fe = ed && document.getElementById("formErr"); if (fe) fe.textContent = m; };
+    inp.disabled = true; inp.value = ""; inp.setAttribute("placeholder", "Subiendo la imagen…"); caja("Subiendo…"); aviso("");
+    subirImagen(file).then(function (ref) {
+      var el = document.getElementById(cid);
+      if (el) { el.disabled = false; el.setAttribute("placeholder", ph); }
+      if (ed) {
+        ed.p.img = ref;
+        if (admin.editando === ed) { if (el) el.value = ref; caja(imgTag(ref, "")); hidratarImgs(); }
+        else if (estado.premios.indexOf(ed.p) >= 0) { marcarSucio(); render(); }   // tocó "Listo" mientras subía
+        return;
+      }
+      if (el) { el.value = ref; el.dispatchEvent(new Event("input", { bubbles: true })); }
+      render(); var el2 = document.getElementById(cid); if (el2) el2.focus();
+    }).catch(function (e) {
+      var m = (e && e.message) || "No se pudo subir la imagen.";
+      var el = document.getElementById(cid);
+      if (el) { el.disabled = false; el.setAttribute("placeholder", ph); el.value = antes; }
+      if (ed) { if (admin.editando === ed) { caja(imgTag(antes, "") || "Sin imagen"); hidratarImgs(); aviso(m); } return; }
+      admin.msg = m; admin.msgTipo = "err"; render();
+    });
+  }
+
   document.addEventListener("paste", function (ev) {
     var e = ev.target.closest && ev.target.closest("[data-edit]");
-    if (!e) return;
+    if (!e) { pegarFotoPremio(ev); return; }
     ev.preventDefault();
     var txt = (ev.clipboardData && ev.clipboardData.getData("text/plain")) || "";
     document.execCommand("insertText", false, txt.replace(/\s+/g, " "));
