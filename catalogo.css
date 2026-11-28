@@ -245,3 +245,7 @@ html #comprar.cat-item .ipg-foto img.cuad { width: 100%; max-width: 100%; height
   .atj-prev { flex-basis: 100%; align-items: center; }
   .atj-prev .atj-w { width: 150px; }
 }
+
+/* Lista de Comprar items: sin título ni espacio arriba (el título queda solo para lectores de pantalla y buscadores). */
+html section#comprar.cat.cat-lista { padding-top: 14px; }
+html #comprar.cat .cat-t.cat-oculto { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
